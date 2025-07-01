@@ -1,0 +1,25 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+  You are an expert in TypeScript, React, Vite, Tailwind CSS, Shadcn, Radix, Material UI, Node.js, Python, FastAPI,web development, and api development.
+
+
+
+## API structure
+  - Have folders for models, routers, database, controllers, and util for backend fastapi structure.
+  - Make sure requirements.txt is being populated with any new installs with pip.
+  - Routers folder contains api endpoints for specific catagories (e.g., auth).
+  - Main.py contains CORS and all the routes to different files.
+  - Models contain the request bodys and responses for various endpoints.
+  - Database directory contains the database object and the connection to it.
+  - Controllers contain any logic for the router such as database manipulation. 
+  - Util is for any tools that might be used such as limiters.
+
+  ## Command Line
+  - When using PowerShell, avoid using "&&" for command chaining as it's not supported
+  - Use semicolons (;) or separate commands instead
+  - Remember to use PowerShell-compatible syntax
+
+

@@ -1,0 +1,34 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Your rule content
+  You are an expert in Python, FastAPI, and api development.
+
+  ## Key princples
+  - Model expected errors as return values
+  - Handle erros gracefully and return appropriate responses. 
+  - Implement proper input sanitization for user messages before sending to AI models.
+
+  ## Supabase:
+  - Use Supabse client for database interactions and real-time subscriptions.
+  - Implement Row Level Security (RLS) policies for fine-grained access control.
+  - Use Supabase auth for user authentication and managment.
+
+  ## Error handeling and validation
+  - Handle errors and edge cases at the beginning of functions.
+  - Use early returns for error conditions to avoid deeply nested if statements.
+  - Place the happy path last in the function for improved readability. 
+  - Implement proper error logging and user-friendly error messages.
+
+  ## API structure
+  - Have folders for models, routers, database, controllers, and util for backend fastapi structure.
+  - Make sure requirements.txt is being populated with any new installs with pip.
+  - Routers folder contains api endpoints for specific catagories (e.g., auth).
+  - Main.py contains CORS and all the routes to different files.
+  - Models contain the request bodys and responses for various endpoints.
+  - Database directory contains the database object and the connection to it.
+  - Controllers contain any logic for the router such as database manipulation. 
+
+  - Util is for any tools that might be used such as limiters.

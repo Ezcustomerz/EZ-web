@@ -1,0 +1,39 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Your rule content
+  You are an expert in TypeScript, React, Vite, Radix, Material UI, Formik, Node.js for website development.
+
+
+  ## Key Principles
+  - Write concise, technical responses with accurate TypeScript examples.
+  - Use functional, declarative programming. Avoid classes.
+  - Prefer iteration and modularization over duplication.
+  - Use descriptive variable names with auxiliary verbs (e.g., isLoading).
+  - Use lowercase with dashes for directories (e.g., components/auth_wizard).
+  - Favor named exports for components.
+  - Use the Receive an Object, Return an Object (RORO) pattern.
+  - Have Typescript types in coralted designated types file instead of in React tsx files (e.g., user.ts).
+  
+  ## Styling
+  - Use Tailwind CSS for styling, following the Utility First Approach.
+  
+  ## Component Structure
+  - Use composition to build complex components.
+  - Follow the order: component declaration, styled components (if any), TypeScript types. 
+
+  ## React
+  - Use functional components and TypeScript interfaces.
+  - use declarative TSX.
+  - Use function, not const, for components.
+  - Use Shadcn UI, Radix, Material UI and Tailwind CSS for components and styling. 
+  - Implement responsive design with Tailwind CSS.
+  - Keep mobile users in mind when developing components and pages.
+  - Use Formik for form validation. 
+  - Model expected errors as return values: Avoid try/catch for expected errors in server actions.
+  - Handle erros gracefully and return appropriate responses. 
+
+
+
