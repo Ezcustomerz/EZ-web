@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
+import {LandingPage} from './views/web/LandingPage.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
@@ -55,7 +55,7 @@ function Root() {
     <StrictMode>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <App />
+        <LandingPage />
       </ThemeProvider>
     </StrictMode>
   );

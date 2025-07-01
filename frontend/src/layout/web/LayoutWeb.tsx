@@ -10,7 +10,11 @@ function LayoutWeb({ children }: LayoutWebProps) {
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Header />
-      <Box component="main" sx={{ flex: 1 }}>
+      <Box component="main" sx={{ 
+        flex: 1, 
+        paddingTop: { xs: '56px', sm: '60px', md: '84px' }, 
+        mb: { xs: 3, md: 4 } 
+      }}>
         {children}
       </Box>
     </Box>
