@@ -17,7 +17,12 @@
     "type": "git",
     "url": "."
   },
-  "keywords": ["fastapi", "react", "vite", "supabase"],
+  "keywords": [
+    "fastapi",
+    "react",
+    "vite",
+    "supabase"
+  ],
   "author": "",
   "license": "MIT"
-} 
+}
