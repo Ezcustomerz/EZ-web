@@ -13,10 +13,12 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-brands-svg-icons": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@mui/icons-material": "^7.2.0",
     "@mui/material": "^7.2.0",
+    "@supabase/supabase-js": "^2.50.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

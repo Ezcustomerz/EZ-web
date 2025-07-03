@@ -1,6 +1,7 @@
 {
     "primary": "#6C4DFF",
     "secondary": "#1A8FFF",
+    "accent": "#FFC107",
     "text": "#241E1A",
     "textSecondary": "#6B7280",
     "background": "#FFFFFF",

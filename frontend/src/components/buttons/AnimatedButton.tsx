@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button, styled, keyframes } from '@mui/material';
 import type { ButtonProps } from '@mui/material/Button';
 import type { Theme } from '@mui/material/styles';
@@ -7,7 +6,7 @@ import type { Theme } from '@mui/material/styles';
 const floatNote1 = keyframes`
   0% {
     transform: translateY(0px) translateX(0px) rotate(0deg);
-    opacity: 0.7;
+    opacity: 0.9;
   }
   25% {
     transform: translateY(-8px) translateX(4px) rotate(10deg);
@@ -15,26 +14,26 @@ const floatNote1 = keyframes`
   }
   50% {
     transform: translateY(-4px) translateX(-2px) rotate(-5deg);
-    opacity: 0.8;
+    opacity: 0.95;
   }
   75% {
     transform: translateY(-10px) translateX(6px) rotate(15deg);
-    opacity: 0.9;
+    opacity: 1;
   }
   100% {
     transform: translateY(0px) translateX(0px) rotate(0deg);
-    opacity: 0.7;
+    opacity: 0.9;
   }
 `;
 
 const floatNote2 = keyframes`
   0% {
     transform: translateY(-2px) translateX(2px) rotate(5deg);
-    opacity: 0.6;
+    opacity: 0.85;
   }
   25% {
     transform: translateY(-12px) translateX(-4px) rotate(-10deg);
-    opacity: 0.9;
+    opacity: 1;
   }
   50% {
     transform: translateY(-6px) translateX(8px) rotate(20deg);
@@ -42,22 +41,22 @@ const floatNote2 = keyframes`
   }
   75% {
     transform: translateY(-8px) translateX(-6px) rotate(-15deg);
-    opacity: 0.8;
+    opacity: 0.95;
   }
   100% {
     transform: translateY(-2px) translateX(2px) rotate(5deg);
-    opacity: 0.6;
+    opacity: 0.85;
   }
 `;
 
 const floatNote3 = keyframes`
   0% {
     transform: translateY(-4px) translateX(-3px) rotate(-8deg);
-    opacity: 0.5;
+    opacity: 0.8;
   }
   25% {
     transform: translateY(-6px) translateX(5px) rotate(12deg);
-    opacity: 0.8;
+    opacity: 0.95;
   }
   50% {
     transform: translateY(-14px) translateX(-1px) rotate(-3deg);
@@ -65,11 +64,11 @@ const floatNote3 = keyframes`
   }
   75% {
     transform: translateY(-2px) translateX(7px) rotate(18deg);
-    opacity: 0.7;
+    opacity: 0.9;
   }
   100% {
     transform: translateY(-4px) translateX(-3px) rotate(-8deg);
-    opacity: 0.5;
+    opacity: 0.8;
   }
 `;
 
@@ -186,14 +185,15 @@ const shimmerAnimation = keyframes`
 
 const MusicNote = styled('span')<{ noteIndex: number; variant: 'header' | 'landing' }>(({ noteIndex, variant, theme }) => ({
   position: 'absolute',
-  fontSize: variant === 'header' ? 'clamp(9px, 1.5vw, 11px)' : 'clamp(10px, 1.8vw, 12px)',
-  color: variant === 'header' ? 'rgba(255,255,255,0.7)' : 'rgba(26, 143, 255, 0.7)',
+  fontSize: variant === 'header' ? 'clamp(11px, 2vw, 14px)' : 'clamp(14px, 2.5vw, 18px)',
+  color: variant === 'header' ? 'rgba(255,255,255,0.9)' : 'rgba(26, 143, 255, 0.95)',
   pointerEvents: 'none',
   userSelect: 'none',
   fontWeight: 'bold',
   willChange: 'transform, opacity',
+  textShadow: variant === 'landing' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
   [theme.breakpoints.down('sm')]: {
-    fontSize: variant === 'header' ? '9px' : '10px',
+    fontSize: variant === 'header' ? '11px' : '14px',
   },
   ...(noteIndex === 0 && {
     top: '50%',
@@ -267,13 +267,14 @@ const MusicNote = styled('span')<{ noteIndex: number; variant: 'header' | 'landi
   }),
 }));
 
-const StyledAnimatedButton = styled(Button)<{ buttonVariant: 'header' | 'landing' }>(({ theme, buttonVariant }: { theme: Theme; buttonVariant: 'header' | 'landing' }) => ({
+const StyledAnimatedButton = styled(Button)<{ buttonVariant: 'header' | 'landing'; borderColor?: string }>(({ theme, buttonVariant, borderColor }: { theme: Theme; buttonVariant: 'header' | 'landing'; borderColor?: string }) => ({
   textTransform: 'none',
   fontWeight: 600,
-  borderRadius: '8px',
+  borderRadius: 'clamp(6px, 1vw, 8px)',
   position: 'relative',
   overflow: 'hidden',
   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  willChange: 'transform, box-shadow',
   '&::before': {
     content: '""',
     position: 'absolute',
@@ -298,51 +299,100 @@ const StyledAnimatedButton = styled(Button)<{ buttonVariant: 'header' | 'landing
   ...(buttonVariant === 'header' && {
     backgroundColor: theme.palette.primary.main,
     color: theme.palette.primary.contrastText,
-    fontSize: 'clamp(14px, 2vw, 16px)',
-    padding: 'clamp(8px, 1.5vw, 12px) clamp(20px, 3vw, 28px)',
-    minHeight: 'clamp(36px, 6vw, 44px)',
+    fontSize: 'clamp(13px, 1.8vw, 16px)',
+    padding: 'clamp(8px, 1.5vw, 12px) clamp(16px, 2.5vw, 24px)',
+    minHeight: 'clamp(36px, 5vw, 44px)',
     border: `2px solid ${theme.palette.background.default}`,
     boxShadow: `0 4px 15px rgba(26, 143, 255, 0.3)`,
     whiteSpace: 'nowrap',
-    [theme.breakpoints.down('sm')]: {
+    [theme.breakpoints.down('xl')]: {
+      fontSize: '15px',
+      padding: '10px 20px',
+      minHeight: '42px',
+    },
+    [theme.breakpoints.down('lg')]: {
       fontSize: '14px',
-      padding: '8px 20px',
+      padding: '9px 18px',
+      minHeight: '40px',
+    },
+    [theme.breakpoints.down('md')]: {
+      fontSize: '13px',
+      padding: '8px 16px',
+      minHeight: '38px',
+    },
+    [theme.breakpoints.down('sm')]: {
+      fontSize: '12px',
+      padding: '7px 14px',
       minHeight: '36px',
     },
-    '&:hover': {
-      backgroundColor: theme.palette.custom.amber,
-      border: `2px solid ${theme.palette.primary.main}`,
-      color: theme.palette.primary.main,
-      transform: 'translateY(-1px) scale(1.03)',
-      boxShadow: `0 6px 20px rgba(26, 143, 255, 0.4)`,
-      '& .music-note': {
-        color: theme.palette.primary.main,
-      },
-    },
-  }),
-  // Landing variant styles
-  ...(buttonVariant === 'landing' && {
-    backgroundColor: 'white',
-    color: theme.palette.primary.main,
-    fontSize: 'clamp(1rem, 2.5vw, 1.1rem)',
-    padding: 'clamp(10px, 2vw, 12px) clamp(32px, 5vw, 48px)',
-    minWidth: 'clamp(180px, 25vw, 200px)',
-    border: `2px solid ${theme.palette.primary.main}`,
-    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
-    whiteSpace: 'nowrap',
-    [theme.breakpoints.down('sm')]: {
-      fontSize: '1rem',
-      padding: '10px 32px',
-      minWidth: '180px',
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      width: '0',
+      height: '2px',
+      bottom: 'clamp(6px, 1vw, 8px)',
+      left: '50%',
+      backgroundColor: '#FFFFFF',
+      transition: 'all 0.3s ease',
+      transform: 'translateX(-50%)',
+      zIndex: 1,
     },
     '&:hover': {
       backgroundColor: theme.palette.custom.amber,
       border: `2px solid ${theme.palette.primary.main}`,
       color: theme.palette.primary.main,
       transform: 'translateY(-2px) scale(1.05)',
+      boxShadow: `0 6px 20px rgba(26, 143, 255, 0.4)`,
+      '& .music-note': {
+        color: `${theme.palette.primary.main} !important`,
+        opacity: '1 !important',
+        textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+      },
+    },
+    '&:hover::after': {
+      width: '80%',
+    },
+  }),
+  // Landing variant styles
+  ...(buttonVariant === 'landing' && {
+    backgroundColor: 'white',
+    color: borderColor || theme.palette.primary.main,
+    fontSize: 'clamp(16px, 2.2vw, 18px)',
+    padding: 'clamp(12px, 2vw, 14px) clamp(24px, 4vw, 36px)',
+    minWidth: 'clamp(160px, 22vw, 180px)',
+    border: `2px solid ${borderColor || theme.palette.primary.main}`,
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+    whiteSpace: 'nowrap',
+    [theme.breakpoints.down('xl')]: {
+      fontSize: '17px',
+      padding: '13px 32px',
+      minWidth: '170px',
+    },
+    [theme.breakpoints.down('lg')]: {
+      fontSize: '16px',
+      padding: '12px 28px',
+      minWidth: '160px',
+    },
+    [theme.breakpoints.down('md')]: {
+      fontSize: '15px',
+      padding: '11px 24px',
+      minWidth: '150px',
+    },
+    [theme.breakpoints.down('sm')]: {
+      fontSize: '14px',
+      padding: '10px 20px',
+      minWidth: '140px',
+    },
+    '&:hover': {
+      backgroundColor: theme.palette.custom.amber,
+      border: `2px solid ${borderColor || theme.palette.primary.main}`,
+      color: borderColor || theme.palette.primary.main,
+      transform: 'translateY(-2px) scale(1.05)',
       boxShadow: '0 6px 20px rgba(0, 0, 0, 0.3)',
       '& .music-note': {
-        color: theme.palette.primary.main,
+        color: `${borderColor || theme.palette.primary.main} !important`,
+        opacity: '1 !important',
+        textShadow: '0 2px 4px rgba(0,0,0,0.2)',
       },
     },
   }),
@@ -352,18 +402,20 @@ interface AnimatedButtonProps extends ButtonProps {
   text: string;
   buttonVariant: 'header' | 'landing';
   noteCount?: number;
+  borderColor?: string;
 }
 
 export function AnimatedButton({ 
   text, 
   buttonVariant, 
-  noteCount = buttonVariant === 'header' ? 14 : 6,
+  noteCount = buttonVariant === 'header' ? 14 : 12,
+  borderColor,
   ...props 
 }: AnimatedButtonProps) {
   const musicNotes = ['♪', '♫', '♪', '♬', '♩', '♫', '♪', '♬', '♪', '♫', '♪', '♬', '♪', '♫'];
   
   return (
-    <StyledAnimatedButton buttonVariant={buttonVariant} variant="contained" {...props}>
+    <StyledAnimatedButton buttonVariant={buttonVariant} borderColor={borderColor} variant="contained" {...props}>
       {text}
       {Array.from({ length: noteCount }, (_, index) => (
         <MusicNote 

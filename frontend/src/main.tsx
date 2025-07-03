@@ -5,6 +5,8 @@ import {LandingPage} from './views/web/LandingPage.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
+// Import Supabase configuration to trigger connection test
+import './config/supabase'
 
 function Root() {
   const [theme, setTheme] = useState<any>(null);
@@ -25,6 +27,7 @@ function Root() {
         const defaultColors: ColorConfig = {
           primary: "#1A8FFF",
           secondary: "#2E9C69",
+          accent: "#FF6B6B",
           text: "#241E1A",
           textSecondary: "#6F665F",
           background: "#FFFFFF",

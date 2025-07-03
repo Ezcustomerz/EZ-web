@@ -25,6 +25,7 @@ declare module '@mui/material/styles' {
 export function createAppTheme(colors: ColorConfig): ThemeOptions {
     const primaryHex = colors.primary;
     const secondaryHex = colors.secondary;
+    const accentHex = colors.accent;
     const textHex = colors.text;
     const textSecondaryHex = colors.textSecondary;
     const backgroundHex = colors.background;
@@ -45,7 +46,7 @@ export function createAppTheme(colors: ColorConfig): ThemeOptions {
                 contrastText: textHex,
             },
             custom: {
-                amber: '#FBBF24',
+                amber: accentHex,
             },
             background: {
                 default: backgroundHex,

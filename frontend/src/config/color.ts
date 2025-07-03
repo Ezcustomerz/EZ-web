@@ -1,6 +1,7 @@
 export interface ColorConfig {
     primary: string;
     secondary: string;
+    accent: string;
     text: string;
     textSecondary: string;
     background: string;

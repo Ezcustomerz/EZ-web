@@ -1,15 +1,67 @@
+import React, { useState, useEffect } from 'react';
 import Typography from '@mui/material/Typography';
-import { Box, Card, CardContent } from '@mui/material';
+import { Box, Card, CardContent, keyframes } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarDays, faDollarSign, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
-import LayoutWeb from '../../layout/web/LayoutWeb';
+import { LayoutWeb } from '../../layout/web/LayoutWeb';
 import { useTheme } from '@mui/material/styles';
 import { AnimatedButton } from '../../components/buttons';
 
+// Animation keyframes
+const slideInLeft = keyframes`
+  0% {
+    opacity: 0;
+    transform: translateX(-40px) translateZ(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateZ(0);
+  }
+`;
 
+const slideInRight = keyframes`
+  0% {
+    opacity: 0;
+    transform: translateX(40px) translateZ(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateZ(0);
+  }
+`;
+
+const fadeInUp = keyframes`
+  0% {
+    opacity: 0;
+    transform: translateY(30px) translateZ(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) translateZ(0);
+  }
+`;
+
+const fadeIn = keyframes`
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+`;
 
 export function LandingPage() {
   const theme = useTheme();
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    // Add a small delay to ensure the page is fully rendered
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <LayoutWeb>
       {/* Hero Section with Gradient Background */}
@@ -17,7 +69,10 @@ export function LandingPage() {
         background: `linear-gradient(135deg, ${theme.palette.custom.amber} 0%, ${theme.palette.primary.main} 100%)`,
         pt: { xs: 3, sm: 4, md: 6, lg: 8 },
         pb: { xs: 6, sm: 8, lg: 10 },
-        mb: { xs: 6, md: 8 }
+        mb: { xs: 6, md: 8 },
+        opacity: isLoaded ? 1 : 0,
+        animation: isLoaded ? `${fadeIn} 1s ease-out 0.2s both` : 'none',
+        willChange: 'opacity'
       }}>
         <Box sx={{
           display: 'flex',
@@ -34,7 +89,11 @@ export function LandingPage() {
             textAlign: { xs: 'center', lg: 'left' },
             maxWidth: { xs: '100%', lg: '40%' },
             pr: { lg: 4 },
-            order: { xs: 1, lg: 1 }
+            order: { xs: 1, lg: 1 },
+            opacity: 0,
+            transform: 'translateX(-40px)',
+            animation: isLoaded ? `${slideInLeft} 1.2s ease-out 0.5s both` : 'none',
+            willChange: 'transform, opacity'
           }}>
             <Typography
               variant="h1"
@@ -59,18 +118,28 @@ export function LandingPage() {
                 fontSize: { xs: '1rem', sm: '1.1rem', md: '1.25rem' },
                 mb: { xs: 3, md: 4 },
                 maxWidth: { xs: '100%', sm: '90%', lg: '100%' },
-                mx: { xs: 'auto', lg: 0 }
+                mx: { xs: 'auto', lg: 0 },
+                opacity: 0,
+                animation: isLoaded ? `${fadeIn} 1s ease-out 0.8s both` : 'none',
+                willChange: 'opacity'
               }}
             >
               The complete CRM solution for music producers. Manage your studio sessions, track client relationships, handle bookings and payments, and streamline your music
               production business all in one place.
             </Typography>
-            <AnimatedButton
-              text="Get Started For Free"
-              buttonVariant="landing"
-              size="large"
-              onClick={() => alert('Get Started clicked')}
-            />
+            <Box sx={{
+              opacity: 0,
+              transform: 'translateY(30px)',
+              animation: isLoaded ? `${fadeInUp} 1s ease-out 1.1s both` : 'none',
+              willChange: 'transform, opacity'
+            }}>
+              <AnimatedButton
+                text="Get Started For Free"
+                buttonVariant="landing"
+                size="large"
+                onClick={() => alert('Get Started clicked')}
+              />
+            </Box>
           </Box>
 
           {/* Right Video */}
@@ -81,7 +150,11 @@ export function LandingPage() {
             justifyContent: 'center',
             alignItems: 'center',
             mt: { xs: 0, md: 4, lg: 4 },
-            order: { xs: 2, lg: 2 }
+            order: { xs: 2, lg: 2 },
+            opacity: 0,
+            transform: 'translateX(40px)',
+            animation: isLoaded ? `${slideInRight} 1.2s ease-out 0.7s both` : 'none',
+            willChange: 'transform, opacity'
           }}>
             <Box sx={{
               width: { xs: '100%', sm: '90%', md: '600px', lg: '700px' },
@@ -158,13 +231,21 @@ export function LandingPage() {
       {/* Features Section */}
       <Box sx={{
         display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        gap: { xs: 4, sm: 5, md: 6 },
-        px: { xs: 2, sm: 3, md: 6, lg: 8, xl: 10 },
-        maxWidth: '1400px',
-        mx: 'auto'
+        flexDirection: { xs: 'column', sm: 'column', md: 'row' },
+        gap: { xs: 4, sm: 3, md: 4, lg: 6 },
+        px: { xs: 2, sm: 3, md: 8, lg: 12, xl: 16 },
+        width: '100%',
+        opacity: 0,
+        animation: isLoaded ? `${fadeIn} 0.8s ease-out 1.2s both` : 'none',
+        willChange: 'opacity'
       }}>
-        <Box sx={{ width: { xs: '100%', md: 'calc(33.333% - 32px)' } }}>
+        <Box sx={{ 
+          width: { xs: '100%', sm: '100%', md: 'calc(33.333% - 32px)' },
+          opacity: 0,
+          transform: 'translateY(30px)',
+          animation: isLoaded ? `${fadeInUp} 1s ease-out 1.5s both` : 'none',
+          willChange: 'transform, opacity'
+        }}>
           <Card sx={{
             height: '100%',
             textAlign: 'left',
@@ -225,7 +306,13 @@ export function LandingPage() {
           </Card>
         </Box>
 
-        <Box sx={{ width: { xs: '100%', md: 'calc(33.333% - 32px)' } }}>
+        <Box sx={{ 
+          width: { xs: '100%', sm: '100%', md: 'calc(33.333% - 32px)' },
+          opacity: 0,
+          transform: 'translateY(30px)',
+          animation: isLoaded ? `${fadeInUp} 1s ease-out 1.8s both` : 'none',
+          willChange: 'transform, opacity'
+        }}>
           <Card sx={{
             height: '100%',
             textAlign: 'left',
@@ -285,7 +372,13 @@ export function LandingPage() {
           </Card>
         </Box>
 
-        <Box sx={{ width: { xs: '100%', md: 'calc(33.333% - 32px)' } }}>
+        <Box sx={{ 
+          width: { xs: '100%', sm: '100%', md: 'calc(33.333% - 32px)' },
+          opacity: 0,
+          transform: 'translateY(30px)',
+          animation: isLoaded ? `${fadeInUp} 1s ease-out 2.1s both` : 'none',
+          willChange: 'transform, opacity'
+        }}>
           <Card sx={{
             height: '100%',
             textAlign: 'left',

@@ -1,24 +1,22 @@
 import React, { useState, useRef } from 'react';
-import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  Box,
-  Menu,
-  MenuItem,
-  IconButton,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  styled,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material';
+  import {
+    AppBar,
+    Toolbar,
+    Typography,
+    Button,
+    Box,
+    Menu,
+    MenuItem,
+    IconButton,
+    List,
+    ListItemButton,
+    ListItemText,
+    styled,
+    useTheme,
+    useMediaQuery,
+  } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRecordVinyl, faChevronDown, faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faRecordVinyl, faChevronDown, faBars, faTimes, faMusic, faUsers, faHandshake } from '@fortawesome/free-solid-svg-icons';
 import { AnimatedButton } from '../../components/buttons';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
@@ -34,14 +32,26 @@ const StyledAppBar = styled(AppBar)(({ theme }) => ({
 const NavButton = styled(Button)(({ theme }) => ({
   color: '#FFFFFF',
   textTransform: 'none',
-  fontSize: 'clamp(14px, 2vw, 16px)',
+  fontSize: 'clamp(14px, 1.8vw, 16px)',
   fontWeight: 500,
   padding: 'clamp(8px, 1.5vw, 12px) clamp(12px, 2vw, 20px)',
   position: 'relative',
-  minHeight: 'clamp(36px, 6vw, 44px)',
+  minHeight: 'clamp(36px, 5vw, 44px)',
   whiteSpace: 'nowrap',
-  [theme.breakpoints.down('sm')]: {
+  transition: 'all 0.3s ease',
+  willChange: 'transform',
+  [theme.breakpoints.down('lg')]: {
+    fontSize: '15px',
+    padding: '9px 16px',
+    minHeight: '40px',
+  },
+  [theme.breakpoints.down('md')]: {
     fontSize: '14px',
+    padding: '8px 14px',
+    minHeight: '38px',
+  },
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '13px',
     padding: '8px 12px',
     minHeight: '36px',
   },
@@ -61,28 +71,47 @@ const NavButton = styled(Button)(({ theme }) => ({
   },
   '&:hover': {
     backgroundColor: 'transparent',
+    transform: 'translateY(-1px)',
   },
 }));
 
 const FeaturesNavButton = styled(Button, {
   shouldForwardProp: (prop) => prop !== 'isMenuOpen',
-})<{ isMenuOpen?: boolean }>(({ isMenuOpen }) => ({
+})<{ isMenuOpen?: boolean }>(({ isMenuOpen, theme }) => ({
   color: '#FFFFFF',
   textTransform: 'none',
-  fontSize: '16px',
+  fontSize: 'clamp(14px, 1.8vw, 16px)',
   fontWeight: 500,
-  padding: '12px 20px',
+  padding: 'clamp(8px, 1.5vw, 12px) clamp(12px, 2vw, 20px)',
   position: 'relative',
-  minHeight: '44px',
+  minHeight: 'clamp(36px, 5vw, 44px)',
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
+  whiteSpace: 'nowrap',
+  transition: 'all 0.3s ease',
+  willChange: 'transform',
+  [theme.breakpoints.down('lg')]: {
+    fontSize: '15px',
+    padding: '9px 16px',
+    minHeight: '40px',
+  },
+  [theme.breakpoints.down('md')]: {
+    fontSize: '14px',
+    padding: '8px 14px',
+    minHeight: '38px',
+  },
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '13px',
+    padding: '8px 12px',
+    minHeight: '36px',
+  },
   '&::after': {
     content: '""',
     position: 'absolute',
     width: isMenuOpen ? '80%' : '0',
     height: '2px',
-    bottom: '8px',
+    bottom: 'clamp(6px, 1vw, 8px)',
     left: '50%',
     backgroundColor: '#FFFFFF',
     transition: 'all 0.3s ease',
@@ -93,6 +122,7 @@ const FeaturesNavButton = styled(Button, {
   },
   '&:hover': {
     backgroundColor: 'transparent',
+    transform: 'translateY(-1px)',
   },
 }));
 
@@ -102,13 +132,22 @@ const FeaturesNavButton = styled(Button, {
 
 const StyledMenu = styled(Menu)(({ theme }) => ({
   '& .MuiPaper-root': {
-    marginTop: '12px',
-    borderRadius: '12px',
+    marginTop: 'clamp(8px, 1.5vw, 12px)',
+    borderRadius: 'clamp(10px, 1.5vw, 12px)',
     boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
     border: `1px solid ${theme.palette.divider}`,
-    minWidth: '240px',
-    padding: '12px 0',
+    minWidth: 'clamp(220px, 25vw, 240px)',
+    padding: 'clamp(10px, 1.5vw, 12px) 0',
     backgroundColor: theme.palette.background.paper,
+    backdropFilter: 'blur(10px)',
+    [theme.breakpoints.down('lg')]: {
+      minWidth: '220px',
+      padding: '10px 0',
+    },
+    [theme.breakpoints.down('md')]: {
+      minWidth: '200px',
+      padding: '8px 0',
+    },
   },
   '& .MuiMenuItem-root.Mui-selected': {
     backgroundColor: 'transparent',
@@ -119,19 +158,32 @@ const StyledMenu = styled(Menu)(({ theme }) => ({
 }));
 
 const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
-  padding: '12px 24px',
-  fontSize: '16px',
+  padding: 'clamp(10px, 1.5vw, 12px) clamp(20px, 3vw, 24px)',
+  fontSize: 'clamp(14px, 1.8vw, 16px)',
   fontWeight: 500,
   position: 'relative',
-  margin: '2px 12px',
-  borderRadius: '6px',
+  margin: '2px clamp(8px, 1.5vw, 12px)',
+  borderRadius: 'clamp(4px, 0.8vw, 6px)',
   color: theme.palette.text.primary,
+  transition: 'all 0.3s ease',
+  willChange: 'transform',
+  minHeight: 'clamp(40px, 5vw, 44px)',
+  [theme.breakpoints.down('lg')]: {
+    padding: '10px 20px',
+    fontSize: '15px',
+    minHeight: '42px',
+  },
+  [theme.breakpoints.down('md')]: {
+    padding: '9px 18px',
+    fontSize: '14px',
+    minHeight: '40px',
+  },
   '&::after': {
     content: '""',
     position: 'absolute',
     width: '0',
     height: '2px',
-    bottom: '6px',
+    bottom: 'clamp(4px, 0.8vw, 6px)',
     left: '50%',
     backgroundColor: theme.palette.secondary.main,
     transition: 'all 0.3s ease',
@@ -139,6 +191,7 @@ const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
   },
   '&:hover': {
     backgroundColor: 'transparent',
+    transform: 'translateY(-1px)',
   },
   '&:hover::after': {
     width: '60%',
@@ -148,8 +201,11 @@ const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
 export function Header() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [featuresAnchorEl, setFeaturesAnchorEl] = useState<null | HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileSubmenuOpen, setMobileSubmenuOpen] = useState(false);
   const featuresOpen = Boolean(featuresAnchorEl);
   const timeoutRef = useRef<number | null>(null);
 
@@ -198,36 +254,58 @@ export function Header() {
     setFeaturesAnchorEl(null);
   };
 
-  const handleMenuItemClick = (item: string) => {
+  const handleMenuItemClick = (event: React.MouseEvent, item: string) => {
+    event.stopPropagation();
+    
+    // Only execute if features menu is actually open and we're not in mobile mode
+    if (!featuresOpen || isMobile) {
+      console.log('Menu item click blocked - menu not open or in mobile mode');
+      return;
+    }
+    
+    console.log('Menu item clicked:', item);
     alert(`Clicked: ${item}`);
     setFeaturesAnchorEl(null);
   };
 
-  const toggleMobileMenu = () => {
+  const toggleMobileMenu = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    console.log('Hamburger menu clicked');
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
+    setMobileSubmenuOpen(false); // Also close submenu when closing main menu
+  };
+
+  const toggleMobileSubmenu = () => {
+    setMobileSubmenuOpen(!mobileSubmenuOpen);
   };
 
   return (
-    <StyledAppBar position="fixed" elevation={0} sx={{ zIndex: 1100 }}>
+    <StyledAppBar position="fixed" elevation={0} sx={{ zIndex: 1200 }}>
       <Toolbar sx={{ 
         justifyContent: 'space-between', 
-        py: { xs: 0.5, sm: 1, md: 2 },
-        px: { xs: 2, sm: 3, md: 4 },
-        pr: { xs: 1, sm: 2, md: 3 }, // Reduced right padding to give button more space
-        minHeight: { xs: '56px', sm: '60px', md: '70px' },
-        overflow: 'visible' // Ensure hover effects aren't clipped
+        py: { xs: 0.75, sm: 1.25, md: 2, lg: 2.5 },
+        px: { xs: 1.5, sm: 2.5, md: 3.5, lg: 4.5, xl: 6 },
+        pr: { xs: 1, sm: 1.5, md: 2.5, lg: 3 }, 
+        minHeight: { xs: '56px', sm: '64px', md: '72px', lg: '80px' },
+        overflow: 'visible',
+        maxWidth: '100vw'
       }}>
         {/* Left side - Logo */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 } }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: { xs: 0.75, sm: 1, md: 1.5, lg: 2 },
+          minWidth: 'max-content'
+        }}>
           <FontAwesomeIcon 
             icon={faRecordVinyl} 
             style={{ 
               color: '#FFFFFF',
-              fontSize: 'clamp(1.5rem, 2.5vw, 2rem)'
+              fontSize: isSmallMobile ? '1.25rem' : 'clamp(1.4rem, 2.2vw, 2.2rem)'
             }}
           />
           <Typography 
@@ -235,7 +313,8 @@ export function Header() {
             color="#FFFFFF"
             sx={{
               fontWeight: 500,
-              fontSize: { xs: '20px', md: '24px' }
+              fontSize: { xs: '18px', sm: '20px', md: '22px', lg: '24px', xl: '26px' },
+              letterSpacing: '0.05em'
             }}
           >
             EZ
@@ -244,20 +323,34 @@ export function Header() {
 
         {/* Right side - Navigation Menu + Dashboard Button */}
         {isMobile ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: { xs: 0.5, sm: 1 },
+            minWidth: 'max-content'
+          }}>
             <AnimatedButton 
               text="Dashboard"
               buttonVariant="header"
               onClick={() => alert('Dashboard clicked')}
-              sx={{ fontSize: '14px', padding: '6px 16px' }}
+              sx={{ 
+                fontSize: { xs: '13px', sm: '14px' }, 
+                padding: { xs: '5px 12px', sm: '6px 16px' },
+                minHeight: { xs: '32px', sm: '36px' }
+              }}
             />
             <IconButton
               onClick={toggleMobileMenu}
-              sx={{ color: '#FFFFFF', p: 1 }}
+              sx={{ 
+                color: '#FFFFFF', 
+                p: { xs: 0.75, sm: 1 },
+                minWidth: { xs: '40px', sm: '44px' },
+                minHeight: { xs: '40px', sm: '44px' }
+              }}
             >
               <FontAwesomeIcon 
                 icon={mobileMenuOpen ? faTimes : faBars} 
-                style={{ fontSize: '1.2rem' }}
+                style={{ fontSize: isSmallMobile ? '1.1rem' : '1.2rem' }}
               />
             </IconButton>
           </Box>
@@ -266,7 +359,8 @@ export function Header() {
             sx={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: { xs: 1, sm: 1.5, md: 2 }
+              gap: { xs: 1, sm: 1.5, md: 2, lg: 2.5 },
+              minWidth: 'max-content'
             }}
           >
             <NavButton 
@@ -291,62 +385,98 @@ export function Header() {
               Pricing
             </NavButton>
             
-            <Box
-              sx={{ position: 'relative' }}
-            >
-              <FeaturesNavButton
-                isMenuOpen={featuresOpen}
-                aria-controls={featuresOpen ? 'features-menu' : undefined}
-                aria-haspopup="true"
-                aria-expanded={featuresOpen ? 'true' : undefined}
-                onMouseEnter={handleFeaturesMouseEnter}
-                onMouseLeave={handleFeaturesMouseLeave}
+            {!isMobile && (
+              <Box
+                sx={{ position: 'relative' }}
               >
-                Features
-                <FontAwesomeIcon 
-                  icon={faChevronDown} 
-                  size="sm"
-                  style={{ 
-                    marginLeft: '4px',
-                    color: '#FFFFFF'
-                  }}
-                />
-              </FeaturesNavButton>
-              
-              <StyledMenu
-                id="features-menu"
-                anchorEl={featuresAnchorEl}
-                open={featuresOpen}
-                onClose={() => setFeaturesAnchorEl(null)}
-                disableAutoFocusItem
-                slotProps={{
-                  paper: {
-                    onMouseEnter: handleMenuMouseEnter,
-                    onMouseLeave: handleMenuMouseLeave,
-                  }
-                }}
-                transformOrigin={{ horizontal: 'center', vertical: 'top' }}
-                anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
-              >
-                <StyledMenuItem 
-                  onClick={() => handleMenuItemClick('Producer Features')}
+                <FeaturesNavButton
+                  isMenuOpen={featuresOpen}
+                  aria-controls={featuresOpen ? 'features-menu' : undefined}
+                  aria-haspopup="true"
+                  aria-expanded={featuresOpen ? 'true' : undefined}
+                  onMouseEnter={handleFeaturesMouseEnter}
+                  onMouseLeave={handleFeaturesMouseLeave}
                 >
-                  Producer Features
-                </StyledMenuItem>
-                <StyledMenuItem 
-                  onClick={() => handleMenuItemClick('Client Features')}
-                >
-                  Client Features
-                </StyledMenuItem>
-                <StyledMenuItem 
-                  onClick={() => handleMenuItemClick('Advocate Details')}
-                >
-                  Advocate Details
-                </StyledMenuItem>
-              </StyledMenu>
-            </Box>
+                  Features
+                  <FontAwesomeIcon 
+                    icon={faChevronDown} 
+                    size="sm"
+                    style={{ 
+                      marginLeft: '4px',
+                      color: '#FFFFFF'
+                    }}
+                  />
+                </FeaturesNavButton>
+                
+                {featuresOpen && (
+                  <StyledMenu
+                    id="features-menu"
+                    anchorEl={featuresAnchorEl}
+                    open={featuresOpen}
+                    onClose={() => setFeaturesAnchorEl(null)}
+                    disableAutoFocusItem
+                    slotProps={{
+                      paper: {
+                        onMouseEnter: handleMenuMouseEnter,
+                        onMouseLeave: handleMenuMouseLeave,
+                      }
+                    }}
+                    transformOrigin={{ horizontal: 'center', vertical: 'top' }}
+                    anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
+                  >
+                  <StyledMenuItem 
+                    onClick={(event) => handleMenuItemClick(event, 'Producer Features')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <FontAwesomeIcon 
+                        icon={faMusic} 
+                        style={{ 
+                          color: '#6C4DFF',
+                          fontSize: '1rem'
+                        }}
+                      />
+                      <Typography sx={{ fontWeight: 500 }}>Producer Features</Typography>
+                    </Box>
+                  </StyledMenuItem>
+                  <StyledMenuItem 
+                    onClick={(event) => handleMenuItemClick(event, 'Client Features')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <FontAwesomeIcon 
+                        icon={faUsers} 
+                        style={{ 
+                          color: '#1A8FFF',
+                          fontSize: '1rem'
+                        }}
+                      />
+                      <Typography sx={{ fontWeight: 500 }}>Client Features</Typography>
+                    </Box>
+                  </StyledMenuItem>
+                  <StyledMenuItem 
+                    onClick={(event) => handleMenuItemClick(event, 'Advocate Details')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <FontAwesomeIcon 
+                        icon={faHandshake} 
+                        style={{ 
+                          color: '#4CAF50',
+                          fontSize: '1rem'
+                        }}
+                      />
+                      <Typography sx={{ fontWeight: 500 }}>Advocate Details</Typography>
+                    </Box>
+                  </StyledMenuItem>
+                </StyledMenu>
+                )}
+              </Box>
+            )}
 
-            <Box sx={{ ml: 1, mr: 1, mt: 0.5, mb: 0.5 }}>
+            <Box sx={{ 
+              ml: { xs: 0.5, sm: 1, md: 1.5 }, 
+              mr: { xs: 0.5, sm: 1, md: 1.5 },
+              mt: { xs: 0.5, md: 0.5 }, 
+              mb: { xs: 0.5, md: 0.5 }
+            }}>
               <AnimatedButton 
                 text="Dashboard"
                 buttonVariant="header"
@@ -362,108 +492,317 @@ export function Header() {
         )}
       </Toolbar>
       
-      {/* Mobile Drawer Menu */}
-      <Drawer
-        anchor="right"
-        open={mobileMenuOpen}
-        onClose={closeMobileMenu}
-        sx={{
-          '& .MuiDrawer-paper': {
-            width: 280,
-            backgroundColor: theme.palette.secondary.main,
-            color: '#FFFFFF',
-            pt: 2,
-          },
-        }}
-      >
-        <Box sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 3, color: '#FFFFFF', textAlign: 'center' }}>
-            Navigation
-          </Typography>
-          <List>
-            <ListItemButton 
-              onClick={() => {
-                console.log('Contact clicked');
-                closeMobileMenu();
-              }}
-              sx={{ 
-                mb: 1, 
-                borderRadius: 2,
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-              }}
-            >
-              <ListItemText 
-                primary="Contact" 
-                sx={{ '& .MuiListItemText-primary': { color: '#FFFFFF', fontWeight: 500 } }}
-              />
-            </ListItemButton>
-            <ListItemButton 
-              onClick={() => {
-                console.log('Pricing clicked');
-                closeMobileMenu();
-              }}
-              sx={{ 
-                mb: 1, 
-                borderRadius: 2,
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-              }}
-            >
-              <ListItemText 
-                primary="Pricing" 
-                sx={{ '& .MuiListItemText-primary': { color: '#FFFFFF', fontWeight: 500 } }}
-              />
-            </ListItemButton>
-            <ListItemButton 
-              onClick={() => {
-                handleMenuItemClick('Producer Features');
-                closeMobileMenu();
-              }}
-              sx={{ 
-                mb: 1, 
-                borderRadius: 2,
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-              }}
-            >
-              <ListItemText 
-                primary="Producer Features" 
-                sx={{ '& .MuiListItemText-primary': { color: '#FFFFFF', fontWeight: 500 } }}
-              />
-            </ListItemButton>
-            <ListItemButton 
-              onClick={() => {
-                handleMenuItemClick('Client Features');
-                closeMobileMenu();
-              }}
-              sx={{ 
-                mb: 1, 
-                borderRadius: 2,
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-              }}
-            >
-              <ListItemText 
-                primary="Client Features" 
-                sx={{ '& .MuiListItemText-primary': { color: '#FFFFFF', fontWeight: 500 } }}
-              />
-            </ListItemButton>
-            <ListItemButton 
-              onClick={() => {
-                handleMenuItemClick('Advocate Details');
-                closeMobileMenu();
-              }}
-              sx={{ 
-                mb: 1, 
-                borderRadius: 2,
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
-              }}
-            >
-              <ListItemText 
-                primary="Advocate Details" 
-                sx={{ '& .MuiListItemText-primary': { color: '#FFFFFF', fontWeight: 500 } }}
-              />
-            </ListItemButton>
-          </List>
+      {/* Mobile Dropdown Menu */}
+      {isMobile && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            backgroundColor: 'rgba(26, 143, 255, 0.95)',
+            borderRadius: { xs: '0 0 12px 12px', sm: '0 0 16px 16px' },
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            transform: mobileMenuOpen ? 'translateY(0)' : 'translateY(-100%)',
+            opacity: mobileMenuOpen ? 1 : 0,
+            transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            zIndex: 999,
+            overflow: 'hidden',
+            pointerEvents: mobileMenuOpen ? 'auto' : 'none',
+            willChange: 'transform, opacity',
+          }}
+        >
+          <Box sx={{ 
+            py: { xs: 1.5, sm: 2 }, 
+            px: { xs: 1.5, sm: 2 },
+            maxHeight: { xs: '75vh', sm: '70vh' },
+            overflowY: 'auto'
+          }}>
+            <List sx={{ py: 0 }}>
+              <ListItemButton 
+                onClick={() => {
+                  console.log('Contact clicked');
+                  closeMobileMenu();
+                }}
+                sx={{ 
+                  mb: 1, 
+                  borderRadius: 2,
+                  py: { xs: 1, sm: 1.25 },
+                  minHeight: { xs: '44px', sm: '48px' },
+                  justifyContent: 'center',
+                  backgroundColor: 'transparent !important',
+                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.15) !important' },
+                  '&:focus': { backgroundColor: 'transparent !important' },
+                  '&:active': { backgroundColor: 'rgba(255,255,255,0.15) !important' },
+                  '&.Mui-selected': { backgroundColor: 'transparent !important' },
+                  '&.Mui-focusVisible': { backgroundColor: 'transparent !important' },
+                  '&.Mui-touched': { backgroundColor: 'transparent !important' }
+                }}
+                disableRipple
+                disableTouchRipple
+              >
+                <ListItemText 
+                  primary="Contact" 
+                  sx={{ 
+                    textAlign: 'center',
+                    '& .MuiListItemText-primary': { 
+                      color: '#FFFFFF', 
+                      fontWeight: 500,
+                      fontSize: { xs: '1rem', sm: '1.1rem' }
+                    } 
+                  }}
+                />
+              </ListItemButton>
+              <ListItemButton 
+                onClick={() => {
+                  console.log('Pricing clicked');
+                  closeMobileMenu();
+                }}
+                sx={{ 
+                  mb: 1, 
+                  borderRadius: 2,
+                  py: { xs: 1, sm: 1.25 },
+                  minHeight: { xs: '44px', sm: '48px' },
+                  justifyContent: 'center',
+                  backgroundColor: 'transparent !important',
+                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.15) !important' },
+                  '&:focus': { backgroundColor: 'transparent !important' },
+                  '&:active': { backgroundColor: 'rgba(255,255,255,0.15) !important' },
+                  '&.Mui-selected': { backgroundColor: 'transparent !important' },
+                  '&.Mui-focusVisible': { backgroundColor: 'transparent !important' },
+                  '&.Mui-touched': { backgroundColor: 'transparent !important' }
+                }}
+                disableRipple
+                disableTouchRipple
+              >
+                <ListItemText 
+                  primary="Pricing" 
+                  sx={{ 
+                    textAlign: 'center',
+                    '& .MuiListItemText-primary': { 
+                      color: '#FFFFFF', 
+                      fontWeight: 500,
+                      fontSize: { xs: '1rem', sm: '1.1rem' }
+                    } 
+                  }}
+                />
+              </ListItemButton>
+              
+              {/* Features with Submenu */}
+              <Box sx={{ mb: 1 }}>
+                <ListItemButton 
+                  onClick={toggleMobileSubmenu}
+                  sx={{ 
+                    borderRadius: 2,
+                    py: { xs: 1, sm: 1.25 },
+                    minHeight: { xs: '44px', sm: '48px' },
+                    justifyContent: 'center',
+                    backgroundColor: 'transparent !important',
+                    '&:hover': { backgroundColor: 'rgba(255,255,255,0.15) !important' },
+                    '&:focus': { backgroundColor: 'transparent !important' },
+                    '&:active': { backgroundColor: 'rgba(255,255,255,0.15) !important' },
+                    '&.Mui-selected': { backgroundColor: 'transparent !important' },
+                    '&.Mui-focusVisible': { backgroundColor: 'transparent !important' },
+                    '&.Mui-touched': { backgroundColor: 'transparent !important' }
+                  }}
+                  disableRipple
+                  disableTouchRipple
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography 
+                      sx={{ 
+                        color: '#FFFFFF', 
+                        fontWeight: 500,
+                        fontSize: { xs: '1rem', sm: '1.1rem' }
+                      }}
+                    >
+                      Features
+                    </Typography>
+                    <FontAwesomeIcon 
+                      icon={faChevronDown} 
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontSize: isSmallMobile ? '0.75rem' : '0.8rem',
+                        transform: mobileSubmenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.3s ease'
+                      }}
+                    />
+                  </Box>
+                </ListItemButton>
+                
+                {/* Submenu - Card Design */}
+                <Box
+                  sx={{
+                    maxHeight: mobileSubmenuOpen ? { xs: '200px', sm: '220px' } : '0px',
+                    opacity: mobileSubmenuOpen ? 1 : 0,
+                    overflow: 'hidden',
+                    transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    borderRadius: { xs: '10px', sm: '12px' },
+                    mt: mobileSubmenuOpen ? { xs: 1, sm: 1.5 } : 0,
+                    mx: { xs: 0.5, sm: 1 },
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    backdropFilter: 'blur(10px)',
+                    willChange: 'max-height, opacity',
+                  }}
+                >
+                  <List sx={{ py: { xs: 1, sm: 1.5 } }}>
+                    <ListItemButton 
+                      onClick={() => {
+                        console.log('Producer Features clicked');
+                        closeMobileMenu();
+                      }}
+                      sx={{ 
+                        mb: 0.5, 
+                        borderRadius: 2,
+                        py: { xs: 0.75, sm: 1 },
+                        mx: { xs: 0.5, sm: 1 },
+                        minHeight: { xs: '40px', sm: '44px' },
+                        justifyContent: 'flex-start',
+                        backgroundColor: 'transparent !important',
+                        '&:hover': { backgroundColor: 'rgba(26, 143, 255, 0.1) !important' },
+                        '&:focus': { backgroundColor: 'transparent !important' },
+                        '&:active': { backgroundColor: 'rgba(26, 143, 255, 0.1) !important' },
+                        '&.Mui-selected': { backgroundColor: 'transparent !important' },
+                        '&.Mui-focusVisible': { backgroundColor: 'transparent !important' },
+                        '&.Mui-touched': { backgroundColor: 'transparent !important' }
+                      }}
+                      disableRipple
+                      disableTouchRipple
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', justifyContent: 'center' }}>
+                        <FontAwesomeIcon 
+                          icon={faMusic} 
+                          style={{ 
+                            color: '#6C4DFF',
+                            fontSize: isSmallMobile ? '0.9rem' : '1rem'
+                          }}
+                        />
+                        <Typography 
+                          sx={{ 
+                            color: '#333333', 
+                            fontWeight: 500,
+                            fontSize: { xs: '0.9rem', sm: '0.95rem' }
+                          }}
+                        >
+                          Producer Features
+                        </Typography>
+                      </Box>
+                    </ListItemButton>
+                    <ListItemButton 
+                      onClick={() => {
+                        console.log('Client Features clicked');
+                        closeMobileMenu();
+                      }}
+                      sx={{ 
+                        mb: 0.5, 
+                        borderRadius: 2,
+                        py: { xs: 0.75, sm: 1 },
+                        mx: { xs: 0.5, sm: 1 },
+                        minHeight: { xs: '40px', sm: '44px' },
+                        justifyContent: 'flex-start',
+                        backgroundColor: 'transparent !important',
+                        '&:hover': { backgroundColor: 'rgba(26, 143, 255, 0.1) !important' },
+                        '&:focus': { backgroundColor: 'transparent !important' },
+                        '&:active': { backgroundColor: 'rgba(26, 143, 255, 0.1) !important' },
+                        '&.Mui-selected': { backgroundColor: 'transparent !important' },
+                        '&.Mui-focusVisible': { backgroundColor: 'transparent !important' },
+                        '&.Mui-touched': { backgroundColor: 'transparent !important' }
+                      }}
+                      disableRipple
+                      disableTouchRipple
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', justifyContent: 'center' }}>
+                        <FontAwesomeIcon 
+                          icon={faUsers} 
+                          style={{ 
+                            color: '#1A8FFF',
+                            fontSize: isSmallMobile ? '0.9rem' : '1rem'
+                          }}
+                        />
+                        <Typography 
+                          sx={{ 
+                            color: '#333333', 
+                            fontWeight: 500,
+                            fontSize: { xs: '0.9rem', sm: '0.95rem' }
+                          }}
+                        >
+                          Client Features
+                        </Typography>
+                      </Box>
+                    </ListItemButton>
+                    <Box
+                      onClick={() => {
+                        console.log('Advocate Details clicked');
+                        closeMobileMenu();
+                      }}
+                      sx={{ 
+                        mb: 0,
+                        borderRadius: 2,
+                        py: { xs: 0.75, sm: 1 },
+                        mx: { xs: 0.5, sm: 1 },
+                        minHeight: { xs: '40px', sm: '44px' },
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        '&:hover': { backgroundColor: 'rgba(26, 143, 255, 0.1)' },
+                        '&:focus': { outline: 'none' },
+                        '&:active': { backgroundColor: 'rgba(26, 143, 255, 0.1)' }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <FontAwesomeIcon 
+                          icon={faHandshake} 
+                          style={{ 
+                            color: '#4CAF50',
+                            fontSize: isSmallMobile ? '0.9rem' : '1rem'
+                          }}
+                        />
+                        <Typography 
+                          sx={{ 
+                            color: '#333333', 
+                            fontWeight: 500,
+                            fontSize: { xs: '0.9rem', sm: '0.95rem' }
+                          }}
+                        >
+                          Advocate Details
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </List>
+                </Box>
+              </Box>
+            </List>
+          </Box>
         </Box>
-      </Drawer>
+      )}
+      
+      {/* Mobile Menu Backdrop */}
+      {isMobile && (
+        <Box
+          onClick={closeMobileMenu}
+          sx={{
+            position: 'fixed',
+            top: { xs: '56px', sm: '64px', md: '72px' },
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: mobileMenuOpen ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0)',
+            opacity: mobileMenuOpen ? 1 : 0,
+            visibility: mobileMenuOpen ? 'visible' : 'hidden',
+            transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            zIndex: 998,
+            backdropFilter: mobileMenuOpen ? 'blur(2px)' : 'blur(0px)',
+            pointerEvents: mobileMenuOpen ? 'auto' : 'none',
+            willChange: 'opacity, backdrop-filter',
+          }}
+        />
+      )}
     </StyledAppBar>
   );
 }
