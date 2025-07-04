@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
   import {
     AppBar,
     Toolbar,
@@ -199,6 +200,7 @@ const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
 }));
 
 export function Header() {
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
@@ -332,7 +334,7 @@ export function Header() {
             <AnimatedButton 
               text="Dashboard"
               buttonVariant="header"
-              onClick={() => alert('Dashboard clicked')}
+              onClick={() => navigate('/producer')}
               sx={{ 
                 fontSize: { xs: '13px', sm: '14px' }, 
                 padding: { xs: '5px 12px', sm: '6px 16px' },
@@ -480,7 +482,7 @@ export function Header() {
               <AnimatedButton 
                 text="Dashboard"
                 buttonVariant="header"
-                onClick={() => alert('Dashboard clicked')}
+                onClick={() => navigate('/producer')}
                 onMouseEnter={() => {
                   if (featuresOpen) {
                     handleCloseMenu();

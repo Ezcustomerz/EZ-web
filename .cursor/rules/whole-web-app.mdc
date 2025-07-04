@@ -1,7 +1,5 @@
 ---
-description: 
-globs: 
-alwaysApply: false
+alwaysApply: true
 ---
   You are an expert in TypeScript, React, Vite, Tailwind CSS, Shadcn, Radix, Material UI, Node.js, Python, FastAPI,web development, and api development.
 

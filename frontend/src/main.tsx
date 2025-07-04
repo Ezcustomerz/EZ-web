@@ -1,7 +1,9 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import {LandingPage} from './views/web/LandingPage.tsx'
+import { DashProducer } from './views/producer/DashProducer.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
@@ -58,7 +60,12 @@ function Root() {
     <StrictMode>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <LandingPage />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/producer" element={<DashProducer />} />
+          </Routes>
+        </BrowserRouter>
       </ThemeProvider>
     </StrictMode>
   );

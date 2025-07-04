@@ -1,6 +1,5 @@
 ---
-description: 
-globs: 
+globs: frontend/*
 alwaysApply: false
 ---
 # Your rule content

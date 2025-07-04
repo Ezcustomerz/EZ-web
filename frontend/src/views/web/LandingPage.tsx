@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import { Box, Card, CardContent, keyframes } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -52,6 +53,7 @@ const fadeIn = keyframes`
 
 export function LandingPage() {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -137,7 +139,7 @@ export function LandingPage() {
                 text="Get Started For Free"
                 buttonVariant="landing"
                 size="large"
-                onClick={() => alert('Get Started clicked')}
+                onClick={() => navigate('/producer')}
               />
             </Box>
           </Box>

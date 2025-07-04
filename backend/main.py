@@ -6,6 +6,8 @@ from slowapi.errors import RateLimitExceeded
 from utils.limiter import limiter
 from routers import auth
 from utils.verify import jwt_auth_middleware
+# Import database module to trigger connection test
+from db import db_session
 
 app = FastAPI()
 
@@ -27,4 +29,19 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 @app.get("/")
 async def read_root():
-    return {"message" :"HELLO WORLD"}
+    # Test database connection and return status
+    try:
+        # Test connection with a simple operation
+        session = db_session.db_client.auth.get_session()
+        return {
+            "message": "API is running",
+            "database_status": "✅ Connected",
+            "database_connection": "successful"
+        }
+    except Exception as e:
+        return {
+            "message": "API is running", 
+            "database_status": "❌ Disconnected",
+            "database_connection": "failed",
+            "error": str(e)
+        }

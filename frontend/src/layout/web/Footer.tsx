@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Link, IconButton, Divider } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -6,6 +7,7 @@ import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { AnimatedButton } from '../../components/buttons';
 
 export function Footer() {
+  const navigate = useNavigate();
   const theme = useTheme();
 
   const pages = [
@@ -61,7 +63,7 @@ export function Footer() {
               buttonVariant="landing"
               size="medium"
               borderColor={theme.palette.secondary.main}
-              onClick={() => alert('Join Now clicked')}
+              onClick={() => navigate('/producer')}
             />
           </Box>
 
