@@ -109,7 +109,7 @@ export function LandingPage() {
                 lineHeight: { xs: 1.1, md: 1.2 }
               }}
             >
-              EZ Web
+              EZ
             </Typography>
             <Typography
               variant="h5"
@@ -159,20 +159,24 @@ export function LandingPage() {
             willChange: 'transform, opacity'
           }}>
             <Box sx={{
-              width: { xs: '100%', sm: '90%', md: '600px', lg: '700px' },
-              height: { xs: '200px', sm: '250px', md: '337px', lg: '394px' }, // 16:9 aspect ratio
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              width: { xs: '320px', sm: '480px', md: '720px', lg: '700px' },
+              height: { xs: '180px', sm: '270px', md: '405px', lg: '394px' }, // 16:9 aspect ratio maintained
+              mx: 'auto',
+              backgroundColor: 'rgba(0, 0, 0, 0.25)',
               borderRadius: { xs: 2, md: 3 },
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '2px dashed',
-              borderColor: 'rgba(255, 255, 255, 0.4)',
+              border: '3px dashed rgba(255, 255, 255, 0.9)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
               position: 'relative',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
+              minWidth: { xs: '320px', sm: '480px' },
+              minHeight: { xs: '180px', sm: '270px' },
               '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                borderColor: 'rgba(255, 255, 255, 1)',
                 transform: { xs: 'scale(1.01)', md: 'scale(1.02)' }
               }
             }}>

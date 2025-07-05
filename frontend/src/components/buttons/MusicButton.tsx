@@ -267,7 +267,9 @@ const MusicNote = styled('span')<{ noteIndex: number; variant: 'header' | 'landi
   }),
 }));
 
-const StyledAnimatedButton = styled(Button)<{ buttonVariant: 'header' | 'landing'; borderColor?: string }>(({ theme, buttonVariant, borderColor }: { theme: Theme; buttonVariant: 'header' | 'landing'; borderColor?: string }) => ({
+const StyledAnimatedButton = styled(Button, {
+  shouldForwardProp: (prop) => prop !== 'buttonVariant' && prop !== 'borderColor',
+})<{ buttonVariant: 'header' | 'landing'; borderColor?: string }>(({ theme, buttonVariant, borderColor }: { theme: Theme; buttonVariant: 'header' | 'landing'; borderColor?: string }) => ({
   textTransform: 'none',
   fontWeight: 600,
   borderRadius: 'clamp(6px, 1vw, 8px)',
