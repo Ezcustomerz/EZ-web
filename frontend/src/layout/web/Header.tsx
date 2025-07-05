@@ -18,7 +18,7 @@ import { useNavigate } from 'react-router-dom';
   } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl, faChevronDown, faBars, faTimes, faMusic, faUsers, faHandshake } from '@fortawesome/free-solid-svg-icons';
-import { AnimatedButton } from '../../components/buttons';
+import { AnimatedButton } from '../../components/buttons/MusicButton';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: theme.palette.secondary.main,    
@@ -203,7 +203,6 @@ export function Header() {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [featuresAnchorEl, setFeaturesAnchorEl] = useState<null | HTMLElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

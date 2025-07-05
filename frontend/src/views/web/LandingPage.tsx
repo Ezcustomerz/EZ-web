@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import { Box, Card, CardContent, keyframes } from '@mui/material';
@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarDays, faDollarSign, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { LayoutWeb } from '../../layout/web/LayoutWeb';
 import { useTheme } from '@mui/material/styles';
-import { AnimatedButton } from '../../components/buttons';
+import { AnimatedButton } from '../../components/buttons/MusicButton';
 
 // Animation keyframes
 const slideInLeft = keyframes`

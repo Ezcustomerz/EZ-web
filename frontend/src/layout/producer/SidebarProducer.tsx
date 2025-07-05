@@ -1,217 +1,242 @@
 import { useState } from 'react';
 import {
   Box,
-  Drawer,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   Typography,
-  Avatar,
   Divider,
-  IconButton,
-  Collapse
+  Avatar,
+  Button,
 } from '@mui/material';
 import {
-  Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  AttachMoney as IncomeIcon,
-  Public as PublicIcon,
-  Person as PersonIcon,
-  Album as RecordIcon,
-  Menu as MenuIcon,
-  ChevronLeft as ChevronLeftIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
+  DashboardOutlined,
+  PeopleOutlined,
+  AttachMoneyOutlined,
+  PublicOutlined,
+  Close,
+  PersonOutlined,
+  StarOutline,
 } from '@mui/icons-material';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { 
+  faRecordVinyl
+} from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '@mui/material/styles';
+import { InviteClientButton } from '../../components/buttons/CassetteButton';
+import { UserDropdownMenu } from '../../components/menus/UserMiniMenu';
 
 interface SidebarProducerProps {
   isOpen: boolean;
   onToggle: () => void;
   selectedItem: string;
   onItemSelect: (item: string) => void;
+  isMobile?: boolean;
 }
 
-export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect }: SidebarProducerProps) {
+export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarProducerProps) {
   const theme = useTheme();
-  const [accountType, setAccountType] = useState<string>('producer');
-  const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
+  const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
   
   const navigationItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
-    { id: 'clients', label: 'Clients', icon: PeopleIcon },
-    { id: 'income', label: 'Income', icon: IncomeIcon },
-    { id: 'public', label: 'Public', icon: PublicIcon },
+    { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
+    { id: 'clients', label: 'Clients', icon: PeopleOutlined },
+    { id: 'income', label: 'Income', icon: AttachMoneyOutlined },
+    { id: 'public', label: 'Public', icon: PublicOutlined },
   ];
 
-  const accountTypes = [
-    { value: 'producer', label: 'Producer' },
-    { value: 'client', label: 'Client' },
-    { value: 'advocate', label: 'Advocate' },
-  ];
+  // Mobile: Always 280px, use transform for hide/show
+  // Desktop: 64 when closed, 280 when open
+  const sidebarWidth = isMobile 
+    ? 280
+    : (isOpen ? 280 : 64);
 
-  const sidebarWidth = isOpen ? 280 : 64;
-
-  function handleAccountTypeChange(newType: string) {
-    setAccountType(newType);
-    setIsRoleDropdownOpen(false);
+  function handleInviteClient() {
+    console.log('Invite client clicked');
+    // Add your invite client logic here
   }
 
-  function handleRoleDropdownToggle() {
-    if (isOpen) {
-      setIsRoleDropdownOpen(!isRoleDropdownOpen);
-    }
+  function handleUserPanelClick(event: React.MouseEvent<HTMLElement>) {
+    setUserMenuAnchor(event.currentTarget);
+  }
+
+  function handleLogoClick() {
+    window.location.href = '/';
   }
 
   return (
-    <Drawer
-      variant="permanent"
+    <>
+    {/* Mobile Overlay */}
+    {isMobile && (
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 1100,
+          backdropFilter: 'blur(4px)',
+          opacity: isOpen ? 1 : 0,
+          visibility: isOpen ? 'visible' : 'hidden',
+          transition: theme.transitions.create(['opacity', 'visibility'], {
+            easing: theme.transitions.easing.easeInOut,
+            duration: 100, // Very fast animation (150ms)
+          }),
+        }}
+        onClick={onToggle}
+      />
+    )}
+
+    <Box
       sx={{
         width: sidebarWidth,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: sidebarWidth,
-          boxSizing: 'border-box',
-          backgroundColor: theme.palette.background.paper,
-          borderRight: `1px solid ${theme.palette.divider}`,
-          transition: theme.transitions.create('width', {
-            easing: theme.transitions.easing.sharp,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
-          overflowX: 'hidden',
-        },
+        height: '100vh',
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        zIndex: 1200,
+        background: `linear-gradient(180deg, #4CA6FF 0%, #3B82F6 100%)`,
+        borderRight: `1px solid rgba(255, 255, 255, 0.1)`,
+        transition: isMobile 
+          ? theme.transitions.create(['transform'], {
+              easing: theme.transitions.easing.easeInOut,
+              duration: 150, // Very fast for mobile (150ms)
+            })
+          : theme.transitions.create('width', {
+              easing: theme.transitions.easing.easeInOut,
+              duration: theme.transitions.duration.standard,
+            }),
+        overflowX: 'hidden',
+        overflowY: 'auto',
+        backdropFilter: 'blur(10px)',
+        boxShadow: isMobile ? '0 0 20px rgba(0, 0, 0, 0.3)' : '0 4px 20px rgba(0, 0, 0, 0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        // Mobile: slide in from left with fast animation, Desktop: keep current behavior
+        transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
       }}
     >
-      {/* Header with Logo and Toggle */}
+      {/* Header with Logo */}
       <Box sx={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: isOpen ? 'space-between' : 'center',
-        p: 2,
-        minHeight: 64,
-        borderBottom: `1px solid ${theme.palette.divider}`,
+        p: 3,
+        minHeight: 72,
+        borderBottom: `1px solid rgba(255, 255, 255, 0.1)`,
+        mb: 1,
+        transition: theme.transitions.create(['justify-content', 'padding'], {
+          easing: theme.transitions.easing.easeInOut,
+          duration: theme.transitions.duration.standard,
+        }),
       }}>
         {isOpen && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <RecordIcon sx={{ color: theme.palette.primary.main, fontSize: 28 }} />
-            <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
-              EZ
+          <Box 
+            onClick={handleLogoClick}
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'start', 
+              gap: 1,
+              cursor: 'pointer',
+            }}
+          >
+            <FontAwesomeIcon icon={faRecordVinyl} style={{ color: 'white', fontSize: '28px' }} />
+            <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+              EZcustomers
             </Typography>
           </Box>
         )}
-        <IconButton
-          onClick={onToggle}
-          sx={{
-            '&:hover': {
-              backgroundColor: theme.palette.action.hover,
-            },
-          }}
-        >
-          {isOpen ? <ChevronLeftIcon /> : <MenuIcon />}
-        </IconButton>
-      </Box>
-
-      {/* Role/Account Dropdown */}
-      <Box sx={{ p: isOpen ? 2 : 1 }}>
-        {isOpen ? (
-          <Box>
-            <ListItemButton
-              onClick={handleRoleDropdownToggle}
-              sx={{
-                borderRadius: 1,
-                mb: 1,
-                backgroundColor: isRoleDropdownOpen ? theme.palette.action.selected : 'transparent',
-                '&:hover': {
-                  backgroundColor: theme.palette.action.hover,
-                },
-              }}
-            >
-              <ListItemText 
-                primary={accountTypes.find(type => type.value === accountType)?.label}
-                sx={{ 
-                  '& .MuiListItemText-primary': { 
-                    fontSize: '0.9rem',
-                    fontWeight: 500,
-                  }
-                }}
-              />
-              {isRoleDropdownOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </ListItemButton>
-            <Collapse in={isRoleDropdownOpen} timeout="auto" unmountOnExit>
-              <List sx={{ pl: 2 }}>
-                {accountTypes.map((type) => (
-                  <ListItemButton
-                    key={type.value}
-                    onClick={() => handleAccountTypeChange(type.value)}
-                    selected={accountType === type.value}
-                    sx={{
-                      borderRadius: 1,
-                      mb: 0.5,
-                      '&.Mui-selected': {
-                        backgroundColor: theme.palette.primary.main,
-                        color: theme.palette.primary.contrastText,
-                        '&:hover': {
-                          backgroundColor: theme.palette.primary.dark,
-                        },
-                      },
-                    }}
-                  >
-                    <ListItemText 
-                      primary={type.label}
-                      sx={{ 
-                        '& .MuiListItemText-primary': { 
-                          fontSize: '0.85rem'
-                        }
-                      }}
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
-            </Collapse>
+        {!isOpen && !isMobile && (
+          <Box
+            onClick={handleLogoClick}
+            sx={{
+              cursor: 'pointer',
+            }}
+          >
+            <FontAwesomeIcon icon={faRecordVinyl} style={{ color: 'white', fontSize: '28px' }} />
           </Box>
-        ) : (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <Avatar sx={{ 
-              width: 32, 
-              height: 32, 
-              backgroundColor: theme.palette.primary.main,
-              fontSize: '0.8rem'
-            }}>
-              {accountType.charAt(0).toUpperCase()}
-            </Avatar>
+        )}
+        
+        {/* Close Button - Mobile Only */}
+        {isMobile && isOpen && (
+          <Box
+            onClick={onToggle}
+            sx={{
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 32,
+              height: 32,
+              borderRadius: 1,
+              transition: 'none',
+              '&:hover': {
+                backgroundColor: 'transparent',
+              },
+            }}
+          >
+            <Close 
+              sx={{ 
+                color: theme.palette.error.main,
+                fontSize: '20px',
+              }} 
+            />
           </Box>
         )}
       </Box>
 
-      <Divider />
+      {/* Invite Client Button */}
+      {(isOpen || !isMobile) && (
+        <InviteClientButton onClick={handleInviteClient} isOpen={isOpen} />
+      )}
 
       {/* Navigation Items */}
-      <List sx={{ flexGrow: 1, px: 1, py: 2 }}>
+      <List sx={{ flexGrow: 1, px: 2, py: 1 }}>
         {navigationItems.map((item) => {
           const IconComponent = item.icon;
           const isSelected = selectedItem === item.id;
           
           return (
-            <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
+            <ListItem key={item.id} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
                 onClick={() => onItemSelect(item.id)}
                 selected={isSelected}
                 sx={{
-                  borderRadius: 1,
-                  minHeight: 48,
+                  borderRadius: 3,
+                  minHeight: 52,
                   justifyContent: isOpen ? 'flex-start' : 'center',
-                  px: isOpen ? 2 : 1.5,
+                  px: isOpen ? 2.5 : 1.5,
+                  color: isSelected ? 'white' : 'rgba(255, 255, 255, 0.8)',
+                  position: 'relative',
+                  transition: 'all 0.3s ease-in-out',
                   '&.Mui-selected': {
-                    backgroundColor: theme.palette.primary.main,
-                    color: theme.palette.primary.contrastText,
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
                     '&:hover': {
-                      backgroundColor: theme.palette.primary.dark,
+                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                    },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 4,
+                      height: 24,
+                      backgroundColor: 'white',
+                      borderRadius: 2,
                     },
                   },
                   '&:hover': {
-                    backgroundColor: isSelected ? theme.palette.primary.dark : theme.palette.action.hover,
+                    backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                    transform: isMobile ? 'none' : 'translateX(4px)',
+                    color: 'white',
                   },
                 }}
               >
@@ -220,18 +245,20 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect }
                     minWidth: 0,
                     mr: isOpen ? 2 : 'auto',
                     justifyContent: 'center',
-                    color: isSelected ? theme.palette.primary.contrastText : theme.palette.text.primary,
+                    color: 'white',
                   }}
                 >
-                  <IconComponent />
+                  <IconComponent sx={{ color: 'white', fontSize: '20px' }} />
                 </ListItemIcon>
                 {isOpen && (
                   <ListItemText 
                     primary={item.label}
                     sx={{
                       '& .MuiListItemText-primary': {
-                        fontSize: '0.9rem',
-                        fontWeight: isSelected ? 600 : 400,
+                        fontSize: '0.95rem',
+                        fontWeight: isSelected ? 600 : 300,
+                        color: 'inherit',
+                        letterSpacing: '0.02em',
                       },
                     }}
                   />
@@ -242,41 +269,250 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect }
         })}
       </List>
 
-      <Divider />
+      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', mb: 1 }} />
 
-      {/* Profile Section */}
-      <Box sx={{ p: 2 }}>
-        <ListItemButton
-          sx={{
-            borderRadius: 1,
-            justifyContent: isOpen ? 'flex-start' : 'center',
-            '&:hover': {
-              backgroundColor: theme.palette.action.hover,
-            },
-          }}
-        >
-          <ListItemIcon sx={{ minWidth: 0, mr: isOpen ? 2 : 0 }}>
-            <Avatar sx={{ width: 32, height: 32 }}>
-              <PersonIcon />
-            </Avatar>
-          </ListItemIcon>
-          {isOpen && (
-            <ListItemText
-              primary="John Doe"
-              secondary="Producer"
-              sx={{
-                '& .MuiListItemText-primary': {
-                  fontSize: '0.9rem',
-                  fontWeight: 500,
-                },
-                '& .MuiListItemText-secondary': {
-                  fontSize: '0.8rem',
-                },
-              }}
-            />
+      {/* User Panel Section */}
+      {(isOpen || !isMobile) && (
+        <>
+          {!isOpen ? (
+            // Collapsed user panel
+            <Box sx={{ px: 1, pb: 3 }}>
+              <Box
+                onClick={handleUserPanelClick}
+                onMouseEnter={() => setIsUserPanelHovered(true)}
+                onMouseLeave={() => setIsUserPanelHovered(false)}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease-in-out',
+                  position: 'relative',
+                  '&:hover': {
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                <Avatar sx={{ 
+                  width: 36, 
+                  height: 36, 
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.2s ease-in-out',
+                  transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
+                }}>
+                  <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
+                </Avatar>
+                {/* Role Sash */}
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: -8,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#FFCD38',
+                    color: '#241E1A',
+                    fontSize: '0.45rem',
+                    fontWeight: 700,
+                    fontVariant: 'small-caps',
+                    px: 0.75,
+                    py: 0.2,
+                    borderRadius: '12px',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.15)',
+                    zIndex: 2,
+                  }}
+                >
+                  Producer
+                </Box>
+              </Box>
+            </Box>
+          ) : (
+            // Expanded user panel
+            <Box sx={{ px: 2, pb: 2 }}>
+              <Box
+                onClick={handleUserPanelClick}
+                onMouseEnter={() => setIsUserPanelHovered(true)}
+                onMouseLeave={() => setIsUserPanelHovered(false)}
+                sx={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: 3,
+                  p: 2,
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease-in-out',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+                  backdropFilter: 'blur(8px)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+                  },
+                }}
+              >
+                {/* User Profile Section */}
+                <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                  <Box sx={{ position: 'relative', mr: 1.5 }}>
+                    <Avatar sx={{ 
+                      width: 48, 
+                      height: 48, 
+                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                      border: '2px solid rgba(255, 255, 255, 0.3)',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    }}>
+                      <PersonOutlined sx={{ color: 'white', fontSize: '24px' }} />
+                    </Avatar>
+                    {/* Role Sash */}
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        bottom: -12,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#FFCD38',
+                        color: '#241E1A',
+                        fontSize: '0.5rem',
+                        fontWeight: 700,
+                        fontVariant: 'small-caps',
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: '14px',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.15)',
+                        zIndex: 2,
+                      }}
+                    >
+                      Producer
+                    </Box>
+                  </Box>
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Typography sx={{
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      color: 'white',
+                      letterSpacing: '0.01em',
+                      lineHeight: 1.2,
+                      mb: 0.5,
+                    }}>
+                      Demo User
+                    </Typography>
+                    <Typography sx={{
+                      fontSize: '0.75rem',
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      fontWeight: 300,
+                      lineHeight: 1.1,
+                      mb: 0.75,
+                    }}>
+                      Music Producer
+                    </Typography>
+                    <Box sx={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '0.6rem',
+                      fontWeight: 600,
+                      px: 1,
+                      py: 0.25,
+                      borderRadius: '12px',
+                      letterSpacing: '0.02em',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      width: 'fit-content',
+                    }}>
+                      <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
+                      Demo (Free)
+                    </Box>
+                  </Box>
+                </Box>
+                
+                <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: 1 }} />
+
+                {/* Storage Section */}
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ 
+                      color: 'white', 
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      letterSpacing: '0.01em'
+                    }}>
+                      Storage
+                    </Typography>
+                    <Button
+                      size="small"
+                      sx={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                        px: 1,
+                        py: 0.25,
+                        minWidth: 'auto',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        borderRadius: 1.5,
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                          transform: 'translateY(-1px)',
+                        },
+                      }}
+                    >
+                      Upgrade
+                    </Button>
+                  </Box>
+                  
+                  <Typography variant="body2" sx={{ 
+                    color: 'rgba(255, 255, 255, 0.9)', 
+                    mb: 1,
+                    fontSize: '0.75rem',
+                    fontWeight: 400
+                  }}>
+                    0 GB of 0 GB used
+                  </Typography>
+                  
+                  <Box sx={{
+                    width: '100%',
+                    height: 4,
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    mb: 0.5,
+                    position: 'relative',
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      background: `linear-gradient(45deg, transparent 30%, ${theme.palette.error.main} 30%, ${theme.palette.error.main} 70%, transparent 70%), linear-gradient(-45deg, transparent 30%, ${theme.palette.error.main} 30%, ${theme.palette.error.main} 70%, transparent 70%)`,
+                      backgroundSize: '8px 8px',
+                      zIndex: 1,
+                    }
+                  }}>
+                    {/* Empty progress bar - no fill since 0 GB of 0 GB */}
+                  </Box>
+                  
+                  <Typography variant="caption" sx={{ 
+                    color: 'rgba(255, 255, 255, 0.7)', 
+                    fontSize: '0.65rem',
+                    fontWeight: 300
+                  }}>
+                    0 GB remaining
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
           )}
-        </ListItemButton>
-      </Box>
-    </Drawer>
+        </>
+      )}
+    </Box>
+
+    {/* User Dropdown Menu */}
+    <UserDropdownMenu 
+      anchorEl={userMenuAnchor} 
+      open={Boolean(userMenuAnchor)} 
+      onClose={() => setUserMenuAnchor(null)} 
+      isOpen={isOpen}
+    />
+    </>
   );
 } 

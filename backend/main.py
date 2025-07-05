@@ -45,3 +45,4 @@ async def read_root():
             "database_connection": "failed",
             "error": str(e)
         }
+ 

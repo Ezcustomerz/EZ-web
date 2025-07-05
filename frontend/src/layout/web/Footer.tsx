@@ -1,10 +1,9 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Link, IconButton, Divider } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInstagram } from '@fortawesome/free-brands-svg-icons';
-import { AnimatedButton } from '../../components/buttons';
+import { AnimatedButton } from '../../components/buttons/MusicButton';
 
 export function Footer() {
   const navigate = useNavigate();
