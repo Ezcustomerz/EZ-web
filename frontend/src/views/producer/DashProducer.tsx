@@ -1,4 +1,5 @@
 import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { LayoutProducer } from '../../layout/producer/LayoutProducer';
 import { WelcomeCard } from '../../components/cards/producer/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/producer/ActivityFeedCard';
@@ -6,6 +7,26 @@ import { ActivityFeedCard } from '../../components/cards/producer/ActivityFeedCa
 export function DashProducer() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
+  const navigate = useNavigate();
+
+  function handleNavItemChange(item: string) {
+    switch (item) {
+      case 'dashboard':
+        navigate('/producer');
+        break;
+      case 'clients':
+        navigate('/producer/clients');
+        break;
+      case 'income':
+        navigate('/producer/income');
+        break;
+      case 'public':
+        navigate('/producer/public');
+        break;
+      default:
+        break;
+    }
+  }
 
   return (
     <>
@@ -26,7 +47,7 @@ export function DashProducer() {
         }}
       />
       
-      <LayoutProducer selectedNavItem="dashboard">
+      <LayoutProducer selectedNavItem="dashboard" onNavItemChange={handleNavItemChange}>
         {({ isSidebarOpen }) => (
           <Box
           sx={{

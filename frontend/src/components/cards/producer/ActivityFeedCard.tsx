@@ -1,9 +1,10 @@
-import { Box, Typography, Card, Chip, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Card, Chip, useTheme, useMediaQuery, Button } from '@mui/material';
 import {
   BookmarkOutlined,
   PaymentOutlined,
-  MessageOutlined,
   ScheduleOutlined,
+  GraphicEqOutlined,
+  PersonAddOutlined,
 } from '@mui/icons-material';
 
 interface Notification {
@@ -22,132 +23,18 @@ interface ActivityFeedCardProps {
   newCount?: number;
 }
 
-export function ActivityFeedCard({ newCount = 3 }: ActivityFeedCardProps) {
+export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const notifications: Notification[] = [
-    {
-      icon: BookmarkOutlined,
-      label: 'New Booking Request',
-      description: 'Sarah Chen wants to book your studio for next week',
-      client: 'Sarah Chen',
-      date: '2h ago',
-      isNew: true,
-      type: 'booking',
-      borderColor: theme.palette.info.main,
-    },
-    {
-      icon: PaymentOutlined,
-      label: 'Payment Received',
-      description: 'Session payment completed successfully',
-      client: 'Marcus Johnson',
-      date: '4h ago',
-      isNew: true,
-      type: 'payment',
-      borderColor: theme.palette.success.main,
-    },
-    {
-      icon: MessageOutlined,
-      label: 'New Message',
-      description: 'Project update and feedback on latest track',
-      client: 'Alex Rivera',
-      date: '6h ago',
-      isNew: true,
-      type: 'message',
-      borderColor: theme.palette.primary.main,
-    },
-    {
-      icon: ScheduleOutlined,
-      label: 'Session Reminder',
-      description: 'Recording session starts in 2 hours',
-      client: 'Emma Williams',
-      date: '1d ago',
-      isNew: false,
-      type: 'reminder',
-      borderColor: theme.palette.custom.amber,
-    },
-    {
-      icon: PaymentOutlined,
-      label: 'Payment Processed',
-      description: 'Monthly subscription fee processed',
-      client: 'Jordan Smith',
-      date: '1d ago',
-      isNew: false,
-      type: 'payment',
-      borderColor: theme.palette.success.main,
-    },
-    {
-      icon: BookmarkOutlined,
-      label: 'Booking Confirmed',
-      description: 'Studio session confirmed for Friday afternoon',
-      client: 'Taylor Brown',
-      date: '2d ago',
-      isNew: false,
-      type: 'booking',
-      borderColor: theme.palette.info.main,
-    },
-    {
-      icon: MessageOutlined,
-      label: 'New Message',
-      description: 'Track revision feedback and notes attached',
-      client: 'Casey Wilson',
-      date: '2d ago',
-      isNew: false,
-      type: 'message',
-      borderColor: theme.palette.primary.main,
-    },
-    {
-      icon: ScheduleOutlined,
-      label: 'Session Completed',
-      description: 'Recording session finished, files uploaded',
-      client: 'Morgan Davis',
-      date: '3d ago',
-      isNew: false,
-      type: 'session',
-      borderColor: theme.palette.custom.amber,
-    },
-    {
-      icon: BookmarkOutlined,
-      label: 'New Booking Request',
-      description: 'Weekend recording session requested',
-      client: 'Riley Johnson',
-      date: '3d ago',
-      isNew: false,
-      type: 'booking',
-      borderColor: theme.palette.info.main,
-    },
-    {
-      icon: PaymentOutlined,
-      label: 'Payment Received',
-      description: 'Invoice #1234 paid in full',
-      client: 'Avery Martinez',
-      date: '4d ago',
-      isNew: false,
-      type: 'payment',
-      borderColor: theme.palette.success.main,
-    },
-    {
-      icon: MessageOutlined,
-      label: 'Client Review',
-      description: '5-star review received for recent project',
-      client: 'Jamie Lee',
-      date: '5d ago',
-      isNew: false,
-      type: 'review',
-      borderColor: theme.palette.primary.main,
-    },
-    {
-      icon: ScheduleOutlined,
-      label: 'Session Rescheduled',
-      description: 'Tuesday session moved to Wednesday 2PM',
-      client: 'Blake Anderson',
-      date: '5d ago',
-      isNew: false,
-      type: 'schedule',
-      borderColor: theme.palette.custom.amber,
-    },
-  ];
+  // Empty notifications array for testing
+  const testNotifications: Notification[] = [];
+
+  // Use test notifications (empty array) instead of hardcoded ones
+  const displayNotifications = testNotifications;
+
+  // Calculate actual new count from notifications
+  const actualNewCount = displayNotifications.filter(n => n.isNew).length;
 
   return (
     <Card sx={{ 
@@ -203,24 +90,26 @@ export function ActivityFeedCard({ newCount = 3 }: ActivityFeedCardProps) {
             Latest updates and interactions
           </Typography>
         </Box>
-        <Chip
-          label={`${newCount} new`}
-          size="small"
-          sx={{
-            backgroundColor: theme.palette.error.main,
-            color: 'white',
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            height: 24,
-            '& .MuiChip-label': {
-              px: 1.2,
-              py: 0.3,
-            },
-          }}
-        />
+        {actualNewCount > 0 && (
+          <Chip
+            label={`${actualNewCount} new`}
+            size="small"
+            sx={{
+              backgroundColor: theme.palette.error.main,
+              color: 'white',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              height: 24,
+              '& .MuiChip-label': {
+                px: 1.2,
+                py: 0.3,
+              },
+            }}
+          />
+        )}
       </Box>
 
-      {/* Notifications List */}
+      {/* Notifications List or Empty State */}
       <Box
         sx={{
           // Responsive sizing behavior
@@ -252,123 +141,297 @@ export function ActivityFeedCard({ newCount = 3 }: ActivityFeedCardProps) {
           scrollBehavior: 'smooth',
         }}
       >
-        {notifications.map((notification, index) => {
-          const IconComponent = notification.icon;
-          return (
-            <Box
-              key={index}
+        {/* Empty State */}
+        {displayNotifications.length === 0 ? (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              py: 8,
+              px: 4,
+              textAlign: 'center',
+              minHeight: '350px',
+              position: 'relative',
+              // Soft gradient background
+              background: `radial-gradient(circle at center, 
+                ${theme.palette.info.main}08 0%, 
+                ${theme.palette.primary.main}05 40%, 
+                transparent 70%)`,
+              borderRadius: 2,
+              animation: 'fadeIn 0.6s ease-out 0.5s both',
+              '@keyframes fadeIn': {
+                from: { opacity: 0, transform: 'translateY(20px)' },
+                to: { opacity: 1, transform: 'translateY(0)' },
+              },
+            }}
+          >
+            <GraphicEqOutlined
               sx={{
-                backgroundColor: '#fafbfc',
+                fontSize: 52,
+                color: theme.palette.info.main,
+                mb: 3,
+                opacity: 0.9,
+              }}
+            />
+            <Typography
+              variant="h6"
+              sx={{
+                fontSize: '1.125rem',
+                fontWeight: 600,
+                color: theme.palette.info.main,
+                mb: 1.5,
+              }}
+            >
+              You're all caught up!
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                fontSize: '0.875rem',
+                color: theme.palette.info.main,
+                maxWidth: '320px',
+                lineHeight: 1.6,
+                opacity: 0.8,
+                mb: 3,
+              }}
+            >
+              We'll notify you here when your clients book, pay, or have upcoming sessions.
+            </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PersonAddOutlined />}
+              sx={{
+                borderColor: theme.palette.info.main,
+                color: theme.palette.info.main,
+                fontSize: '0.8rem',
+                fontWeight: 500,
+                px: 2.5,
+                py: 0.75,
                 borderRadius: 1.5,
-                p: 1.5,
-                mb: 2,
-                mt: 1,
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
-                border: `1px solid rgba(0, 0, 0, 0.06)`,
-                borderLeft: `4px solid ${notification.borderColor}`,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                cursor: 'pointer',
+                textTransform: 'none',
                 position: 'relative',
-                overflow: 'visible',
-                '&:hover': {
-                  transform: 'scale(1.03) translateY(-8px)',
-                  backgroundColor: '#f1f5f9',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                overflow: 'hidden',
+                transition: 'all 0.2s ease-in-out',
+                // Spark animations
+                '@keyframes sparkle': {
+                  '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                  '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
+                  '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
                 },
-                animation: `slideInLeft 0.6s ease-out ${index * 0.1 + 0.5}s both`,
-                '@keyframes slideInLeft': {
-                  from: { opacity: 0, transform: 'translateX(-30px)' },
-                  to: { opacity: 1, transform: 'translateX(0)' },
+                '@keyframes sparkle2': {
+                  '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                  '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
+                  '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                },
+                '@keyframes sparkle3': {
+                  '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                  '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
+                  '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                },
+                // Spark elements
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: '20%',
+                  left: '15%',
+                  width: 4,
+                  height: 4,
+                  background: theme.palette.info.main,
+                  borderRadius: '50%',
+                  transform: 'scale(0)',
+                  opacity: 0,
+                  transition: 'all 0.2s ease-in-out',
+                },
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  top: '70%',
+                  right: '20%',
+                  width: 3,
+                  height: 3,
+                  background: theme.palette.info.main,
+                  borderRadius: '50%',
+                  transform: 'scale(0)',
+                  opacity: 0,
+                  transition: 'all 0.2s ease-in-out',
+                },
+                '&:hover': {
+                  borderColor: theme.palette.info.main,
+                  transform: 'translateY(-2px)',
+                  boxShadow: `0 4px 12px ${theme.palette.info.main}20`,
+                  '&::before': {
+                    animation: 'sparkle 0.8s ease-in-out',
+                  },
+                  '&::after': {
+                    animation: 'sparkle2 0.8s ease-in-out 0.1s',
+                  },
+                  '& .spark-element': {
+                    '&:nth-of-type(1)': {
+                      animation: 'sparkle3 0.8s ease-in-out 0.2s',
+                    },
+                    '&:nth-of-type(2)': {
+                      animation: 'sparkle 0.8s ease-in-out 0.3s',
+                    },
+                  },
                 },
               }}
             >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flex: 1 }}>
-                  <IconComponent
-                    sx={{
-                      width: 18,
-                      height: 18,
-                      color: notification.borderColor,
-                      mt: 0.25,
-                    }}
-                  />
-                  <Box sx={{ flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+              <Box
+                className="spark-element"
+                sx={{
+                  position: 'absolute',
+                  top: '10%',
+                  right: '10%',
+                  width: 2,
+                  height: 2,
+                  background: theme.palette.info.main,
+                  borderRadius: '50%',
+                  transform: 'scale(0)',
+                  opacity: 0,
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              />
+              <Box
+                className="spark-element"
+                sx={{
+                  position: 'absolute',
+                  bottom: '15%',
+                  left: '25%',
+                  width: 2,
+                  height: 2,
+                  background: theme.palette.info.main,
+                  borderRadius: '50%',
+                  transform: 'scale(0)',
+                  opacity: 0,
+                  transition: 'all 0.2s ease-in-out',
+                }}
+              />
+              Invite Client
+            </Button>
+          </Box>
+        ) : (
+          /* Notifications List */
+          displayNotifications.map((notification, index) => {
+            const IconComponent = notification.icon;
+            return (
+              <Box
+                key={index}
+                sx={{
+                  backgroundColor: '#fafbfc',
+                  borderRadius: 1.5,
+                  p: 1.5,
+                  mb: 2,
+                  mt: 1,
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+                  border: `1px solid rgba(0, 0, 0, 0.06)`,
+                  borderLeft: `4px solid ${notification.borderColor}`,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'visible',
+                  '&:hover': {
+                    transform: 'scale(1.03) translateY(-8px)',
+                    backgroundColor: '#f1f5f9',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  },
+                  animation: `slideInLeft 0.6s ease-out ${index * 0.1 + 0.5}s both`,
+                  '@keyframes slideInLeft': {
+                    from: { opacity: 0, transform: 'translateX(-30px)' },
+                    to: { opacity: 1, transform: 'translateX(0)' },
+                  },
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flex: 1 }}>
+                    <IconComponent
+                      sx={{
+                        width: 18,
+                        height: 18,
+                        color: notification.borderColor,
+                        mt: 0.25,
+                      }}
+                    />
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            color: 'text.primary',
+                          }}
+                        >
+                          {notification.label}
+                        </Typography>
+                        {notification.isNew && (
+                          <Chip
+                            label="New"
+                            size="small"
+                            sx={{
+                              backgroundColor: theme.palette.primary.main,
+                              color: 'white',
+                              fontSize: '0.6rem',
+                              height: 18,
+                              ml: 1,
+                              '& .MuiChip-label': {
+                                px: 0.8,
+                                py: 0.2,
+                              },
+                            }}
+                          />
+                        )}
+                      </Box>
                       <Typography
                         variant="body2"
                         sx={{
-                          fontSize: '0.85rem',
-                          fontWeight: 600,
-                          color: 'text.primary',
-                        }}
-                      >
-                        {notification.label}
-                      </Typography>
-                      {notification.isNew && (
-                        <Chip
-                          label="New"
-                          size="small"
-                          sx={{
-                            backgroundColor: theme.palette.primary.main,
-                            color: 'white',
-                            fontSize: '0.6rem',
-                            height: 18,
-                            ml: 1,
-                            '& .MuiChip-label': {
-                              px: 0.8,
-                              py: 0.2,
-                            },
-                          }}
-                        />
-                      )}
-                    </Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        fontSize: '0.75rem',
-                        color: 'text.secondary',
-                        mb: 1,
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {notification.description}
-                    </Typography>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      gap: 1,
-                    }}>
-                      <Box
-                        sx={{
-                          backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                          fontSize: '0.75rem',
                           color: 'text.secondary',
-                          fontSize: '0.65rem',
-                          fontWeight: 500,
-                          px: 1,
-                          py: 0.25,
-                          borderRadius: 1,
+                          mb: 1,
+                          lineHeight: 1.4,
                         }}
                       >
-                        {notification.client}
+                        {notification.description}
+                      </Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: 1,
+                      }}>
+                        <Box
+                          sx={{
+                            backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                            color: 'text.secondary',
+                            fontSize: '0.65rem',
+                            fontWeight: 500,
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: 1,
+                          }}
+                        >
+                          {notification.client}
+                        </Box>
                       </Box>
                     </Box>
                   </Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.65rem',
+                      color: 'rgba(0, 0, 0, 0.4)',
+                      whiteSpace: 'nowrap',
+                      ml: 1,
+                    }}
+                  >
+                    {notification.date}
+                  </Typography>
                 </Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: '0.65rem',
-                    color: 'rgba(0, 0, 0, 0.4)',
-                    whiteSpace: 'nowrap',
-                    ml: 1,
-                  }}
-                >
-                  {notification.date}
-                </Typography>
               </Box>
-            </Box>
-          );
-        })}
+            );
+          })
+        )}
       </Box>
     </Card>
   );

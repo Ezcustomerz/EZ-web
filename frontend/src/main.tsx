@@ -4,6 +4,9 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import {LandingPage} from './views/web/LandingPage.tsx'
 import { DashProducer } from './views/producer/DashProducer.tsx'
+import { ClientProducer } from './views/producer/ClientProducer.tsx'
+import { IncomeProducer } from './views/producer/IncomeProducer.tsx'
+import { PublicProducer } from './views/producer/PublicProducer.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
@@ -64,6 +67,9 @@ function Root() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/producer" element={<DashProducer />} />
+            <Route path="/producer/clients" element={<ClientProducer />} />
+            <Route path="/producer/income" element={<IncomeProducer />} />
+            <Route path="/producer/public" element={<PublicProducer />} />
           </Routes>
         </BrowserRouter>
       </ThemeProvider>
