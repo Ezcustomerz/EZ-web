@@ -109,7 +109,7 @@ export function LandingPage() {
                 lineHeight: { xs: 1.1, md: 1.2 }
               }}
             >
-              EZ
+              EZ Web
             </Typography>
             <Typography
               variant="h5"
