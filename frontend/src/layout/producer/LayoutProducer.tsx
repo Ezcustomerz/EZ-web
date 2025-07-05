@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { Box, CssBaseline, useMediaQuery } from '@mui/material';
+import { useState, useEffect, type ReactNode } from 'react';
+import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
 import { SidebarProducer } from './SidebarProducer';
 import { useTheme } from '@mui/material/styles';
 
@@ -11,26 +11,90 @@ interface LayoutProducerProps {
 
 export function LayoutProducer({ 
   children, 
-  selectedNavItem = 'dashboard',
+  selectedNavItem,
   onNavItemChange 
 }: LayoutProducerProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
+  
+  // Start with a safe default, will be corrected in useEffect
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentNavItem, setCurrentNavItem] = useState(selectedNavItem);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Set correct initial state based on mobile/desktop and localStorage
+  useEffect(() => {
+    if (!isInitialized) {
+      if (isMobile) {
+        setIsSidebarOpen(false); // Always closed on mobile
+      } else {
+        // For desktop, check localStorage
+        try {
+          const saved = localStorage.getItem('producer-sidebar-open');
+          setIsSidebarOpen(saved !== null ? JSON.parse(saved) : true);
+        } catch {
+          setIsSidebarOpen(true); // Default to true if localStorage fails
+        }
+      }
+      setIsInitialized(true);
+    }
+  }, [isMobile, isInitialized]);
+
+  // Close sidebar when switching to mobile (after initialization)
+  useEffect(() => {
+    if (isInitialized && isMobile) {
+      setIsSidebarOpen(false);
+    }
+  }, [isMobile, isInitialized]);
+
+  // Save sidebar state to localStorage for desktop (after initialization)
+  useEffect(() => {
+    if (isInitialized && !isMobile) {
+      try {
+        localStorage.setItem('producer-sidebar-open', JSON.stringify(isSidebarOpen));
+      } catch {
+        // Handle localStorage errors gracefully
+      }
+    }
+  }, [isSidebarOpen, isMobile, isInitialized]);
+
+  // Add keyboard shortcut for sidebar toggle (Ctrl+B or Cmd+B)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+B (Windows/Linux) or Cmd+B (Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+        event.preventDefault();
+        // Use functional update to avoid closure issues
+        setIsSidebarOpen(prev => !prev);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   function handleSidebarToggle() {
     setIsSidebarOpen(!isSidebarOpen);
   }
 
+  // Detect platform for keybind hint
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const keybindHint = isMac ? 'Cmd+B' : 'Ctrl+B';
+
   function handleNavItemSelect(item: string) {
-    setCurrentNavItem(item);
-    if (onNavItemChange) {
-      onNavItemChange(item);
-    }
-    // Close sidebar on mobile after selection
+    // Close sidebar on mobile first, then navigate after animation
     if (isMobile) {
       setIsSidebarOpen(false);
+      // Delay navigation to allow closing animation to play
+      setTimeout(() => {
+        if (onNavItemChange) {
+          onNavItemChange(item);
+        }
+      }, 150); // Match the sidebar animation duration
+    } else {
+      // On desktop, navigate immediately
+      if (onNavItemChange) {
+        onNavItemChange(item);
+      }
     }
   }
 
@@ -54,7 +118,7 @@ export function LayoutProducer({
       <SidebarProducer
         isOpen={isSidebarOpen}
         onToggle={handleSidebarToggle}
-        selectedItem={currentNavItem}
+        selectedItem={selectedNavItem || 'dashboard'}
         onItemSelect={handleNavItemSelect}
         isMobile={isMobile}
       />
@@ -75,43 +139,45 @@ export function LayoutProducer({
             }),
           }}
         >
-          <Box
-            onClick={handleSidebarToggle}
-            sx={{
-              backgroundColor: theme.palette.primary.main,
-              color: 'white',
-              width: 48,
-              height: 48,
-              borderRadius: 4,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              '&:hover': {
-                backgroundColor: theme.palette.primary.dark,
-                transform: 'scale(1.05)',
-              },
-              '&:active': {
-                transform: 'scale(0.95)',
-              },
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '3px',
-              width: '18px',
-              height: '18px',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
-              <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
-              <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
+          <Tooltip title={`Open Menu (${keybindHint})`}>
+            <Box
+              onClick={handleSidebarToggle}
+              sx={{
+                backgroundColor: theme.palette.primary.main,
+                color: 'white',
+                width: 48,
+                height: 48,
+                borderRadius: 4,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.dark,
+                  transform: 'scale(1.05)',
+                },
+                '&:active': {
+                  transform: 'scale(0.95)',
+                },
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '3px',
+                width: '18px',
+                height: '18px',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
+              </Box>
             </Box>
-          </Box>
+          </Tooltip>
         </Box>
       )}
 
@@ -130,42 +196,44 @@ export function LayoutProducer({
             }),
           }}
         >
-          <Box
-            onClick={handleSidebarToggle}
-            sx={{
-              backgroundColor: theme.palette.secondary.main,
-              color: 'white',
-              width: 20,
-              height: 32,
-              borderRadius: '0 8px 8px 0',
-              border: `1px solid ${theme.palette.divider}`,
-              borderLeft: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              fontSize: '18px',
-              fontWeight: 'normal',
-              lineHeight: 1,
-              fontFamily: 'monospace',
-              boxShadow: '2px 0 4px rgba(0,0,0,0.1)',
-              '&:hover': {
-                backgroundColor: theme.palette.secondary.dark,
-                transform: 'translateX(2px)',
-              },
-              transition: 'all 0.2s ease',
-              // Force perfect centering
-              position: 'relative',
-              '& > span': {
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-              }
-            }}
-          >
-            <span>{isSidebarOpen ? '‹' : '›'}</span>
-          </Box>
+          <Tooltip title={`Toggle Sidebar (${keybindHint})`}>
+            <Box
+              onClick={handleSidebarToggle}
+              sx={{
+                backgroundColor: theme.palette.secondary.main,
+                color: 'white',
+                width: 20,
+                height: 32,
+                borderRadius: '0 8px 8px 0',
+                border: `1px solid ${theme.palette.divider}`,
+                borderLeft: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '18px',
+                fontWeight: 'normal',
+                lineHeight: 1,
+                fontFamily: 'monospace',
+                boxShadow: '2px 0 4px rgba(0,0,0,0.1)',
+                '&:hover': {
+                  backgroundColor: theme.palette.secondary.dark,
+                  transform: 'translateX(2px)',
+                },
+                transition: 'all 0.2s ease',
+                // Force perfect centering
+                position: 'relative',
+                '& > span': {
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                }
+              }}
+            >
+              <span>{isSidebarOpen ? '‹' : '›'}</span>
+            </Box>
+          </Tooltip>
         </Box>
       )}
 
