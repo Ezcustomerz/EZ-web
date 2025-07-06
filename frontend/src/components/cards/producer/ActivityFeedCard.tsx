@@ -48,7 +48,7 @@ export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
       backgroundColor: '#ffffff',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
       border: '1px solid rgba(0, 0, 0, 0.06)',
-      borderRadius: 2,
+      borderRadius: 1,
       p: 3,
       transition: 'all 0.3s ease-in-out',
       animation: 'fadeIn 0.6s ease-out 0.4s both',

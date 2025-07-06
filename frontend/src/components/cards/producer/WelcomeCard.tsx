@@ -65,7 +65,7 @@ export function WelcomeCard({ userName = "Demo User", userRole = "Music Producer
       backgroundColor: '#ffffff',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
       border: '1px solid rgba(0, 0, 0, 0.06)',
-      borderRadius: 2,
+      borderRadius: 1,
       p: 3,
       mb: 3,
       overflowX: 'visible',
