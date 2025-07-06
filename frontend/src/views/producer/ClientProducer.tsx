@@ -801,21 +801,18 @@ export function ClientProducer() {
               borderColor: 'divider',
               borderRadius: 1,
               flexGrow: 1,
-              overflow: { xs: 'auto', sm: 'hidden' }, // Horizontal scroll only on mobile phones
-              overflowY: 'auto', // Always allow vertical scroll
-              maxHeight: totalItems === 0 ? 'auto' : 'calc(100% - 60px)', // Auto height for empty state
-              minHeight: totalItems === 0 ? '450px' : 'auto', // Ensure minimum height for empty state
-              // Improve mobile scrolling
+              overflow: { xs: 'auto', sm: 'hidden' }, 
+              maxHeight: totalItems === 0 ? 'auto' : 'calc(100% - 60px)', 
+              minHeight: totalItems === 0 ? '450px' : 'auto', 
               WebkitOverflowScrolling: 'touch',
-              // Handle small vertical screens
               '@media (max-height: 780px)': {
-                maxHeight: totalItems === 0 ? 'auto' : '350px', // Fixed height for small screens
-                overflowY: 'auto', // Ensure vertical scroll
-                overflow: 'auto', // Enable both horizontal and vertical scroll if needed
+                maxHeight: totalItems === 0 ? 'auto' : '350px', 
+                overflowY: 'auto', 
+                overflow: 'auto', 
               },
             }}
           >
-          <Table sx={{ minWidth: { xs: 650, sm: 'auto' } }}> {/* Force min width on mobile phones only */}
+          <Table sx={{ minWidth: { xs: 650, sm: 'auto' } }}> 
             <TableHead>
               <TableRow sx={{ 
                 backgroundColor: `${theme.palette.info.main}1A`,
@@ -828,7 +825,7 @@ export function ClientProducer() {
                     color: sortField === 'name' ? 'primary.main' : 'text.primary',
                     fontWeight: sortField === 'name' ? 700 : 600,
                     transition: 'all 0.2s ease',
-                    minWidth: { xs: 160, sm: 'auto' }, // Min width on mobile phones only
+                    minWidth: { xs: 160, sm: 'auto' }, 
                     '&:hover': {
                       backgroundColor: 'grey.100',
                       '& .MuiSvgIcon-root': {
@@ -848,7 +845,7 @@ export function ClientProducer() {
                   sx={{
                     fontWeight: 600,
                     color: 'text.primary',
-                    minWidth: { xs: 140, sm: 'auto' }, // Min width on mobile phones only
+                    minWidth: { xs: 140, sm: 'auto' }, 
                   }}
                 >
                   Contact
@@ -857,7 +854,7 @@ export function ClientProducer() {
                   sx={{
                     fontWeight: 600,
                     color: 'text.primary',
-                    minWidth: { xs: 100, sm: 'auto' }, // Min width on mobile phones only
+                    minWidth: { xs: 100, sm: 'auto' }, 
                   }}
                 >
                   Status
@@ -870,7 +867,7 @@ export function ClientProducer() {
                     color: sortField === 'totalSpent' ? 'primary.main' : 'text.primary',
                     fontWeight: sortField === 'totalSpent' ? 700 : 600,
                     transition: 'all 0.2s ease',
-                    minWidth: { xs: 120, sm: 'auto' }, // Min width on mobile phones only
+                    minWidth: { xs: 120, sm: 'auto' }, 
                     '&:hover': {
                       backgroundColor: 'grey.100',
                       '& .MuiSvgIcon-root': {
@@ -894,7 +891,7 @@ export function ClientProducer() {
                     color: sortField === 'projects' ? 'primary.main' : 'text.primary',
                     fontWeight: sortField === 'projects' ? 700 : 600,
                     transition: 'all 0.2s ease',
-                    minWidth: { xs: 100, sm: 'auto' }, // Min width on mobile phones only
+                    minWidth: { xs: 100, sm: 'auto' }, 
                     '&:hover': {
                       backgroundColor: 'grey.100',
                       '& .MuiSvgIcon-root': {
@@ -916,11 +913,11 @@ export function ClientProducer() {
               {totalItems === 0 ? (
                 <TableRow>
                   <TableCell 
-                    colSpan={5} // Spans all columns regardless of responsive hiding
+                    colSpan={5} 
                     sx={{ 
                       border: 0, 
                       p: 0,
-                      height: { xs: '400px', md: '550px' }, // Smaller height on mobile
+                      height: { xs: '400px', md: '550px' }, 
                       verticalAlign: 'middle',
                     }}
                   >
@@ -1052,7 +1049,7 @@ export function ClientProducer() {
               onChange={(event, value) => setCurrentPage(value)}
               color="primary"
               size="small"
-              siblingCount={0} // Show fewer page numbers on mobile
+              siblingCount={0} 
               boundaryCount={1}
             />
 
