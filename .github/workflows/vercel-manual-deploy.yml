@@ -1,0 +1,11 @@
+name: Deploy Dev to Vercel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Deploy Hook
+        run: curl -X POST ${{ secrets.VERCEL_DEV_DEPLOY_HOOK }}
