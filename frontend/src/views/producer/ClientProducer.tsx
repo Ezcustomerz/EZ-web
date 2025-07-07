@@ -51,7 +51,7 @@ const mockClients: Client[] = [];
 // Empty Client State Component
 function EmptyClientState({ onInviteClient }: { onInviteClient: () => void }) {
   const theme = useTheme();
-  
+
   return (
     <Box
       sx={{
@@ -144,7 +144,7 @@ function EmptyClientState({ onInviteClient }: { onInviteClient: () => void }) {
       >
         Invite your first client to start managing collaborations and sessions.
       </Typography>
-      
+
       <Button
         variant="outlined"
         size="small"
@@ -273,6 +273,9 @@ export function ClientProducer() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(9);
 
+  // Tooltip hover state for each sortable column
+  const [hoveredSort, setHoveredSort] = useState<SortField | null>(null);
+
   // Handle column sorting
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -296,7 +299,7 @@ export function ClientProducer() {
   const filteredAndSortedClients = clients
     .filter(client => {
       const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           client.contact.toLowerCase().includes(searchTerm.toLowerCase());
+        client.contact.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || client.status === statusFilter;
       return matchesSearch && matchesStatus;
     })
@@ -306,22 +309,22 @@ export function ClientProducer() {
       let aValue: any;
       let bValue: any;
 
-             switch (sortField) {
-         case 'name':
-           aValue = a.name.toLowerCase();
-           bValue = b.name.toLowerCase();
-           break;
-         case 'totalSpent':
-           aValue = a.totalSpent;
-           bValue = b.totalSpent;
-           break;
-         case 'projects':
-           aValue = a.projects;
-           bValue = b.projects;
-           break;
-         default:
-           return 0;
-       }
+      switch (sortField) {
+        case 'name':
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case 'totalSpent':
+          aValue = a.totalSpent;
+          bValue = b.totalSpent;
+          break;
+        case 'projects':
+          aValue = a.projects;
+          bValue = b.projects;
+          break;
+        default:
+          return 0;
+      }
 
       if (sortDirection === 'asc') {
         return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
@@ -404,57 +407,55 @@ export function ClientProducer() {
     }).format(amount);
   };
 
-  const getSortIcon = (field: SortField) => {
-    let tooltipText = '';
-    let icon;
-    
+  const getSortTooltip = (field: SortField) => {
     if (sortField !== field) {
-      // Show neutral sorting icon for sortable columns
-      tooltipText = 'Click to sort ascending';
-      icon = (
-        <SwapVert sx={{ 
-          fontSize: 18, 
-          ml: 0.5, 
+      return 'Click to sort ascending';
+    } else if (sortDirection === 'asc') {
+      return 'Click to sort descending';
+    } else {
+      return 'Click to clear sorting';
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      // Neutral sorting icon
+      return (
+        <SwapVert sx={{
+          fontSize: 18,
+          ml: 0.5,
           color: 'text.disabled',
           opacity: 0.4,
           transition: 'all 0.2s ease',
         }} />
       );
     } else if (sortDirection === 'asc') {
-      tooltipText = 'Click to sort descending';
-      icon = (
-        <ArrowDropUp sx={{ 
-          fontSize: 20, 
-          ml: 0.5, 
+      return (
+        <ArrowDropUp sx={{
+          fontSize: 20,
+          ml: 0.5,
           color: 'primary.main',
           transition: 'all 0.2s ease',
         }} />
       );
     } else {
-      tooltipText = 'Click to clear sorting';
-      icon = (
-        <ArrowDropDown sx={{ 
-          fontSize: 20, 
-          ml: 0.5, 
+      return (
+        <ArrowDropDown sx={{
+          fontSize: 20,
+          ml: 0.5,
           color: 'primary.main',
           transition: 'all 0.2s ease',
         }} />
       );
     }
-    
-    return (
-      <Tooltip title={tooltipText} arrow placement="top">
-        {icon}
-      </Tooltip>
-    );
   };
 
   return (
     <LayoutProducer selectedNavItem="clients">
-      <Box sx={{ 
-        p: { xs: 2, sm: 3, md: 4 }, 
-        height: '100vh', 
-        display: 'flex', 
+      <Box sx={{
+        p: { xs: 2, sm: 3, md: 4 },
+        height: '100vh',
+        display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -474,23 +475,20 @@ export function ClientProducer() {
         },
       }}>
         {/* Header Section - Dashboard Style */}
-        <Box 
-          sx={{ 
+        <Box
+          sx={{
             mb: 3,
-            textAlign: { xs: 'center', md: 'left' }, // Center on mobile, left on desktop
-            px: { xs: 2, md: 0 }, // Add padding on mobile
-            // Compact header for small height screens
+            textAlign: { xs: 'center', md: 'left' },
+            px: { xs: 2, md: 0 },
             '@media (max-height: 780px)': {
-              mb: 2, // Reduce bottom margin
+              my: 2,
             },
           }}
         >
           <Typography
             variant="h4"
-            component="h1"
             sx={{
-              fontSize: { xs: '1.4rem', sm: '1.5rem', md: '1.75rem' },
-              fontWeight: 600,
+              fontSize: { xs: '1.3rem', sm: '1.4rem', md: '1.5rem' },
               color: 'primary.main',
               letterSpacing: '-0.025em',
               lineHeight: 1.2,
@@ -499,7 +497,7 @@ export function ClientProducer() {
           >
             Clients
           </Typography>
-          
+
           <Typography
             variant="subtitle1"
             sx={{
@@ -514,36 +512,7 @@ export function ClientProducer() {
         </Box>
 
         {/* Section Divider */}
-        <Box sx={{ 
-          mb: 2,
-          // Compact divider for small height screens
-          '@media (max-height: 780px)': {
-            mb: 1.5, // Reduce bottom margin
-          },
-        }}>
-          <Box sx={{ 
-            height: '1px',
-            backgroundColor: 'rgba(0, 0, 0, 0.12)',
-            width: '100%',
-          }} />
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center',
-          }}>
-            <Typography 
-              variant="overline" 
-              sx={{ 
-                color: 'text.disabled',
-                fontSize: '0.65rem',
-                fontWeight: 600,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-              }}
-                          >
-                Clients Table
-              </Typography>
-          </Box>
-        </Box>
+       
 
         {/* Client Management Card */}
         <Paper
@@ -602,19 +571,19 @@ export function ClientProducer() {
             />
 
             {/* Controls - Bottom on mobile, right on desktop */}
-            <Box 
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
                 gap: 2,
                 flexDirection: 'row', // Always horizontal, even on mobile
                 width: { xs: '100%', md: 'auto' },
               }}
             >
               {/* Filter Dropdown */}
-              <FormControl 
-                size="small" 
-                sx={{ 
+              <FormControl
+                size="small"
+                sx={{
                   minWidth: { xs: 110, sm: 120 },
                   width: { xs: 'auto', sm: 'auto' },
                   flex: { xs: 1, sm: 'none' }, // Take remaining space on mobile
@@ -673,123 +642,123 @@ export function ClientProducer() {
                 </Select>
               </FormControl>
 
-                             {/* Invite Client Button */}
-               <Button
-                 variant="contained"
-                 startIcon={<PersonAddOutlined sx={{ fontSize: 18 }} />}
-                 onClick={handleInviteClient}
-                 sx={{
-                   backgroundColor: 'primary.main',
-                   color: 'white',
-                   borderRadius: 2,
-                   px: 3,
-                   py: 1.5,
-                   fontWeight: 600,
-                   textTransform: 'none',
-                   fontSize: '0.9rem',
-                   position: 'relative',
-                   overflow: 'hidden',
-                   boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.39)',
-                   transition: 'all 0.2s ease-in-out',
-                   minHeight: { xs: '48px', md: 'auto' }, // Better touch target on mobile
-                   minWidth: { xs: 'auto', sm: 'auto' }, // Compact on mobile
-                   // Spark animations
-                   '@keyframes sparkle': {
-                     '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                     '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
-                     '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                   },
-                   '@keyframes sparkle2': {
-                     '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                     '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
-                     '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                   },
-                   '@keyframes sparkle3': {
-                     '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                     '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
-                     '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                   },
-                   // Spark elements
-                   '&::before': {
-                     content: '""',
-                     position: 'absolute',
-                     top: '20%',
-                     left: '15%',
-                     width: 4,
-                     height: 4,
-                     background: 'rgba(255, 255, 255, 0.8)',
-                     borderRadius: '50%',
-                     transform: 'scale(0)',
-                     opacity: 0,
-                     transition: 'all 0.2s ease-in-out',
-                   },
-                   '&::after': {
-                     content: '""',
-                     position: 'absolute',
-                     top: '70%',
-                     right: '20%',
-                     width: 3,
-                     height: 3,
-                     background: 'rgba(255, 255, 255, 0.6)',
-                     borderRadius: '50%',
-                     transform: 'scale(0)',
-                     opacity: 0,
-                     transition: 'all 0.2s ease-in-out',
-                   },
-                   '&:hover': {
-                     backgroundColor: 'primary.dark',
-                     transform: 'translateY(-2px)',
-                     boxShadow: '0 8px 25px 0 rgba(59, 130, 246, 0.5)',
-                     '&::before': {
-                       animation: 'sparkle 0.8s ease-in-out',
-                     },
-                     '&::after': {
-                       animation: 'sparkle2 0.8s ease-in-out 0.1s',
-                     },
-                     '& .spark-element': {
-                       '&:nth-of-type(1)': {
-                         animation: 'sparkle3 0.8s ease-in-out 0.2s',
-                       },
-                       '&:nth-of-type(2)': {
-                         animation: 'sparkle 0.8s ease-in-out 0.3s',
-                       },
-                     },
-                   },
-                 }}
-               >
-                 <Box
-                   className="spark-element"
-                   sx={{
-                     position: 'absolute',
-                     top: '10%',
-                     right: '10%',
-                     width: 2,
-                     height: 2,
-                     background: 'rgba(255, 255, 255, 0.8)',
-                     borderRadius: 1,
-                     transform: 'scale(0)',
-                     opacity: 0,
-                     transition: 'all 0.2s ease-in-out',
-                   }}
-                 />
-                 <Box
-                   className="spark-element"
-                   sx={{
-                     position: 'absolute',
-                     bottom: '15%',
-                     left: '25%',
-                     width: 2,
-                     height: 2,
-                     background: 'rgba(255, 255, 255, 0.8)',
-                     borderRadius: 1,
-                     transform: 'scale(0)',
-                     opacity: 0,
-                     transition: 'all 0.2s ease-in-out',
-                   }}
-                 />
-                 <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Invite Client</Box>
-                 <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Invite</Box>
-               </Button>
+              {/* Invite Client Button */}
+              <Button
+                variant="contained"
+                startIcon={<PersonAddOutlined sx={{ fontSize: 18 }} />}
+                onClick={handleInviteClient}
+                sx={{
+                  backgroundColor: 'primary.main',
+                  color: 'white',
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1.5,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  fontSize: '0.9rem',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.39)',
+                  transition: 'all 0.2s ease-in-out',
+                  minHeight: { xs: '48px', md: 'auto' }, // Better touch target on mobile
+                  minWidth: { xs: 'auto', sm: 'auto' }, // Compact on mobile
+                  // Spark animations
+                  '@keyframes sparkle': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  '@keyframes sparkle2': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  '@keyframes sparkle3': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  // Spark elements
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '20%',
+                    left: '15%',
+                    width: 4,
+                    height: 4,
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '70%',
+                    right: '20%',
+                    width: 3,
+                    height: 3,
+                    background: 'rgba(255, 255, 255, 0.6)',
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 25px 0 rgba(59, 130, 246, 0.5)',
+                    '&::before': {
+                      animation: 'sparkle 0.8s ease-in-out',
+                    },
+                    '&::after': {
+                      animation: 'sparkle2 0.8s ease-in-out 0.1s',
+                    },
+                    '& .spark-element': {
+                      '&:nth-of-type(1)': {
+                        animation: 'sparkle3 0.8s ease-in-out 0.2s',
+                      },
+                      '&:nth-of-type(2)': {
+                        animation: 'sparkle 0.8s ease-in-out 0.3s',
+                      },
+                    },
+                  },
+                }}
+              >
+                <Box
+                  className="spark-element"
+                  sx={{
+                    position: 'absolute',
+                    top: '10%',
+                    right: '10%',
+                    width: 2,
+                    height: 2,
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 1,
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                />
+                <Box
+                  className="spark-element"
+                  sx={{
+                    position: 'absolute',
+                    bottom: '15%',
+                    left: '25%',
+                    width: 2,
+                    height: 2,
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    borderRadius: 1,
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                />
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Invite Client</Box>
+                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Invite</Box>
+              </Button>
             </Box>
           </Box>
 
@@ -801,275 +770,287 @@ export function ClientProducer() {
               borderColor: 'divider',
               borderRadius: 1,
               flexGrow: 1,
-              overflow: { xs: 'auto', sm: 'hidden' }, 
-              maxHeight: totalItems === 0 ? 'auto' : 'calc(100% - 60px)', 
-              minHeight: totalItems === 0 ? '450px' : 'auto', 
+              overflow: { xs: 'auto', sm: 'hidden' },
+              maxHeight: totalItems === 0 ? 'auto' : 'calc(100% - 60px)',
+              minHeight: totalItems === 0 ? '450px' : 'auto',
               WebkitOverflowScrolling: 'touch',
               '@media (max-height: 780px)': {
-                maxHeight: totalItems === 0 ? 'auto' : '350px', 
-                overflowY: 'auto', 
-                overflow: 'auto', 
+                maxHeight: totalItems === 0 ? 'auto' : '350px',
+                overflowY: 'auto',
+                overflow: 'auto',
               },
             }}
           >
-          <Table sx={{ minWidth: { xs: 650, sm: 'auto' } }}> 
-            <TableHead>
-              <TableRow sx={{ 
-                backgroundColor: `${theme.palette.info.main}1A`,
-              }}>
-                <TableCell
-                  onClick={() => handleSort('name')}
-                  sx={{
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    color: sortField === 'name' ? 'primary.main' : 'text.primary',
-                    fontWeight: sortField === 'name' ? 700 : 600,
-                    transition: 'all 0.2s ease',
-                    minWidth: { xs: 160, sm: 'auto' }, 
-                    '&:hover': {
-                      backgroundColor: 'grey.100',
-                      '& .MuiSvgIcon-root': {
-                        opacity: 1,
-                        color: 'primary.main',
-                        transform: 'scale(1.15)',
+            <Table sx={{ minWidth: { xs: 650, sm: 'auto' } }}>
+              <TableHead>
+                <TableRow sx={{
+                  backgroundColor: `${theme.palette.info.main}1A`,
+                }}>
+                  <TableCell
+                    onClick={() => handleSort('name')}
+                    onMouseEnter={() => setHoveredSort('name')}
+                    onMouseLeave={() => setHoveredSort(null)}
+                    sx={{
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      color: sortField === 'name' ? 'primary.main' : 'text.primary',
+                      fontWeight: sortField === 'name' ? 700 : 600,
+                      transition: 'all 0.2s ease',
+                      minWidth: { xs: 160, sm: 'auto' },
+                      '&:hover': {
+                        backgroundColor: 'grey.100',
+                        '& .MuiSvgIcon-root': {
+                          opacity: 1,
+                          color: 'primary.main',
+                          transform: 'scale(1.15)',
+                        },
                       },
-                    },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    Client
-                    {getSortIcon('name')}
-                  </Box>
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: 'text.primary',
-                    minWidth: { xs: 140, sm: 'auto' }, 
-                  }}
-                >
-                  Contact
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: 'text.primary',
-                    minWidth: { xs: 100, sm: 'auto' }, 
-                  }}
-                >
-                  Status
-                </TableCell>
-                <TableCell
-                  onClick={() => handleSort('totalSpent')}
-                  sx={{
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    color: sortField === 'totalSpent' ? 'primary.main' : 'text.primary',
-                    fontWeight: sortField === 'totalSpent' ? 700 : 600,
-                    transition: 'all 0.2s ease',
-                    minWidth: { xs: 120, sm: 'auto' }, 
-                    '&:hover': {
-                      backgroundColor: 'grey.100',
-                      '& .MuiSvgIcon-root': {
-                        opacity: 1,
-                        color: 'primary.main',
-                        transform: 'scale(1.15)',
-                      },
-                    },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    Total Spent
-                    {getSortIcon('totalSpent')}
-                  </Box>
-                </TableCell>
-                <TableCell
-                  onClick={() => handleSort('projects')}
-                  sx={{
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    color: sortField === 'projects' ? 'primary.main' : 'text.primary',
-                    fontWeight: sortField === 'projects' ? 700 : 600,
-                    transition: 'all 0.2s ease',
-                    minWidth: { xs: 100, sm: 'auto' }, 
-                    '&:hover': {
-                      backgroundColor: 'grey.100',
-                      '& .MuiSvgIcon-root': {
-                        opacity: 1,
-                        color: 'primary.main',
-                        transform: 'scale(1.15)',
-                      },
-                    },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    Projects
-                    {getSortIcon('projects')}
-                  </Box>
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {totalItems === 0 ? (
-                <TableRow>
-                  <TableCell 
-                    colSpan={5} 
-                    sx={{ 
-                      border: 0, 
-                      p: 0,
-                      height: { xs: '400px', md: '550px' }, 
-                      verticalAlign: 'middle',
                     }}
                   >
-                    {clients.length === 0 ? (
-                      <EmptyClientState onInviteClient={handleInviteClient} />
-                    ) : (
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          py: 8,
-                          textAlign: 'center',
-                          height: '100%',
-                        }}
-                      >
-                        <Typography
-                          variant="h6"
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      Client
+                      <Tooltip title={getSortTooltip('name')} arrow placement="top" open={hoveredSort === 'name'}>
+                        <span>{getSortIcon('name')}</span>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      minWidth: { xs: 140, sm: 'auto' },
+                    }}
+                  >
+                    Contact
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      fontWeight: 600,
+                      color: 'text.primary',
+                      minWidth: { xs: 100, sm: 'auto' },
+                    }}
+                  >
+                    Status
+                  </TableCell>
+                  <TableCell
+                    onClick={() => handleSort('totalSpent')}
+                    onMouseEnter={() => setHoveredSort('totalSpent')}
+                    onMouseLeave={() => setHoveredSort(null)}
+                    sx={{
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      color: sortField === 'totalSpent' ? 'primary.main' : 'text.primary',
+                      fontWeight: sortField === 'totalSpent' ? 700 : 600,
+                      transition: 'all 0.2s ease',
+                      minWidth: { xs: 120, sm: 'auto' },
+                      '&:hover': {
+                        backgroundColor: 'grey.100',
+                        '& .MuiSvgIcon-root': {
+                          opacity: 1,
+                          color: 'primary.main',
+                          transform: 'scale(1.15)',
+                        },
+                      },
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      Total Spent
+                      <Tooltip title={getSortTooltip('totalSpent')} arrow placement="top" open={hoveredSort === 'totalSpent'}>
+                        <span>{getSortIcon('totalSpent')}</span>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                  <TableCell
+                    onClick={() => handleSort('projects')}
+                    onMouseEnter={() => setHoveredSort('projects')}
+                    onMouseLeave={() => setHoveredSort(null)}
+                    sx={{
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      color: sortField === 'projects' ? 'primary.main' : 'text.primary',
+                      fontWeight: sortField === 'projects' ? 700 : 600,
+                      transition: 'all 0.2s ease',
+                      minWidth: { xs: 100, sm: 'auto' },
+                      '&:hover': {
+                        backgroundColor: 'grey.100',
+                        '& .MuiSvgIcon-root': {
+                          opacity: 1,
+                          color: 'primary.main',
+                          transform: 'scale(1.15)',
+                        },
+                      },
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      Projects
+                      <Tooltip title={getSortTooltip('projects')} arrow placement="top" open={hoveredSort === 'projects'}>
+                        <span>{getSortIcon('projects')}</span>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {totalItems === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      sx={{
+                        border: 0,
+                        p: 0,
+                        height: { xs: '400px', md: '550px' },
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      {clients.length === 0 ? (
+                        <EmptyClientState onInviteClient={handleInviteClient} />
+                      ) : (
+                        <Box
                           sx={{
-                            color: 'text.secondary',
-                            mb: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            py: 8,
+                            textAlign: 'center',
+                            height: '100%',
                           }}
                         >
-                          No clients found
+                          <Typography
+                            variant="h6"
+                            sx={{
+                              color: 'text.secondary',
+                              mb: 1,
+                            }}
+                          >
+                            No clients found
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: 'text.secondary',
+                            }}
+                          >
+                            Try adjusting your search or filter criteria
+                          </Typography>
+                        </Box>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedClients.map((client) => (
+                    <TableRow
+                      key={client.id}
+                      onClick={() => console.log('Client clicked:', client.name, client)}
+                      sx={{
+                        cursor: 'pointer',
+                        '&:hover': {
+                          backgroundColor: 'grey.50',
+                        },
+                      }}
+                    >
+                      <TableCell>
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            fontWeight: 500,
+                            color: 'text.primary',
+                            fontSize: { xs: '0.85rem', md: '1rem' },
+                          }}
+                        >
+                          {client.name}
                         </Typography>
+                      </TableCell>
+                      <TableCell>
                         <Typography
                           variant="body2"
                           sx={{
                             color: 'text.secondary',
+                            fontSize: { xs: '0.8rem', md: '0.875rem' },
                           }}
                         >
-                          Try adjusting your search or filter criteria
+                          {client.contact}
                         </Typography>
-                      </Box>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedClients.map((client) => (
-                  <TableRow
-                    key={client.id}
-                    onClick={() => console.log('Client clicked:', client.name, client)}
-                    sx={{
-                      cursor: 'pointer',
-                      '&:hover': {
-                        backgroundColor: 'grey.50',
-                      },
-                    }}
-                  >
-                    <TableCell>
-                      <Typography
-                        variant="body1"
-                        sx={{
-                          fontWeight: 500,
-                          color: 'text.primary',
-                          fontSize: { xs: '0.85rem', md: '1rem' },
-                        }}
-                      >
-                        {client.name}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: 'text.secondary',
-                          fontSize: { xs: '0.8rem', md: '0.875rem' },
-                        }}
-                      >
-                        {client.contact}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip {...getStatusChipProps(client.status)} />
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 500,
-                          color: 'text.primary',
-                          fontSize: { xs: '0.8rem', md: '0.875rem' },
-                        }}
-                      >
-                        {formatCurrency(client.totalSpent)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 500,
-                          color: 'text.primary',
-                          fontSize: { xs: '0.8rem', md: '0.875rem' },
-                        }}
-                      >
-                        {client.projects}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                      </TableCell>
+                      <TableCell>
+                        <Chip {...getStatusChipProps(client.status)} />
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 500,
+                            color: 'text.primary',
+                            fontSize: { xs: '0.8rem', md: '0.875rem' },
+                          }}
+                        >
+                          {formatCurrency(client.totalSpent)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 500,
+                            color: 'text.primary',
+                            fontSize: { xs: '0.8rem', md: '0.875rem' },
+                          }}
+                        >
+                          {client.projects}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
 
 
-        {/* Pagination Controls */}
-        {totalItems > 0 && clients.length > 0 && (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: { xs: 'center', md: 'space-between' },
-              alignItems: 'center',
-              mt: 2,
-              pt: 2,
-              borderTop: '1px solid',
-              borderColor: 'divider',
-              flexDirection: { xs: 'column', md: 'row' },
-              gap: { xs: 2, md: 0 },
-            }}
-          >
-            {/* Pagination */}
-            <Pagination
-              count={totalPages}
-              page={currentPage}
-              onChange={(event, value) => setCurrentPage(value)}
-              color="primary"
-              size="small"
-              siblingCount={0} 
-              boundaryCount={1}
-            />
-
-            {/* Showing text */}
-            <Typography
-              variant="body2"
+          {/* Pagination Controls */}
+          {totalItems > 0 && clients.length > 0 && (
+            <Box
               sx={{
-                color: 'text.secondary',
-                fontSize: { xs: '0.8rem', md: '0.875rem' },
-                textAlign: 'center',
+                display: 'flex',
+                justifyContent: { xs: 'center', md: 'space-between' },
+                alignItems: 'center',
+                mt: 2,
+                pt: 2,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                flexDirection: { xs: 'column', md: 'row' },
+                gap: { xs: 2, md: 0 },
               }}
             >
-              {totalItems <= itemsPerPage || totalPages === 1 
-                ? `Showing ${totalItems} of ${totalItems}`
-                : `Showing ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems}`
-              }
-            </Typography>
-          </Box>
-        )}
-      </Paper>
+              {/* Pagination */}
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={(event, value) => setCurrentPage(value)}
+                color="primary"
+                size="small"
+                siblingCount={0}
+                boundaryCount={1}
+              />
+
+              {/* Showing text */}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                  fontSize: { xs: '0.8rem', md: '0.875rem' },
+                  textAlign: 'center',
+                }}
+              >
+                {totalItems <= itemsPerPage || totalPages === 1
+                  ? `Showing ${totalItems} of ${totalItems}`
+                  : `Showing ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems}`
+                }
+              </Typography>
+            </Box>
+          )}
+        </Paper>
       </Box>
     </LayoutProducer>
   );

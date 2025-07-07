@@ -17,45 +17,40 @@ export function LayoutProducer({
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
   
-  // Start with a safe default, will be corrected in useEffect
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Set correct initial state based on mobile/desktop and localStorage
-  useEffect(() => {
-    if (!isInitialized) {
-      if (isMobile) {
-        setIsSidebarOpen(false); // Always closed on mobile
-      } else {
-        // For desktop, check localStorage
-        try {
-          const saved = localStorage.getItem('producer-sidebar-open');
-          setIsSidebarOpen(saved !== null ? JSON.parse(saved) : true);
-        } catch {
-          setIsSidebarOpen(true); // Default to true if localStorage fails
-        }
+  // Initialize sidebar open state from localStorage or mobile detection
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      if (window.matchMedia('(max-width: 960px)').matches) {
+        // Mobile: always closed
+        return false;
       }
-      setIsInitialized(true);
+      try {
+        const saved = localStorage.getItem('producer-sidebar-open');
+        return saved !== null ? JSON.parse(saved) : true;
+      } catch {
+        return true;
+      }
     }
-  }, [isMobile, isInitialized]);
+    return true;
+  });
 
   // Close sidebar when switching to mobile (after initialization)
   useEffect(() => {
-    if (isInitialized && isMobile) {
+    if (isMobile) {
       setIsSidebarOpen(false);
     }
-  }, [isMobile, isInitialized]);
+  }, [isMobile]);
 
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
-    if (isInitialized && !isMobile) {
+    if (!isMobile) {
       try {
         localStorage.setItem('producer-sidebar-open', JSON.stringify(isSidebarOpen));
       } catch {
         // Handle localStorage errors gracefully
       }
     }
-  }, [isSidebarOpen, isMobile, isInitialized]);
+  }, [isSidebarOpen, isMobile]);
 
   // Add keyboard shortcut for sidebar toggle (Ctrl+B or Cmd+B)
   useEffect(() => {
@@ -64,7 +59,7 @@ export function LayoutProducer({
       if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
         event.preventDefault();
         // Use functional update to avoid closure issues
-        setIsSidebarOpen(prev => !prev);
+        setIsSidebarOpen((prev: boolean) => !prev);
       }
     };
 
