@@ -12,6 +12,7 @@ import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
 // Import Supabase configuration to trigger connection test
 import './config/supabase'
+import { ScrollToTop } from './utils/ScrollToTop.tsx'
 
 function Root() {
   const [theme, setTheme] = useState<any>(null);
@@ -64,6 +65,7 @@ function Root() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/producer" element={<DashProducer />} />

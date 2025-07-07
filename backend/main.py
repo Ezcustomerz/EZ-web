@@ -34,7 +34,7 @@ async def read_root():
         # Test connection with a simple operation
         session = db_session.db_client.auth.get_session()
         return {
-            "message": "API is running",
+            "message": "API is running!",
             "database_status": "✅ Connected",
             "database_connection": "successful"
         }

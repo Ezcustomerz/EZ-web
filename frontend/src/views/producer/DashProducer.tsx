@@ -1,5 +1,4 @@
 import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 import { LayoutProducer } from '../../layout/producer/LayoutProducer';
 import { WelcomeCard } from '../../components/cards/producer/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/producer/ActivityFeedCard';
@@ -7,49 +6,11 @@ import { ActivityFeedCard } from '../../components/cards/producer/ActivityFeedCa
 export function DashProducer() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
-  const navigate = useNavigate();
-
-  function handleNavItemChange(item: string) {
-    switch (item) {
-      case 'dashboard':
-        navigate('/producer');
-        break;
-      case 'clients':
-        navigate('/producer/clients');
-        break;
-      case 'income':
-        navigate('/producer/income');
-        break;
-      case 'public':
-        navigate('/producer/public');
-        break;
-      default:
-        break;
-    }
-  }
 
   return (
-    <>
-      {/* Full-screen background gradient */}
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `linear-gradient(135deg, 
-            ${theme.palette.background.default} 0%,
-            ${theme.palette.primary.main}08 50%,
-            ${theme.palette.background.default} 100%
-          )`,
-          zIndex: -1,
-        }}
-      />
-      
-      <LayoutProducer selectedNavItem="dashboard" onNavItemChange={handleNavItemChange}>
-        {({ isSidebarOpen }) => (
-          <Box
+    <LayoutProducer selectedNavItem="dashboard">
+      {({ isSidebarOpen }) => (
+        <Box
           sx={{
             p: { xs: 2, md: 4 },
             // Responsive height and overflow behavior
@@ -67,53 +28,50 @@ export function DashProducer() {
             WebkitOverflowScrolling: isMobile ? 'touch' : 'auto',
           }}
         >
-        {/* Welcome Card */}
-        <WelcomeCard userName="Demo User" userRole="Music Producer" isSidebarOpen={isSidebarOpen} />
+          {/* Welcome Card */}
+          <WelcomeCard userName="Demo User" userRole="Music Producer" isSidebarOpen={isSidebarOpen} />
 
-
-
-        {/* Section Divider */}
-        <Box sx={{ 
-          position: 'relative', 
-          zIndex: 1, 
-          mb: 2,
-          animation: 'fadeIn 0.6s ease-out 0.35s both',
-          '@keyframes fadeIn': {
-            from: { opacity: 0 },
-            to: { opacity: 1 },
-          },
-        }}>
-          <Divider sx={{ 
-            borderColor: 'rgba(0, 0, 0, 0.12)',
-            my: 2,
-          }} />
+          {/* Section Divider */}
           <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center',
-            mt: -1.5,
+            position: 'relative', 
+            zIndex: 1, 
+            mb: 2,
+            animation: 'fadeIn 0.6s ease-out 0.35s both',
+            '@keyframes fadeIn': {
+              from: { opacity: 0 },
+              to: { opacity: 1 },
+            },
           }}>
-            <Typography 
-              variant="overline" 
-              sx={{ 
-                color: 'text.disabled',
-                fontSize: '0.65rem',
-                fontWeight: 600,
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                backgroundColor: 'background.default',
-                px: 2,
-              }}
-            >
-              Activity Feed
-            </Typography>
+            <Divider sx={{ 
+              borderColor: 'rgba(0, 0, 0, 0.12)',
+              my: 2,
+            }} />
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center',
+              mt: -1.5,
+            }}>
+              <Typography 
+                variant="overline" 
+                sx={{ 
+                  color: 'text.disabled',
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  letterSpacing: '0.15em',
+                  textTransform: 'uppercase',
+                  backgroundColor: 'background.default',
+                  px: 2,
+                }}
+              >
+                Activity Feed
+              </Typography>
+            </Box>
           </Box>
-        </Box>
 
-        {/* Activity Feed Card */}
-        <ActivityFeedCard newCount={3} />
+          {/* Activity Feed Card */}
+          <ActivityFeedCard newCount={3} />
         </Box>
-        )}
-      </LayoutProducer>
-      </>
-    );
-  } 
+      )}
+    </LayoutProducer>
+  );
+} 

@@ -2,60 +2,55 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
 import { SidebarProducer } from './SidebarProducer';
 import { useTheme } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 
 interface LayoutProducerProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
   selectedNavItem?: string;
-  onNavItemChange?: (item: string) => void;
 }
 
 export function LayoutProducer({ 
   children, 
-  selectedNavItem,
-  onNavItemChange 
+  selectedNavItem
 }: LayoutProducerProps) {
   const theme = useTheme();
+  const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
   
-  // Start with a safe default, will be corrected in useEffect
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Set correct initial state based on mobile/desktop and localStorage
-  useEffect(() => {
-    if (!isInitialized) {
-      if (isMobile) {
-        setIsSidebarOpen(false); // Always closed on mobile
-      } else {
-        // For desktop, check localStorage
-        try {
-          const saved = localStorage.getItem('producer-sidebar-open');
-          setIsSidebarOpen(saved !== null ? JSON.parse(saved) : true);
-        } catch {
-          setIsSidebarOpen(true); // Default to true if localStorage fails
-        }
+  // Initialize sidebar open state from localStorage or mobile detection
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      if (window.matchMedia('(max-width: 960px)').matches) {
+        // Mobile: always closed
+        return false;
       }
-      setIsInitialized(true);
+      try {
+        const saved = localStorage.getItem('producer-sidebar-open');
+        return saved !== null ? JSON.parse(saved) : true;
+      } catch {
+        return true;
+      }
     }
-  }, [isMobile, isInitialized]);
+    return true;
+  });
 
   // Close sidebar when switching to mobile (after initialization)
   useEffect(() => {
-    if (isInitialized && isMobile) {
+    if (isMobile) {
       setIsSidebarOpen(false);
     }
-  }, [isMobile, isInitialized]);
+  }, [isMobile]);
 
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
-    if (isInitialized && !isMobile) {
+    if (!isMobile) {
       try {
         localStorage.setItem('producer-sidebar-open', JSON.stringify(isSidebarOpen));
       } catch {
         // Handle localStorage errors gracefully
       }
     }
-  }, [isSidebarOpen, isMobile, isInitialized]);
+  }, [isSidebarOpen, isMobile]);
 
   // Add keyboard shortcut for sidebar toggle (Ctrl+B or Cmd+B)
   useEffect(() => {
@@ -64,7 +59,7 @@ export function LayoutProducer({
       if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
         event.preventDefault();
         // Use functional update to avoid closure issues
-        setIsSidebarOpen(prev => !prev);
+        setIsSidebarOpen((prev: boolean) => !prev);
       }
     };
 
@@ -74,6 +69,26 @@ export function LayoutProducer({
 
   function handleSidebarToggle() {
     setIsSidebarOpen(!isSidebarOpen);
+  }
+
+  // Navigation logic moved from individual pages
+  function handleNavItemChange(item: string) {
+    switch (item) {
+      case 'dashboard':
+        navigate('/producer');
+        break;
+      case 'clients':
+        navigate('/producer/clients');
+        break;
+      case 'income':
+        navigate('/producer/income');
+        break;
+      case 'public':
+        navigate('/producer/public');
+        break;
+      default:
+        break;
+    }
   }
 
   // Detect platform for keybind hint
@@ -86,15 +101,11 @@ export function LayoutProducer({
       setIsSidebarOpen(false);
       // Delay navigation to allow closing animation to play
       setTimeout(() => {
-        if (onNavItemChange) {
-          onNavItemChange(item);
-        }
+        handleNavItemChange(item);
       }, 150); // Match the sidebar animation duration
     } else {
       // On desktop, navigate immediately
-      if (onNavItemChange) {
-        onNavItemChange(item);
-      }
+      handleNavItemChange(item);
     }
   }
 
@@ -143,8 +154,8 @@ export function LayoutProducer({
             <Box
               onClick={handleSidebarToggle}
               sx={{
-                backgroundColor: theme.palette.primary.main,
-                color: 'white',
+                backgroundColor: 'transparent',
+                color: theme.palette.text.primary,
                 width: 48,
                 height: 48,
                 borderRadius: 4,
@@ -152,13 +163,13 @@ export function LayoutProducer({
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 '&:hover': {
-                  backgroundColor: theme.palette.primary.dark,
+                  backgroundColor: 'rgba(0, 0, 0, 0.04)',
                   transform: 'scale(1.05)',
                 },
                 '&:active': {
                   transform: 'scale(0.95)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.08)',
                 },
                 transition: 'all 0.2s ease',
               }}
@@ -172,9 +183,9 @@ export function LayoutProducer({
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
-                <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
-                <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
-                <Box sx={{ width: '100%', height: '2px', backgroundColor: 'white', borderRadius: '1px' }} />
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: theme.palette.text.primary, borderRadius: '1px' }} />
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: theme.palette.text.primary, borderRadius: '1px' }} />
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: theme.palette.text.primary, borderRadius: '1px' }} />
               </Box>
             </Box>
           </Tooltip>
