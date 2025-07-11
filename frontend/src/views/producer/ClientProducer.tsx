@@ -45,8 +45,6 @@ interface Client {
 type SortField = 'name' | 'totalSpent' | 'projects';
 type SortDirection = 'asc' | 'desc' | null;
 
-// Mock client data
-const mockClients: Client[] = [];
 
 // Empty Client State Component
 function EmptyClientState({ onInviteClient }: { onInviteClient: () => void }) {
@@ -265,7 +263,7 @@ function EmptyClientState({ onInviteClient }: { onInviteClient: () => void }) {
 
 export function ClientProducer() {
   const theme = useTheme();
-  const [clients] = useState<Client[]>(mockClients);
+  const [clients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sortField, setSortField] = useState<SortField | null>(null);
@@ -304,7 +302,15 @@ export function ClientProducer() {
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      if (!sortField || !sortDirection) return 0;
+      // Default: active first, then inactive, then totalSpent descending
+      if (!sortField || !sortDirection) {
+        if (a.status !== b.status) {
+          // 'active' before 'inactive'
+          return a.status === 'active' ? -1 : 1;
+        }
+        // Within status, sort by totalSpent descending
+        return b.totalSpent - a.totalSpent;
+      }
 
       let aValue: any;
       let bValue: any;
@@ -449,6 +455,7 @@ export function ClientProducer() {
       );
     }
   };
+    
 
   return (
     <LayoutProducer selectedNavItem="clients">
@@ -920,7 +927,7 @@ export function ClientProducer() {
                             variant="h6"
                             sx={{
                               color: 'text.secondary',
-                              mb: 1,
+                              mb: 0.5,
                             }}
                           >
                             No clients found

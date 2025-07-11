@@ -24,10 +24,10 @@ export function LayoutProducer({
         // Mobile: always closed
         return false;
       }
-      try {
-        const saved = localStorage.getItem('producer-sidebar-open');
+        try {
+          const saved = localStorage.getItem('producer-sidebar-open');
         return saved !== null ? JSON.parse(saved) : true;
-      } catch {
+        } catch {
         return true;
       }
     }
