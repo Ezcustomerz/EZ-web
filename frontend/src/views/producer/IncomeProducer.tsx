@@ -136,8 +136,35 @@ export function IncomeProducer() {
             ))}
           </Tabs>
 
-          {/* Empty content placeholder */}
-          <Box sx={{ minHeight: 300, width: '100%', flexGrow: 1, display: 'flex', flexDirection: 'column' , px: 2, pb: 2}}>
+          {/* Animated tab content placeholder */}
+          <Box
+            key={activeTab}
+            sx={{
+              minHeight: 300,
+              width: '100%',
+              flexGrow: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              px: 2,
+              pb: 2,
+              position: 'relative',
+              animation: 'fadeSlideIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              '@keyframes fadeSlideIn': {
+                '0%': {
+                  opacity: 0,
+                  transform: 'translateY(24px) scale(0.98)',
+                },
+                '100%': {
+                  opacity: 1,
+                  transform: 'translateY(0) scale(1)',
+                },
+              },
+              ...(activeTab === 1 && {
+                alignItems: 'center',
+                justifyContent: 'center',
+              }),
+            }}
+          >
             {activeTab === 0 ? (
               <InvoicesTable />
             ) : (
@@ -145,20 +172,19 @@ export function IncomeProducer() {
                 sx={{
                   position: 'relative',
                   width: '100%',
-                  maxWidth: 440,
+                  maxWidth: { xs: '100%', sm: 500, md: 700, lg: 800 },
+                  minHeight: { xs: 320, sm: 400, md: 500, lg: 600 },
                   mx: 'auto',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  py: { xs: 6, sm: 8 },
-                  px: { xs: 2, sm: 4 },
+                  py: { xs: 4, sm: 6, md: 8 },
+                  px: { xs: 1, sm: 3, md: 4 },
                   borderRadius: 3,
                   boxShadow: '0 8px 32px 0 rgba(59,130,246,0.18)',
                   background: `linear-gradient(135deg, #60a5fa 0%, ${theme.palette.secondary.main} 100%)`,
                   overflow: 'hidden',
-                  mt: 2,
-                  mb: 2,
                 }}
               >
                 {/* Semi-transparent white overlay for contrast */}
@@ -178,7 +204,7 @@ export function IncomeProducer() {
                   background: `linear-gradient(90deg, #fbbf24 0%, ${theme.palette.custom.amber} 100%)`,
                   color: '#fff',
                   fontWeight: 700,
-                  fontSize: '0.75rem',
+                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
                   px: 1.5,
                   py: 0.5,
                   borderRadius: 2,
@@ -194,8 +220,8 @@ export function IncomeProducer() {
                     left: '50%',
                     top: '54%',
                     transform: 'translate(-50%, -50%)',
-                    width: { xs: 300, sm: 360 },
-                    height: { xs: 110, sm: 140 },
+                    width: { xs: 220, sm: 300, md: 360 },
+                    height: { xs: 80, sm: 110, md: 140 },
                     opacity: 0.13,
                     zIndex: 0,
                     pointerEvents: 'none',
@@ -213,7 +239,7 @@ export function IncomeProducer() {
                 </Box>
                 {/* Icon above heading */}
                 <Box sx={{ position: 'relative', zIndex: 2, mb: 1.5 }}>
-                  <BarChart sx={{ fontSize: 44, color: '#fff', opacity: 0.92, filter: 'drop-shadow(0 2px 8px #3B82F655)' }} />
+                  <BarChart sx={{ fontSize: { xs: 36, sm: 44 }, color: '#fff', opacity: 0.92, filter: 'drop-shadow(0 2px 8px #3B82F655)' }} />
                 </Box>
                 {/* Title */}
                 <Typography
@@ -222,7 +248,7 @@ export function IncomeProducer() {
                     color: '#fff',
                     fontWeight: 800,
                     mb: 1.5,
-                    fontSize: { xs: '1.22rem', sm: '1.38rem' },
+                    fontSize: { xs: '1.05rem', sm: '1.22rem', md: '1.38rem' },
                     letterSpacing: '-0.01em',
                     position: 'relative',
                     zIndex: 2,
@@ -239,9 +265,10 @@ export function IncomeProducer() {
                     fontWeight: 500,
                     mb: 3,
                     textAlign: 'center',
-                    maxWidth: 340,
+                    maxWidth: { xs: 260, sm: 340 },
                     position: 'relative',
                     zIndex: 2,
+                    fontSize: { xs: '0.92rem', sm: '1rem' },
                   }}
                 >
                   Track trends, measure growth, and discover where your income comes from. Upgrade to Pro for full access.
@@ -254,7 +281,7 @@ export function IncomeProducer() {
                       background: `linear-gradient(90deg, ${theme.palette.custom.amber} 0%, #f59e42 100%)`,
                       color: '#fff',
                       fontWeight: 700,
-                      fontSize: '1rem',
+                      fontSize: { xs: '0.95rem', sm: '1rem' },
                       border: 'none',
                       borderRadius: 2,
                       px: 3.5,

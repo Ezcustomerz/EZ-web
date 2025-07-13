@@ -256,12 +256,13 @@ export function InvoicesTable() {
           <Button
             variant="contained"
             startIcon={<PaymentIcon sx={{ fontSize: 18 }} />}
+            size="small"
             sx={{
               backgroundColor: 'primary.main',
               color: 'white',
               borderRadius: 2,
               px: 3,
-              py: 1.5,
+              height: '40px',
               fontWeight: 600,
               textTransform: 'none',
               fontSize: '0.9rem',
@@ -269,7 +270,6 @@ export function InvoicesTable() {
               overflow: 'hidden',
               boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.39)',
               transition: 'all 0.2s ease-in-out',
-              minHeight: { xs: '48px', md: 'auto' },
               minWidth: { xs: 'auto', sm: 'auto' },
               '&:hover': {
                 backgroundColor: 'primary.dark',
@@ -384,7 +384,7 @@ export function InvoicesTable() {
                 fontSize: '0.8rem',
                 fontWeight: 500,
                 px: 2.5,
-                py: 0.75,
+                height: '40px',
                 borderRadius: 1.5,
                 textTransform: 'none',
                 position: 'relative',
