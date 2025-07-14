@@ -2,6 +2,9 @@ import { Box, Typography, Paper, Tab, Tabs, useTheme } from '@mui/material';
 import { LayoutProducer } from '../../layout/producer/LayoutProducer';
 import { useState } from 'react';
 import { Build, CalendarMonth, Person } from '@mui/icons-material';
+import { ServicesTab } from './tabs/ServicesTab';
+import { CalendarTab } from './tabs/CalendarTab';
+import { ProfileTab } from './tabs/ProfileTab';
 
 const tabLabels = [
   { label: 'Services', icon: <Build sx={{ fontSize: 18, mr: 1 }} /> },
@@ -136,11 +139,9 @@ export function PublicProducer() {
             ))}
           </Tabs>
           {/* Tab content */}
-          <Box sx={{ minHeight: 300, width: '100%', flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2, pb: 2 }}>
-            <Typography variant="h5" color="primary" sx={{ fontWeight: 700, fontSize: { xs: '1.1rem', sm: '1.3rem' } }}>
-              {tabLabels[activeTab].label}
-            </Typography>
-          </Box>
+          {activeTab === 0 && <ServicesTab />}
+          {activeTab === 1 && <CalendarTab />}
+          {activeTab === 2 && <ProfileTab />}
         </Paper>
       </Box>
     </LayoutProducer>
