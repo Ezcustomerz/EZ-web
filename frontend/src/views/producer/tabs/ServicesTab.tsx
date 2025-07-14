@@ -1,8 +1,9 @@
-import { Box, Typography, Card, CardContent, IconButton, Tooltip, MenuItem, Select, FormControl, InputLabel, TextField, InputAdornment } from '@mui/material';
-import { Edit, Search as SearchIcon } from '@mui/icons-material';
-import { useState } from 'react';
+import { Box, Typography, Card, CardContent, IconButton, Tooltip } from '@mui/material';
+import { Edit } from '@mui/icons-material';
+import { useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUp, faArrowDown, faGlobe, faLock, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { faGlobe, faLock } from '@fortawesome/free-solid-svg-icons';
+import { useTheme } from '@mui/material/styles';
 
 const mockServices = [
   {
@@ -29,6 +30,54 @@ const mockServices = [
     status: 'Public',
     delivery: '9 - 10 days',
   },
+  {
+    id: '4',
+    title: 'Vocal Tuning',
+    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
+    price: 200,
+    status: 'Private',
+    delivery: '9 - 10 days',
+  },
+  {
+    id: '5',
+    title: 'Vocal Tuning',
+    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
+    price: 200,
+    status: 'Private',
+    delivery: '9 - 10 days',
+  },
+  {
+    id: '6',
+    title: 'Vocal Tuning',
+    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
+    price: 200,
+    status: 'Private',
+    delivery: '9 - 10 days',
+  },
+  {
+    id: '7',
+    title: 'Vocal Tuning',
+    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
+    price: 200,
+    status: 'Private',
+    delivery: '9 - 10 days',
+  },
+  {
+    id: '8',
+    title: 'Vocal Tuning',
+    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
+    price: 200,
+    status: 'Private',
+    delivery: '9 - 10 days',
+  },
+  {
+    id: '9',
+    title: 'Vocal Tuning',
+    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
+    price: 200,
+    status: 'Private',
+    delivery: '9 - 10 days',
+  },
 ];
 
 const statusHelp = {
@@ -36,242 +85,59 @@ const statusHelp = {
   Private: 'Only visible to you. Not shown on your public profile.',
 };
 
-const sortOptions = [
-  { value: 'title', label: 'Name' },
-  { value: 'price', label: 'Price' },
-  { value: 'delivery', label: 'Delivery Time' },
-];
+export interface ServicesTabProps {
+  search: string;
+  sortBy: 'title' | 'price' | 'delivery';
+  sortOrder: 'asc' | 'desc';
+  visibility: 'all' | 'Public' | 'Private';
+}
 
-export function ServicesTab() {
-  const [sortBy, setSortBy] = useState<'title' | 'price' | 'delivery'>('title');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [search, setSearch] = useState('');
-  const [visibility, setVisibility] = useState<'all' | 'Public' | 'Private'>('all');
-  // Filter and sort
-  const filteredServices = mockServices.filter(s =>
-    (visibility === 'all' || s.status === visibility) &&
-    (s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.description.toLowerCase().includes(search.toLowerCase()))
-  );
-  const sortedServices = [...filteredServices].sort((a, b) => {
-    let cmp = 0;
-    if (sortBy === 'title') cmp = a.title.localeCompare(b.title);
-    if (sortBy === 'price') cmp = a.price - b.price;
-    if (sortBy === 'delivery') {
-      // Parse delivery string to get the minimum number of days
-      const parseDays = (str: string) => {
-        const match = str.match(/(\d+)/g);
-        if (!match) return 0;
-        return Math.min(...match.map(Number));
-      };
-      cmp = parseDays(a.delivery) - parseDays(b.delivery);
-    }
-    return sortOrder === 'asc' ? cmp : -cmp;
-  });
-
-  // Animation key to force remount on filter/sort/search change
+export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesTabProps) {
   const animationKey = sortBy + '-' + sortOrder + '-' + visibility + '-' + search;
+  const sortedServices = useMemo(() => {
+    const filtered = mockServices.filter(s =>
+      (visibility === 'all' || s.status === visibility) &&
+      (s.title.toLowerCase().includes(search.toLowerCase()) ||
+        s.description.toLowerCase().includes(search.toLowerCase()))
+    );
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'title') cmp = a.title.localeCompare(b.title);
+      if (sortBy === 'price') cmp = a.price - b.price;
+      if (sortBy === 'delivery') {
+        const parseDays = (str: string) => {
+          const match = str.match(/(\d+)/g);
+          if (!match) return 0;
+          return Math.min(...match.map(Number));
+        };
+        cmp = parseDays(a.delivery) - parseDays(b.delivery);
+      }
+      return sortOrder === 'asc' ? cmp : -cmp;
+    });
+  }, [search, sortBy, sortOrder, visibility]);
 
   return (
-    <Box sx={{ width: '100%', flexGrow: 1, py: 2 }}>
-      {/* Search and Sort Controls */}
-      <Box sx={{ mb: 2, px: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: { xs: 'flex-start', sm: 'space-between' }, alignItems: { sm: 'center' } }}>
-        <TextField
-          size="small"
-          placeholder="Search services..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: { xs: '100%', sm: 220 } }}
-        />
-        {/* Visibility Filter */}
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel id="visibility-label">Visibility</InputLabel>
-          <Select
-            labelId="visibility-label"
-            value={visibility}
-            label="Visibility"
-            onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private')}
-            renderValue={() => {
-              let icon = faLayerGroup;
-              let label = 'All';
-              if (visibility === 'Public') {
-                icon = faGlobe;
-                label = 'Public';
-              } else if (visibility === 'Private') {
-                icon = faLock;
-                label = 'Private';
-              }
-              return (
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <FontAwesomeIcon icon={icon} style={{ marginRight: 8, color: '#888', fontSize: 16 }} />
-                  <span>{label}</span>
-                </Box>
-              );
-            }}
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  borderRadius: 1,
-                  mt: 1,
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                  border: '1px solid rgba(0, 0, 0, 0.05)',
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(10px)',
-                  '& .MuiMenuItem-root': {
-                    py: 1,
-                    px: 2,
-                    borderRadius: 0,
-                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': {
-                      backgroundColor: 'transparent',
-                      transform: 'translateX(4px)',
-                      fontWeight: 600,
-                      color: 'primary.main',
-                    },
-                    '&.Mui-selected': {
-                      backgroundColor: 'transparent',
-                      fontWeight: 600,
-                      color: 'text.primary',
-                    },
-                    '&.Mui-selected:hover': {
-                      backgroundColor: 'transparent',
-                      color: 'primary.main',
-                    },
-                    '&.Mui-focusVisible': {
-                      backgroundColor: 'transparent',
-                    },
-                  },
-                  // Icon color logic
-                  '& .dropdown-icon': {
-                    color: '#888',
-                    transition: 'color 0.15s',
-                  },
-                  '& .MuiMenuItem-root.Mui-selected .dropdown-icon': {
-                    color: '#23243a', // text.primary
-                  },
-                  '& .MuiMenuItem-root:hover .dropdown-icon, & .MuiMenuItem-root.Mui-selected:hover .dropdown-icon': {
-                    color: '#7A5FFF', // primary.main
-                  },
-                },
-              },
-            }}
-          >
-            <MenuItem value="all" disableRipple>
-              <FontAwesomeIcon icon={faLayerGroup} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
-              <Box sx={{ flex: 1, fontWeight: visibility === 'all' ? 600 : 400 }}>All</Box>
-            </MenuItem>
-            <MenuItem value="Public" disableRipple>
-              <FontAwesomeIcon icon={faGlobe} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
-              <Box sx={{ flex: 1, fontWeight: visibility === 'Public' ? 600 : 400 }}>Public</Box>
-            </MenuItem>
-            <MenuItem value="Private" disableRipple>
-              <FontAwesomeIcon icon={faLock} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
-              <Box sx={{ flex: 1, fontWeight: visibility === 'Private' ? 600 : 400 }}>Private</Box>
-            </MenuItem>
-          </Select>
-        </FormControl>
-        {/* Sort Dropdown */}
-        <FormControl size="small" sx={{ minWidth: 140, ml: { sm: 'auto' } }}>
-          <InputLabel id="sort-label">Sort By</InputLabel>
-          <Select
-            labelId="sort-label"
-            value={sortBy + '-' + sortOrder}
-            label="Sort By"
-            onChange={e => {
-              const [field, order] = (e.target.value as string).split('-');
-              setSortBy(field as 'title' | 'price' | 'delivery');
-              setSortOrder(order as 'asc' | 'desc');
-            }}
-            renderValue={() => {
-              const opt = sortOptions.find(o => o.value === sortBy);
-              const icon = sortOrder === 'asc' ? faArrowUp : faArrowDown;
-              return (
-                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                  <FontAwesomeIcon icon={icon} style={{ marginRight: 8, color: '#888', fontSize: 18 }} />
-                  <span>{opt?.label || ''}</span>
-                </Box>
-              );
-            }}
-            MenuProps={{
-              PaperProps: {
-                sx: {
-                  borderRadius: 1,
-                  mt: 1,
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                  border: '1px solid rgba(0, 0, 0, 0.05)',
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(10px)',
-                  '& .MuiMenuItem-root': {
-                    py: 1,
-                    px: 2,
-                    borderRadius: 0,
-                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': {
-                      backgroundColor: 'transparent',
-                      transform: 'translateX(4px)',
-                      fontWeight: 600,
-                      color: 'primary.main',
-                    },
-                    '&.Mui-selected': {
-                      backgroundColor: 'transparent',
-                      fontWeight: 600,
-                      color: 'text.primary',
-                    },
-                    '&.Mui-selected:hover': {
-                      backgroundColor: 'transparent',
-                      color: 'primary.main',
-                    },
-                    '&.Mui-focusVisible': {
-                      backgroundColor: 'transparent',
-                    },
-                  },
-                  // Icon color logic
-                  '& .dropdown-icon': {
-                    color: '#888',
-                    transition: 'color 0.15s',
-                  },
-                  '& .MuiMenuItem-root.Mui-selected .dropdown-icon': {
-                    color: '#23243a', // text.primary
-                  },
-                  '& .MuiMenuItem-root:hover .dropdown-icon, & .MuiMenuItem-root.Mui-selected:hover .dropdown-icon': {
-                    color: '#7A5FFF', // primary.main
-                  },
-                },
-              },
-            }}
-          >
-            {sortOptions.map(opt => [
-              <MenuItem key={opt.value + '-desc'} value={opt.value + '-desc'} disableRipple>
-                <FontAwesomeIcon icon={faArrowDown} className="dropdown-icon" style={{ marginRight: 12, fontSize: 18 }} />
-                <Box sx={{ flex: 1, fontWeight: (sortBy === opt.value && sortOrder === 'desc') ? 600 : 400 }}>{opt.label}</Box>
-              </MenuItem>,
-              <MenuItem key={opt.value + '-asc'} value={opt.value + '-asc'} disableRipple>
-                <FontAwesomeIcon icon={faArrowUp} className="dropdown-icon" style={{ marginRight: 12, fontSize: 18 }} />
-                <Box sx={{ flex: 1, fontWeight: (sortBy === opt.value && sortOrder === 'asc') ? 600 : 400 }}>{opt.label}</Box>
-              </MenuItem>
-            ])}
-          </Select>
-        </FormControl>
-      </Box>
+    <Box sx={{
+      width: '100%',
+      flexGrow: 1,
+      py: 3,
+      overflowY: 'auto',
+      maxHeight: { xs: 'calc(100vh - 120px)', sm: 'calc(100vh - 180px)', md: 'calc(100vh - 200px)' },
+      minHeight: 0,
+    }}>
       <Box
         sx={{
           display: 'grid',
-          gap: { xs: 2, sm: 3 },
+          gap: { xs: 1, sm: 1.7 }, // slightly less vertical gap
           px: 2,
-          pb: 2,
+          pb: 1.1,
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
             md: '1fr 1fr 1fr',
           },
           alignItems: 'stretch',
+          minHeight: 0,
         }}
       >
         {/* Build Your Setlist Card (Service Creation CTA, with Note Trail Animation) */}
@@ -290,11 +156,11 @@ export function ServicesTab() {
               tabIndex={0}
               role="button"
               aria-label="Build Your Setlist"
-              onClick={() => {/* TODO: trigger service creation flow */}}
+              onClick={() => {/* TODO: trigger service creation flow */ }}
               sx={{
                 position: 'relative',
                 height: '100%',
-                minHeight: 210,
+                minHeight: { xs: 80, sm: 210 },
                 display: 'flex',
                 flexDirection: { xs: 'column', sm: 'column' },
                 alignItems: 'center',
@@ -309,9 +175,9 @@ export function ServicesTab() {
                 borderColor: '#b7aaff',
                 transition: 'box-shadow 0.22s, transform 0.22s, border 0.22s, background 0.22s',
                 outline: 'none',
-                pt: 2.2,
-                pb: 2.2,
-                px: 2.2,
+                pt: { xs: 0.7, sm: 2.2 },
+                pb: { xs: 0.7, sm: 2.2 },
+                px: { xs: 0.7, sm: 2.2 },
                 '&:hover, &:focus': {
                   boxShadow: '0 0 0 4px rgba(122,95,255,0.09), 0 4px 16px 0 rgba(51,155,255,0.07)',
                   transform: 'translateY(-3px) scale(1.035)',
@@ -330,13 +196,31 @@ export function ServicesTab() {
                 </Box>
               </Box>
               {/* Corner badge: Service or Bundle with icon */}
-              <Box sx={{ position: 'absolute', top: 12, right: 12, zIndex: 2, background: 'linear-gradient(90deg, #FFCD38 0%, #b7aaff 100%)', color: '#23243a', fontWeight: 700, fontSize: '0.72rem', px: 1.5, py: 0.3, borderRadius: 0.7, boxShadow: '0 1px 4px 0 rgba(122,95,255,0.10)', letterSpacing: '0.03em', opacity: 0.93, display: 'flex', alignItems: 'center', pr: 1 }}>
+              <Box sx={{
+                position: 'absolute',
+                top: { xs: 6, sm: 12 },
+                right: { xs: 6, sm: 12 },
+                zIndex: 2,
+                background: 'linear-gradient(90deg, #FFCD38 0%, #b7aaff 100%)',
+                color: '#23243a',
+                fontWeight: 700,
+                fontSize: { xs: '0.60rem', sm: '0.72rem' },
+                px: { xs: 0.8, sm: 1.5 },
+                py: { xs: 0.15, sm: 0.3 },
+                borderRadius: 0.7,
+                boxShadow: '0 1px 4px 0 rgba(122,95,255,0.10)',
+                letterSpacing: '0.03em',
+                opacity: 0.93,
+                display: 'flex',
+                alignItems: 'center',
+                pr: { xs: 0.5, sm: 1 },
+              }}>
                 {/* Layers icon (Lucide/MUI) */}
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7A5FFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4, marginTop: -1 }}><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
+                <svg width={window.innerWidth < 600 ? 11 : 15} height={window.innerWidth < 600 ? 11 : 15} viewBox="0 0 24 24" fill="none" stroke="#7A5FFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: window.innerWidth < 600 ? 2 : 4, marginTop: window.innerWidth < 600 ? -0.5 : -1 }}><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
                 Service or Bundle
               </Box>
               {/* Main Content */}
-              <Box sx={{ zIndex: 1, width: '100%', display: 'flex', flexDirection: { xs: 'column', sm: 'column' }, alignItems: 'center', justifyContent: 'center', flexGrow: 1, pt: 4, pb: 2.5, px: 2, position: 'relative' }}>
+              <Box sx={{ zIndex: 1, width: '100%', display: 'flex', flexDirection: { xs: 'column', sm: 'column' }, alignItems: 'center', justifyContent: 'center', flexGrow: 1, pt: { xs: 0.5, sm: 4 }, pb: { xs: 0.5, sm: 2.5 }, px: { xs: 0.5, sm: 2 }, position: 'relative' }}>
                 {/* Note trail animation container (absolute, pointer-events none) */}
                 <Box
                   className="note-trail-container"
@@ -487,12 +371,9 @@ export function ServicesTab() {
                   </Box>
                 </Box>
                 {/* Title and subtitle */}
-                <Box sx={{ mt: 1.2, mb: 0.5, width: '100%', display: 'flex', flexDirection: { xs: 'column', sm: 'column' }, alignItems: { xs: 'center', sm: 'center' }, textAlign: { xs: 'center', sm: 'center' } }}>
-                  <span style={{ fontWeight: 900, fontSize: '1.18rem', color: '#7A5FFF', letterSpacing: '0.01em', fontFamily: 'inherit', textShadow: '0 2px 8px rgba(122,95,255,0.10)' }}>
-                    Build Your Setlist
-                  </span>
-                  <span style={{ fontWeight: 600, fontSize: '1.05rem', color: '#23243a', textAlign: 'center', lineHeight: 1.3, marginTop: 8 }}>
-                    Create a new service or bundle of services
+                <Box sx={{ mt: { xs: 0.5, sm: 1.2 }, mb: { xs: 0.2, sm: 0.5 }, width: '100%', display: 'flex', flexDirection: { xs: 'column', sm: 'column' }, alignItems: { xs: 'center', sm: 'center' }, textAlign: { xs: 'center', sm: 'center' } }}>
+                  <span style={{ fontWeight: 900, fontSize: window.innerWidth < 600 ? '1rem' : '1.18rem', color: '#7A5FFF', letterSpacing: '0.01em', fontFamily: 'inherit', textShadow: '0 2px 8px rgba(122,95,255,0.10)' }}>
+                    Click to create a service or bundle
                   </span>
                 </Box>
               </Box>
@@ -504,19 +385,19 @@ export function ServicesTab() {
           <Box
             key={service.id + '-' + animationKey}
             sx={{
-              animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${(idx+1)*0.07}s both`,
+              animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${(idx + 1) * 0.07}s both`,
             }}
           >
             <Card
               sx={{
                 height: '100%',
-                minHeight: 210,
+                minHeight: { xs: 135, sm: 170 }, // slightly less
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 borderRadius: 1,
                 boxShadow: '0px 1.5px 6px rgba(59,130,246,0.05)',
-                p: 3,
+                p: { xs: 1.2, sm: 1.6 }, // slightly less padding
                 transition: 'box-shadow 0.18s, transform 0.18s',
                 cursor: 'pointer',
                 '&:hover': {
@@ -555,9 +436,9 @@ export function ServicesTab() {
                   color="text.secondary"
                   sx={{
                     mb: 2.5,
-                    minHeight: 44,
+                    minHeight: { xs: 'unset', sm: 44 },
                     display: '-webkit-box',
-                    WebkitLineClamp: 2,
+                    WebkitLineClamp: { xs: 4, sm: 2 },
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
