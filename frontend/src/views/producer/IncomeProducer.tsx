@@ -27,25 +27,25 @@ export function IncomeProducer() {
     <LayoutProducer selectedNavItem="income">
       <Box
         sx={{
-          p: { xs: 2, sm: 3, md: 4 },
-          height: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
+        p: { xs: 2, sm: 3, md: 4 },
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
           gap: 3,
-          overflow: 'hidden',
+        overflow: 'hidden',
           flexGrow: 1,
           minHeight: 0,
-          animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          '@keyframes pageSlideIn': {
-            '0%': {
-              opacity: 0,
-              transform: 'translateY(20px)',
-            },
-            '100%': {
-              opacity: 1,
-              transform: 'translateY(0)',
-            },
+        animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        '@keyframes pageSlideIn': {
+          '0%': {
+            opacity: 0,
+            transform: 'translateY(20px)',
           },
+          '100%': {
+            opacity: 1,
+            transform: 'translateY(0)',
+          },
+        },
         }}
       >
         {/* Page Header */}
@@ -110,8 +110,8 @@ export function IncomeProducer() {
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     {tab.icon}
-                    <Typography
-                      sx={{
+            <Typography
+              sx={{
                         fontWeight: activeTab === idx ? 600 : 500,
                         fontSize: { xs: '0.85rem', sm: '0.95rem' },
                         color:
@@ -119,10 +119,10 @@ export function IncomeProducer() {
                             ? theme.palette.primary.main
                             : theme.palette.text.primary,
                         textTransform: 'none',
-                      }}
-                    >
+              }}
+            >
                       {tab.label}
-                    </Typography>
+            </Typography>
                   </Box>
                 }
                 disableRipple
@@ -174,7 +174,7 @@ export function IncomeProducer() {
             )}
           </Box>
         </Paper>
-      </Box>
+        </Box>
     </LayoutProducer>
   );
-}
+} 

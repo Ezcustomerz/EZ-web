@@ -24,10 +24,10 @@ export function ClientProducer() {
 
   return (
     <LayoutProducer selectedNavItem="clients">
-      <Box sx={{
-        p: { xs: 2, sm: 3, md: 4 },
-        height: '100vh',
-        display: 'flex',
+      <Box sx={{ 
+        p: { xs: 2, sm: 3, md: 4 }, 
+        height: '100vh', 
+        display: 'flex', 
         flexDirection: 'column',
         overflow: 'hidden',
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -46,8 +46,8 @@ export function ClientProducer() {
         },
       }}>
         {/* Header Section */}
-        <Box
-          sx={{
+        <Box 
+          sx={{ 
             mb: 3,
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
