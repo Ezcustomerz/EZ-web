@@ -1,8 +1,5 @@
 import { Box, Typography, Card, Chip, useTheme, useMediaQuery, Button } from '@mui/material';
 import {
-  BookmarkOutlined,
-  PaymentOutlined,
-  ScheduleOutlined,
   GraphicEqOutlined,
   PersonAddOutlined,
 } from '@mui/icons-material';
@@ -23,7 +20,7 @@ interface ActivityFeedCardProps {
   newCount?: number;
 }
 
-export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
+export function ActivityFeedCard({ }: ActivityFeedCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 

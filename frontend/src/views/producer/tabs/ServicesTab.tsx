@@ -48,8 +48,9 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
       flexGrow: 1,
       py: 3,
       overflowY: 'auto',
-      maxHeight: { xs: 'calc(100vh - 120px)', sm: 'calc(100vh - 180px)', md: 'calc(100vh - 200px)' },
+      maxHeight: { xs: 'calc(100vh - 200px)', sm: 'calc(100vh - 250px)', md: 'calc(100vh - 280px)' },
       minHeight: 0,
+      height: 'fit-content',
     }}>
       <Box
         sx={{
