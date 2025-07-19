@@ -70,7 +70,7 @@ export function DashProducer() {
 
           {/* Activity Feed Card */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <ActivityFeedCard newCount={3} />
+          <ActivityFeedCard newCount={3} />
           </Box>
         </Box>
       )}

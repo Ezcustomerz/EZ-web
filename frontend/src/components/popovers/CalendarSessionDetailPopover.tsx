@@ -86,7 +86,7 @@ export function CalendarSessionDetailPopover({
           </MuiIconButton>
         </Box>
       ) : (
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', color: 'primary.main', pb: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', color: 'primary.main', pb: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <MuiIconButton
               onClick={onBack}
@@ -97,13 +97,13 @@ export function CalendarSessionDetailPopover({
               <ArrowBackIosNew />
             </MuiIconButton>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'primary.main', ml: 1 }}>
-              {session?.type || ''}
+        {session?.type || ''}
             </Typography>
           </Box>
           <MuiIconButton onClick={onClose} size="small" sx={{ color: theme.palette.text.secondary, '&:hover': { color: theme.palette.text.primary } }}>
             <Close />
           </MuiIconButton>
-        </DialogTitle>
+      </DialogTitle>
       )}
       
       {/* Content */}
@@ -150,13 +150,13 @@ export function CalendarSessionDetailPopover({
           </Stack>
         </DialogActions>
       ) : (
-        <DialogActions sx={{ px: 2, pb: 2, justifyContent: 'space-between' }}>
-          <Box>
-            <Button startIcon={<Edit />} variant="outlined" color="primary" sx={{ mr: 1 }}>Edit</Button>
-            <Button startIcon={<Delete />} variant="outlined" color="error" sx={{ mr: 1 }}>Delete</Button>
-          </Box>
-          <Button startIcon={<Comment />} variant="contained" color="primary">Add Comment</Button>
-        </DialogActions>
+      <DialogActions sx={{ px: 2, pb: 2, justifyContent: 'space-between' }}>
+        <Box>
+          <Button startIcon={<Edit />} variant="outlined" color="primary" sx={{ mr: 1 }}>Edit</Button>
+          <Button startIcon={<Delete />} variant="outlined" color="error" sx={{ mr: 1 }}>Delete</Button>
+        </Box>
+        <Button startIcon={<Comment />} variant="contained" color="primary">Add Comment</Button>
+      </DialogActions>
       )}
     </Dialog>
   );

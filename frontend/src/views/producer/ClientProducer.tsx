@@ -28,10 +28,11 @@ export function ClientProducer() {
         px: { xs: 2, sm: 2, md: 3 }, 
         pb: { xs: 2, sm: 2, md: 3 }, 
         pt: { md: 2 },
-        minHeight: '100vh',
-        height: 'auto',
+        height: '100%',
         display: 'flex', 
         flexDirection: 'column',
+        overflow: 'hidden',
+        minHeight: 0,
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         '@keyframes pageSlideIn': {
           '0%': {
@@ -43,9 +44,9 @@ export function ClientProducer() {
             transform: 'translateY(0)',
           },
         },
-        '@media (max-height: 780px)': {
-          p: { xs: 1, sm: 2, md: 3 },
-          pt: { md: 2 },
+        '@media (max-height: 784px)': {
+          p: { xs: 1, sm: 1.5, md: 2 },
+          pt: { md: 1 },
         },
       }}>
         {/* Header Section */}
@@ -54,8 +55,8 @@ export function ClientProducer() {
             mb: 2,
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
-            '@media (max-height: 780px)': {
-              my: 2,
+            '@media (max-height: 784px)': {
+              my: 1,
             },
           }}
         >

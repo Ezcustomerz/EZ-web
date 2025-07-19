@@ -456,7 +456,8 @@ export function ClientTable({
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        '@media (max-height: 780px)': {
+        minHeight: 0,
+        '@media (max-height: 784px)': {
           p: 2,
         },
       }}
@@ -470,7 +471,7 @@ export function ClientTable({
           mb: 3,
           flexDirection: { xs: 'column', md: 'row' },
           gap: 2,
-          '@media (max-height: 780px)': {
+          '@media (max-height: 784px)': {
             mb: 2,
             gap: 1.5,
           },
@@ -689,18 +690,12 @@ export function ClientTable({
           borderColor: 'divider',
           borderRadius: 1,
           flexGrow: 1,
-          overflow: { xs: 'auto', sm: 'hidden' },
-          maxHeight: totalItems === 0 ? 'auto' : 'calc(100% - 60px)',
-          minHeight: totalItems === 0 ? '450px' : 'auto',
+          overflow: 'hidden',
+          minHeight: 0,
           WebkitOverflowScrolling: 'touch',
-          '@media (max-height: 780px)': {
-            maxHeight: totalItems === 0 ? 'auto' : '350px',
-            overflowY: 'auto',
-            overflow: 'auto',
-          },
         }}
       >
-        <Table sx={{ minWidth: { xs: 650, sm: 'auto' } }}>
+        <Table sx={{ minWidth: 0, width: '100%' }}>
           <TableHead>
             <TableRow sx={{
               backgroundColor: `${theme.palette.info.main}1A`,
@@ -812,49 +807,60 @@ export function ClientTable({
           <TableBody>
             {totalItems === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={5}
-                  sx={{
-                    border: 0,
-                    p: 0,
-                    height: { xs: '400px', md: '550px' },
-                    verticalAlign: 'middle',
-                  }}
-                >
-                  {clients.length === 0 ? (
-                    <EmptyClientState onInviteClient={onInviteClient} />
-                  ) : (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        py: 8,
-                        textAlign: 'center',
-                        height: '100%',
-                      }}
-                    >
-                      <Typography
-                        variant="h6"
+                                                    <TableCell
+                    colSpan={5}
+                    sx={{
+                      border: 0,
+                      p: 0,
+                      height: '100%',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    {clients.length === 0 ? (
+                      <Box
                         sx={{
-                          color: 'text.secondary',
-                          mb: 0.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: '100%',
+                          minHeight: '400px',
                         }}
                       >
-                        No clients found
-                      </Typography>
-                      <Typography
-                        variant="body2"
+                        <EmptyClientState onInviteClient={onInviteClient} />
+                      </Box>
+                    ) : (
+                      <Box
                         sx={{
-                          color: 'text.secondary',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          py: 8,
+                          textAlign: 'center',
+                          height: '100%',
+                          minHeight: '300px',
                         }}
                       >
-                        Try adjusting your search or filter criteria
-                      </Typography>
-                    </Box>
-                  )}
-                </TableCell>
+                        <Typography
+                          variant="h6"
+                          sx={{
+                            color: 'text.secondary',
+                            mb: 0.5,
+                          }}
+                        >
+                          No clients found
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: 'text.secondary',
+                          }}
+                        >
+                          Try adjusting your search or filter criteria
+                        </Typography>
+                      </Box>
+                    )}
+                  </TableCell>
               </TableRow>
             ) : (
               paginatedClients.map((client) => (

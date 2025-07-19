@@ -35,6 +35,14 @@ interface CalendarTabProps {
 export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen, setSessionDialogOpen }: CalendarTabProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
+  const isTallScreen = useMediaQuery('(min-height: 900px)');
+  const isIPadMini = useMediaQuery('(min-height: 1024px) and (max-width: 1024px)');
+  const isIPadAir = useMediaQuery('(min-height: 1180px) and (max-width: 1180px)');
+  const isIPadPro = useMediaQuery('(min-height: 1366px) and (max-width: 1366px)');
+  
+  // Determine max sessions to show based on screen height and width
+  const maxSessionsToShow = isMobile ? 2 : isIPadPro ? 9 : isIPadAir ? 8 : isIPadMini ? 6 : isTallScreen ? 4 : 2;
   const [currentMonth, setCurrentMonth] = useState(new Date()); // for desktop
   const [mobileStartOfWeek, setMobileStartOfWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [sessions] = useState<Session[]>([
@@ -151,7 +159,67 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
       type: 'Recording',
       status: 'confirmed',
       notes: 'Vocal recording session'
-    }
+    },
+    {
+      id: '13',
+      date: '2025-07-25',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '14',
+      date: '2025-07-25',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '15',
+      date: '2025-07-25',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '16',
+      date: '2025-07-25',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '17',
+      date: '2025-07-25',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '18',
+      date: '2025-07-25',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
   ]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -485,7 +553,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
               </Box>
             </Box>
             {/* Calendar grid with animated transition */}
-            <Box sx={{ position: 'relative', flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'visible' }}>
+            <Box sx={{ position: 'relative', flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'visible', height: '100%' }}>
               <Fade in={!monthTransition} timeout={180} style={{ transitionDelay: monthTransition ? '180ms' : '0ms' }}>
                 <Paper sx={{
                   p: { xs: 0.5, sm: 2 },
@@ -495,18 +563,19 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                   display: 'flex',
                   flexDirection: 'column',
                   overflow: 'visible',
-                  height: 'fit-content',
+                  height: '100%',
+                  flexGrow: 1,
                 }}>
                   {/* Weekday labels */}
                   <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 1 }}>
                     {weekdayLabels.map(day => (
-                      <Typography key={day} variant="subtitle2" sx={{ textAlign: 'center', color: 'text.secondary', fontWeight: 600, py: 0.5 }}>{day}</Typography>
+                      <Typography key={day} variant="subtitle2" sx={{ textAlign: 'center', color: 'text.secondary', fontWeight: 600, py: 0.2 }}>{day}</Typography>
                     ))}
                   </Box>
                   {/* Weeks as rows */}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, flexGrow: 1 }}>
                     {rows.map((week, weekIdx) => (
-                      <Box key={weekIdx} sx={{ display: 'flex', height: 120, gap: 0.5 }}>
+                      <Box key={weekIdx} sx={{ display: 'flex', flex: 1, gap: 0 }}>
                         {week.map((cell, idx) => {
                           const cellSessions = cell.sessions;
                           const isTodayCell = isToday(cell.date);
@@ -517,13 +586,13 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                               sx={{
                                 flex: 1,
                                 minWidth: 0,
-                                height: 120,
-                                borderRadius: 2.5,
+                                height: '100%',
+                                borderRadius: 0,
                                 background: cell.isSelected ? (theme.palette.custom?.amber || orange[100]) : (cell.isCurrentMonth ? (isTodayCell ? theme.palette.background.paper : theme.palette.background.default) : theme.palette.action.hover),
                                 border: isTodayCell ? `1.5px solid ${theme.palette.secondary.main}` : '1px solid #e0e0e0',
                                 opacity: cell.isCurrentMonth ? 1 : 0.5,
                                 cursor: 'pointer',
-                                p: 1,
+                                p: { xs: 0.8, sm: 0.9, md: 1 },
                                 position: 'relative',
                                 transition: 'border 0.18s, box-shadow 0.18s, background 0.18s, opacity 0.18s',
                                 boxShadow: cell.isSelected ? '0 4px 16px 0 rgba(122,95,255,0.10)' : (isTodayCell ? '0 2px 8px 0 rgba(122,95,255,0.07)' : undefined),
@@ -545,7 +614,6 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                                 sx={{
                                   fontWeight: 700,
                                   color: isTodayCell ? theme.palette.secondary.main : theme.palette.text.primary,
-                                  mb: 0.5,
                                   lineHeight: 1.18,
                                   fontSize: { xs: isTodayCell ? '1.13rem' : '1.01rem', sm: isTodayCell ? '1.22rem' : '1.13rem' },
                                   letterSpacing: 0.01,
@@ -556,12 +624,12 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                               {/* Session previews */}
                               <Box sx={{
                                 overflow: 'hidden',
-                                maxHeight: 'calc(100% - 40px)',
+                                maxHeight: 'calc(100% - 24px)',
                                 width: '100%',
                                 pr: 0.5,
                               }}>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%' }}>
-                                  {cellSessions.slice(0, 3).map(session => (
+                                  {cellSessions.slice(0, maxSessionsToShow).map(session => (
                                     <Tooltip
                                       key={session.id}
                                       title={<>
@@ -573,16 +641,35 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                                       placement="top"
                                       slots={{ transition: Zoom }}
                                     >
-                                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                        <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: getSessionDotColor(session.status), display: 'inline-block', mr: 1, mb: '-1.5px' }} />
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.type} {session.client ? `– ${session.client}` : ''}</Typography>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: { xs: 14, sm: 16, md: 18 } }}>
+                                        <Box sx={{ 
+                                          width: { xs: 6, sm: 7, md: 8, lg: 9 }, 
+                                          height: { xs: 6, sm: 7, md: 8, lg: 9 }, 
+                                          borderRadius: '50%', 
+                                          bgcolor: getSessionDotColor(session.status), 
+                                          display: 'inline-block', 
+                                          mr: 0.5, 
+                                          mb: '-1.5px',
+                                          flexShrink: 0,
+                                          minWidth: { xs: 6, sm: 7, md: 8, lg: 9 },
+                                          minHeight: { xs: 6, sm: 7, md: 8, lg: 9 }
+                                        }} />
+                                        <Typography variant="body2" sx={{ 
+                                          color: 'text.secondary', 
+                                          fontWeight: 500, 
+                                          fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.85rem' }, 
+                                          whiteSpace: 'nowrap', 
+                                          overflow: 'hidden', 
+                                          textOverflow: 'ellipsis',
+                                          lineHeight: 1.2
+                                        }}>{session.type} {session.client ? `– ${session.client}` : ''}</Typography>
                                       </Box>
                                     </Tooltip>
                                   ))}
                                 </Box>
                               </Box>
                               {/* +X more indicator - outside overflow container */}
-                              {cellSessions.length > 3 && (
+                              {cellSessions.length > maxSessionsToShow && (
                                 <Typography
                                   variant="caption"
                                   sx={{
@@ -592,12 +679,13 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                                     textAlign: 'center',
                                     mt: 0.5,
                                     position: 'absolute',
-                                    bottom: 4,
+                                    bottom: 2,
                                     left: '50%',
                                     transform: 'translateX(-50%)',
+                                    whiteSpace: 'nowrap',
                                   }}
                                 >
-                                  +{cellSessions.length - 3} more
+                                  +{cellSessions.length - maxSessionsToShow} more
                                 </Typography>
                               )}
                             </Box>

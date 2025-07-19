@@ -74,9 +74,9 @@ export function PublicProducer() {
             transform: 'translateY(0)',
           },
         },
-        '@media (max-height: 780px)': {
-          p: { xs: 1, sm: 2, md: 3 },
-          pt: { md: 2 },
+        '@media (max-height: 784px)': {
+          p: { xs: 1, sm: 1.5, md: 2 },
+          pt: { md: 1 },
         },
       }}>
         {/* Header Section */}
@@ -85,8 +85,8 @@ export function PublicProducer() {
             mb: 2,
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
-            '@media (max-height: 780px)': {
-              my: 2,
+            '@media (max-height: 784px)': {
+              my: 1,
             },
           }}
         >

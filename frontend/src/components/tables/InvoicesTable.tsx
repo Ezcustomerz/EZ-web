@@ -145,9 +145,9 @@ export function InvoicesTable() {
   }
 
   return (
-    <>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* Controls: Search, Filter, Request Payment */}
-      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between', my: 2, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', md: 'center' }, justifyContent: 'space-between', mb: 1, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
         {/* Search Bar */}
         <TextField
           placeholder="Search invoices..."
@@ -352,7 +352,7 @@ export function InvoicesTable() {
         </Box>
       </Box>
       {/* Table */}
-      <TableContainer sx={{ flex: 1, display: 'flex', flexDirection: 'column', borderRadius: 1, border: `1px solid ${theme.palette.divider}`, minHeight: 400, height: '100%', minWidth: 0, overflowX: 'hidden' }}>
+      <TableContainer sx={{ flex: 1, display: 'flex', flexDirection: 'column', borderRadius: 1, border: `1px solid ${theme.palette.divider}`, minHeight: 400, height: '100%', flexGrow: 1, minWidth: 0, overflowX: 'hidden' }}>
         <Table sx={{ minWidth: 650, flexGrow: 0 }}>
           <TableHead>
             <TableRow sx={{ backgroundColor: `${theme.palette.info.main}1A` }}>
@@ -479,7 +479,7 @@ export function InvoicesTable() {
           <TableBody>
             {filteredInvoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} sx={{ border: 0, p: 0, height: { xs: '400px', md: '500px' }, verticalAlign: 'middle' }}>
+                <TableCell colSpan={5} sx={{ border: 0, p: 0, height: { xs: '350px', md: '400px' }, verticalAlign: 'middle' }}>
                   {/* Empty State UI */}
                   <Box
                     sx={{
@@ -487,10 +487,10 @@ export function InvoicesTable() {
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      py: { xs: 6, md: 8 },
+                      py: { xs: 4, md: 6 },
                       px: { xs: 2, md: 4 },
                       textAlign: 'center',
-                      minHeight: { xs: '350px', md: '400px' },
+                      minHeight: { xs: '300px', md: '350px' },
                       position: 'relative',
                       background: `radial-gradient(circle at center, \
                         ${theme.palette.info.main}08 0%, \
@@ -529,7 +529,7 @@ export function InvoicesTable() {
                         zIndex: -1,
                         pointerEvents: 'none',
                       },
-                      mt: { xs: 6, md: 10 },
+                      mt: { xs: 2, md: 4 },
                     }}
                   >
                     <ReceiptLong
@@ -779,6 +779,6 @@ export function InvoicesTable() {
           </Typography>
         </Box>
       )}
-    </>
+    </Box>
   );
 } 
