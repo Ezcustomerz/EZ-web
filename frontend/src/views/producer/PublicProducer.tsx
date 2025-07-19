@@ -24,6 +24,9 @@ const sortOptions = [
 ];
 
 export function PublicProducer() {
+  // Dialog open states for CalendarTab
+  const [calendarDayDialogOpen, setCalendarDayDialogOpen] = useState(false);
+  const [calendarSessionDialogOpen, setCalendarSessionDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
     const stored = localStorage.getItem('public-active-tab');
     return stored !== null ? Number(stored) : 0;
@@ -51,10 +54,13 @@ export function PublicProducer() {
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   return (
-    <LayoutProducer selectedNavItem="public">
+    <LayoutProducer selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen}>
       <Box sx={{
-        p: { xs: 2, sm: 3, md: 4 },
-        height: '100vh',
+        px: { xs: 2, sm: 2, md: 3 },
+        pb: { xs: 2, sm: 2, md: 3 },
+        pt: { md: 2 },
+        minHeight: '100vh',
+        height: 'auto',
         display: 'flex',
         flexDirection: 'column',
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -70,12 +76,13 @@ export function PublicProducer() {
         },
         '@media (max-height: 780px)': {
           p: { xs: 1, sm: 2, md: 3 },
+          pt: { md: 2 },
         },
       }}>
         {/* Header Section */}
         <Box
           sx={{
-            mb: 3,
+            mb: 2,
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
             '@media (max-height: 780px)': {
@@ -119,6 +126,8 @@ export function PublicProducer() {
             flexDirection: 'column',
             flexGrow: 1,
             minHeight: 0,
+            height: 'auto',
+            overflow: 'visible',
           }}
         >
           {isMobile ? (
@@ -244,7 +253,7 @@ export function PublicProducer() {
               value={activeTab}
               onChange={handleChange}
               variant="scrollable"
-              scrollButtons="auto"
+              scrollButtons={false}
               sx={{
                 borderBottom: `2px solid ${theme.palette.divider}`,
               }}
@@ -699,7 +708,14 @@ export function PublicProducer() {
               visibility={visibility}
             />
           )}
-          {Number(activeTab) === 1 && <CalendarTab />}
+          {Number(activeTab) === 1 && (
+            <CalendarTab
+              dayDialogOpen={calendarDayDialogOpen}
+              setDayDialogOpen={setCalendarDayDialogOpen}
+              sessionDialogOpen={calendarSessionDialogOpen}
+              setSessionDialogOpen={setCalendarSessionDialogOpen}
+            />
+          )}
           {Number(activeTab) === 2 && <ProfileTab />}
         </Paper>
       </Box>

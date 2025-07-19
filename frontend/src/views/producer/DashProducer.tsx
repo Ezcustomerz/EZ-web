@@ -12,7 +12,7 @@ export function DashProducer() {
       {({ isSidebarOpen }) => (
         <Box
           sx={{
-            p: { xs: 2, md: 4 },
+            p: { xs: 2, sm: 2, md: 2.5 },
             // Responsive height and overflow behavior
             height: isMobile ? 'auto' : '100vh',
             minHeight: isMobile ? '100vh' : 'auto',
@@ -69,7 +69,9 @@ export function DashProducer() {
           </Box>
 
           {/* Activity Feed Card */}
-          <ActivityFeedCard newCount={3} />
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <ActivityFeedCard newCount={3} />
+          </Box>
         </Box>
       )}
     </LayoutProducer>

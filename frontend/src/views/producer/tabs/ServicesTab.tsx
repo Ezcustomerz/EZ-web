@@ -3,82 +3,8 @@ import { Edit } from '@mui/icons-material';
 import { useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGlobe, faLock } from '@fortawesome/free-solid-svg-icons';
-import { useTheme } from '@mui/material/styles';
 
-const mockServices = [
-  {
-    id: '1',
-    title: 'Mixing & Mastering',
-    description: 'Professional mixing and mastering for your tracks. Includes up to 5 revisions and delivery in high-quality formats.',
-    price: 120,
-    status: 'Public',
-    delivery: '2 - 3 days',
-  },
-  {
-    id: '2',
-    title: 'Custom Beat Production',
-    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
-    price: 200,
-    status: 'Private',
-    delivery: '5 - 8 days',
-  },
-  {
-    id: '3',
-    title: 'Vocal Tuning',
-    description: 'Pitch correction and tuning for vocal tracks. Natural sound, fast turnaround.',
-    price: 60,
-    status: 'Public',
-    delivery: '9 - 10 days',
-  },
-  {
-    id: '4',
-    title: 'Vocal Tuning',
-    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
-    price: 200,
-    status: 'Private',
-    delivery: '9 - 10 days',
-  },
-  {
-    id: '5',
-    title: 'Vocal Tuning',
-    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
-    price: 200,
-    status: 'Private',
-    delivery: '9 - 10 days',
-  },
-  {
-    id: '6',
-    title: 'Vocal Tuning',
-    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
-    price: 200,
-    status: 'Private',
-    delivery: '9 - 10 days',
-  },
-  {
-    id: '7',
-    title: 'Vocal Tuning',
-    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
-    price: 200,
-    status: 'Private',
-    delivery: '9 - 10 days',
-  },
-  {
-    id: '8',
-    title: 'Vocal Tuning',
-    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
-    price: 200,
-    status: 'Private',
-    delivery: '9 - 10 days',
-  },
-  {
-    id: '9',
-    title: 'Vocal Tuning',
-    description: 'Get a unique, custom beat tailored to your style and needs. Includes stems and commercial rights.',
-    price: 200,
-    status: 'Private',
-    delivery: '9 - 10 days',
-  },
-];
+const mockServices: any[] = [];
 
 const statusHelp = {
   Public: 'Visible to everyone on your public profile.',
@@ -373,7 +299,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
                 {/* Title and subtitle */}
                 <Box sx={{ mt: { xs: 0.5, sm: 1.2 }, mb: { xs: 0.2, sm: 0.5 }, width: '100%', display: 'flex', flexDirection: { xs: 'column', sm: 'column' }, alignItems: { xs: 'center', sm: 'center' }, textAlign: { xs: 'center', sm: 'center' } }}>
                   <span style={{ fontWeight: 900, fontSize: window.innerWidth < 600 ? '1rem' : '1.18rem', color: '#7A5FFF', letterSpacing: '0.01em', fontFamily: 'inherit', textShadow: '0 2px 8px rgba(122,95,255,0.10)' }}>
-                    Click to create a service or bundle
+                    Click to create a new service or bundle
                   </span>
                 </Box>
               </Box>

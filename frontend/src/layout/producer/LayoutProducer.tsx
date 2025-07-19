@@ -7,11 +7,13 @@ import { useNavigate } from 'react-router-dom';
 interface LayoutProducerProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
   selectedNavItem?: string;
+  hideMenuButton?: boolean;
 }
 
 export function LayoutProducer({ 
   children, 
-  selectedNavItem
+  selectedNavItem,
+  hideMenuButton
 }: LayoutProducerProps) {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -135,7 +137,7 @@ export function LayoutProducer({
       />
 
       {/* Mobile Menu Button */}
-      {isMobile && (
+      {isMobile && !hideMenuButton && (
         <Box
           sx={{
             position: 'fixed',

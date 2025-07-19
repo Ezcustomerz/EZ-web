@@ -25,11 +25,13 @@ export function ClientProducer() {
   return (
     <LayoutProducer selectedNavItem="clients">
       <Box sx={{ 
-        p: { xs: 2, sm: 3, md: 4 }, 
-        height: '100vh', 
+        px: { xs: 2, sm: 2, md: 3 }, 
+        pb: { xs: 2, sm: 2, md: 3 }, 
+        pt: { md: 2 },
+        minHeight: '100vh',
+        height: 'auto',
         display: 'flex', 
         flexDirection: 'column',
-        overflow: 'hidden',
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         '@keyframes pageSlideIn': {
           '0%': {
@@ -43,12 +45,13 @@ export function ClientProducer() {
         },
         '@media (max-height: 780px)': {
           p: { xs: 1, sm: 2, md: 3 },
+          pt: { md: 2 },
         },
       }}>
         {/* Header Section */}
         <Box 
           sx={{ 
-            mb: 3,
+            mb: 2,
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
             '@media (max-height: 780px)': {
