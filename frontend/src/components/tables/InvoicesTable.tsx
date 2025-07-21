@@ -250,7 +250,6 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
             zIndex: 10,
             backgroundColor: '#fff',
             boxShadow: 0,
-            px: 1,
             pt: 2,
             pb: 1,
           }}
@@ -463,7 +462,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
           </Stack>
         </Box>
         {/* Card List */}
-        <Box sx={{ px: 1, pt: 2 }}>
+        <Box sx={{ pt: 2 }}>
           {filteredInvoices.length === 0 ? (
             <Alert severity="info" sx={{ mt: 2 }}>No invoices found</Alert>
           ) : (
