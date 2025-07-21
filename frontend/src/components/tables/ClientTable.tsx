@@ -487,7 +487,7 @@ export function ClientTable({
             }}
           />
           <Typography variant="body2" sx={{ color: 'text.secondary', ml: 1, minWidth: 80 }}>
-            Showing {filteredAndSortedClients.length} client{filteredAndSortedClients.length !== 1 ? 's' : ''}
+            {filteredAndSortedClients.length} client{filteredAndSortedClients.length !== 1 ? 's' : ''}
           </Typography>
         </Box>
         <Box
