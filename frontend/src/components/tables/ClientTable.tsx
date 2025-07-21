@@ -18,6 +18,7 @@ import {
   InputAdornment,
   useTheme,
   Tooltip,
+  Stack,
 } from '@mui/material';
 import {
   PersonAddOutlined,
@@ -27,7 +28,10 @@ import {
   ArrowDropDown,
   SwapVert,
   Groups,
+  AttachMoney,
+  Folder,
 } from '@mui/icons-material';
+import Card from '@mui/material/Card';
 import { useState } from 'react';
 
 export interface Client {
@@ -439,7 +443,7 @@ export function ClientTable({
         borderRadius: 1,
         border: '1px solid',
         borderColor: 'divider',
-        p: 3,
+        p: 2,
         flex: '1 1 0',
         display: 'flex',
         flexDirection: 'column',
@@ -676,6 +680,64 @@ export function ClientTable({
         </Box>
       </Box>
       {/* Clients Table */}
+      {/* MOBILE CARD LIST */}
+      <Box sx={{ display: { xs: 'block', md: 'none' }, maxHeight: { xs: 'calc(100dvh - 120px)', md: 'none' }, overflowY: { xs: 'auto', md: 'unset' }, pt: 2 }}>
+        {totalItems === 0 ? (
+          <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
+            {clients.length === 0 ? (
+              <EmptyClientState onInviteClient={onInviteClient} />
+            ) : (
+              <>
+                <Typography variant="h6" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                  No clients found
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Try adjusting your search or filter criteria
+                </Typography>
+              </>
+            )}
+          </Box>
+        ) : (
+          filteredAndSortedClients.map((client) => (
+            <Card
+              key={client.id}
+              elevation={1}
+              tabIndex={0}
+              aria-label={`Client ${client.name}, status ${client.status}, contact ${client.contact}, total spent ${formatCurrency(client.totalSpent)}, ${client.projects} projects`}
+              sx={{
+                borderRadius: 2,
+                p: 2,
+                mb: 2,
+                cursor: 'pointer',
+                transition: 'box-shadow 0.2s, border 0.2s',
+                '&:hover, &:focus': {
+                  boxShadow: 4,
+                  border: '1.5px solid',
+                  borderColor: 'primary.main',
+                  outline: 'none',
+                },
+              }}
+            >
+              <Stack spacing={1}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle1" fontWeight={600}>{client.name}</Typography>
+                  <Chip {...getStatusChipProps(client.status)} />
+                </Stack>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.95em', mb: 0.5 }}>{client.contact}</Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <AttachMoney fontSize="small" color="action" />
+                  <Typography variant="body2"><strong>{formatCurrency(client.totalSpent)}</strong></Typography>
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Folder fontSize="small" color="action" />
+                  <Typography variant="body2">{client.projects} project{client.projects !== 1 ? 's' : ''}</Typography>
+                </Stack>
+              </Stack>
+            </Card>
+          ))
+        )}
+      </Box>
+      {/* DESKTOP TABLE */}
       <TableContainer
         sx={{
           boxShadow: 'none',
@@ -686,6 +748,7 @@ export function ClientTable({
           minHeight: 0,
           overflow: 'auto',
           WebkitOverflowScrolling: 'touch',
+          display: { xs: 'none', md: 'block' },
         }}
       >
         <Table sx={{ minWidth: 0, width: '100%' }}>

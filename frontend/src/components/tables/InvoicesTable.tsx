@@ -250,7 +250,6 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
             zIndex: 10,
             backgroundColor: '#fff',
             boxShadow: 0,
-            pt: 2,
             pb: 1,
           }}
         >
