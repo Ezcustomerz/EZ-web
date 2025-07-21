@@ -18,7 +18,6 @@ import {
   InputAdornment,
   useTheme,
   Tooltip,
-  Pagination,
 } from '@mui/material';
 import {
   PersonAddOutlined,
@@ -268,12 +267,9 @@ export function ClientTable({
   statusFilter,
   onStatusFilterChange,
   onInviteClient,
-  itemsPerPage = 9,
 }: ClientTableProps) {
-  const theme = useTheme();
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [hoveredSort, setHoveredSort] = useState<SortField | null>(null);
 
   // Sorting logic
@@ -333,21 +329,13 @@ export function ClientTable({
       }
     });
 
-  // Pagination
+  // Remove pagination logic, just scroll all filtered/sorted clients
   const totalItems = filteredAndSortedClients.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedClients = filteredAndSortedClients.slice(startIndex, endIndex);
-
-  // Reset to first page when search/filter changes
   const handleSearchChange = (value: string) => {
     onSearchChange(value);
-    setCurrentPage(1);
   };
   const handleStatusFilterChange = (value: 'all' | 'active' | 'inactive') => {
     onStatusFilterChange(value);
-    setCurrentPage(1);
   };
 
   const getStatusChipProps = (status: string) => {
@@ -452,7 +440,7 @@ export function ClientTable({
         border: '1px solid',
         borderColor: 'divider',
         p: 3,
-        flexGrow: 1,
+        flex: '1 1 0',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -468,35 +456,40 @@ export function ClientTable({
           display: 'flex',
           alignItems: { xs: 'stretch', md: 'center' },
           justifyContent: 'space-between',
-          mb: 3,
+          mb: 1,
           flexDirection: { xs: 'column', md: 'row' },
           gap: 2,
           '@media (max-height: 784px)': {
-            mb: 2,
+            mb: 1,
             gap: 1.5,
           },
         }}
       >
-        <TextField
-          placeholder="Search clients..."
-          value={searchTerm}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          size="small"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            width: { xs: '100%', md: 280 },
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 1,
-              backgroundColor: 'background.paper',
-            },
-          }}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TextField
+            placeholder="Search clients..."
+            value={searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            size="small"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              width: { xs: '100%', md: 280 },
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 1,
+                backgroundColor: 'background.paper',
+              },
+            }}
+          />
+          <Typography variant="body2" sx={{ color: 'text.secondary', ml: 1, minWidth: 80 }}>
+            Showing {filteredAndSortedClients.length} client{filteredAndSortedClients.length !== 1 ? 's' : ''}
+          </Typography>
+        </Box>
         <Box
           sx={{
             display: 'flex',
@@ -689,16 +682,16 @@ export function ClientTable({
           border: '1px solid',
           borderColor: 'divider',
           borderRadius: 1,
-          flexGrow: 1,
-          overflow: 'hidden',
+          flex: '1 1 0',
           minHeight: 0,
+          overflow: 'auto',
           WebkitOverflowScrolling: 'touch',
         }}
       >
         <Table sx={{ minWidth: 0, width: '100%' }}>
           <TableHead>
             <TableRow sx={{
-              backgroundColor: `${theme.palette.info.main}1A`,
+              backgroundColor: '#e6f3fa',
             }}>
               <TableCell
                 onClick={() => handleSort('name')}
@@ -711,6 +704,10 @@ export function ClientTable({
                   fontWeight: sortField === 'name' ? 700 : 600,
                   transition: 'all 0.2s ease',
                   minWidth: { xs: 160, sm: 'auto' },
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: '#e6f3fa',
                   '&:hover': {
                     backgroundColor: 'grey.100',
                     '& .MuiSvgIcon-root': {
@@ -733,6 +730,10 @@ export function ClientTable({
                   fontWeight: 600,
                   color: 'text.primary',
                   minWidth: { xs: 140, sm: 'auto' },
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: '#e6f3fa',
                 }}
               >
                 Contact
@@ -742,6 +743,10 @@ export function ClientTable({
                   fontWeight: 600,
                   color: 'text.primary',
                   minWidth: { xs: 100, sm: 'auto' },
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: '#e6f3fa',
                 }}
               >
                 Status
@@ -757,6 +762,10 @@ export function ClientTable({
                   fontWeight: sortField === 'totalSpent' ? 700 : 600,
                   transition: 'all 0.2s ease',
                   minWidth: { xs: 120, sm: 'auto' },
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: '#e6f3fa',
                   '&:hover': {
                     backgroundColor: 'grey.100',
                     '& .MuiSvgIcon-root': {
@@ -785,6 +794,10 @@ export function ClientTable({
                   fontWeight: sortField === 'projects' ? 700 : 600,
                   transition: 'all 0.2s ease',
                   minWidth: { xs: 100, sm: 'auto' },
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  backgroundColor: '#e6f3fa',
                   '&:hover': {
                     backgroundColor: 'grey.100',
                     '& .MuiSvgIcon-root': {
@@ -807,63 +820,63 @@ export function ClientTable({
           <TableBody>
             {totalItems === 0 ? (
               <TableRow>
-                                                    <TableCell
-                    colSpan={5}
-                    sx={{
-                      border: 0,
-                      p: 0,
-                      height: '100%',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    {clients.length === 0 ? (
-                      <Box
+                <TableCell
+                  colSpan={5}
+                  sx={{
+                    border: 0,
+                    p: 0,
+                    height: '100%',
+                    verticalAlign: 'middle',
+                  }}
+                >
+                  {clients.length === 0 ? (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        minHeight: '400px',
+                      }}
+                    >
+                      <EmptyClientState onInviteClient={onInviteClient} />
+                    </Box>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        py: 8,
+                        textAlign: 'center',
+                        height: '100%',
+                        minHeight: '300px',
+                      }}
+                    >
+                      <Typography
+                        variant="h6"
                         sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          height: '100%',
-                          minHeight: '400px',
+                          color: 'text.secondary',
+                          mb: 0.5,
                         }}
                       >
-                        <EmptyClientState onInviteClient={onInviteClient} />
-                      </Box>
-                    ) : (
-                      <Box
+                        No clients found
+                      </Typography>
+                      <Typography
+                        variant="body2"
                         sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          py: 8,
-                          textAlign: 'center',
-                          height: '100%',
-                          minHeight: '300px',
+                          color: 'text.secondary',
                         }}
                       >
-                        <Typography
-                          variant="h6"
-                          sx={{
-                            color: 'text.secondary',
-                            mb: 0.5,
-                          }}
-                        >
-                          No clients found
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: 'text.secondary',
-                          }}
-                        >
-                          Try adjusting your search or filter criteria
-                        </Typography>
-                      </Box>
-                    )}
-                  </TableCell>
+                        Try adjusting your search or filter criteria
+                      </Typography>
+                    </Box>
+                  )}
+                </TableCell>
               </TableRow>
             ) : (
-              paginatedClients.map((client) => (
+              filteredAndSortedClients.map((client) => (
                 <TableRow
                   key={client.id}
                   onClick={() => console.log('Client clicked:', client.name, client)}
@@ -930,45 +943,7 @@ export function ClientTable({
           </TableBody>
         </Table>
       </TableContainer>
-      {/* Pagination Controls */}
-      {totalItems > 0 && clients.length > 0 && (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: { xs: 'center', md: 'space-between' },
-            alignItems: 'center',
-            mt: 2,
-            pt: 2,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            flexDirection: { xs: 'column', md: 'row' },
-            gap: { xs: 2, md: 0 },
-          }}
-        >
-          <Pagination
-            count={totalPages}
-            page={currentPage}
-            onChange={(event, value) => setCurrentPage(value)}
-            color="primary"
-            size="small"
-            siblingCount={0}
-            boundaryCount={1}
-          />
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'text.secondary',
-              fontSize: { xs: '0.8rem', md: '0.875rem' },
-              textAlign: 'center',
-            }}
-          >
-            {totalItems <= itemsPerPage || totalPages === 1
-              ? `Showing ${totalItems} of ${totalItems}`
-              : `Showing ${startIndex + 1}-${Math.min(endIndex, totalItems)} of ${totalItems}`
-            }
-          </Typography>
-        </Box>
-      )}
+      {/* No pagination or count info, just scrollable table */}
     </Paper>
   );
 } 

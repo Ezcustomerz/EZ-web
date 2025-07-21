@@ -220,6 +220,56 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
       status: 'confirmed',
       notes: 'Vocal recording session'
     },
+    {
+      id: '19',
+      date: '2025-07-20',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '20',
+      date: '2025-07-20',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '21',
+      date: '2025-07-20',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '22',
+      date: '2025-07-22',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
+    {
+      id: '23',
+      date: '2025-07-22',
+      time: '14:00',
+      endTime: '16:00',
+      client: 'Maria Garcia',
+      type: 'Recording',
+      status: 'confirmed',
+      notes: 'Vocal recording session'
+    },
   ]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -302,11 +352,12 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
         flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
-        pb: { xs: 5, sm: 0 },
+        pb: { xs: 0, sm: 0 },
         minHeight: 0,
         maxWidth: '100%',
-        height: 'auto',
-        overflow: 'visible',
+        height: '100%',
+        overflow: 'hidden',
+        maxHeight: '100%',
         animation: 'fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1)',
         '@keyframes fadeInCard': {
           '0%': { opacity: 0, transform: 'scale(0.97) translateY(16px)' },
@@ -314,22 +365,41 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
         },
       }}>
         {isMobile ? (
-          <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden', position: 'relative', pb: 'env(safe-area-inset-bottom, 16px)', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-            {/* Week navigation header */}
-            <Box display="flex" alignItems="center" justifyContent="space-between" px={2} py={1}>
-              <IconButton size="small" color="primary" aria-label="Previous week" onClick={() => setMobileStartOfWeek(prev => addDays(prev, -7))}>
-                <ChevronLeft />
-              </IconButton>
-              <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 700 }}>
-                Week of {format(mobileStartOfWeek, 'MMM d')} – {format(addDays(mobileStartOfWeek, 6), 'MMM d')}
-              </Typography>
-              <IconButton size="small" color="primary" aria-label="Next week" onClick={() => setMobileStartOfWeek(prev => addDays(prev, 7))}>
-                <ChevronRight />
-              </IconButton>
+          <Box sx={{ 
+            width: '100%', 
+            maxWidth: '100%', 
+            overflow: 'hidden', 
+            position: 'relative', 
+            height: 'calc(100vh - 200px)',
+            display: 'flex', 
+            flexDirection: 'column',
+            minHeight: 0,
+          }}>
+            {/* Fixed header area */}
+            <Box sx={{ flexShrink: 0, pb: 1 }}>
+              {/* Week navigation header */}
+              <Box display="flex" alignItems="center" justifyContent="space-between" px={2} py={1}>
+                <IconButton size="small" color="primary" aria-label="Previous week" onClick={() => setMobileStartOfWeek(prev => addDays(prev, -7))}>
+                  <ChevronLeft />
+                </IconButton>
+                <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 700 }}>
+                  Week of {format(mobileStartOfWeek, 'MMM d')} – {format(addDays(mobileStartOfWeek, 6), 'MMM d')}
+                </Typography>
+                <IconButton size="small" color="primary" aria-label="Next week" onClick={() => setMobileStartOfWeek(prev => addDays(prev, 7))}>
+                  <ChevronRight />
+                </IconButton>
+              </Box>
             </Box>
-            {/* Scrollable vertical agenda week view */}
-            <Box sx={{ flexGrow: 1, overflowY: 'auto', minHeight: 0, paddingBottom: 2 }}>
-              <Stack spacing={2} px={2}>
+            
+            {/* Scrollable day cards area */}
+            <Box sx={{ 
+              flexGrow: 1, 
+              overflowY: 'auto', 
+              minHeight: 0,
+              px: 2,
+              pb: 2,
+            }}>
+              <Stack spacing={1.5} sx={{ py: 1 }}>
                 {Array.from({ length: 7 }, (_, i) => {
                   const date = addDays(mobileStartOfWeek, i);
                   const formatted = format(date, 'yyyy-MM-dd');
@@ -340,64 +410,64 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                       key={formatted}
                       elevation={1}
                       sx={{
-                        p: 2,
+                        p: 1.5,
                         borderRadius: 2,
                         backgroundColor: theme.palette.background.paper,
-                        minHeight: 56,
+                        minHeight: 48,
+                        maxHeight: 160,
                         cursor: 'pointer',
                         transition: 'box-shadow 0.18s, border 0.18s',
                         boxShadow: isTodayCell ? '0 2px 8px 0 rgba(122,95,255,0.07)' : 1,
                         border: isTodayCell ? `1.5px solid ${theme.palette.secondary.main}` : '1px solid #e0e0e0',
                         '&:hover': { boxShadow: 4 },
+                        overflow: 'visible',
                       }}
                       onClick={() => { setSelectedDate(date); setDayDialogOpen(true); }}
                     >
-                      <Typography variant="subtitle2" color={isTodayCell ? theme.palette.secondary.main : theme.palette.text.primary}>
+                      <Typography variant="subtitle2" color={isTodayCell ? theme.palette.secondary.main : theme.palette.text.primary} sx={{ fontSize: '0.9rem', fontWeight: 600 }}>
                         {format(date, 'EEEE')}, {format(date, 'MMMM d')}
                       </Typography>
                       {daySessions.length > 0 ? (
-                        <Stack spacing={1} mt={1}>
-                          {daySessions.slice(0, 3).map((session: Session) => (
-                            <Box key={session.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 44 }}>
-                              <Box
-                                sx={{
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: '50%',
-                                  backgroundColor: getSessionTypeColor(session.type),
-                                }}
-                              />
-                              <Typography variant="body2" color={theme.palette.text.primary}>
-                                {session.type[0]}. {session.type}
-                              </Typography>
-                            </Box>
-                          ))}
+                        <Box sx={{ mt: 0.5, position: 'relative' }}>
+                          <Stack spacing={0.25}>
+                            {daySessions.slice(0, 3).map((session: Session) => (
+                              <Box key={session.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 24 }}>
+                                <Box
+                                  sx={{
+                                    width: 5,
+                                    height: 5,
+                                    borderRadius: '50%',
+                                    backgroundColor: getSessionTypeColor(session.type),
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <Typography variant="body2" color={theme.palette.text.primary} sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
+                                  {session.type}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Stack>
                           {daySessions.length > 3 && (
-                            <Button
-                              size="small"
-                              variant="text"
-                              onClick={e => { e.stopPropagation(); setSelectedDate(date); setDayDialogOpen(true); }}
+                            <Typography
+                              variant="caption"
                               sx={{
-                                p: 0,
-                                minHeight: 0,
-                                minWidth: 0,
-                                fontSize: '0.78rem',
                                 color: theme.palette.text.secondary,
-                                textTransform: 'none',
                                 fontWeight: 500,
-                                mt: 0.7,
-                                width: '100%',
-                                display: 'flex',
-                                justifyContent: 'center',
-                                letterSpacing: 0.01,
+                                fontSize: '0.7rem',
+                                textAlign: 'center',
+                                mt: 0.5,
+                                whiteSpace: 'nowrap',
+                                display: 'block',
+                                position: 'relative',
+                                zIndex: 1,
                               }}
                             >
                               +{daySessions.length - 3} more
-                            </Button>
+                            </Typography>
                           )}
-                        </Stack>
+                        </Box>
                       ) : (
-                        <Typography variant="caption" color={theme.palette.text.secondary} mt={1}>
+                        <Typography variant="caption" color={theme.palette.text.secondary} sx={{ mt: 0.5, fontSize: '0.75rem' }}>
                           No sessions
                         </Typography>
                       )}
@@ -406,7 +476,8 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                 })}
               </Stack>
             </Box>
-            {/* FAB for actions */}
+            
+            {/* Fixed FAB for actions */}
             <Fab color="primary" aria-label="more options" sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 10 }} onClick={handleFabMenuOpen}>
               <MoreVert />
             </Fab>

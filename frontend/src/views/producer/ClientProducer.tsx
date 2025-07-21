@@ -7,8 +7,47 @@ import { LayoutProducer } from '../../layout/producer/LayoutProducer';
 import { ClientTable } from '../../components/tables/ClientTable';
 import type { Client } from '../../components/tables/ClientTable';
 
+const mockClients: Client[] = [
+  {
+    id: '1',
+    name: 'Alice Johnson',
+    contact: 'alice@email.com',
+    contactType: 'email',
+    status: 'active',
+    totalSpent: 1200,
+    projects: 3,
+  },
+  {
+    id: '2',
+    name: 'Bob Smith',
+    contact: '555-123-4567',
+    contactType: 'phone',
+    status: 'inactive',
+    totalSpent: 800,
+    projects: 1,
+  },
+  {
+    id: '3',
+    name: 'Carol Lee',
+    contact: 'carol@email.com',
+    contactType: 'email',
+    status: 'active',
+    totalSpent: 1500,
+    projects: 5,
+  },
+  {
+    id: '4',
+    name: 'David Kim',
+    contact: '555-987-6543',
+    contactType: 'phone',
+    status: 'active',
+    totalSpent: 600,
+    projects: 2,
+  },
+];
+
 export function ClientProducer() {
-  const [clients] = useState<Client[]>([]);
+  const [clients] = useState<Client[]>(mockClients);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
@@ -28,11 +67,12 @@ export function ClientProducer() {
         px: { xs: 2, sm: 2, md: 3 }, 
         pb: { xs: 2, sm: 2, md: 3 }, 
         pt: { md: 2 },
-        height: '100%',
         display: 'flex', 
         flexDirection: 'column',
-        overflow: 'hidden',
-        minHeight: 0,
+        minHeight: { xs: '100dvh', md: '100vh', lg: '100vh' },
+        height: { xs: '100dvh', md: '100vh', lg: '100vh' },
+        maxHeight: { xs: '100dvh', md: '100vh', lg: '100vh' },
+        overflow: { xs: 'hidden', md: 'auto', lg: 'auto' },
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
         '@keyframes pageSlideIn': {
           '0%': {

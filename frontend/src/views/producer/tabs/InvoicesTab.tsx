@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { InvoicesTable } from '../../../components/tables/InvoicesTable';
+import { InvoicesTable, mockInvoices } from '../../../components/tables/InvoicesTable';
  
 export function InvoicesTab() {
   return (
@@ -9,7 +9,7 @@ export function InvoicesTab() {
       py: 1,
       overflow: 'visible',
     }}>
-      <InvoicesTable />
+      <InvoicesTable invoices={mockInvoices} />
     </Box>
   );
 } 

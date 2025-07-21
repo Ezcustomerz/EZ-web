@@ -37,8 +37,10 @@ export function IncomeProducer() {
         px: { xs: 2, sm: 2, md: 3 },
         pb: { xs: 2, sm: 2, md: 3 },
         pt: { md: 2 },
-        minHeight: '100vh',
-        height: 'auto',
+        minHeight: { xs: '100dvh', md: '100vh' },
+        height: { xs: '100dvh', md: '100vh' },
+        maxHeight: { xs: '100dvh', md: '100vh' },
+        overflow: { xs: 'hidden', md: 'auto' },
         display: 'flex',
         flexDirection: 'column',
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -105,8 +107,9 @@ export function IncomeProducer() {
             borderColor: 'divider',
             display: 'flex',
             flexDirection: 'column',
-            flexGrow: 1,
+            flex: '1 1 0',
             minHeight: 0,
+            overflow: 'hidden',
           }}
         >
           {isMobile ? (
@@ -143,6 +146,7 @@ export function IncomeProducer() {
               >
                 {tabLabels[activeTab].icon}
                 <span style={{ fontWeight: 700, fontSize: '1.05rem', marginRight: 6 }}>{tabLabels[activeTab].label}</span>
+                <MusicNote sx={{ fontSize: 18, transform: 'rotate(-25deg)', ml: 0.5, color: '#7A5FFF', transition: 'transform 0.2s', }} />
                 {/* Down arrow for dropdown indication */}
                 <Box component="span" sx={{ ml: 1, display: 'flex', alignItems: 'center', transition: 'transform 0.2s', transform: Boolean(anchorEl) ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -218,9 +222,9 @@ export function IncomeProducer() {
                   >
                     <ListItemIcon sx={{ minWidth: 0, mr: 1.2, color: theme.palette.primary.main }}>
                       {tab.icon}
-                      <MusicNote sx={{ fontSize: 16, color: '#b7aaff', ml: 1, opacity: activeTab === idx ? 1 : 0.5, transform: 'rotate(-25deg)' }} />
                     </ListItemIcon>
                     <ListItemText primary={tab.label} primaryTypographyProps={{ fontWeight: 700, fontSize: '1.01rem' }} />
+                    <MusicNote sx={{ fontSize: 16, color: '#b7aaff', ml: 1, opacity: activeTab === idx ? 1 : 0.5, transform: 'rotate(-25deg)' }} />
                   </MenuItem>
                 ))}
               </Menu>
@@ -274,14 +278,15 @@ export function IncomeProducer() {
           <Box
             key={activeTab}
             sx={{
-              minHeight: 300,
+              minHeight: 0,
               width: '100%',
-              flexGrow: 1,
+              flex: '1 1 0',
               display: 'flex',
               flexDirection: 'column',
               px: 2,
               pb: 2,
               position: 'relative',
+              overflow: 'auto',
               animation: 'fadeSlideIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
               '@keyframes fadeSlideIn': {
                 '0%': {
