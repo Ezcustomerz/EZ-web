@@ -83,7 +83,7 @@ export function PublicProducer() {
         <Box
           sx={{
             mb: 2,
-            pt: { xs: 2, sm: 2, md: 3 },
+            pt: { xs: 2, sm: 2, md: 1 },
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
             '@media (max-height: 784px)': {
@@ -127,8 +127,8 @@ export function PublicProducer() {
             flexDirection: 'column',
             flexGrow: 1,
             minHeight: 0,
-            height: { xs: 'calc(100vh - 200px)', sm: 'auto' },
-            overflow: { xs: 'hidden', sm: 'visible' },
+            height: { xs: 'calc(100vh - 200px)', sm: 'calc(100vh - 250px)', md: 'calc(100vh - 280px)' },
+            overflow: { xs: 'hidden', sm: 'hidden' },
           }}
         >
           {isMobile ? (

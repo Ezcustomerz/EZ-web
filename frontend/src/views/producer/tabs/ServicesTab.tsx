@@ -127,8 +127,8 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
     <Box sx={{
       width: '100%',
       flexGrow: 1,
-      py: 3,
-      overflowY: { xs: 'auto', sm: 'visible' },
+      py: 2,
+      overflowY: { xs: 'auto', sm: 'auto', md: 'auto' },
       minHeight: 0,
     }}>
       <Box
