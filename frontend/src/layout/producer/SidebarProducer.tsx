@@ -10,6 +10,12 @@ import {
   Divider,
   Avatar,
   Button,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  useMediaQuery,
+  Snackbar,
 } from '@mui/material';
 import {
   DashboardOutlined,
@@ -27,6 +33,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { InviteClientButton } from '../../components/buttons/CassetteButton';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
+import React from 'react';
 
 interface SidebarProducerProps {
   isOpen: boolean;
@@ -38,8 +45,11 @@ interface SidebarProducerProps {
 
 export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarProducerProps) {
   const theme = useTheme();
+  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const demoPillRef = React.useRef<HTMLDivElement | null>(null);
   
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
@@ -403,23 +413,48 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
                     }}>
                       Music Producer
                     </Typography>
-                    <Box sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      color: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '0.6rem',
-                      fontWeight: 600,
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: '12px',
-                      letterSpacing: '0.02em',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      width: 'fit-content',
-                    }}>
-                      <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
-                      Demo (Free)
+                    <Box
+                      ref={demoPillRef}
+                      sx={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                        color: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '0.6rem',
+                        fontWeight: 600,
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: '12px',
+                        letterSpacing: '0.02em',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        width: 'fit-content',
+                        cursor: isMobileView ? 'pointer' : 'default',
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isMobileView) {
+                          setSnackbarOpen(true);
+                        }
+                      }}
+                    >
+                      {isMobileView ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
+                          Demo (Fee: N/A)
+                        </Box>
+                      ) : (
+                        <Tooltip
+                          title="Demo mode does not allow real transactions, so no percentage fee is taken from the user."
+                          arrow
+                          placement="top"
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
+                            Demo (Fee: N/A)
+                          </Box>
+                        </Tooltip>
+                      )}
                     </Box>
                   </Box>
                 </Box>
@@ -512,6 +547,13 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
       open={Boolean(userMenuAnchor)} 
       onClose={() => setUserMenuAnchor(null)} 
       isOpen={isOpen}
+    />
+    <Snackbar
+      open={snackbarOpen}
+      autoHideDuration={2500}
+      onClose={() => setSnackbarOpen(false)}
+      message="Demo mode: No real transactions or fees."
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
     />
     </>
   );

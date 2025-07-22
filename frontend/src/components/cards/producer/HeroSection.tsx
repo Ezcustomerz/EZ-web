@@ -20,6 +20,7 @@ export interface HeroSectionProps {
   avatar?: string;
   username?: string;
   bio?: string;
+  title?: string; // Added title prop
   socials?: { icon: React.ReactElement; url: string; label: string }[];
 }
 
@@ -28,6 +29,7 @@ export function HeroSection(props: HeroSectionProps) {
   const avatar = props?.avatar || '';
   const username = props?.username || 'Demo User';
   const bio = props?.bio || 'This is a demo description of this user';
+  const title = props?.title || 'music producer'; // Default title
   const socials = props?.socials || [
     { icon: <InstagramIcon />, url: '', label: 'Instagram' },
     { icon: <YouTubeIcon />, url: '', label: 'YouTube' },
@@ -96,6 +98,19 @@ export function HeroSection(props: HeroSectionProps) {
             }}
           >
             {username}
+          </Typography>
+          {/* Title under username */}
+          <Typography
+            variant="body2"
+            sx={{
+              color: theme.palette.text.secondary,
+              fontWeight: 500,
+              mb: 0.5,
+              textTransform: 'capitalize',
+              letterSpacing: 0.1,
+            }}
+          >
+            {title}
           </Typography>
           {/* Gradient accent underline, 45% of name width */}
           <Box
