@@ -1,8 +1,5 @@
 import { Box, Typography, Card, Chip, useTheme, useMediaQuery, Button } from '@mui/material';
 import {
-  BookmarkOutlined,
-  PaymentOutlined,
-  ScheduleOutlined,
   GraphicEqOutlined,
   PersonAddOutlined,
 } from '@mui/icons-material';
@@ -23,7 +20,7 @@ interface ActivityFeedCardProps {
   newCount?: number;
 }
 
-export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
+export function ActivityFeedCard({ }: ActivityFeedCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -45,6 +42,7 @@ export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
       display: 'flex', 
       flexDirection: 'column',
       minHeight: 0,
+      height: '100%',
       backgroundColor: '#ffffff',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
       border: '1px solid rgba(0, 0, 0, 0.06)',
@@ -115,9 +113,9 @@ export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
           // Responsive sizing behavior
           ...(isMobile 
             ? { maxHeight: '400px' } 
-            : { flex: 1 }
+            : { flex: 1, minHeight: 0 }
           ),
-          overflowY: 'auto',
+          overflowY: displayNotifications.length === 0 ? 'visible' : 'auto',
           overflowX: 'visible',
           px: 2,
           py: 1,
@@ -149,10 +147,10 @@ export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              py: 8,
-              px: 4,
+              pb: { xs: 4, sm: 4, md: 5, lg: 6 },
+              px: 3,
               textAlign: 'center',
-              minHeight: '350px',
+              minHeight: { xs: '280px', sm: '280px', md: '300px' },
               position: 'relative',
               // Soft gradient background
               background: `radial-gradient(circle at center, 
@@ -169,19 +167,19 @@ export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
           >
             <GraphicEqOutlined
               sx={{
-                fontSize: 52,
+                fontSize: { xs: 44, sm: 48, md: 52 },
                 color: theme.palette.info.main,
-                mb: 3,
+                mb: { xs: 2, sm: 2.5, md: 3 },
                 opacity: 0.9,
               }}
             />
             <Typography
               variant="h6"
               sx={{
-                fontSize: '1.125rem',
+                fontSize: { xs: '1rem', sm: '1.075rem', md: '1.125rem' },
                 fontWeight: 600,
                 color: theme.palette.info.main,
-                mb: 1.5,
+                mb: { xs: 1, sm: 1.25, md: 1.5 },
               }}
             >
               You're all caught up!
@@ -189,12 +187,12 @@ export function ActivityFeedCard({ newCount = 0 }: ActivityFeedCardProps) {
             <Typography
               variant="body2"
               sx={{
-                fontSize: '0.875rem',
+                fontSize: { xs: '0.8rem', sm: '0.85rem', md: '0.875rem' },
                 color: theme.palette.info.main,
-                maxWidth: '320px',
+                maxWidth: { xs: '280px', sm: '300px', md: '320px' },
                 lineHeight: 1.6,
                 opacity: 0.8,
-                mb: 3,
+                mb: { xs: 2, sm: 2.5, md: 3 },
               }}
             >
               We'll notify you here when your clients book, pay, or have upcoming sessions.

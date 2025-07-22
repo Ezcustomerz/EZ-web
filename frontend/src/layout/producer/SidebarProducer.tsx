@@ -26,7 +26,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '@mui/material/styles';
 import { InviteClientButton } from '../../components/buttons/CassetteButton';
-import { UserDropdownMenu } from '../../components/menus/UserMiniMenu';
+import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
 
 interface SidebarProducerProps {
   isOpen: boolean;
