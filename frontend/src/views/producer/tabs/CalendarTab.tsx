@@ -361,7 +361,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
             maxWidth: '100%', 
             overflow: 'hidden', 
             position: 'relative', 
-            height: 'calc(100vh - 200px)',
+            height: 'calc(100vh - 240px)',
             display: 'flex', 
             flexDirection: 'column',
             minHeight: 0,
@@ -410,7 +410,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
             </Box>
             
             {/* Fixed FAB for actions */}
-            <Fab color="primary" aria-label="more options" sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 10 }} onClick={handleFabMenuOpen}>
+            <Fab color="primary" aria-label="more options" sx={{ position: 'fixed', bottom: { xs: 80, sm: 24 }, right: 16, zIndex: 1301 }} onClick={handleFabMenuOpen}>
               <MoreVert />
             </Fab>
             <MuiMenu
