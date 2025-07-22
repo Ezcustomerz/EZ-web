@@ -44,7 +44,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
     { id: 'clients', label: 'Clients', icon: PeopleOutlined },
-    { id: 'income', label: 'Income', icon: AttachMoneyOutlined },
+    { id: 'activity', label: 'Activity', icon: AttachMoneyOutlined },
     { id: 'public', label: 'Public', icon: PublicOutlined },
   ];
 

@@ -5,7 +5,7 @@ import './index.css'
 import {LandingPage} from './views/web/LandingPage.tsx'
 import { DashProducer } from './views/producer/DashProducer.tsx'
 import { ClientProducer } from './views/producer/ClientProducer.tsx'
-import { IncomeProducer } from './views/producer/IncomeProducer.tsx'
+import { ActivityProducer } from './views/producer/ActivityProducer.tsx'
 import { PublicProducer } from './views/producer/PublicProducer.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
@@ -70,7 +70,7 @@ function Root() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/producer" element={<DashProducer />} />
             <Route path="/producer/clients" element={<ClientProducer />} />
-            <Route path="/producer/income" element={<IncomeProducer />} />
+            <Route path="/producer/activity" element={<ActivityProducer />} />
             <Route path="/producer/public" element={<PublicProducer />} />
           </Routes>
         </BrowserRouter>

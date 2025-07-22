@@ -83,8 +83,8 @@ export function LayoutProducer({
       case 'clients':
         navigate('/producer/clients');
         break;
-      case 'income':
-        navigate('/producer/income');
+      case 'activity':
+        navigate('/producer/activity');
         break;
       case 'public':
         navigate('/producer/public');

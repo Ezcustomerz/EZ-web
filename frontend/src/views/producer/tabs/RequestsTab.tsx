@@ -1,7 +1,7 @@
 import { Box } from '@mui/material';
-import { InvoicesTable, mockInvoices } from '../../../components/tables/InvoicesTable';
+import { RequestsTable, mockRequests } from '../../../components/tables/RequestsTable';
  
-export function InvoicesTab() {
+export function RequestsTab() {
   return (
     <Box sx={{
       width: '100%',
@@ -9,7 +9,7 @@ export function InvoicesTab() {
       py: 1,
       overflow: 'visible',
     }}>
-      <InvoicesTable invoices={mockInvoices} />
+      <RequestsTable requests={mockRequests} />
     </Box>
   );
 } 

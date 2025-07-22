@@ -36,7 +36,7 @@ export function WelcomeCard({ userName = "Demo User", userRole = "Music Producer
       bgColor: `${theme.palette.success.main}1A`,
     },
     {
-      title: 'Monthly Income',
+      title: 'Monthly Activity',
       value: '$0',
       icon: AttachMoneyOutlined,
       color: theme.palette.info.main,
