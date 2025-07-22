@@ -116,7 +116,7 @@ export function PublicProducer() {
           </Typography>
         </Box>
         {/* Tabs + content */}
-                <Paper
+        <Paper
           elevation={0}
           sx={{
             p: 1,

@@ -3,6 +3,7 @@ import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
 import { SidebarProducer } from './SidebarProducer';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 
 interface LayoutProducerProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
@@ -156,22 +157,24 @@ export function LayoutProducer({
             <Box
               onClick={handleSidebarToggle}
               sx={{
-                backgroundColor: 'transparent',
+                backgroundColor: alpha(theme.palette.secondary.main, 0.13),
+                backdropFilter: 'blur(2px)',
                 color: theme.palette.text.primary,
-                width: 48,
-                height: 48,
-                borderRadius: 4,
+                width: 40,
+                height: 40,
+                borderRadius: 1,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
+                boxShadow: '0 2px 8px 0 rgba(0,0,0,0.10)',
                 '&:hover': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                  backgroundColor: alpha(theme.palette.secondary.main, 0.19),
                   transform: 'scale(1.05)',
                 },
                 '&:active': {
                   transform: 'scale(0.95)',
-                  backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                  backgroundColor: alpha(theme.palette.secondary.main, 0.16),
                 },
                 transition: 'all 0.2s ease',
               }}
