@@ -1,10 +1,91 @@
-import { Box, Typography, Card, CardContent, IconButton, Tooltip } from '@mui/material';
+import { Box, Typography, Card, CardContent, IconButton, Tooltip, useMediaQuery } from '@mui/material';
 import { Edit } from '@mui/icons-material';
 import { useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGlobe, faLock } from '@fortawesome/free-solid-svg-icons';
 
-const mockServices: any[] = [];
+const mockServices: any[] = [
+  {
+    id: 'service-1',
+    title: 'Mixing',
+    description: 'Professional mixing for your tracks',
+    price: 200,
+    delivery: '3 days',
+    status: 'Public',
+  },
+  {
+    id: 'service-2',
+    title: 'Mastering',
+    description: 'High-quality mastering for release',
+    price: 150,
+    delivery: '2 days',
+    status: 'Private',
+  },
+  {
+    id: 'service-3',
+    title: 'Vocal Tuning',
+    description: 'Pitch correction and tuning for vocals',
+    price: 100,
+    delivery: '1 day',
+    status: 'Public',
+  },
+  {
+    id: 'service-4',
+    title: 'Full Production',
+    description: 'From songwriting to final mix',
+    price: 1000,
+    delivery: '10 days',
+    status: 'Public',
+  },
+  {
+    id: 'service-5',
+    title: 'Beat Making',
+    description: 'Custom beats for any genre',
+    price: 300,
+    delivery: '4 days',
+    status: 'Private',
+  },
+  {
+    id: 'service-6',
+    title: 'Session Guitar',
+    description: 'Professional guitar tracks for your song',
+    price: 120,
+    delivery: '2 days',
+    status: 'Public',
+  },
+  {
+    id: 'service-7',
+    title: 'Drum Programming',
+    description: 'Realistic drum programming for your track',
+    price: 180,
+    delivery: '3 days',
+    status: 'Public',
+  },
+  {
+    id: 'service-8',
+    title: 'Arrangement',
+    description: 'Song arrangement and structure advice',
+    price: 80,
+    delivery: '2 days',
+    status: 'Private',
+  },
+  {
+    id: 'service-9',
+    title: 'Vocal Recording',
+    description: 'Studio vocal recording session',
+    price: 250,
+    delivery: '1 day',
+    status: 'Public',
+  },
+  {
+    id: 'service-10',
+    title: 'Piano Session',
+    description: 'Professional piano tracks for your project',
+    price: 140,
+    delivery: '2 days',
+    status: 'Public',
+  },
+];
 
 const statusHelp = {
   Public: 'Visible to everyone on your public profile.',
@@ -47,15 +128,13 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
       width: '100%',
       flexGrow: 1,
       py: 3,
-      overflowY: 'auto',
-      maxHeight: { xs: 'calc(100vh - 200px)', sm: 'calc(100vh - 250px)', md: 'calc(100vh - 280px)' },
+      overflowY: { xs: 'auto', sm: 'visible' },
       minHeight: 0,
-      height: 'fit-content',
     }}>
       <Box
         sx={{
           display: 'grid',
-          gap: { xs: 1, sm: 1.7 }, // slightly less vertical gap
+          gap: { xs: 1, sm: 1.7 },
           px: 2,
           pb: 1.1,
           gridTemplateColumns: {

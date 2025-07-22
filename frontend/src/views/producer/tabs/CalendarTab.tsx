@@ -34,7 +34,7 @@ interface CalendarTabProps {
 
 export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen, setSessionDialogOpen }: CalendarTabProps) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery('(max-width:700px), (max-height:700px)');
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
   const isTallScreen = useMediaQuery('(min-height: 900px)');
   const isIPadMini = useMediaQuery('(min-height: 1024px) and (max-width: 1024px)');

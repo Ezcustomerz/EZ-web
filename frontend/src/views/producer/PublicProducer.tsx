@@ -83,6 +83,7 @@ export function PublicProducer() {
         <Box
           sx={{
             mb: 2,
+            pt: { xs: 2, sm: 2, md: 3 },
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
             '@media (max-height: 784px)': {
@@ -115,7 +116,7 @@ export function PublicProducer() {
           </Typography>
         </Box>
         {/* Tabs + content */}
-        <Paper
+                <Paper
           elevation={0}
           sx={{
             p: 1,
@@ -126,8 +127,8 @@ export function PublicProducer() {
             flexDirection: 'column',
             flexGrow: 1,
             minHeight: 0,
-            height: 'auto',
-            overflow: 'visible',
+            height: { xs: 'calc(100vh - 200px)', sm: 'auto' },
+            overflow: { xs: 'hidden', sm: 'visible' },
           }}
         >
           {isMobile ? (

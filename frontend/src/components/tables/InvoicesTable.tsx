@@ -18,7 +18,6 @@ import {
   Button,
   TextField,
   InputAdornment,
-  Alert,
   Stack,
 } from '@mui/material';
 import { ArrowDropUp, ArrowDropDown, SwapVert, Search as SearchIcon, Payment as PaymentIcon, ReceiptLong, FilterList as FilterIcon } from '@mui/icons-material';
@@ -106,22 +105,6 @@ export const mockInvoices = [
     amount: 190,
     status: 'Paid',
     date: '2024-05-09',
-  },
-  {
-    id: 'inv-11',
-    client: 'John Doe',
-    service: { title: 'Piano Lesson', desc: 'Beginner piano session' },
-    amount: 120,
-    status: 'Paid',
-    date: '2024-05-01',
-  },
-  {
-    id: 'inv-12',
-    client: 'John Doe',
-    service: { title: 'Piano Lesson', desc: 'Beginner piano session' },
-    amount: 120,
-    status: 'Paid',
-    date: '2024-05-01',
   },
 ];
 
@@ -463,7 +446,204 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
         {/* Card List */}
         <Box sx={{ pt: 2 }}>
           {filteredInvoices.length === 0 ? (
-            <Alert severity="info" sx={{ mt: 2 }}>No invoices found</Alert>
+            <Box
+              sx={{
+                width: '100%',
+                maxWidth: 600,
+                mx: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: { xs: 6, md: 8 },
+                textAlign: 'center',
+                minHeight: { xs: '350px', md: '400px' },
+                position: 'relative',
+                background: `radial-gradient(circle at center, ${theme.palette.info.main}08 0%, ${theme.palette.primary.main}05 40%, transparent 70%)`,
+                borderRadius: 2,
+                animation: 'fadeIn 0.6s ease-out 0.5s both',
+                '@keyframes fadeIn': {
+                  from: { opacity: 0, transform: 'translateY(20px)' },
+                  to: { opacity: 1, transform: 'translateY(0)' },
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: `radial-gradient(ellipse at center, ${theme.palette.info.main}03 0%, transparent 50%)`,
+                  borderRadius: 2,
+                  pointerEvents: 'none',
+                },
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  top: -2,
+                  left: -2,
+                  right: -2,
+                  bottom: -2,
+                  background: `radial-gradient(ellipse at center, ${theme.palette.primary.main}02 0%, transparent 60%)`,
+                  borderRadius: 2,
+                  zIndex: -1,
+                  pointerEvents: 'none',
+                },
+                mt: { xs: 2, md: 4 },
+              }}
+            >
+              <ReceiptLong
+                sx={{
+                  fontSize: { xs: 44, md: 52 },
+                  color: theme.palette.info.main,
+                  mb: { xs: 2, md: 3 },
+                  opacity: 0.9,
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              />
+              <Typography
+                variant="h6"
+                sx={{
+                  fontSize: { xs: '1rem', md: '1.125rem' },
+                  fontWeight: 600,
+                  color: theme.palette.info.main,
+                  mb: 1.5,
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
+                No Invoices Found
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: { xs: '0.8rem', md: '0.875rem' },
+                  color: theme.palette.info.main,
+                  maxWidth: { xs: '280px', md: '320px' },
+                  lineHeight: 1.6,
+                  opacity: 0.8,
+                  mb: 3,
+                  position: 'relative',
+                  zIndex: 1,
+                }}
+              >
+                Try adjusting your filters or request a payment.
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PaymentIcon />}
+                sx={{
+                  borderColor: theme.palette.info.main,
+                  color: theme.palette.info.main,
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  px: 2.5,
+                  height: '40px',
+                  borderRadius: 1.5,
+                  textTransform: 'none',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  transition: 'all 0.2s ease-in-out',
+                  zIndex: 1,
+                  '@keyframes sparkle': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  '@keyframes sparkle2': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  '@keyframes sparkle3': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '20%',
+                    left: '15%',
+                    width: 4,
+                    height: 4,
+                    background: theme.palette.info.main,
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '70%',
+                    right: '20%',
+                    width: 3,
+                    height: 3,
+                    background: theme.palette.info.main,
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&:hover': {
+                    borderColor: theme.palette.info.main,
+                    backgroundColor: `${theme.palette.info.main}08`,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 12px ${theme.palette.info.main}20`,
+                    '&::before': {
+                      animation: 'sparkle 0.8s ease-in-out',
+                    },
+                    '&::after': {
+                      animation: 'sparkle2 0.8s ease-in-out 0.1s',
+                    },
+                    '& .spark-element': {
+                      '&:nth-of-type(1)': {
+                        animation: 'sparkle3 0.8s ease-in-out 0.2s',
+                      },
+                      '&:nth-of-type(2)': {
+                        animation: 'sparkle 0.8s ease-in-out 0.3s',
+                      },
+                    },
+                  },
+                }}
+                onClick={() => {/* TODO: handle request payment */ }}
+              >
+                <Box
+                  className="spark-element"
+                  sx={{
+                    position: 'absolute',
+                    top: '10%',
+                    right: '10%',
+                    width: 2,
+                    height: 2,
+                    background: theme.palette.info.main,
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                />
+                <Box
+                  className="spark-element"
+                  sx={{
+                    position: 'absolute',
+                    bottom: '15%',
+                    left: '25%',
+                    width: 2,
+                    height: 2,
+                    background: theme.palette.info.main,
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                />
+                Request Payment
+              </Button>
+            </Box>
           ) : (
             filteredInvoices.map((inv) => (
               <Card

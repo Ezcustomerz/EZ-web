@@ -4,50 +4,10 @@ import {
   Typography,
 } from '@mui/material';
 import { LayoutProducer } from '../../layout/producer/LayoutProducer';
-import { ClientTable } from '../../components/tables/ClientTable';
-import type { Client } from '../../components/tables/ClientTable';
-
-const mockClients: Client[] = [
-  {
-    id: '1',
-    name: 'Alice Johnson',
-    contact: 'alice@email.com',
-    contactType: 'email',
-    status: 'active',
-    totalSpent: 1200,
-    projects: 3,
-  },
-  {
-    id: '2',
-    name: 'Bob Smith',
-    contact: '555-123-4567',
-    contactType: 'phone',
-    status: 'inactive',
-    totalSpent: 800,
-    projects: 1,
-  },
-  {
-    id: '3',
-    name: 'Carol Lee',
-    contact: 'carol@email.com',
-    contactType: 'email',
-    status: 'active',
-    totalSpent: 1500,
-    projects: 5,
-  },
-  {
-    id: '4',
-    name: 'David Kim',
-    contact: '555-987-6543',
-    contactType: 'phone',
-    status: 'active',
-    totalSpent: 600,
-    projects: 2,
-  },
-];
+import { ClientTable, mockClients } from '../../components/tables/ClientTable';
 
 export function ClientProducer() {
-  const [clients] = useState<Client[]>(mockClients);
+  const [clients] = useState(mockClients);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
@@ -93,6 +53,7 @@ export function ClientProducer() {
         <Box 
           sx={{ 
             mb: 2,
+            pt: { xs: 2, sm: 2, md: 3 },
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
             '@media (max-height: 784px)': {

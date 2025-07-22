@@ -57,6 +57,99 @@ interface ClientTableProps {
   itemsPerPage?: number;
 }
 
+export const mockClients: Client[] = [
+  {
+    id: 'client-1',
+    name: 'Alice Johnson',
+    contact: 'alice@email.com',
+    contactType: 'email',
+    status: 'active',
+    totalSpent: 1200,
+    projects: 5,
+  },
+  {
+    id: 'client-2',
+    name: 'Bob Smith',
+    contact: '555-123-4567',
+    contactType: 'phone',
+    status: 'inactive',
+    totalSpent: 800,
+    projects: 2,
+  },
+  {
+    id: 'client-3',
+    name: 'Carol Lee',
+    contact: 'carol@email.com',
+    contactType: 'email',
+    status: 'active',
+    totalSpent: 1500,
+    projects: 7,
+  },
+  {
+    id: 'client-4',
+    name: 'David Kim',
+    contact: '555-987-6543',
+    contactType: 'phone',
+    status: 'active',
+    totalSpent: 950,
+    projects: 3,
+  },
+  {
+    id: 'client-5',
+    name: 'Eve White',
+    contact: 'eve@email.com',
+    contactType: 'email',
+    status: 'inactive',
+    totalSpent: 400,
+    projects: 1,
+  },
+  {
+    id: 'client-6',
+    name: 'Frank Green',
+    contact: 'frank@email.com',
+    contactType: 'email',
+    status: 'active',
+    totalSpent: 2100,
+    projects: 9,
+  },
+  {
+    id: 'client-7',
+    name: 'Grace Brown',
+    contact: '555-222-3333',
+    contactType: 'phone',
+    status: 'active',
+    totalSpent: 600,
+    projects: 2,
+  },
+  {
+    id: 'client-8',
+    name: 'Henry Davis',
+    contact: 'henry@email.com',
+    contactType: 'email',
+    status: 'inactive',
+    totalSpent: 300,
+    projects: 1,
+  },
+  {
+    id: 'client-9',
+    name: 'Ivy Wilson',
+    contact: 'ivy@email.com',
+    contactType: 'email',
+    status: 'active',
+    totalSpent: 1750,
+    projects: 6,
+  },
+  {
+    id: 'client-10',
+    name: 'Jackie Brown',
+    contact: 'jackie@email.com',
+    contactType: 'email',
+    status: 'active',
+    totalSpent: 900,
+    projects: 3,
+  },
+];
+
 function EmptyClientState({ onInviteClient }: { onInviteClient: () => void }) {
   const theme = useTheme();
   return (
@@ -131,7 +224,7 @@ function EmptyClientState({ onInviteClient }: { onInviteClient: () => void }) {
           zIndex: 1,
         }}
       >
-        No Clients Yet
+        No Clients Found
       </Typography>
       <Typography
         variant="body2"
@@ -146,7 +239,7 @@ function EmptyClientState({ onInviteClient }: { onInviteClient: () => void }) {
           zIndex: 1,
         }}
       >
-        Invite your first client to start managing collaborations and sessions.
+        Invite a client to start managing collaborations and sessions or try adjusting your search or filter criteria.
       </Typography>
       <Button
         variant="outlined"
@@ -681,21 +774,31 @@ export function ClientTable({
       </Box>
       {/* Clients Table */}
       {/* MOBILE CARD LIST */}
-      <Box sx={{ display: { xs: 'block', md: 'none' }, maxHeight: { xs: 'calc(100dvh - 120px)', md: 'none' }, overflowY: { xs: 'auto', md: 'unset' }, pt: 2 }}>
+      <Box
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          maxHeight: totalItems === 0 ? 'none' : { xs: 'calc(100dvh - 120px)', md: 'none' },
+          overflowY: totalItems === 0 ? 'hidden' : { xs: 'auto', md: 'unset' },
+          pt: 2,
+        }}
+      >
         {totalItems === 0 ? (
-          <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>
-            {clients.length === 0 ? (
-              <EmptyClientState onInviteClient={onInviteClient} />
-            ) : (
-              <>
-                <Typography variant="h6" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                  No clients found
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Try adjusting your search or filter criteria
-                </Typography>
-              </>
-            )}
+          <Box
+            sx={{
+              width: '100%',
+              maxWidth: 400,
+              mx: 'auto',
+              py: 6,
+              textAlign: 'center',
+              minHeight: 300,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'text.secondary',
+            }}
+          >
+            <EmptyClientState onInviteClient={onInviteClient} />
           </Box>
         ) : (
           filteredAndSortedClients.map((client) => (
@@ -745,8 +848,9 @@ export function ClientTable({
           borderColor: 'divider',
           borderRadius: 1,
           flex: '1 1 0',
-          minHeight: 0,
-          overflow: 'auto',
+          height: totalItems === 0 ? 'auto' : undefined,
+          minHeight: totalItems === 0 ? 'auto' : 0,
+          overflowY: totalItems === 0 ? 'visible' : 'auto',
           WebkitOverflowScrolling: 'touch',
           display: { xs: 'none', md: 'block' },
         }}
@@ -890,52 +994,28 @@ export function ClientTable({
                     p: 0,
                     height: '100%',
                     verticalAlign: 'middle',
+                    width: '100%',
+                    overflowX: 'hidden',
                   }}
                 >
-                  {clients.length === 0 ? (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: '100%',
-                        minHeight: '400px',
-                      }}
-                    >
-                      <EmptyClientState onInviteClient={onInviteClient} />
-                    </Box>
-                  ) : (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        py: 8,
-                        textAlign: 'center',
-                        height: '100%',
-                        minHeight: '300px',
-                      }}
-                    >
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          color: 'text.secondary',
-                          mb: 0.5,
-                        }}
-                      >
-                        No clients found
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: 'text.secondary',
-                        }}
-                      >
-                        Try adjusting your search or filter criteria
-                      </Typography>
-                    </Box>
-                  )}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '100%',
+                      maxWidth: 600,
+                      mx: 'auto',
+                      px: 0,
+                      py: 6,
+                      textAlign: 'center',
+                      minHeight: 0,
+                      color: 'text.secondary',
+                      overflowX: 'hidden',
+                    }}
+                  >
+                    <EmptyClientState onInviteClient={onInviteClient} />
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (

@@ -64,6 +64,7 @@ export function IncomeProducer() {
         <Box
           sx={{
             mb: 2,
+            pt: { xs: 2, sm: 2, md: 3 },
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
             '@media (max-height: 784px)': {
