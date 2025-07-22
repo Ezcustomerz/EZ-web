@@ -134,6 +134,9 @@ const FeaturesNavButton = styled(Button, {
 const StyledMenu = styled(Menu)(({ theme }) => ({
   '& .MuiPaper-root': {
     marginTop: 'clamp(8px, 1.5vw, 12px)',
+    [theme.breakpoints.up('md')]: {
+      marginTop: 0,
+    },
     borderRadius: 'clamp(10px, 1.5vw, 12px)',
     boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
     border: `1px solid ${theme.palette.divider}`,
@@ -422,8 +425,16 @@ export function Header() {
                         onMouseLeave: handleMenuMouseLeave,
                       }
                     }}
-                    transformOrigin={{ horizontal: 'center', vertical: 'top' }}
-                    anchorOrigin={{ horizontal: 'center', vertical: 'bottom' }}
+                    transformOrigin={
+                      theme.breakpoints.up('md')
+                        ? { horizontal: 'center', vertical: 'top' }
+                        : { horizontal: 'center', vertical: 'top' }
+                    }
+                    anchorOrigin={
+                      theme.breakpoints.up('md')
+                        ? { horizontal: 'center', vertical: 'bottom' }
+                        : { horizontal: 'center', vertical: 'bottom' }
+                    }
                   >
                   <StyledMenuItem 
                     onClick={(event) => handleMenuItemClick(event, 'Producer Features')}

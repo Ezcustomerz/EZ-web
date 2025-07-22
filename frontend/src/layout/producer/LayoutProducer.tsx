@@ -158,7 +158,6 @@ export function LayoutProducer({
               onClick={handleSidebarToggle}
               sx={{
                 backgroundColor: alpha(theme.palette.secondary.main, 0.13),
-                backdropFilter: 'blur(2px)',
                 color: theme.palette.text.primary,
                 width: 40,
                 height: 40,
