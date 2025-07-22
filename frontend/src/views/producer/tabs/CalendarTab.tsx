@@ -11,6 +11,7 @@ import { Fab, Menu as MuiMenu, MenuItem as MuiMenuItem } from '@mui/material';
 import { HeadsetMic, MoreVert } from '@mui/icons-material';
 import { CalendarDaySessionListPopover } from '../../../components/popovers/CalendarDaySessionListPopover';
 import { CalendarSessionDetailPopover } from '../../../components/popovers/CalendarSessionDetailPopover';
+import { CalendarDayCard } from '../../../components/cards/producer/CalendarDayCard';
 
 interface Session {
   id: string;
@@ -35,7 +36,6 @@ interface CalendarTabProps {
 export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen, setSessionDialogOpen }: CalendarTabProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery('(max-width:700px), (max-height:700px)');
-  const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
   const isTallScreen = useMediaQuery('(min-height: 900px)');
   const isIPadMini = useMediaQuery('(min-height: 1024px) and (max-width: 1024px)');
   const isIPadAir = useMediaQuery('(min-height: 1180px) and (max-width: 1180px)');
@@ -276,15 +276,6 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
   const [fabMenuAnchor, setFabMenuAnchor] = useState<null | HTMLElement>(null);
   const handleFabMenuOpen = (e: React.MouseEvent<HTMLElement>) => setFabMenuAnchor(e.currentTarget);
   const handleFabMenuClose = () => setFabMenuAnchor(null);
-  // Color mapping for session type
-  function getSessionTypeColor(type: string) {
-    // Use accent if defined, else fallback to primary
-    if (type === 'Recording') return (theme.palette as any).accent?.main || theme.palette.primary.main;
-    if (type === 'Mixing') return theme.palette.warning.main;
-    if (type === 'Mastering') return theme.palette.error.main;
-    if (type === 'Consultation') return theme.palette.info.main;
-    return theme.palette.text.secondary;
-  }
 
   // Month navigation
   const [monthTransition, setMonthTransition] = useState<'left' | 'right' | null>(null);
@@ -406,72 +397,13 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                   const daySessions = sessions.filter(s => s.date === formatted);
                   const isTodayCell = isToday(date);
                   return (
-                    <Paper
+                    <CalendarDayCard
                       key={formatted}
-                      elevation={1}
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        backgroundColor: theme.palette.background.paper,
-                        minHeight: 48,
-                        maxHeight: 160,
-                        cursor: 'pointer',
-                        transition: 'box-shadow 0.18s, border 0.18s',
-                        boxShadow: isTodayCell ? '0 2px 8px 0 rgba(122,95,255,0.07)' : 1,
-                        border: isTodayCell ? `1.5px solid ${theme.palette.secondary.main}` : '1px solid #e0e0e0',
-                        '&:hover': { boxShadow: 4 },
-                        overflow: 'visible',
-                      }}
+                      date={date}
+                      isToday={isTodayCell}
+                      sessions={daySessions.map(s => ({ id: s.id, type: s.type, status: s.status }))}
                       onClick={() => { setSelectedDate(date); setDayDialogOpen(true); }}
-                    >
-                      <Typography variant="subtitle2" color={isTodayCell ? theme.palette.secondary.main : theme.palette.text.primary} sx={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                        {format(date, 'EEEE')}, {format(date, 'MMMM d')}
-                      </Typography>
-                      {daySessions.length > 0 ? (
-                        <Box sx={{ mt: 0.5, position: 'relative' }}>
-                          <Stack spacing={0.25}>
-                            {daySessions.slice(0, 3).map((session: Session) => (
-                              <Box key={session.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 24 }}>
-                                <Box
-                                  sx={{
-                                    width: 5,
-                                    height: 5,
-                                    borderRadius: '50%',
-                                    backgroundColor: getSessionTypeColor(session.type),
-                                    flexShrink: 0,
-                                  }}
-                                />
-                                <Typography variant="body2" color={theme.palette.text.primary} sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
-                                  {session.type}
-                                </Typography>
-                              </Box>
-                            ))}
-                          </Stack>
-                          {daySessions.length > 3 && (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                color: theme.palette.text.secondary,
-                                fontWeight: 500,
-                                fontSize: '0.7rem',
-                                textAlign: 'center',
-                                mt: 0.5,
-                                whiteSpace: 'nowrap',
-                                display: 'block',
-                                position: 'relative',
-                                zIndex: 1,
-                              }}
-                            >
-                              +{daySessions.length - 3} more
-                            </Typography>
-                          )}
-                        </Box>
-                      ) : (
-                        <Typography variant="caption" color={theme.palette.text.secondary} sx={{ mt: 0.5, fontSize: '0.75rem' }}>
-                          No sessions
-                        </Typography>
-                      )}
-                    </Paper>
+                    />
                   );
                 })}
               </Stack>
