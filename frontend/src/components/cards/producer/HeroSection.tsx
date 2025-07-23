@@ -15,13 +15,15 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import PersonIcon from '@mui/icons-material/Person';
+import StarOutlineIcon from '@mui/icons-material/StarOutline';
 
 export interface HeroSectionProps {
   avatar?: string;
   username?: string;
   bio?: string;
-  title?: string; // Added title prop
+  title?: string;
   socials?: { icon: React.ReactElement; url: string; label: string }[];
+  averageRating?: number;
 }
 
 export function HeroSection(props: HeroSectionProps) {
@@ -35,6 +37,7 @@ export function HeroSection(props: HeroSectionProps) {
     { icon: <YouTubeIcon />, url: '', label: 'YouTube' },
     { icon: <TwitterIcon />, url: '', label: 'Twitter' },
   ];
+  const averageRating = props?.averageRating ?? 4.9;
   return (
     <Box
       sx={{
@@ -94,7 +97,6 @@ export function HeroSection(props: HeroSectionProps) {
               cursor: 'pointer',
               transition: 'color 0.2s',
               '&:hover': { color: theme.palette.primary.main },
-              mb: 0.5,
             }}
           >
             {username}
@@ -112,6 +114,13 @@ export function HeroSection(props: HeroSectionProps) {
           >
             {title}
           </Typography>
+          {/* Average reviews (star + rating) above underline */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mt: 0.5, mb: 0.5 }}>
+            <StarOutlineIcon sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
+            <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.text.primary, fontSize: 16 }}>
+              {averageRating.toFixed(1)}
+            </Typography>
+          </Box>
           {/* Gradient accent underline, 45% of name width */}
           <Box
             sx={{

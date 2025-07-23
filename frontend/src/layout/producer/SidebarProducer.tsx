@@ -416,19 +416,19 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
                     <Box
                       ref={demoPillRef}
                       sx={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                        color: 'rgba(255, 255, 255, 0.9)',
-                        fontSize: '0.6rem',
-                        fontWeight: 600,
-                        px: 1,
-                        py: 0.25,
-                        borderRadius: '12px',
-                        letterSpacing: '0.02em',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        width: 'fit-content',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      color: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '0.6rem',
+                      fontWeight: 600,
+                      px: 1,
+                      py: 0.25,
+                      borderRadius: '12px',
+                      letterSpacing: '0.02em',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      width: 'fit-content',
                         cursor: isMobileView ? 'pointer' : 'default',
                       }}
                       onClick={(e) => {
@@ -450,7 +450,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
                           placement="top"
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
+                      <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
                             Demo (Fee: N/A)
                           </Box>
                         </Tooltip>
