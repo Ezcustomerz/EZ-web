@@ -44,7 +44,7 @@ export function HeroSection(props: HeroSectionProps) {
         width: '100%',
         bgcolor: '#fff',
         position: 'relative',
-        py: { xs: 1, sm: 2 },
+        pt: { xs: 1, sm: 1 },
         borderBottom: `1px solid ${theme.palette.divider}`,
       }}
     >

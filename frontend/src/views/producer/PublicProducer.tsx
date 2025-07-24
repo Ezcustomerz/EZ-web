@@ -52,9 +52,15 @@ export function PublicProducer() {
   const [search, setSearch] = useState('');
   const [visibility, setVisibility] = useState<'all' | 'Public' | 'Private'>('all');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [profileSeeAllDialogOpen, setProfileSeeAllDialogOpen] = useState(false);
+
+  // Handler to pass to ProfileTab to control dialog state
+  const handleProfileSeeAllDialogChange = (open: boolean) => {
+    setProfileSeeAllDialogOpen(open);
+  };
 
   return (
-    <LayoutProducer selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen}>
+    <LayoutProducer selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen || profileSeeAllDialogOpen}>
       <Box sx={{
         px: { xs: 2, sm: 2, md: 3 },
         pb: { xs: 2, sm: 2, md: 3 },
@@ -717,7 +723,12 @@ export function PublicProducer() {
               setSessionDialogOpen={setCalendarSessionDialogOpen}
             />
           )}
-          {Number(activeTab) === 2 && <ProfileTab />}
+          {Number(activeTab) === 2 && (
+            <ProfileTab
+              seeAllDialogOpen={profileSeeAllDialogOpen}
+              onSeeAllDialogChange={handleProfileSeeAllDialogChange}
+            />
+          )}
         </Paper>
       </Box>
     </LayoutProducer>

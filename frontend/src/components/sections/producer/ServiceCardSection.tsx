@@ -2,7 +2,7 @@ import { Box, IconButton, useTheme, Typography, Button } from '@mui/material';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { ServiceCardSimple } from './ServiceCard';
+import { ServiceCardSimple } from '../../cards/producer/ServiceCard';
 import { useEffect, useState, useRef } from 'react';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
@@ -15,6 +15,7 @@ export interface ServiceCardRowProps {
     delivery: string;
     color: string;
   }>;
+  arrowPosition?: 'inside';
 }
 
 const DEMO_SERVICES: ServiceCardRowProps['services'] = [
@@ -27,7 +28,7 @@ const DEMO_SERVICES: ServiceCardRowProps['services'] = [
   { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6' },
 ];
 
-export function ServiceCardRow({ services }: ServiceCardRowProps) {
+export function ServiceCardSection({ services, arrowPosition }: ServiceCardRowProps) {
   const theme = useTheme();
   const data = services ?? DEMO_SERVICES ?? [];
   // Responsive: 4 desktop, 3 laptop, 2 tablet, 1 mobile
@@ -85,7 +86,7 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
       setTimeout(() => {
         setIsSliding(false);
         setPendingIdx(startIdx + 1);
-      }, 700);
+      }, 350);
     }
   };
   const handleRight = () => {
@@ -96,7 +97,7 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
       setTimeout(() => {
         setIsSliding(false);
         setPendingIdx(startIdx - 1);
-      }, 700);
+      }, 350);
     }
   };
 
@@ -115,8 +116,8 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
           setShouldGrow(false);
           setSlideDirection(null);
           directionRef.current = null;
-        }, 250);
-      }, 10);
+        }, 100);
+      }, 5);
       setPendingIdx(null);
     }
   }, [pendingIdx, cardsPerView]);
@@ -129,9 +130,6 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
   if (data.length === 0) {
     return (
       <Box sx={{ width: '100%', px: { xs: 1, sm: 4 }, pt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: 320 }}>
-        <Typography variant="h6" fontWeight={700} sx={{ color: 'primary.main', letterSpacing: 0.2 }}>
-          Services and bundles
-        </Typography>
         <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'primary.main' }}>
           <Box sx={{
             width: 72,
@@ -269,19 +267,8 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
   }
 
   return (
-    <Box sx={{ width: '100%', px: { xs: 1, sm: 4 }, pt: 2 }}>
+    <Box sx={{ width: '100%', px: { xs: 1, sm: 4 } }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-        <Typography
-          variant="h6"
-          fontWeight={700}
-          sx={{
-            color: 'primary.main',
-            letterSpacing: 0.2,
-            textAlign: 'center',
-          }}
-        >
-          Services and bundles
-        </Typography>
         <Box
           sx={{
             display: 'flex',
@@ -293,7 +280,7 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
             minHeight: { xs: 160, sm: 200 },
           }}
         >
-          {showArrows && (
+          {showArrows && arrowPosition === 'inside' && (
             <IconButton
               onClick={handleLeft}
               disabled={!canScrollRight || isSliding}
@@ -362,7 +349,8 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
                       transition: 'width 0.2s',
                       opacity: isGrow ? (shouldGrow ? 1 : 0) : 1,
                       transform: isGrow ? (shouldGrow ? 'scale(1)' : 'scale(0.7)') : 'scale(1)',
-                      animation: isGrow && shouldGrow ? 'cardGrowIn 500ms cubic-bezier(0.4,0,0.2,1) forwards' : undefined,
+                      animation: isGrow && shouldGrow ? 'cardGrowIn 200ms cubic-bezier(0.4,0,0.2,1) forwards' : undefined,
+                      py: 1,
                     }}
                   >
                     <ServiceCardSimple {...service} color={service.color} />
@@ -377,7 +365,7 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
               `}</style>
             </Box>
           </Box>
-          {showArrows && (
+          {showArrows && arrowPosition === 'inside' && (
             <IconButton
               onClick={handleRight}
               disabled={!canScrollLeft || isSliding}
@@ -414,6 +402,27 @@ export function ServiceCardRow({ services }: ServiceCardRowProps) {
             >
               <ArrowForwardIosIcon className="arrow-icon" sx={{ fontSize: 18, color: !canScrollLeft || isSliding ? '#ccc' : '#444', transition: 'color 180ms' }} />
             </IconButton>
+          )}
+          {/* Default arrows (outside) if not inside */}
+          {showArrows && !arrowPosition && (
+            <>
+              <IconButton
+                onClick={handleLeft}
+                disabled={!canScrollRight || isSliding}
+                sx={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}
+                aria-label="Scroll left"
+              >
+                <ArrowBackIosNewIcon className="arrow-icon" />
+              </IconButton>
+              <IconButton
+                onClick={handleRight}
+                disabled={!canScrollLeft || isSliding}
+                sx={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}
+                aria-label="Scroll right"
+              >
+                <ArrowForwardIosIcon className="arrow-icon" />
+              </IconButton>
+            </>
           )}
         </Box>
       </Box>
