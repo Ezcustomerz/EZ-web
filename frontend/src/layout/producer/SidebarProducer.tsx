@@ -11,9 +11,6 @@ import {
   Avatar,
   Button,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
   useMediaQuery,
   Snackbar,
 } from '@mui/material';
@@ -552,7 +549,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
       open={snackbarOpen}
       autoHideDuration={2500}
       onClose={() => setSnackbarOpen(false)}
-      message="Demo mode: No real transactions or fees."
+      message="Demo mode does not allow real transactions, so no percentage fee is taken from the user."
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
     />
     </>

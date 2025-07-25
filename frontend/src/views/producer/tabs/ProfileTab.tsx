@@ -115,7 +115,23 @@ export function ProfileTab({ seeAllDialogOpen, onSeeAllDialogChange }: ProfileTa
   ];
 
   return (
-    <Box sx={{ maxHeight: { xs: '100dvh', sm: 'none' }, overflowY: { xs: 'auto', sm: 'visible' } }}>
+    <Box sx={{
+      maxHeight: { xs: '100dvh', sm: 'none' },
+      overflowY: { xs: 'auto', sm: 'visible' },
+      animation: 'fadeSlideIn 0.6s cubic-bezier(0.25,0.46,0.45,0.94)',
+    }}>
+      <style>{`
+        @keyframes fadeSlideIn {
+          0% {
+            opacity: 0;
+            transform: translateY(24px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
       <HeroSection />
       {/* Instagram-style Subtabs */}
       <Box sx={{ position: 'relative', mb: 0 }}>

@@ -86,7 +86,7 @@ export function ServiceCardSection({ services, arrowPosition }: ServiceCardRowPr
       setTimeout(() => {
         setIsSliding(false);
         setPendingIdx(startIdx + 1);
-      }, 350);
+      }, 500); // match review card
     }
   };
   const handleRight = () => {
@@ -97,7 +97,7 @@ export function ServiceCardSection({ services, arrowPosition }: ServiceCardRowPr
       setTimeout(() => {
         setIsSliding(false);
         setPendingIdx(startIdx - 1);
-      }, 350);
+      }, 500); // match review card
     }
   };
 
@@ -334,7 +334,7 @@ export function ServiceCardSection({ services, arrowPosition }: ServiceCardRowPr
                 gap: { xs: 1.5, sm: 2.5 },
                 justifyContent: 'center',
                 transform: gridTransform,
-                transition: isSliding ? 'transform 700ms cubic-bezier(0.4,0,0.2,1)' : 'none',
+                transition: isSliding ? 'transform 500ms cubic-bezier(0.4,0,0.2,1)' : 'none',
               }}
             >
               {visibleCards.map((service, i) => {
@@ -349,7 +349,7 @@ export function ServiceCardSection({ services, arrowPosition }: ServiceCardRowPr
                       transition: 'width 0.2s',
                       opacity: isGrow ? (shouldGrow ? 1 : 0) : 1,
                       transform: isGrow ? (shouldGrow ? 'scale(1)' : 'scale(0.7)') : 'scale(1)',
-                      animation: isGrow && shouldGrow ? 'cardGrowIn 200ms cubic-bezier(0.4,0,0.2,1) forwards' : undefined,
+                      animation: isGrow && shouldGrow ? 'cardGrowIn 500ms cubic-bezier(0.4,0,0.2,1) forwards' : undefined,
                       py: 1,
                     }}
                   >

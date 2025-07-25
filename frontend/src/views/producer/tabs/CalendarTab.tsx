@@ -436,7 +436,6 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                 <IconButton onClick={handleNextMonth} size="medium" color="primary" aria-label="Next month" sx={{ p: 1.2 }}><ArrowForwardIos fontSize="medium" /></IconButton>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0, mt: 0 }}>
-                <Tooltip title="Studio Calendar Settings"><IconButton color="primary" sx={{ p: 0.7, mt: 0 }}><Settings /></IconButton></Tooltip>
                 <Button
                   variant="contained"
                   startIcon={<HeadsetMic />}
