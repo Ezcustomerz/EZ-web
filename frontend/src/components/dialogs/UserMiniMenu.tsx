@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   MenuItem,
   ListItemIcon,
@@ -14,6 +15,7 @@ import {
   ChatBubbleOutline,
   Logout,
 } from '@mui/icons-material';
+import { RoleSwitcherPopover } from '../popovers/RoleSwitcherPopover';
 
 interface UserDropdownMenuProps {
   anchorEl: HTMLElement | null;
@@ -23,6 +25,7 @@ interface UserDropdownMenuProps {
 }
 
 export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: UserDropdownMenuProps) {
+  const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
 
   const menuItems = [
     { 
@@ -39,7 +42,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       label: 'Switch Role', 
       icon: Shuffle,
       action: () => {
-        console.log('Switch Role clicked');
+        setRoleSwitcherOpen(true);
         onClose();
       }
     },
@@ -59,7 +62,8 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
     onClose();
   };
 
-    return (
+  return (
+    <>
     <Popper
       anchorEl={anchorEl}
       open={open}
@@ -271,5 +275,12 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
         </Paper>
       </ClickAwayListener>
     </Popper>
+
+    {/* Role Switcher Dialog */}
+    <RoleSwitcherPopover
+      open={roleSwitcherOpen}
+      onClose={() => setRoleSwitcherOpen(false)}
+    />
+    </>
   );
 } 
