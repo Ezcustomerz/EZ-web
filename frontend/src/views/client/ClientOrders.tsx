@@ -1,9 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
 
-export function ClientDashboard() {
+export function ClientOrders() {
   return (
-    <LayoutClient selectedNavItem="dashboard">
+    <LayoutClient selectedNavItem="orders">
       <Box sx={{
         px: { xs: 2, sm: 2, md: 3 },
         pb: { xs: 2, sm: 2, md: 3 },
@@ -52,7 +52,7 @@ export function ClientDashboard() {
               mb: 0.25,
             }}
           >
-            Dashboard
+            Orders
           </Typography>
           <Typography
             variant="subtitle1"
@@ -63,7 +63,7 @@ export function ClientDashboard() {
               letterSpacing: '0.01em',
             }}
           >
-            Manage your dashboard
+            Manage your orders
           </Typography>
         </Box>
       </Box>

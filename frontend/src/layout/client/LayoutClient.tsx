@@ -80,14 +80,11 @@ export function LayoutClient({
       case 'dashboard':
         navigate('/client');
         break;
-      case 'files':
-        navigate('/client/files');
+      case 'book':
+        navigate('/client/book');
         break;
-      case 'services':
-        navigate('/client/services');
-        break;
-      case 'payments':
-        navigate('/client/payments');
+      case 'orders':
+        navigate('/client/orders');
         break;
       default:
         break;

@@ -8,9 +8,8 @@ import { ClientProducer } from './views/producer/ClientProducer.tsx'
 import { ActivityProducer } from './views/producer/ActivityProducer.tsx'
 import { PublicProducer } from './views/producer/PublicProducer.tsx'
 import { ClientDashboard } from './views/client/ClientDashboard.tsx'
-import { ClientFiles } from './views/client/ClientFiles.tsx'
-import { ClientServices } from './views/client/ClientServices.tsx'
-import { ClientPayments } from './views/client/ClientPayments.tsx'
+import { ClientBook } from './views/client/ClientBook.tsx'
+import { ClientOrders } from './views/client/ClientOrders.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
@@ -77,9 +76,8 @@ function Root() {
             <Route path="/producer/activity" element={<ActivityProducer />} />
             <Route path="/producer/public" element={<PublicProducer />} />
             <Route path="/client" element={<ClientDashboard />} />
-            <Route path="/client/files" element={<ClientFiles />} />
-            <Route path="/client/services" element={<ClientServices />} />
-            <Route path="/client/payments" element={<ClientPayments />} />
+            <Route path="/client/book" element={<ClientBook />} />
+            <Route path="/client/orders" element={<ClientOrders />} />
           </Routes>
         </BrowserRouter>
       </ThemeProvider>

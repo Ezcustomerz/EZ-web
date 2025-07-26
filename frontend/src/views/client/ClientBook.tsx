@@ -1,14 +1,14 @@
 import { Box, Typography } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
 
-export function ClientDashboard() {
+export function ClientBook() {
   return (
-    <LayoutClient selectedNavItem="dashboard">
-      <Box sx={{
-        px: { xs: 2, sm: 2, md: 3 },
-        pb: { xs: 2, sm: 2, md: 3 },
+    <LayoutClient selectedNavItem="book">
+      <Box sx={{ 
+        px: { xs: 2, sm: 2, md: 3 }, 
+        pb: { xs: 2, sm: 2, md: 3 }, 
         pt: { md: 2 },
-        display: 'flex',
+        display: 'flex', 
         flexDirection: 'column',
         minHeight: { xs: '100dvh', md: '100vh', lg: '100vh' },
         height: { xs: '100dvh', md: '100vh', lg: '100vh' },
@@ -31,8 +31,8 @@ export function ClientDashboard() {
         },
       }}>
         {/* Header Section */}
-        <Box
-          sx={{
+        <Box 
+          sx={{ 
             mb: 2,
             pt: { xs: 2, sm: 2, md: 1 },
             textAlign: { xs: 'center', md: 'left' },
@@ -52,7 +52,7 @@ export function ClientDashboard() {
               mb: 0.25,
             }}
           >
-            Dashboard
+            Book
           </Typography>
           <Typography
             variant="subtitle1"
@@ -63,7 +63,7 @@ export function ClientDashboard() {
               letterSpacing: '0.01em',
             }}
           >
-            Manage your dashboard
+            Manage your book
           </Typography>
         </Box>
       </Box>

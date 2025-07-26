@@ -7,7 +7,6 @@ import Popper from '@mui/material/Popper';
 import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
-import React from 'react';
 
 export interface ServiceDialogProps {
   open: boolean;
@@ -162,10 +161,10 @@ export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete, onDis
                 },
               }}
             >
-              <ListItemIcon className="menu-icon" sx={{ minWidth: 24, color: '#64748b', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+              <ListItemIcon className="menu-icon" sx={{ minWidth: 24, color: '#6B7280', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
                 <Block fontSize="small" />
               </ListItemIcon>
-              <ListItemText primary="Disable" sx={{ '& .MuiListItemText-primary': { fontSize: '0.9rem', fontWeight: 500, color: 'inherit' } }} />
+              <ListItemText primary="Disable" sx={{ '& .MuiListItemText-primary': { fontSize: '0.9rem', fontWeight: 500, color: '#241E1A' } }} />
             </MenuItem>
             <Divider sx={{
               my: 0.25,

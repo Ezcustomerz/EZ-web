@@ -12,9 +12,8 @@ import {
 } from '@mui/material';
 import {
   DashboardOutlined,
-  FolderOutlined,
-  ShoppingCartOutlined,
-  PaymentOutlined,
+  CalendarTodayOutlined,
+  ShoppingBagOutlined,
   Close,
   PersonOutlined,
 } from '@mui/icons-material';
@@ -41,9 +40,8 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
   
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
-    { id: 'files', label: 'Files', icon: FolderOutlined },
-    { id: 'services', label: 'Services', icon: ShoppingCartOutlined },
-    { id: 'payments', label: 'Payments', icon: PaymentOutlined },
+    { id: 'book', label: 'Book', icon: CalendarTodayOutlined },
+    { id: 'orders', label: 'My Orders', icon: ShoppingBagOutlined },
   ];
 
   // Mobile: Always 280px, use transform for hide/show
