@@ -110,6 +110,8 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
         flexDirection: 'column',
         // Mobile: slide in from left with fast animation, Desktop: keep current behavior
         transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+        // Add padding bottom on mobile to ensure profile icon is visible
+        pb: isMobile ? 6 : 0,
       }}
     >
       {/* Header with Logo */}
@@ -262,7 +264,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
         <>
           {!isOpen ? (
             // Collapsed user panel
-            <Box sx={{ px: 1, pb: 3 }}>
+            <Box sx={{ px: 1, pb: isMobile ? 6 : 3 }}>
               <Box
                 onClick={handleUserPanelClick}
                 onMouseEnter={() => setIsUserPanelHovered(true)}
@@ -314,7 +316,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
             </Box>
           ) : (
             // Expanded user panel
-            <Box sx={{ px: 2, pb: 2 }}>
+            <Box sx={{ px: 2, pb: isMobile ? 6 : 2 }}>
               <Box
                 onClick={handleUserPanelClick}
                 onMouseEnter={() => setIsUserPanelHovered(true)}

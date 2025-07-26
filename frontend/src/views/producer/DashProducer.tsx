@@ -32,9 +32,9 @@ export function DashProducer() {
           <WelcomeCard userName="Demo User" userRole="Music Producer" isSidebarOpen={isSidebarOpen} />
 
           {/* Section Divider */}
-          <Box sx={{ 
-            position: 'relative', 
-            zIndex: 1, 
+          <Box sx={{
+            position: 'relative',
+            zIndex: 1,
             mb: 2,
             animation: 'fadeIn 0.6s ease-out 0.35s both',
             '@keyframes fadeIn': {
@@ -42,18 +42,18 @@ export function DashProducer() {
               to: { opacity: 1 },
             },
           }}>
-            <Divider sx={{ 
+            <Divider sx={{
               borderColor: 'rgba(0, 0, 0, 0.12)',
               my: 2,
             }} />
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               justifyContent: 'center',
               mt: -1.5,
             }}>
-              <Typography 
-                variant="overline" 
-                sx={{ 
+              <Typography
+                variant="overline"
+                sx={{
                   color: 'text.disabled',
                   fontSize: '0.65rem',
                   fontWeight: 600,
@@ -70,7 +70,7 @@ export function DashProducer() {
 
           {/* Activity Feed Card */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <ActivityFeedCard newCount={3} />
+            <ActivityFeedCard newCount={3} />
           </Box>
         </Box>
       )}

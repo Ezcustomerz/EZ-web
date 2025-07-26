@@ -65,13 +65,13 @@ export function ServiceCard({ title, description, price, delivery, status, onEdi
               }}
             />
           </Box>
-          <IconButton
-            size="small"
+            <IconButton
+              size="small"
             sx={{ color: 'primary.main', background: '#fff', border: '2px solid', borderColor: 'primary.main', boxShadow: '0 2px 8px 0 rgba(59,130,246,0.10)' }}
             onClick={handleMenuOpen}
-          >
+            >
             <MoreVert fontSize="small" />
-          </IconButton>
+            </IconButton>
           <ServiceDialog
             open={open}
             anchorEl={anchorEl}
@@ -208,15 +208,15 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
             {title}
           </Typography>
         </Box>
-        <Box
-          sx={{
-            mt: 0.5,
-            height: '4px',
-            width: '40px',
-            borderRadius: '2px',
-            backgroundColor: color || theme.palette.primary.main,
-          }}
-        />
+          <Box
+            sx={{
+              mt: 0.5,
+              height: '4px',
+              width: '40px',
+              borderRadius: '2px',
+              backgroundColor: color || theme.palette.primary.main,
+            }}
+          />
         {/* Description */}
         <Typography
           variant="body2"
@@ -236,12 +236,12 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
         {/* Price, Delivery, and Book Button Row */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
           <Box>
-            <Typography fontWeight={700} color="primary" fontSize="1rem">
-              ${price}
-            </Typography>
+          <Typography fontWeight={700} color="primary" fontSize="1rem">
+            ${price}
+          </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              {delivery} delivery
-            </Typography>
+            {delivery} delivery
+          </Typography>
           </Box>
           <Button
             variant="contained"

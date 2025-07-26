@@ -47,30 +47,30 @@ export function ReviewPopover({ open, onClose, reviews }: ReviewPopoverProps) {
             p: 0,
             backgroundColor: '#fff',
             boxShadow: theme.shadows[8],
+            height: isMobile ? '100dvh' : '700px', // Fixed height
+            maxHeight: isMobile ? '100dvh' : '700px',
             ...(isMobile && {
               display: 'flex',
               flexDirection: 'column',
-              height: '100dvh',
             }),
           },
         },
         backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.32)' } }
       }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 0, mb: 0 }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 0, mb: 0, flexShrink: 0 }}>
         All Reviews
         <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent sx={{
         p: { xs: 1, sm: 2 },
         px: { xs: 2.5, sm: 2 },
-        maxHeight: '70vh',
-        ...(isMobile && {
-          flex: '1 1 auto',
-          overflowY: 'auto',
-          minHeight: 0,
-          maxHeight: 'none',
-        })
+        flex: '1 1 auto',
+        overflowY: 'auto',
+        minHeight: 0,
+        maxHeight: 'none',
+        display: 'flex',
+        flexDirection: 'column',
       }}>
         <Box sx={{
           display: 'flex',
@@ -97,6 +97,7 @@ export function ReviewPopover({ open, onClose, reviews }: ReviewPopoverProps) {
           },
           mx: { xs: -2.5, sm: -2 },
           px: { xs: 2.5, sm: 2 },
+          flexShrink: 0,
         }}>
           <Typography variant="body2" sx={{ mr: 1 }}>Filter:</Typography>
           {[5, 4, 3, 2, 1].map((star: number) => (
@@ -127,15 +128,17 @@ export function ReviewPopover({ open, onClose, reviews }: ReviewPopoverProps) {
             </Select>
           </FormControl>
         </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2, flex: 1 }}>
           {filteredReviews.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">No reviews found.</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+              <Typography variant="body2" color="text.secondary">No reviews found.</Typography>
+            </Box>
           ) : (
             filteredReviews.map((r: Review) => <ReviewCard key={r.id} review={r} />)
           )}
         </Box>
       </DialogContent>
-      <DialogActions sx={{ py: 1, px: { xs: 1, sm: 2 }, minHeight: 0, height: 'auto', boxSizing: 'border-box', justifyContent: 'flex-end', flex: '0 0 auto', overflow: 'visible', alignItems: 'center', margin: 0, border: 'none' }}>
+      <DialogActions sx={{ py: 1, px: { xs: 1, sm: 2 }, minHeight: 0, height: 'auto', boxSizing: 'border-box', justifyContent: 'flex-end', flex: '0 0 auto', overflow: 'visible', alignItems: 'center', margin: 0, border: 'none', flexShrink: 0 }}>
         <Button onClick={onClose} size="small">Close</Button>
       </DialogActions>
     </Dialog>

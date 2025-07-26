@@ -1,7 +1,6 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Button, Box, useTheme, useMediaQuery, Slide } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { ServiceCardSimple } from '../cards/producer/ServiceCard';
-import { useState } from 'react';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 
@@ -45,34 +44,36 @@ export function SessionPopover({ open, onClose, services }: SessionPopoverProps)
             p: 0,
             backgroundColor: '#fff',
             boxShadow: theme.shadows[8],
+            height: isMobile ? '100dvh' : '700px', // Fixed height
+            maxHeight: isMobile ? '100dvh' : '700px',
             ...(isMobile && {
               display: 'flex',
               flexDirection: 'column',
-              height: '100dvh',
             }),
           },
         },
         backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.32)' } }
       }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, flexShrink: 0 }}>
         All Services
         <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{
         p: { xs: 1, sm: 2 },
         px: { xs: 2.5, sm: 2 },
-        maxHeight: '70vh',
-        ...(isMobile && {
-          flex: '1 1 auto',
-          overflowY: 'auto',
-          minHeight: 0,
-          maxHeight: 'none',
-        })
+        flex: '1 1 auto',
+        overflowY: 'auto',
+        minHeight: 0,
+        maxHeight: 'none',
+        display: 'flex',
+        flexDirection: 'column',
       }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
           {services.length === 0 ? (
-            <Box>No services found.</Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+              No services found.
+            </Box>
           ) : (
             services.map((s) => (
               <Box key={s.id} sx={{ mb: 1 }}>
@@ -82,7 +83,7 @@ export function SessionPopover({ open, onClose, services }: SessionPopoverProps)
           )}
         </Box>
       </DialogContent>
-      <DialogActions sx={{ py: 1, px: { xs: 1, sm: 2 }, minHeight: 0, height: 'auto', boxSizing: 'border-box', justifyContent: 'flex-end', flex: '0 0 auto', overflow: 'visible', alignItems: 'center', margin: 0, border: 'none' }}>
+      <DialogActions sx={{ py: 1, px: { xs: 1, sm: 2 }, minHeight: 0, height: 'auto', boxSizing: 'border-box', justifyContent: 'flex-end', flex: '0 0 auto', overflow: 'visible', alignItems: 'center', margin: 0, border: 'none', flexShrink: 0 }}>
         <Button onClick={onClose} size="small">Close</Button>
       </DialogActions>
     </Dialog>
