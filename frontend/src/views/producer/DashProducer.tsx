@@ -12,7 +12,7 @@ export function DashProducer() {
       {({ isSidebarOpen }) => (
         <Box
           sx={{
-            p: { xs: 2, sm: 2, md: 2.5 },
+            p: { xs: 1.5, sm: 1.5, md: 2.5 },
             // Responsive height and overflow behavior
             height: isMobile ? 'auto' : '100vh',
             minHeight: isMobile ? '100vh' : 'auto',

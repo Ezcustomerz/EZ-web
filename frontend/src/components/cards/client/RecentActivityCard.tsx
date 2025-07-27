@@ -1,13 +1,13 @@
-import { Box, Typography, Card, Chip, useTheme, Stack } from '@mui/material';
+import { Box, Typography, Card, Chip, useTheme, Stack, Button } from '@mui/material';
 import { 
-  History, 
-  Download, 
-  Payment, 
-  CheckCircle, 
-  Warning, 
-  Error, 
-  GraphicEqOutlined 
+  HistoryOutlined, 
+  CheckCircleOutlined, 
+  WarningOutlined, 
+  ErrorOutlined, 
+  MusicNote,
+  Timeline
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 interface Activity {
   id: number;
@@ -25,17 +25,18 @@ interface RecentActivityCardProps {
 
 export function RecentActivityCard({ activities = [] }: RecentActivityCardProps) {
   const theme = useTheme();
+  const navigate = useNavigate();
 
   const getStatusChipProps = (status: string) => {
     switch (status) {
       case 'waiting':
-        return { color: 'warning' as const, icon: <Warning /> };
+        return { color: 'warning' as const, icon: <WarningOutlined fontSize="small" sx={{ fill: 'none', stroke: 'currentColor', strokeWidth: 1 }} /> };
       case 'payment':
-        return { color: 'error' as const, icon: <Error /> };
+        return { color: 'error' as const, icon: <ErrorOutlined fontSize="small" sx={{ fill: 'none', stroke: 'currentColor', strokeWidth: 1 }} /> };
       case 'completed':
-        return { color: 'success' as const, icon: <CheckCircle /> };
+        return { color: 'success' as const, icon: <CheckCircleOutlined fontSize="small" sx={{ fill: 'none', stroke: 'currentColor', strokeWidth: 1 }} /> };
       default:
-        return { color: 'info' as const, icon: <History /> };
+        return { color: 'info' as const, icon: <HistoryOutlined fontSize="small" sx={{ fill: 'none', stroke: 'currentColor', strokeWidth: 1 }} /> };
     }
   };
 
@@ -46,7 +47,7 @@ export function RecentActivityCard({ activities = [] }: RecentActivityCardProps)
         zIndex: 1, 
         display: 'flex', 
         flexDirection: 'column',
-        flex: { xs: 'none', md: 0.82 },
+        flex: { xs: 'none', md: 1 },
         backgroundColor: '#ffffff',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
         border: '1px solid rgba(0, 0, 0, 0.06)',
@@ -117,7 +118,8 @@ export function RecentActivityCard({ activities = [] }: RecentActivityCardProps)
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              pb: { xs: 4, sm: 4, md: 5, lg: 6 },
+              pb: { xs: 8, sm: 8, md: 10, lg: 12 },
+              pt: { xs: 4, sm: 4, md: 6, lg: 8 },
               px: 3,
               textAlign: 'center',
               minHeight: { xs: '280px', sm: '280px', md: '300px' },
@@ -133,7 +135,7 @@ export function RecentActivityCard({ activities = [] }: RecentActivityCardProps)
                 to: { opacity: 1, transform: 'translateY(0)' },
               },
             }}>
-              <GraphicEqOutlined
+              <Timeline
                 sx={{
                   fontSize: { xs: 44, sm: 48, md: 52 },
                   color: theme.palette.info.main,
@@ -165,6 +167,123 @@ export function RecentActivityCard({ activities = [] }: RecentActivityCardProps)
               >
                 You haven't done anything yet. Start by booking your first service!
               </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<MusicNote />}
+                onClick={() => {
+                  navigate('/client/book');
+                  // Set the active tab to 1 (Connected Services) in localStorage
+                  localStorage.setItem('book-active-tab', '1');
+                }}
+                sx={{
+                  borderColor: theme.palette.info.main,
+                  color: theme.palette.info.main,
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  px: 2.5,
+                  py: 0.75,
+                  borderRadius: 1.5,
+                  textTransform: 'none',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  transition: 'all 0.2s ease-in-out',
+                  // Spark animations
+                  '@keyframes sparkle': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  '@keyframes sparkle2': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  '@keyframes sparkle3': {
+                    '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
+                    '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
+                    '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
+                  },
+                  // Spark elements
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '20%',
+                    left: '15%',
+                    width: 4,
+                    height: 4,
+                    background: theme.palette.info.main,
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '70%',
+                    right: '20%',
+                    width: 3,
+                    height: 3,
+                    background: theme.palette.info.main,
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  },
+                  '&:hover': {
+                    borderColor: theme.palette.info.main,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 4px 12px ${theme.palette.info.main}20`,
+                    '&::before': {
+                      animation: 'sparkle 0.8s ease-in-out',
+                    },
+                    '&::after': {
+                      animation: 'sparkle2 0.8s ease-in-out 0.1s',
+                    },
+                    '& .spark-element': {
+                      '&:nth-of-type(1)': {
+                        animation: 'sparkle3 0.8s ease-in-out 0.2s',
+                      },
+                      '&:nth-of-type(2)': {
+                        animation: 'sparkle 0.8s ease-in-out 0.3s',
+                      },
+                    },
+                  },
+                }}
+              >
+                <Box
+                  className="spark-element"
+                  sx={{
+                    position: 'absolute',
+                    top: '10%',
+                    right: '10%',
+                    width: 2,
+                    height: 2,
+                    background: theme.palette.info.main,
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                />
+                <Box
+                  className="spark-element"
+                  sx={{
+                    position: 'absolute',
+                    bottom: '15%',
+                    left: '25%',
+                    width: 2,
+                    height: 2,
+                    background: theme.palette.info.main,
+                    borderRadius: '50%',
+                    transform: 'scale(0)',
+                    opacity: 0,
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                />
+                Connected Services
+              </Button>
             </Box>
           ) : (
             <Stack spacing={2}>
@@ -204,13 +323,24 @@ export function RecentActivityCard({ activities = [] }: RecentActivityCardProps)
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flex: 1 }}>
                         <Box
                           sx={{
-                            width: 18,
-                            height: 18,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 20,
+                            height: 20,
                             color: chipProps.color === 'warning' ? theme.palette.warning.main :
                               chipProps.color === 'error' ? theme.palette.error.main :
                                 chipProps.color === 'success' ? theme.palette.success.main :
                                   theme.palette.info.main,
                             mt: 0.25,
+                            '& .MuiSvgIcon-root': {
+                              fontSize: '1rem',
+                              '& path': {
+                                fill: 'none !important',
+                                stroke: 'currentColor',
+                                strokeWidth: 1,
+                              }
+                            }
                           }}
                         >
                           {activity.icon || chipProps.icon}
@@ -242,7 +372,10 @@ export function RecentActivityCard({ activities = [] }: RecentActivityCardProps)
                                   py: 0.2,
                                 },
                                 '& .MuiChip-icon': {
-                                  fontSize: '0.8rem'
+                                  fontSize: '0.8rem',
+                                  '& .MuiSvgIcon-root': {
+                                    fontSize: '0.8rem',
+                                  }
                                 }
                               }}
                             />

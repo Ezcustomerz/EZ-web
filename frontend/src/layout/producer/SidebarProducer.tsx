@@ -283,7 +283,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
         <>
           {!isOpen ? (
             // Collapsed user panel
-            <Box sx={{ px: 1, pb: 3 }}>
+            <Box sx={{ px: 1, pb: { xs: 7, md: 2 } }}>
               <Box
                 onClick={handleUserPanelClick}
                 onMouseEnter={() => setIsUserPanelHovered(true)}
@@ -335,7 +335,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
             </Box>
           ) : (
             // Expanded user panel
-            <Box sx={{ px: 2, pb: 2 }}>
+            <Box sx={{ px: 2, pb: { xs: 7, md: 2 } }}>
               <Box
                 onClick={handleUserPanelClick}
                 onMouseEnter={() => setIsUserPanelHovered(true)}

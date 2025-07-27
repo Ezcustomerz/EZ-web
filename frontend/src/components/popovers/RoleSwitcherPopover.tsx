@@ -88,6 +88,17 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
     }
   };
 
+  const handleRoleClick = (roleId: string, isActive: boolean) => {
+    if (isActive) {
+      // If clicking the current active role, just close the popover
+      onClose();
+      return;
+    }
+    
+    // Otherwise switch to the new role
+    handleSwitchRole(roleId);
+  };
+
   const handleAddRole = (roleId: string) => {
     console.log(`Adding role: ${roleId}`);
     onClose();
@@ -124,6 +135,8 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
       maxWidth="sm"
       fullWidth
       fullScreen={isMobile}
+      disableAutoFocus
+      disableEnforceFocus
       PaperProps={{
         sx: {
           borderRadius: isMobile ? 0 : 3,
@@ -173,16 +186,12 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
                 role="button"
                 tabIndex={0}
                 onClick={() => {
-                  if (!isActive) {
-                    role.exists ? handleSwitchRole(role.id) : handleAddRole(role.id);
-                  }
+                  role.exists ? handleRoleClick(role.id, isActive) : handleAddRole(role.id);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    if (!isActive) {
-                      role.exists ? handleSwitchRole(role.id) : handleAddRole(role.id);
-                    }
+                    role.exists ? handleRoleClick(role.id, isActive) : handleAddRole(role.id);
                   }
                 }}
                 sx={{
@@ -190,8 +199,8 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
                   border: '1px solid rgba(0, 0, 0, 0.08)',
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  cursor: isActive ? 'default' : 'pointer',
-                  backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                  cursor: 'pointer',
+                  backgroundColor: isActive ? 'rgba(122, 95, 255, 0.05)' : 'rgba(255, 255, 255, 0.8)',
                   animation: `cardSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${index * 0.1}s both`,
                   mt: index === 0 ? (isMobile ? 1 : 2) : 0, // Add top margin for first card
                   '@keyframes cardSlideIn': {
@@ -206,12 +215,12 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
                   },
                   '&:hover': {
                     transform: isActive ? 'none' : (isMobile ? 'none' : 'translateY(-2px)'),
-                    boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.06)' : '0 0 0 3px rgba(122, 95, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.12)',
-                    backgroundColor: isActive ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.95)',
+                    boxShadow: isActive ? '0 0 0 3px rgba(122, 95, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.12)' : '0 0 0 3px rgba(122, 95, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.12)',
+                    backgroundColor: isActive ? 'rgba(122, 95, 255, 0.08)' : 'rgba(255, 255, 255, 0.95)',
                   },
                   '&:focus': {
                     outline: 'none',
-                    boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.06)' : '0 0 0 3px rgba(122, 95, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.12)',
+                    boxShadow: isActive ? '0 0 0 3px rgba(122, 95, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.12)' : '0 0 0 3px rgba(122, 95, 255, 0.2), 0 8px 24px rgba(0, 0, 0, 0.12)',
                   },
                 }}
               >
