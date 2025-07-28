@@ -6,10 +6,122 @@ import { RecentActivityCard } from '../../components/cards/client/RecentActivity
 
 // Mock data for upcoming bookings
 const upcomingBookings: any[] = [
+  {
+    id: 1,
+    serviceTitle: 'Full Production',
+    dateTime: '2024-01-15T14:00:00Z',
+    producer: 'Mike Johnson',
+    startsIn: '2 days',
+    color: '#F3E8FF'
+  },
+  {
+    id: 2,
+    serviceTitle: 'Mixing & Mastering',
+    dateTime: '2024-01-18T10:30:00Z',
+    producer: 'Sarah Wilson',
+    startsIn: '5 days',
+    color: '#E0F2FE'
+  },
+  {
+    id: 3,
+    serviceTitle: 'Vocal Production',
+    dateTime: '2024-01-20T16:00:00Z',
+    producer: 'Alex Thompson',
+    startsIn: '7 days',
+    color: '#FEF9C3'
+  },
+  {
+    id: 4,
+    serviceTitle: 'Beat Making',
+    dateTime: '2024-01-22T11:00:00Z',
+    producer: 'David Chen',
+    startsIn: '9 days',
+    color: '#FEE2E2'
+  },
+  {
+    id: 5,
+    serviceTitle: 'Beat Making',
+    dateTime: '2024-01-22T11:00:00Z',
+    producer: 'David Chen',
+    startsIn: '9 days',
+    color: '#FEE2E2'
+  },
+  {
+    id: 6,
+    serviceTitle: 'Beat Making',
+    dateTime: '2024-01-22T11:00:00Z',
+    producer: 'David Chen',
+    startsIn: '9 days',
+    color: '#FEE2E2'
+  }
 ];
 
 // Mock data for recent activity
 const recentActivity: any[] = [
+  {
+    id: 1,
+    action: 'Booking confirmed with Mike Johnson',
+    timestamp: '1 day ago',
+    status: 'completed',
+    statusText: 'Confirmed',
+    producer: 'Mike Johnson'
+  },
+  {
+    id: 2,
+    action: 'Session completed with Sarah Wilson',
+    timestamp: '2 days ago',
+    status: 'completed',
+    statusText: 'Completed',
+    producer: 'Sarah Wilson'
+  },
+  {
+    id: 3,
+    action: 'Booking requested with Alex Thompson',
+    timestamp: '3 days ago',
+    status: 'waiting',
+    statusText: 'Pending',
+    producer: 'Alex Thompson'
+  },
+  {
+    id: 4,
+    action: 'Payment received from David Chen',
+    timestamp: '4 days ago',
+    status: 'payment',
+    statusText: 'Payment',
+    producer: 'David Chen'
+  },
+  {
+    id: 5,
+    action: 'Review submitted for Emma Davis',
+    timestamp: '5 days ago',
+    status: 'completed',
+    statusText: 'Completed',
+    producer: 'Emma Davis'
+  },
+  {
+    id: 6,
+    action: 'Review submitted for Emma Davis',
+    timestamp: '5 days ago',
+    status: 'completed',
+    statusText: 'Completed',
+    producer: 'Emma Davis'
+  },
+  {
+    id: 7,
+    action: 'Review submitted for Emma Davis',
+    timestamp: '5 days ago',
+    status: 'completed',
+    statusText: 'Completed',
+    producer: 'Emma Davis'
+  },
+  {
+    id: 8,
+    action: 'Review submitted for Emma Davis',
+    timestamp: '5 days ago',
+    status: 'completed',
+    statusText: 'Completed',
+    producer: 'Emma Davis'
+  },
 ];
 
 export function ClientDashboard() {

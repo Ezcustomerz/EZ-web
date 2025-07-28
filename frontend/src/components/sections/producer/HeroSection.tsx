@@ -16,6 +16,7 @@ import YouTubeIcon from '@mui/icons-material/YouTube';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import PersonIcon from '@mui/icons-material/Person';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
+import EmailIcon from '@mui/icons-material/Email';
 
 export interface HeroSectionProps {
   avatar?: string;
@@ -149,6 +150,29 @@ export function HeroSection(props: HeroSectionProps) {
         >
           {bio}
         </Typography>
+        {/* Primary Contact */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 1, 
+          mb: 1.5,
+          p: 1.5,
+          backgroundColor: 'rgba(122, 95, 255, 0.05)',
+          borderRadius: 2,
+          border: '1px solid rgba(122, 95, 255, 0.1)',
+        }}>
+          <EmailIcon sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.primary',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+            }}
+          >
+            demo@musicstudio.com
+          </Typography>
+        </Box>
         <Stack direction="row" spacing={1.5} justifyContent="center" alignItems="center" sx={{ mt: 0.5 }}>
           {socials.map((s: {icon: React.ReactElement, url: string, label: string}, idx: number) => (
             <IconButton

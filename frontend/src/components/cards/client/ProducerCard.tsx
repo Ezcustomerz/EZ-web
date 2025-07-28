@@ -1,0 +1,256 @@
+import { Box, Card, Typography, Avatar, useTheme } from '@mui/material';
+import { Star, MusicNote, Email } from '@mui/icons-material';
+
+interface Producer {
+  id: string;
+  name: string;
+  avatar: string | null;
+  specialty: string;
+  email: string;
+  rating: number;
+  reviewCount: number;
+  servicesCount: number;
+  isOnline: boolean;
+  color: string;
+}
+
+interface ProducerCardProps {
+  producer: Producer;
+  index: number;
+  onClick: (producerId: string) => void;
+}
+
+export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
+  const theme = useTheme();
+
+  return (
+    <Box
+      sx={{
+        animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${index * 0.1}s both`,
+      }}
+    >
+      <Card
+        onClick={() => onClick(producer.id)}
+        sx={{
+          position: 'relative',
+          height: '100%',
+          minHeight: { xs: 200, sm: 220 },
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: 3,
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
+          cursor: 'pointer',
+          p: 0,
+          overflow: 'hidden',
+          background: 'linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)',
+          border: '1px solid rgba(122, 95, 255, 0.08)',
+          transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          '&:hover': {
+            transform: 'translateY(-6px) scale(1.03)',
+            boxShadow: '0 12px 40px rgba(122, 95, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1)',
+            borderColor: 'rgba(122, 95, 255, 0.2)',
+          },
+        }}
+      >
+        {/* Header with color accent */}
+        <Box
+          sx={{
+            height: 6,
+            background: `linear-gradient(135deg, ${producer.color} 0%, ${producer.color}80 50%, ${producer.color}40 100%)`,
+            position: 'relative',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%)',
+            }
+          }}
+        >
+        </Box>
+
+        {/* Producer Info */}
+        <Box sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Avatar and Name */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2.5 }}>
+            <Avatar
+              sx={{
+                width: 52,
+                height: 52,
+                backgroundColor: producer.color,
+                mr: 2,
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                border: '2px solid rgba(255,255,255,0.8)',
+              }}
+            >
+              {producer.name.split(' ').map(n => n[0]).join('')}
+            </Avatar>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontSize: '1.1rem',
+                  fontWeight: 700,
+                  color: 'text.primary',
+                  lineHeight: 1.2,
+                  mb: 0.5,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {producer.name}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontSize: '0.85rem',
+                  color: 'text.secondary',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                {producer.specialty}
+              </Typography>
+              {/* Contact Info */}
+              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                <Email sx={{ fontSize: 14, color: theme.palette.primary.main, mr: 0.5 }} />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: '0.7rem',
+                    color: 'text.secondary',
+                    fontWeight: 500,
+                  }}
+                >
+                  {producer.email}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Stats Section */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 1.5, 
+            mb: 2.5,
+            p: 1.5,
+            backgroundColor: 'rgba(122, 95, 255, 0.04)',
+            borderRadius: 2,
+            border: '1px solid rgba(122, 95, 255, 0.08)',
+          }}>
+            {/* Rating */}
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                backgroundColor: 'rgba(255, 215, 0, 0.12)',
+                borderRadius: 1.5,
+                px: 1.2,
+                py: 0.6,
+                mr: 1,
+              }}>
+                <Star sx={{ fontSize: 16, color: '#FFD700', mr: 0.5 }} />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: 'text.primary',
+                  }}
+                >
+                  {producer.rating}
+                </Typography>
+              </Box>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: '0.7rem',
+                  color: 'text.secondary',
+                  fontWeight: 500,
+                }}
+              >
+                ({producer.reviewCount})
+              </Typography>
+            </Box>
+
+            {/* Services Count */}
+            <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                backgroundColor: 'rgba(122, 95, 255, 0.12)',
+                borderRadius: 1.5,
+                px: 1.2,
+                py: 0.6,
+                mr: 1,
+              }}>
+                <MusicNote sx={{ fontSize: 16, color: theme.palette.primary.main, mr: 0.5 }} />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: 'text.primary',
+                  }}
+                >
+                  {producer.servicesCount}
+                </Typography>
+              </Box>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontSize: '0.7rem',
+                  color: 'text.secondary',
+                  fontWeight: 500,
+                }}
+              >
+                services
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Action Button */}
+          <Box sx={{ mt: 'auto' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(122, 95, 255, 0.08)',
+                color: theme.palette.primary.main,
+                borderRadius: 2.5,
+                py: 1.2,
+                px: 2.5,
+                border: '1px solid rgba(122, 95, 255, 0.15)',
+                cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                '&:hover': {
+                  backgroundColor: 'rgba(122, 95, 255, 0.12)',
+                  borderColor: 'rgba(122, 95, 255, 0.25)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 12px rgba(122, 95, 255, 0.2)',
+                },
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.8px',
+                }}
+              >
+                View Profile
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Card>
+    </Box>
+  );
+} 

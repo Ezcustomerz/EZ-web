@@ -264,7 +264,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
         <>
           {!isOpen ? (
             // Collapsed user panel
-            <Box sx={{ px: 1, pb: isMobile ? 6 : 3 }}>
+            <Box sx={{ px: 1, pb: isMobile ? 6 : 2 }}>
               <Box
                 onClick={handleUserPanelClick}
                 onMouseEnter={() => setIsUserPanelHovered(true)}

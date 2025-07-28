@@ -89,7 +89,7 @@ export function RecentActivityCard({ activities = [] }: RecentActivityCardProps)
         <Box sx={{
           flex: { xs: 'none', md: 1 },
           minHeight: { xs: '300px', md: 0 },
-          maxHeight: { xs: '400px', md: 'none' },
+          maxHeight: 'calc(100vh - 400px)',
           overflowY: activities.length === 0 ? 'visible' : 'auto',
           overflowX: 'visible',
           px: 2,
