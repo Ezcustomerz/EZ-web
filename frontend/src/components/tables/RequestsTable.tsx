@@ -25,7 +25,7 @@ import Card from '@mui/material/Card';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import EventIcon from '@mui/icons-material/Event';
 
-export const mockInvoices = [
+export const mockRequests = [
   {
     id: 'inv-1',
     client: 'Alice Johnson',
@@ -120,7 +120,7 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
-export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) {
+export function RequestsTable({ requests }: { requests?: typeof mockRequests }) {
   const theme = useTheme();
   const [filter, setFilter] = useState('All');
   const [sortField, setSortField] = useState<SortField>('date');
@@ -128,8 +128,8 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
   const [hoveredSort, setHoveredSort] = useState<SortField | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredInvoices = useMemo(() => {
-    let data = filter === 'All' ? (invoices ?? mockInvoices) : (invoices ?? mockInvoices).filter((inv) => inv.status === filter);
+  const filteredrequests = useMemo(() => {
+    let data = filter === 'All' ? (requests ?? mockRequests) : (requests ?? mockRequests).filter((inv) => inv.status === filter);
     if (searchTerm.trim()) {
       const lower = searchTerm.toLowerCase();
       data = data.filter(inv =>
@@ -167,7 +167,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
         return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
-  }, [filter, sortField, sortDirection, searchTerm, invoices]);
+  }, [filter, sortField, sortDirection, searchTerm, requests]);
 
   // Table is now fully scrollable, no pagination
 
@@ -239,7 +239,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
           <Stack spacing={1}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TextField
-                placeholder="Search invoices..."
+                placeholder="Search Requests..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 size="small"
@@ -259,7 +259,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
                 }}
               />
               <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.95em', ml: 1, minWidth: 80 }}>
-                {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
+                {filteredrequests.length} Request{filteredrequests.length !== 1 ? 's' : ''}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
@@ -445,7 +445,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
         </Box>
         {/* Card List */}
         <Box sx={{ pt: 2 }}>
-          {filteredInvoices.length === 0 ? (
+          {filteredrequests.length === 0 ? (
             <Box
               sx={{
                 width: '100%',
@@ -513,7 +513,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
                   zIndex: 1,
                 }}
               >
-                No Invoices Found
+                No requests Found
               </Typography>
               <Typography
                 variant="body2"
@@ -645,12 +645,12 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
               </Button>
             </Box>
           ) : (
-            filteredInvoices.map((inv) => (
+            filteredrequests.map((inv) => (
               <Card
                 key={inv.id}
                 elevation={1}
                 tabIndex={0}
-                aria-label={`Invoice for ${inv.client}, ${inv.status}, ${formatCurrency(inv.amount)}, ${formatDate(inv.date)}`}
+                aria-label={`Request for ${inv.client}, ${inv.status}, ${formatCurrency(inv.amount)}, ${formatDate(inv.date)}`}
                 sx={{
                   borderRadius: 2,
                   p: 2,
@@ -702,7 +702,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TextField
-              placeholder="Search invoices..."
+              placeholder="Search Requests..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               size="small"
@@ -722,7 +722,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
               }}
             />
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.95em', ml: 1, minWidth: 80 }}>
-              {filteredInvoices.length} invoice{filteredInvoices.length !== 1 ? 's' : ''}
+              {filteredrequests.length} Request{filteredrequests.length !== 1 ? 's' : ''}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: 'auto' }}>
@@ -972,20 +972,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
                     backgroundColor: '#e6f3fa',
                   }}
                 >
-                  Service
-                </TableCell>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: 'text.primary',
-                    minWidth: { xs: 100, sm: 'auto' },
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 2,
-                    backgroundColor: '#e6f3fa',
-                  }}
-                >
-                  Status
+                  Type
                 </TableCell>
                 <TableCell
                   onClick={() => handleSort('amount')}
@@ -1018,6 +1005,19 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
                       <span>{getSortIcon('amount')}</span>
                     </Tooltip>
                   </Box>
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    minWidth: { xs: 100, sm: 'auto' },
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2,
+                    backgroundColor: '#e6f3fa',
+                  }}
+                >
+                  Status
                 </TableCell>
                 <TableCell
                   onClick={() => handleSort('date')}
@@ -1055,7 +1055,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredInvoices.length === 0 ? (
+              {filteredrequests.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} sx={{ border: 0, p: 0, height: '100%', verticalAlign: 'middle' }}>
                     <Box
@@ -1132,7 +1132,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
                           zIndex: 1,
                         }}
                       >
-                        No Invoices Found
+                        No requests Found
                       </Typography>
                       <Typography
                         variant="body2"
@@ -1266,7 +1266,7 @@ export function InvoicesTable({ invoices }: { invoices?: typeof mockInvoices }) 
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredInvoices.map((inv: any) => (
+                filteredrequests.map((inv: any) => (
                   <TableRow
                     key={inv.id}
                     hover

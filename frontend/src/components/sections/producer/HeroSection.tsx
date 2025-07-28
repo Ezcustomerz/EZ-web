@@ -15,12 +15,16 @@ import InstagramIcon from '@mui/icons-material/Instagram';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import PersonIcon from '@mui/icons-material/Person';
+import StarOutlineIcon from '@mui/icons-material/StarOutline';
+import EmailIcon from '@mui/icons-material/Email';
 
 export interface HeroSectionProps {
   avatar?: string;
   username?: string;
   bio?: string;
+  title?: string;
   socials?: { icon: React.ReactElement; url: string; label: string }[];
+  averageRating?: number;
 }
 
 export function HeroSection(props: HeroSectionProps) {
@@ -28,18 +32,20 @@ export function HeroSection(props: HeroSectionProps) {
   const avatar = props?.avatar || '';
   const username = props?.username || 'Demo User';
   const bio = props?.bio || 'This is a demo description of this user';
+  const title = props?.title || 'music producer'; // Default title
   const socials = props?.socials || [
     { icon: <InstagramIcon />, url: '', label: 'Instagram' },
     { icon: <YouTubeIcon />, url: '', label: 'YouTube' },
     { icon: <TwitterIcon />, url: '', label: 'Twitter' },
   ];
+  const averageRating = props?.averageRating ?? 4.9;
   return (
     <Box
       sx={{
         width: '100%',
         bgcolor: '#fff',
         position: 'relative',
-        py: { xs: 1, sm: 2 },
+        pt: { xs: 1, sm: 1 },
         borderBottom: `1px solid ${theme.palette.divider}`,
       }}
     >
@@ -92,11 +98,30 @@ export function HeroSection(props: HeroSectionProps) {
               cursor: 'pointer',
               transition: 'color 0.2s',
               '&:hover': { color: theme.palette.primary.main },
-              mb: 0.5,
             }}
           >
             {username}
           </Typography>
+          {/* Title under username */}
+          <Typography
+            variant="body2"
+            sx={{
+              color: theme.palette.text.secondary,
+              fontWeight: 500,
+              mb: 0.5,
+              textTransform: 'capitalize',
+              letterSpacing: 0.1,
+            }}
+          >
+            {title}
+          </Typography>
+          {/* Average reviews (star + rating) above underline */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, mt: 0.5, mb: 0.5 }}>
+            <StarOutlineIcon sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
+            <Typography variant="body2" sx={{ fontWeight: 600, color: theme.palette.text.primary, fontSize: 16 }}>
+              {averageRating.toFixed(1)}
+            </Typography>
+          </Box>
           {/* Gradient accent underline, 45% of name width */}
           <Box
             sx={{
@@ -125,6 +150,29 @@ export function HeroSection(props: HeroSectionProps) {
         >
           {bio}
         </Typography>
+        {/* Primary Contact */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 1, 
+          mb: 1.5,
+          p: 1.5,
+          backgroundColor: 'rgba(122, 95, 255, 0.05)',
+          borderRadius: 2,
+          border: '1px solid rgba(122, 95, 255, 0.1)',
+        }}>
+          <EmailIcon sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.primary',
+              fontWeight: 500,
+              fontSize: '0.9rem',
+            }}
+          >
+            demo@musicstudio.com
+          </Typography>
+        </Box>
         <Stack direction="row" spacing={1.5} justifyContent="center" alignItems="center" sx={{ mt: 0.5 }}>
           {socials.map((s: {icon: React.ReactElement, url: string, label: string}, idx: number) => (
             <IconButton

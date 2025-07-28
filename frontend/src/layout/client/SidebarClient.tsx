@@ -9,30 +9,23 @@ import {
   Typography,
   Divider,
   Avatar,
-  Button,
-  Tooltip,
-  useMediaQuery,
-  Snackbar,
 } from '@mui/material';
 import {
   DashboardOutlined,
-  PeopleOutlined,
-  AttachMoneyOutlined,
-  PublicOutlined,
+  CalendarTodayOutlined,
+  ShoppingBagOutlined,
   Close,
   PersonOutlined,
-  StarOutline,
 } from '@mui/icons-material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faRecordVinyl
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '@mui/material/styles';
-import { InviteClientButton } from '../../components/buttons/CassetteButton';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
 import React from 'react';
 
-interface SidebarProducerProps {
+interface SidebarClientProps {
   isOpen: boolean;
   onToggle: () => void;
   selectedItem: string;
@@ -40,19 +33,15 @@ interface SidebarProducerProps {
   isMobile?: boolean;
 }
 
-export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarProducerProps) {
+export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarClientProps) {
   const theme = useTheme();
-  const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const demoPillRef = React.useRef<HTMLDivElement | null>(null);
   
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
-    { id: 'clients', label: 'Clients', icon: PeopleOutlined },
-    { id: 'activity', label: 'Activity', icon: AttachMoneyOutlined },
-    { id: 'public', label: 'Public', icon: PublicOutlined },
+    { id: 'book', label: 'Book', icon: CalendarTodayOutlined },
+    { id: 'orders', label: 'My Orders', icon: ShoppingBagOutlined },
   ];
 
   // Mobile: Always 280px, use transform for hide/show
@@ -60,11 +49,6 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
   const sidebarWidth = isMobile 
     ? 280
     : (isOpen ? 280 : 64);
-
-  function handleInviteClient() {
-    console.log('Invite client clicked');
-    // Add your invite client logic here
-  }
 
   function handleUserPanelClick(event: React.MouseEvent<HTMLElement>) {
     setUserMenuAnchor(event.currentTarget);
@@ -126,6 +110,8 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
         flexDirection: 'column',
         // Mobile: slide in from left with fast animation, Desktop: keep current behavior
         transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+        // Add padding bottom on mobile to ensure profile icon is visible
+        pb: isMobile ? 6 : 0,
       }}
     >
       {/* Header with Logo */}
@@ -196,11 +182,6 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
           </Box>
         )}
       </Box>
-
-      {/* Invite Client Button */}
-      {(isOpen || !isMobile) && (
-        <InviteClientButton onClick={handleInviteClient} isOpen={isOpen} />
-      )}
 
       {/* Navigation Items */}
       <List sx={{ flexGrow: 1, px: 2, py: 1 }}>
@@ -283,7 +264,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
         <>
           {!isOpen ? (
             // Collapsed user panel
-            <Box sx={{ px: 1, pb: { xs: 7, md: 2 } }}>
+            <Box sx={{ px: 1, pb: isMobile ? 6 : 2 }}>
               <Box
                 onClick={handleUserPanelClick}
                 onMouseEnter={() => setIsUserPanelHovered(true)}
@@ -329,44 +310,47 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
                     zIndex: 2,
                   }}
                 >
-                  Producer
+                  Client
                 </Box>
               </Box>
             </Box>
           ) : (
             // Expanded user panel
-            <Box sx={{ px: 2, pb: { xs: 7, md: 2 } }}>
+            <Box sx={{ px: 2, pb: isMobile ? 6 : 2 }}>
               <Box
                 onClick={handleUserPanelClick}
                 onMouseEnter={() => setIsUserPanelHovered(true)}
                 onMouseLeave={() => setIsUserPanelHovered(false)}
                 sx={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
                   borderRadius: 3,
-                  p: 2,
+                  p: 1.5,
                   cursor: 'pointer',
                   transition: 'all 0.3s ease-in-out',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
-                  backdropFilter: 'blur(8px)',
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
                   '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
                     transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
                   },
                 }}
               >
                 {/* User Profile Section */}
                 <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                  <Box sx={{ position: 'relative', mr: 1.5 }}>
+                  <Box sx={{ position: 'relative', mr: 2 }}>
                     <Avatar sx={{ 
-                      width: 48, 
-                      height: 48, 
-                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                      border: '2px solid rgba(255, 255, 255, 0.3)',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                      width: 52, 
+                      height: 52, 
+                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                      border: '2px solid rgba(255, 255, 255, 0.4)',
+                      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+                      transition: 'all 0.2s ease-in-out',
                     }}>
-                      <PersonOutlined sx={{ color: 'white', fontSize: '24px' }} />
+                      <PersonOutlined sx={{ color: 'white', fontSize: '26px' }} />
                     </Avatar>
                     {/* Role Sash */}
                     <Box
@@ -377,159 +361,65 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
                         transform: 'translateX(-50%)',
                         backgroundColor: '#FFCD38',
                         color: '#241E1A',
-                        fontSize: '0.5rem',
+                        fontSize: '0.55rem',
                         fontWeight: 700,
                         fontVariant: 'small-caps',
-                        px: 1,
-                        py: 0.25,
-                        borderRadius: '14px',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.15)',
+                        px: 1.2,
+                        py: 0.3,
+                        borderRadius: '16px',
+                        boxShadow: '0 3px 8px rgba(0, 0, 0, 0.2)',
                         zIndex: 2,
+                        letterSpacing: '0.02em',
                       }}
                     >
-                      Producer
+                      Client
                     </Box>
                   </Box>
-                  <Box sx={{ flexGrow: 1 }}>
+                  <Box sx={{ flexGrow: 1, pt: 0.5 }}>
                     <Typography sx={{
-                      fontSize: '0.9rem',
+                      fontSize: '1rem',
                       fontWeight: 600,
                       color: 'white',
                       letterSpacing: '0.01em',
                       lineHeight: 1.2,
                       mb: 0.5,
+                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                     }}>
                       Demo User
                     </Typography>
                     <Typography sx={{
-                      fontSize: '0.75rem',
-                      color: 'rgba(255, 255, 255, 0.8)',
-                      fontWeight: 300,
-                      lineHeight: 1.1,
-                      mb: 0.75,
+                      fontSize: '0.8rem',
+                      color: 'rgba(255, 255, 255, 0.85)',
+                      fontWeight: 400,
+                      lineHeight: 1.2,
+                      mb: 0.5,
+                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                     }}>
-                      Music Producer
+                      Country Artist
                     </Typography>
-                    <Box
-                      ref={demoPillRef}
-                      sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      color: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '0.6rem',
-                      fontWeight: 600,
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: '12px',
-                      letterSpacing: '0.02em',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                    {/* Status indicator */}
+                    <Box sx={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 0.5,
-                      width: 'fit-content',
-                        cursor: isMobileView ? 'pointer' : 'default',
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isMobileView) {
-                          setSnackbarOpen(true);
-                        }
-                      }}
-                    >
-                      {isMobileView ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
-                          Demo (Fee: N/A)
-                        </Box>
-                      ) : (
-                        <Tooltip
-                          title="Demo mode does not allow real transactions, so no percentage fee is taken from the user."
-                          arrow
-                          placement="top"
-                        >
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
-                            Demo (Fee: N/A)
-                          </Box>
-                        </Tooltip>
-                      )}
+                      mt: 1,
+                    }}>
+                      <Box sx={{
+                        width: 8,
+                        height: 8,
+                        backgroundColor: '#10B981',
+                        borderRadius: '50%',
+                        boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.3)',
+                      }} />
+                      <Typography sx={{
+                        fontSize: '0.7rem',
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontWeight: 500,
+                      }}>
+                        Online
+                      </Typography>
                     </Box>
                   </Box>
-                </Box>
-                
-                <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: 1 }} />
-
-                {/* Storage Section */}
-                <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ 
-                      color: 'white', 
-                      fontWeight: 600,
-                      fontSize: '0.8rem',
-                      letterSpacing: '0.01em'
-                    }}>
-                      Storage
-                    </Typography>
-                    <Button
-                      size="small"
-                      sx={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                        color: 'white',
-                        px: 1,
-                        py: 0.25,
-                        minWidth: 'auto',
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        borderRadius: 1.5,
-                        transition: 'all 0.2s ease-in-out',
-                        '&:hover': {
-                          backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                          transform: 'translateY(-1px)',
-                        },
-                      }}
-                    >
-                      Upgrade
-                    </Button>
-                  </Box>
-                  
-                  <Typography variant="body2" sx={{ 
-                    color: 'rgba(255, 255, 255, 0.9)', 
-                    mb: 1,
-                    fontSize: '0.75rem',
-                    fontWeight: 400
-                  }}>
-                    0 GB of 0 GB used
-                  </Typography>
-                  
-                  <Box sx={{
-                    width: '100%',
-                    height: 4,
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    mb: 0.5,
-                    position: 'relative',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      background: `linear-gradient(45deg, transparent 30%, ${theme.palette.error.main} 30%, ${theme.palette.error.main} 70%, transparent 70%), linear-gradient(-45deg, transparent 30%, ${theme.palette.error.main} 30%, ${theme.palette.error.main} 70%, transparent 70%)`,
-                      backgroundSize: '8px 8px',
-                      zIndex: 1,
-                    }
-                  }}>
-                    {/* Empty progress bar - no fill since 0 GB of 0 GB */}
-                  </Box>
-                  
-                  <Typography variant="caption" sx={{ 
-                    color: 'rgba(255, 255, 255, 0.7)', 
-                    fontSize: '0.65rem',
-                    fontWeight: 300
-                  }}>
-                    0 GB remaining
-                  </Typography>
                 </Box>
               </Box>
             </Box>
@@ -544,13 +434,6 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
       open={Boolean(userMenuAnchor)} 
       onClose={() => setUserMenuAnchor(null)} 
       isOpen={isOpen}
-    />
-    <Snackbar
-      open={snackbarOpen}
-      autoHideDuration={2500}
-      onClose={() => setSnackbarOpen(false)}
-      message="Demo mode does not allow real transactions, so no percentage fee is taken from the user."
-      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
     />
     </>
   );

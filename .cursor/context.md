@@ -18,7 +18,7 @@ The app is a centralized hub to streamline the **entire music production workflo
 - Manage studio bookings (calendar/scheduler)
 - Maintain client relationships
 - Upload and lock/unlock project files based on invoice status
-- View income and job analytics
+- View activity and job analytics
 
 ### 🎧 Clients
 - Discover producer services

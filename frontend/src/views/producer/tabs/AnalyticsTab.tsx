@@ -107,7 +107,7 @@ export function AnalyticsTab() {
           fontSize: { xs: '0.92rem', sm: '1rem' },
         }}
       >
-        Track trends, measure growth, and discover where your income comes from. Upgrade to Pro for full access.
+        Track trends, measure growth, and discover where your activity comes from. Upgrade to Pro for full access.
       </Typography>
       {/* Upgrade Button */}
       <Box sx={{ position: 'relative', zIndex: 2, mt: 2, width: '100%', display: 'flex', justifyContent: 'center' }}>

@@ -1,21 +1,21 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
-import { SidebarProducer } from './SidebarProducer';
+import { SidebarClient } from './SidebarClient';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 
-interface LayoutProducerProps {
+interface LayoutClientProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
   selectedNavItem?: string;
   hideMenuButton?: boolean;
 }
 
-export function LayoutProducer({ 
+export function LayoutClient({ 
   children, 
   selectedNavItem,
   hideMenuButton
-}: LayoutProducerProps) {
+}: LayoutClientProps) {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
@@ -28,7 +28,7 @@ export function LayoutProducer({
         return false;
       }
         try {
-          const saved = localStorage.getItem('producer-sidebar-open');
+          const saved = localStorage.getItem('client-sidebar-open');
         return saved !== null ? JSON.parse(saved) : true;
         } catch {
         return true;
@@ -48,7 +48,7 @@ export function LayoutProducer({
   useEffect(() => {
     if (!isMobile) {
       try {
-        localStorage.setItem('producer-sidebar-open', JSON.stringify(isSidebarOpen));
+        localStorage.setItem('client-sidebar-open', JSON.stringify(isSidebarOpen));
       } catch {
         // Handle localStorage errors gracefully
       }
@@ -74,20 +74,17 @@ export function LayoutProducer({
     setIsSidebarOpen(!isSidebarOpen);
   }
 
-  // Navigation logic moved from individual pages
+  // Navigation logic for client
   function handleNavItemChange(item: string) {
     switch (item) {
       case 'dashboard':
-        navigate('/producer');
+        navigate('/client');
         break;
-      case 'clients':
-        navigate('/producer/clients');
+      case 'book':
+        navigate('/client/book');
         break;
-      case 'activity':
-        navigate('/producer/activity');
-        break;
-      case 'public':
-        navigate('/producer/public');
+      case 'orders':
+        navigate('/client/orders');
         break;
       default:
         break;
@@ -129,7 +126,7 @@ export function LayoutProducer({
       <CssBaseline />
       
       {/* Sidebar */}
-      <SidebarProducer
+      <SidebarClient
         isOpen={isSidebarOpen}
         onToggle={handleSidebarToggle}
         selectedItem={selectedNavItem || 'dashboard'}

@@ -1,9 +1,9 @@
-import { Box, Typography, Card, CardContent, useTheme, useMediaQuery } from '@mui/material';
-import { 
-  PeopleOutlined, 
-  AttachMoneyOutlined, 
-  EventOutlined, 
-  HeadsetOutlined
+import { Box, Typography, Card, CardContent, useTheme } from '@mui/material';
+import {
+  EventOutlined,
+  PeopleOutlined,
+  ShoppingBagOutlined,
+  AttachMoneyOutlined,
 } from '@mui/icons-material';
 
 interface StatsCard {
@@ -16,52 +16,47 @@ interface StatsCard {
 
 interface WelcomeCardProps {
   userName?: string;
-  userRole?: string;
-  isSidebarOpen?: boolean;
+  userType?: string;
 }
 
-export function WelcomeCard({ userName = "Demo User", userRole = "Music Producer", isSidebarOpen = true }: WelcomeCardProps) {
+export function WelcomeCard({ userName = "Demo User", userType = "Country Artist" }: WelcomeCardProps) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
-  // Center text when hamburger menu is visible (mobile + sidebar closed)
-  const shouldCenterText = isMobile && !isSidebarOpen;
 
   const statsCards: StatsCard[] = [
     {
-      title: 'Active Clients',
+      title: 'Upcoming Bookings',
+      value: '0',
+      icon: EventOutlined,
+      color: theme.palette.primary.main,
+      bgColor: `${theme.palette.primary.main}1A`,
+    },
+    {
+      title: 'Connected Producers',
       value: '0',
       icon: PeopleOutlined,
       color: theme.palette.success.main,
       bgColor: `${theme.palette.success.main}1A`,
     },
     {
-      title: 'Monthly Activity',
-      value: '$0',
-      icon: AttachMoneyOutlined,
+      title: 'Services Ordered',
+      value: '0',
+      icon: ShoppingBagOutlined,
       color: theme.palette.info.main,
       bgColor: `${theme.palette.info.main}1A`,
     },
     {
-      title: 'Total Bookings',
+      title: 'Completed Services',
       value: '0',
-      icon: EventOutlined,
+      icon: AttachMoneyOutlined,
       color: theme.palette.custom.amber,
       bgColor: `${theme.palette.custom.amber}1A`,
-    },
-    {
-      title: 'Completed Sessions',
-      value: '0',
-      icon: HeadsetOutlined,
-      color: theme.palette.primary.main,
-      bgColor: `${theme.palette.primary.main}1A`,
     },
   ];
 
   return (
-    <Box sx={{ 
-      position: 'relative', 
-      zIndex: 1, 
+    <Box sx={{
+      position: 'relative',
+      zIndex: 1,
       backgroundColor: '#ffffff',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
       border: '1px solid rgba(0, 0, 0, 0.06)',
@@ -76,10 +71,9 @@ export function WelcomeCard({ userName = "Demo User", userRole = "Music Producer
       },
     }}>
       {/* Header with Greeting */}
-      <Box sx={{ 
+      <Box sx={{
         mb: 3,
-        textAlign: shouldCenterText ? 'center' : 'left',
-        transition: 'text-align 0.3s ease-in-out',
+        textAlign: { xs: 'center', md: 'left' },
       }}>
         <Typography
           variant="h4"
@@ -93,9 +87,9 @@ export function WelcomeCard({ userName = "Demo User", userRole = "Music Producer
             mb: 0.25,
           }}
         >
-          Hello, {userName}
+          Welcome, {userName}
         </Typography>
-        
+
         <Typography
           variant="subtitle1"
           sx={{
@@ -105,16 +99,16 @@ export function WelcomeCard({ userName = "Demo User", userRole = "Music Producer
             letterSpacing: '0.01em',
           }}
         >
-          {userRole}
+          {userType}
         </Typography>
       </Box>
 
       {/* Stats Cards Grid */}
-      <Box sx={{ 
-        display: 'grid', 
-        gridTemplateColumns: { 
-          xs: 'repeat(2, 1fr)', 
-          sm: 'repeat(4, 1fr)' 
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: 'repeat(2, 1fr)',
+          sm: 'repeat(4, 1fr)'
         },
         gap: 2,
         maxWidth: '100%',

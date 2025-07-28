@@ -10,6 +10,7 @@ const mockServices: any[] = [
     price: 200,
     delivery: '3 days',
     status: 'Public',
+    color: '#F3E8FF',
   },
   {
     id: 'service-2',
@@ -18,6 +19,7 @@ const mockServices: any[] = [
     price: 150,
     delivery: '2 days',
     status: 'Private',
+    color: '#E0F2FE',
   },
   {
     id: 'service-3',
@@ -26,6 +28,7 @@ const mockServices: any[] = [
     price: 100,
     delivery: '1 day',
     status: 'Public',
+    color: '#FEF9C3',
   },
   {
     id: 'service-4',
@@ -34,6 +37,7 @@ const mockServices: any[] = [
     price: 1000,
     delivery: '10 days',
     status: 'Public',
+    color: '#FEE2E2',
   },
   {
     id: 'service-5',
@@ -42,6 +46,7 @@ const mockServices: any[] = [
     price: 300,
     delivery: '4 days',
     status: 'Private',
+    color: '#DCFCE7',
   },
   {
     id: 'service-6',
@@ -50,6 +55,7 @@ const mockServices: any[] = [
     price: 120,
     delivery: '2 days',
     status: 'Public',
+    color: '#E0E7FF',
   },
   {
     id: 'service-7',
@@ -58,6 +64,7 @@ const mockServices: any[] = [
     price: 180,
     delivery: '3 days',
     status: 'Public',
+    color: '#FFE4E6',
   },
   {
     id: 'service-8',
@@ -66,6 +73,7 @@ const mockServices: any[] = [
     price: 80,
     delivery: '2 days',
     status: 'Private',
+    color: '#F1F5F9',
   },
   {
     id: 'service-9',
@@ -74,6 +82,7 @@ const mockServices: any[] = [
     price: 250,
     delivery: '1 day',
     status: 'Public',
+    color: '#FDE68A',
   },
   {
     id: 'service-10',
@@ -82,6 +91,7 @@ const mockServices: any[] = [
     price: 140,
     delivery: '2 days',
     status: 'Public',
+    color: '#C7D2FE',
   },
 ];
 
@@ -394,6 +404,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
               delivery={service.delivery}
               status={service.status}
               onEdit={() => {/* TODO: trigger edit flow */}}
+              color={service.color}
             />
           </Box>
         ))}

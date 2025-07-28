@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   MenuItem,
   ListItemIcon,
@@ -14,6 +15,7 @@ import {
   ChatBubbleOutline,
   Logout,
 } from '@mui/icons-material';
+import { RoleSwitcherPopover } from '../popovers/RoleSwitcherPopover';
 
 interface UserDropdownMenuProps {
   anchorEl: HTMLElement | null;
@@ -23,6 +25,8 @@ interface UserDropdownMenuProps {
 }
 
 export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: UserDropdownMenuProps) {
+  const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
+
   const menuItems = [
     { 
       id: 'settings', 
@@ -38,7 +42,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       label: 'Switch Role', 
       icon: Shuffle,
       action: () => {
-        console.log('Switch Role clicked');
+        setRoleSwitcherOpen(true);
         onClose();
       }
     },
@@ -58,11 +62,20 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
     onClose();
   };
 
-    return (
+  return (
+    <>
     <Popper
       anchorEl={anchorEl}
       open={open}
       placement="top"
+      modifiers={[
+        {
+          name: 'offset',
+          options: {
+            offset: isOpen === false ? [70, 10] : [0, 0],
+          },
+        },
+      ]}
       sx={{ zIndex: 1300 }}
     >
       <ClickAwayListener onClickAway={onClose}>
@@ -77,24 +90,18 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
             backdropFilter: 'blur(10px)',
             mt: 1,
             py: 0.5,
-            transform: open 
-              ? `translateY(0) scale(1) ${isOpen ? 'translateX(0)' : 'translateX(30px)'}`
-              : `translateY(-30px) scale(0.8) ${isOpen ? 'translateX(0)' : 'translateX(30px)'}`,
-            opacity: open ? 1 : 0,
-            transformOrigin: 'center bottom',
-            transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
             animation: open ? `menuSlideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55)` : 'none',
             '@keyframes menuSlideIn': {
               '0%': {
-                transform: `translateY(-40px) scale(0.5) ${isOpen ? 'translateX(0)' : 'translateX(30px)'}`,
+                transform: 'translateY(30px) scale(0.8)',
                 opacity: 0,
               },
               '60%': {
-                transform: `translateY(5px) scale(1.05) ${isOpen ? 'translateX(0)' : 'translateX(30px)'}`,
+                transform: 'translateY(-5px) scale(1.05)',
                 opacity: 0.9,
               },
               '100%': {
-                transform: `translateY(0) scale(1) ${isOpen ? 'translateX(0)' : 'translateX(30px)'}`,
+                transform: 'translateY(0) scale(1)',
                 opacity: 1,
               },
             },
@@ -268,5 +275,12 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
         </Paper>
       </ClickAwayListener>
     </Popper>
+
+    {/* Role Switcher Dialog */}
+    <RoleSwitcherPopover
+      open={roleSwitcherOpen}
+      onClose={() => setRoleSwitcherOpen(false)}
+    />
+    </>
   );
 } 

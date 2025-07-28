@@ -2,6 +2,10 @@ import { Box, Typography, Card, Chip, useTheme, useMediaQuery, Button } from '@m
 import {
   GraphicEqOutlined,
   PersonAddOutlined,
+  Payment,
+  Download,
+  CheckCircle,
+  History,
 } from '@mui/icons-material';
 
 interface Notification {
@@ -24,10 +28,91 @@ export function ActivityFeedCard({ }: ActivityFeedCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Empty notifications array for testing
-  const testNotifications: Notification[] = [];
+  // Mock notifications data for producer
+  const testNotifications: Notification[] = [
+    {
+      icon: GraphicEqOutlined,
+      label: "New Booking",
+      description: "Client 'Sarah Wilson' booked your Full Production Package for Dec 15, 2024",
+      client: "Sarah Wilson",
+      date: "2 hours ago",
+      isNew: true,
+      type: "booking",
+      borderColor: theme.palette.success.main,
+    },
+    {
+      icon: Payment,
+      label: "Payment Received",
+      description: "Payment of $500 received for Mixing & Mastering session",
+      client: "Mike Johnson",
+      date: "1 day ago",
+      isNew: true,
+      type: "payment",
+      borderColor: theme.palette.primary.main,
+    },
+    {
+      icon: Download,
+      label: "File Uploaded",
+      description: "Client uploaded new vocal tracks for revision",
+      client: "Alex Thompson",
+      date: "2 days ago",
+      isNew: false,
+      type: "file",
+      borderColor: theme.palette.info.main,
+    },
+    {
+      icon: PersonAddOutlined,
+      label: "New Connection",
+      description: "Client 'Emma Davis' connected with your profile",
+      client: "Emma Davis",
+      date: "3 days ago",
+      isNew: false,
+      type: "connection",
+      borderColor: theme.palette.warning.main,
+    },
+    {
+      icon: CheckCircle,
+      label: "Session Completed",
+      description: "Vocal Recording session with 'David Chen' completed successfully",
+      client: "David Chen",
+      date: "1 week ago",
+      isNew: false,
+      type: "completed",
+      borderColor: theme.palette.success.main,
+    },
+    {
+      icon: History,
+      label: "Revision Request",
+      description: "Client requested changes to the final mix",
+      client: "Lisa Rodriguez",
+      date: "1 week ago",
+      isNew: false,
+      type: "revision",
+      borderColor: theme.palette.warning.main,
+    },
+    {
+      icon: Payment,
+      label: "Payment Pending",
+      description: "Payment of $300 pending for Studio Session",
+      client: "James Wilson",
+      date: "2 weeks ago",
+      isNew: false,
+      type: "payment",
+      borderColor: theme.palette.error.main,
+    },
+    {
+      icon: GraphicEqOutlined,
+      label: "New Review",
+      description: "Received 5-star review from 'Maria Garcia'",
+      client: "Maria Garcia",
+      date: "2 weeks ago",
+      isNew: false,
+      type: "review",
+      borderColor: theme.palette.success.main,
+    }
+  ];
 
-  // Use test notifications (empty array) instead of hardcoded ones
+  // Use test notifications instead of empty array
   const displayNotifications = testNotifications;
 
   // Calculate actual new count from notifications
@@ -318,7 +403,7 @@ export function ActivityFeedCard({ }: ActivityFeedCardProps) {
               <Box
                 key={index}
                 sx={{
-                  backgroundColor: '#fafbfc',
+                  backgroundColor: theme.palette.background.paper,
                   borderRadius: 1.5,
                   p: 1.5,
                   mb: 2,
@@ -332,8 +417,8 @@ export function ActivityFeedCard({ }: ActivityFeedCardProps) {
                   overflow: 'visible',
                   '&:hover': {
                     transform: 'scale(1.03) translateY(-8px)',
-                    backgroundColor: '#f1f5f9',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    backgroundColor: theme.palette.background.paper,
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.10)',
                   },
                   animation: `slideInLeft 0.6s ease-out ${index * 0.1 + 0.5}s both`,
                   '@keyframes slideInLeft': {

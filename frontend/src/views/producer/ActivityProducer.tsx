@@ -2,17 +2,17 @@ import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuI
 import { LayoutProducer } from '../../layout/producer/LayoutProducer';
 import { useState } from 'react';
 import { ReceiptLong, BarChart, MusicNote } from '@mui/icons-material';
-import { InvoicesTab } from './tabs/InvoicesTab';
+import { RequestsTab } from './tabs/RequestsTab';
 import { AnalyticsTab } from './tabs/AnalyticsTab';
 
 const tabLabels = [
-  { label: 'Invoices', icon: <ReceiptLong sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Requests', icon: <ReceiptLong sx={{ fontSize: 18, mr: 1 }} /> },
   { label: 'Analytics', icon: <BarChart sx={{ fontSize: 18, mr: 1 }} /> },
 ];
 
-export function IncomeProducer() {
+export function ActivityProducer() {
   const [activeTab, setActiveTab] = useState(() => {
-    const stored = localStorage.getItem('income-active-tab');
+    const stored = localStorage.getItem('activity-active-tab');
     return stored !== null ? Number(stored) : 0;
   });
   const theme = useTheme();
@@ -27,11 +27,11 @@ export function IncomeProducer() {
 
   const handleChange = (_: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
-    localStorage.setItem('income-active-tab', String(newValue));
+    localStorage.setItem('activity-active-tab', String(newValue));
   };
 
   return (
-    <LayoutProducer selectedNavItem="income">
+    <LayoutProducer selectedNavItem="activity">
       <Box
         sx={{
         px: { xs: 2, sm: 2, md: 3 },
@@ -82,7 +82,7 @@ export function IncomeProducer() {
               mb: 0.25,
             }}
           >
-            Income
+            Activity
           </Typography>
 
           <Typography
@@ -94,7 +94,7 @@ export function IncomeProducer() {
               letterSpacing: '0.01em',
             }}
           >
-            Track your earnings and manage payment requests
+            Track your earnings and manage requests
           </Typography>
         </Box>
 
@@ -119,7 +119,7 @@ export function IncomeProducer() {
                 component="button"
                 aria-label={`Current tab: ${tabLabels[activeTab].label}`}
                 aria-haspopup="menu"
-                aria-controls="mobile-income-tab-menu"
+                aria-controls="mobile-activity-tab-menu"
                 onClick={handleMenuOpen}
                 sx={{
                   display: 'flex',
@@ -174,7 +174,7 @@ export function IncomeProducer() {
                 }} />
               </Box>
               <Menu
-                id="mobile-income-tab-menu"
+                id="mobile-activity-tab-menu"
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
@@ -203,7 +203,7 @@ export function IncomeProducer() {
                     aria-selected={activeTab === idx}
                     onClick={() => {
                       setActiveTab(idx);
-                      localStorage.setItem('income-active-tab', String(idx));
+                      localStorage.setItem('activity-active-tab', String(idx));
                       handleMenuClose();
                     }}
                     sx={{
@@ -306,7 +306,7 @@ export function IncomeProducer() {
             }}
           >
             {activeTab === 0 ? (
-              <InvoicesTab />
+              <RequestsTab />
             ) : (
               <AnalyticsTab />
             )}
