@@ -107,6 +107,28 @@ const mockConnectedServices: Service[] = [
     reviewCount: 12,
     color: '#F1F5F9',
   },
+  {
+    id: 'service-9',
+    title: 'Mixing',
+    description: 'Professional mixing for your tracks',
+    price: 200,
+    delivery: '3 days',
+    producer: 'Mike Johnson',
+    rating: 4.8,
+    reviewCount: 45,
+    color: '#F3E8FF',
+  },  
+  {
+    id: 'service-10',
+    title: 'Mixing',
+    description: 'Professional mixing for your tracks',
+    price: 200,
+    delivery: '3 days',
+    producer: 'Mike Johnson',
+    rating: 4.8,
+    reviewCount: 45,
+    color: '#F3E8FF',
+  },  
 ];
 
 const sortOptions = [
@@ -179,7 +201,7 @@ export function ConnectedServicesTab() {
           position: 'sticky',
           top: 0,
           zIndex: 20,
-          background: { xs: '#fff', sm: 'transparent' },
+          background: { xs: '#fff' },
           boxShadow: { xs: '0 2px 8px 0 rgba(122,95,255,0.04)', sm: 'none' },
           px: 0,
           pt: { xs: 0, sm: 0.5 },

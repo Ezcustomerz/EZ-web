@@ -17,6 +17,7 @@ import TwitterIcon from '@mui/icons-material/Twitter';
 import PersonIcon from '@mui/icons-material/Person';
 import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import EmailIcon from '@mui/icons-material/Email';
+import PhoneIcon from '@mui/icons-material/Phone';
 
 export interface HeroSectionProps {
   avatar?: string;
@@ -150,30 +151,42 @@ export function HeroSection(props: HeroSectionProps) {
         >
           {bio}
         </Typography>
-        {/* Primary Contact */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 1, 
-          mb: 1.5,
-          p: 1.5,
-          backgroundColor: 'rgba(122, 95, 255, 0.05)',
-          borderRadius: 2,
-          border: '1px solid rgba(122, 95, 255, 0.1)',
-        }}>
-          <EmailIcon sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'text.primary',
-              fontWeight: 500,
-              fontSize: '0.9rem',
-            }}
-          >
-            demo@musicstudio.com
-          </Typography>
-        </Box>
+
         <Stack direction="row" spacing={1.5} justifyContent="center" alignItems="center" sx={{ mt: 0.5 }}>
+          {/* Contact Icons */}
+          <Tooltip title="Email: demo@musicstudio.com" arrow>
+            <IconButton
+              href="mailto:demo@musicstudio.com"
+              aria-label="Email"
+              sx={{
+                color: theme.palette.text.primary,
+                p: 0.5,
+                fontSize: 22,
+                transition: 'transform 0.15s',
+                '&:hover': { transform: 'scale(1.1)', color: theme.palette.primary.main },
+              }}
+              size="small"
+            >
+              <EmailIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Phone: +1 (555) 123-4567" arrow>
+            <IconButton
+              href="tel:+15551234567"
+              aria-label="Phone"
+              sx={{
+                color: theme.palette.text.primary,
+                p: 0.5,
+                fontSize: 22,
+                transition: 'transform 0.15s',
+                '&:hover': { transform: 'scale(1.1)', color: theme.palette.primary.main },
+              }}
+              size="small"
+            >
+              <PhoneIcon />
+            </IconButton>
+          </Tooltip>
+          {/* Social Media Icons */}
           {socials.map((s: {icon: React.ReactElement, url: string, label: string}, idx: number) => (
             <IconButton
               key={idx}

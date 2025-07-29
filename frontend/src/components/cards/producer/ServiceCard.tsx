@@ -230,8 +230,8 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
           variant="body2"
           color="text.secondary"
           sx={{
-            mb: 2.5,
-            minHeight: { xs: 'unset', sm: 44 },
+            mb: 1,
+            minHeight: { xs: 'unset', sm: 40 },
             display: '-webkit-box',
             WebkitLineClamp: { xs: 4, sm: 2 },
             WebkitBoxOrient: 'vertical',
