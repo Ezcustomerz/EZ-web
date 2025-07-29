@@ -14,21 +14,24 @@ export interface ServiceCardRowProps {
     price: number;
     delivery: string;
     color: string;
+    producer: string;
   }>;
   arrowPosition?: 'inside';
+  showSeeAll?: boolean;
+  onSeeAll?: () => void;
 }
 
 const DEMO_SERVICES: ServiceCardRowProps['services'] = [
-  { id: 'service-1', title: 'Mixing', description: 'Professional mixing for your tracks', price: 200, delivery: '3 days', color: '#F3E8FF' },
-  { id: 'service-2', title: 'Mastering', description: 'High-quality mastering for release', price: 150, delivery: '2 days', color: '#E0F2FE' },
-  { id: 'service-3', title: 'Vocal Tuning', description: 'Pitch correction and tuning for vocals', price: 100, delivery: '1 day', color: '#FEF9C3' },
-  { id: 'service-4', title: 'Full Production', description: 'From songwriting to final mix', price: 1000, delivery: '10 days', color: '#FEE2E2' },
-  { id: 'service-5', title: 'Beat Making', description: 'Custom beats for any genre', price: 300, delivery: '4 days', color: '#DCFCE7' },
-  { id: 'service-6', title: 'Session Guitar', description: 'Professional guitar tracks for your song', price: 120, delivery: '2 days', color: '#E0E7FF' },
-  { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6' },
+  { id: 'service-1', title: 'Mixing', description: 'Professional mixing for your tracks', price: 200, delivery: '3 days', color: '#F3E8FF', producer: 'Demo User' },
+  { id: 'service-2', title: 'Mastering', description: 'High-quality mastering for release', price: 150, delivery: '2 days', color: '#E0F2FE', producer: 'Demo User' },
+  { id: 'service-3', title: 'Vocal Tuning', description: 'Pitch correction and tuning for vocals', price: 100, delivery: '1 day', color: '#FEF9C3', producer: 'Demo User' },
+  { id: 'service-4', title: 'Full Production', description: 'From songwriting to final mix', price: 1000, delivery: '10 days', color: '#FEE2E2', producer: 'Demo User' },
+  { id: 'service-5', title: 'Beat Making', description: 'Custom beats for any genre', price: 300, delivery: '4 days', color: '#DCFCE7', producer: 'Demo User' },
+  { id: 'service-6', title: 'Session Guitar', description: 'Professional guitar tracks for your song', price: 120, delivery: '2 days', color: '#E0E7FF', producer: 'Demo User' },
+  { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6', producer: 'Demo User' },
 ];
 
-export function ServiceCardSection({ services, arrowPosition }: ServiceCardRowProps) {
+export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeAll }: ServiceCardRowProps) {
   const theme = useTheme();
   const data = services ?? DEMO_SERVICES ?? [];
   // Responsive: 4 desktop, 3 laptop, 2 tablet, 1 mobile
@@ -268,6 +271,23 @@ export function ServiceCardSection({ services, arrowPosition }: ServiceCardRowPr
 
   return (
     <Box sx={{ width: '100%', px: { xs: 1, sm: 4 } }}>
+      {/* See All Button */}
+      {showSeeAll && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: { xs: 0.5, sm: 1 }, mb: { xs: 0.5, sm: 1 } }}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: 'primary.main', letterSpacing: 0.2 }}>
+            Services
+          </Typography>
+          <Button 
+            variant="text" 
+            size="small" 
+            aria-label="See all services" 
+            onClick={onSeeAll}
+            sx={{ textTransform: 'none', fontWeight: 500, color: theme.palette.primary.main }}
+          >
+            See all
+          </Button>
+        </Box>
+      )}
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
         <Box
           sx={{
@@ -353,7 +373,7 @@ export function ServiceCardSection({ services, arrowPosition }: ServiceCardRowPr
                       py: 1,
                     }}
                   >
-                    <ServiceCardSimple {...service} color={service.color} />
+                    <ServiceCardSimple {...service} color={service.color} producer={service.producer} />
                   </Box>
                 );
               })}

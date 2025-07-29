@@ -1,6 +1,6 @@
 import { HeroSection } from '../../../components/sections/producer/HeroSection';
 import { ServiceCardSection } from '../../../components/sections/producer/ServiceCardSection';
-import { Box, Tabs, Tab, Typography, useTheme, Button } from '@mui/material';
+import { Box, Tabs, Tab, Typography, useTheme } from '@mui/material';
 import { useState, useEffect } from 'react';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import StarIcon from '@mui/icons-material/Star';
@@ -105,13 +105,13 @@ export function ProfileTab({ seeAllDialogOpen, onSeeAllDialogChange }: ProfileTa
 
   // Import demo services from ServiceCardRow
   const DEMO_SERVICES = [
-    { id: 'service-1', title: 'Mixing', description: 'Professional mixing for your tracks', price: 200, delivery: '3 days', color: '#F3E8FF' },
-    { id: 'service-2', title: 'Mastering', description: 'High-quality mastering for release', price: 150, delivery: '2 days', color: '#E0F2FE' },
-    { id: 'service-3', title: 'Vocal Tuning', description: 'Pitch correction and tuning for vocals', price: 100, delivery: '1 day', color: '#FEF9C3' },
-    { id: 'service-4', title: 'Full Production', description: 'From songwriting to final mix', price: 1000, delivery: '10 days', color: '#FEE2E2' },
-    { id: 'service-5', title: 'Beat Making', description: 'Custom beats for any genre', price: 300, delivery: '4 days', color: '#DCFCE7' },
-    { id: 'service-6', title: 'Session Guitar', description: 'Professional guitar tracks for your song', price: 120, delivery: '2 days', color: '#E0E7FF' },
-    { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6' },
+    { id: 'service-1', title: 'Mixing', description: 'Professional mixing for your tracks', price: 200, delivery: '3 days', color: '#F3E8FF', producer: 'Demo User' },
+    { id: 'service-2', title: 'Mastering', description: 'High-quality mastering for release', price: 150, delivery: '2 days', color: '#E0F2FE', producer: 'Demo User' },
+    { id: 'service-3', title: 'Vocal Tuning', description: 'Pitch correction and tuning for vocals', price: 100, delivery: '1 day', color: '#FEF9C3', producer: 'Demo User' },
+    { id: 'service-4', title: 'Full Production', description: 'From songwriting to final mix', price: 1000, delivery: '10 days', color: '#FEE2E2', producer: 'Demo User' },
+    { id: 'service-5', title: 'Beat Making', description: 'Custom beats for any genre', price: 300, delivery: '4 days', color: '#DCFCE7', producer: 'Demo User' },
+    { id: 'service-6', title: 'Session Guitar', description: 'Professional guitar tracks for your song', price: 120, delivery: '2 days', color: '#E0E7FF', producer: 'Demo User' },
+    { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6', producer: 'Demo User' },
   ];
 
   return (
@@ -217,24 +217,15 @@ export function ProfileTab({ seeAllDialogOpen, onSeeAllDialogChange }: ProfileTa
         </Tabs>
       </Box>
       {/* Content Section (no scroll styles here) */}
-      <Box sx={{ mt: 3 }}>
+      <Box sx={{ mt: 1 }}>
         {activeTab === 0 ? (
-          <>
-            <Box sx={{ px: { xs: 1, sm: 4 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: { xs: 0.5, sm: 1 }, mb: { xs: 0.5, sm: 1 } }}>
-                <Typography variant="h6" fontWeight={700} sx={{ color: 'primary.main', letterSpacing: 0.2 }}>
-                  Services
-                </Typography>
-                <Button variant="text" size="small" aria-label="See all services" onClick={() => setSeeAllOpen('services')}
-                  sx={{ textTransform: 'none', fontWeight: 500, color: theme.palette.primary.main }}>
-                  See all
-                </Button>
-              </Box>
-            </Box>
-            <Box><ServiceCardSection arrowPosition="inside" /></Box>
-          </>
+            <ServiceCardSection 
+              arrowPosition="inside" 
+              showSeeAll={true}
+              onSeeAll={() => setSeeAllOpen('services')}
+            />
         ) : (
-          <Box><ReviewCardSection reviews={MOCK_REVIEWS} onSeeAll={() => setSeeAllOpen('reviews')} /></Box>
+          <ReviewCardSection reviews={MOCK_REVIEWS} onSeeAll={() => setSeeAllOpen('reviews')} />
         )}
       </Box>
       {/* See All Dialog */}

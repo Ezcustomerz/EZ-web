@@ -38,7 +38,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
           display: 'flex',
           flexDirection: 'column',
           borderRadius: 3,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
+          boxShadow: 'none',
           cursor: 'pointer',
           p: 0,
           overflow: 'hidden',
@@ -47,8 +47,8 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
           transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           '&:hover': {
             transform: 'translateY(-6px) scale(1.03)',
-            boxShadow: '0 12px 40px rgba(122, 95, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1)',
-            borderColor: 'rgba(122, 95, 255, 0.2)',
+            boxShadow: `0 8px 25px ${producer.color}40, 0 4px 12px rgba(0, 0, 0, 0.08)`,
+            borderColor: `${producer.color}60`,
           },
         }}
       >

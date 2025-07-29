@@ -16,13 +16,14 @@ export interface ServiceCardProps {
   price: number;
   delivery: string;
   status: 'Public' | 'Private';
+  producer: string;
   onEdit?: () => void;
   onDelete?: () => void;
   onDisable?: () => void;
   color: string;
 }
 
-export function ServiceCard({ title, description, price, delivery, status, onEdit, onDelete, onDisable, color }: ServiceCardProps) {
+export function ServiceCard({ title, description, price, delivery, status, producer, onEdit, onDelete, onDisable, color }: ServiceCardProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -54,6 +55,9 @@ export function ServiceCard({ title, description, price, delivery, status, onEdi
           <Box sx={{ mb: 1 }}>
             <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary' }}>
               {title}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.85rem', fontWeight: 500 }}>
+              by {producer}
             </Typography>
             <Box
               sx={{
@@ -176,10 +180,11 @@ export interface ServiceCardSimpleProps {
   price: number;
   delivery: string;
   color: string;
+  producer: string;
   onBook?: () => void;
 }
 
-export function ServiceCardSimple({ title, description, price, delivery, color, onBook }: ServiceCardSimpleProps) {
+export function ServiceCardSimple({ title, description, price, delivery, color, producer, onBook }: ServiceCardSimpleProps) {
   const theme = useTheme();
   return (
     <Card
@@ -202,19 +207,22 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
       }}
     >
       <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {/* Title + Book Button */}
-        <Box sx={{ mb: 1 }}>
+        {/* Title + Producer */}
+        <Box sx={{ mb: 0.5 }}>
           <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, color: 'text.primary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.85rem', fontWeight: 500 }}>
+            by {producer}
           </Typography>
         </Box>
           <Box
             sx={{
-              mt: 0.5,
               height: '4px',
               width: '40px',
               borderRadius: '2px',
               backgroundColor: color || theme.palette.primary.main,
+              mb: 1,
             }}
           />
         {/* Description */}

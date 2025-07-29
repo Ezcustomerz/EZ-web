@@ -131,12 +131,11 @@ const mockConnectedProducers: Producer[] = [
 ];
 
 export function ConnectedProducersTab() {
-  const navigate = useNavigate();
 
   const handleProducerClick = (producerId: string) => {
     // Navigate to the producer's profile page
     // You can adjust the route structure as needed
-    navigate(`/producer/${producerId}/profile`);
+    console.log(producerId);
   };
 
   return (
@@ -170,15 +169,18 @@ export function ConnectedProducersTab() {
           display: 'grid',
           gap: { xs: 1.5, sm: 2 },
           px: { xs: 1, sm: 2 },
+          pt: 2,
           pb: 1,
           gridTemplateColumns: {
             xs: '1fr',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(3, 1fr)',
-            lg: 'repeat(4, 1fr)',
+            sm: 'repeat(auto-fit, minmax(280px, 1fr))',
+            md: 'repeat(auto-fit, minmax(300px, 1fr))',
+            lg: 'repeat(auto-fit, minmax(320px, 1fr))',
           },
           alignItems: 'stretch',
           minHeight: 0,
+          width: '100%',
+          overflow: 'hidden',
         }}>
           {mockConnectedProducers.map((producer, index) => (
             <ProducerCard
