@@ -620,6 +620,16 @@ export function ConnectedServicesTab() {
           minHeight: 0,
           width: '100%',
           overflow: 'hidden',
+          '@keyframes fadeInCard': {
+            '0%': {
+              opacity: 0,
+              transform: 'translateY(20px) scale(0.95)',
+            },
+            '100%': {
+              opacity: 1,
+              transform: 'translateY(0) scale(1)',
+            },
+          },
         }}>
           {filteredAndSortedServices.map((service, index) => (
             <Box

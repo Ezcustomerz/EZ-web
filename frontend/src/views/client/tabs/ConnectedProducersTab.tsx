@@ -1,6 +1,5 @@
 import { Box, Typography } from '@mui/material';
 import { People } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
 import { ProducerCard } from '../../../components/cards/client/ProducerCard';
 
 interface Producer {
