@@ -2,10 +2,21 @@ import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material
 import { LayoutProducer } from '../../layout/producer/LayoutProducer';
 import { WelcomeCard } from '../../components/cards/producer/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/producer/ActivityFeedCard';
+import type { ActivityItem } from '../../types/activity';
+import { GraphicEqOutlined, Payment, Download, PersonAddOutlined, CheckCircle, History } from '@mui/icons-material';
 
 export function DashProducer() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
+
+  const items: ActivityItem[] = [
+    { icon: GraphicEqOutlined, label: 'New Booking', description: "Client 'Sarah Wilson' booked your Full Production Package for Dec 15, 2024", counterpart: 'Sarah Wilson', date: '2 hours ago', status: 'booking', isNew: true },
+    { icon: Payment, label: 'Payment Received', description: 'Payment of $500 received for Mixing & Mastering session', counterpart: 'Mike Johnson', date: '1 day ago', status: 'payment', isNew: true },
+    { icon: Download, label: 'File Uploaded', description: 'Client uploaded new vocal tracks for revision', counterpart: 'Alex Thompson', date: '2 days ago', status: 'file', isNew: false },
+    { icon: PersonAddOutlined, label: 'New Connection', description: "Client 'Emma Davis' connected with your profile", counterpart: 'Emma Davis', date: '3 days ago', status: 'connection', isNew: false },
+    { icon: CheckCircle, label: 'Session Completed', description: "Vocal Recording session with 'David Chen' completed successfully", counterpart: 'David Chen', date: '1 week ago', status: 'completed', isNew: false },
+    { icon: History, label: 'Revision Request', description: 'Client requested changes to the final mix', counterpart: 'Lisa Rodriguez', date: '1 week ago', status: 'revision', isNew: false },
+  ];
 
   return (
     <LayoutProducer selectedNavItem="dashboard">
@@ -32,37 +43,10 @@ export function DashProducer() {
           <WelcomeCard userName="Demo User" userRole="Music Producer" isSidebarOpen={isSidebarOpen} />
 
           {/* Section Divider */}
-          <Box sx={{
-            position: 'relative',
-            zIndex: 1,
-            mb: 2,
-            animation: 'fadeIn 0.6s ease-out 0.35s both',
-            '@keyframes fadeIn': {
-              from: { opacity: 0 },
-              to: { opacity: 1 },
-            },
-          }}>
-            <Divider sx={{
-              borderColor: 'rgba(0, 0, 0, 0.12)',
-              my: 2,
-            }} />
-            <Box sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              mt: -1.5,
-            }}>
-              <Typography
-                variant="overline"
-                sx={{
-                  color: 'text.disabled',
-                  fontSize: '0.65rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.15em',
-                  textTransform: 'uppercase',
-                  backgroundColor: 'background.default',
-                  px: 2,
-                }}
-              >
+          <Box sx={{ position: 'relative', zIndex: 1, mb: 2, animation: 'fadeIn 0.6s ease-out 0.35s both', '@keyframes fadeIn': { from: { opacity: 0 }, to: { opacity: 1 } } }}>
+            <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.12)', my: 2 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: -1.5 }}>
+              <Typography variant="overline" sx={{ color: 'text.disabled', fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', backgroundColor: 'background.default', px: 2 }}>
                 Activity Feed
               </Typography>
             </Box>
@@ -70,7 +54,7 @@ export function DashProducer() {
 
           {/* Activity Feed Card */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <ActivityFeedCard newCount={3} />
+            <ActivityFeedCard items={items} />
           </Box>
         </Box>
       )}

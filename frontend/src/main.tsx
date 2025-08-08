@@ -16,6 +16,29 @@ import type { ColorConfig } from './config/color'
 // Import Supabase configuration to trigger connection test
 import './config/supabase'
 import { ScrollToTop } from './utils/ScrollToTop.tsx'
+import { AuthProvider, useAuth } from './context/auth'
+import { AuthPopover } from './components/popovers/AuthPopover'
+
+function AppContent() {
+  const { authOpen, closeAuth } = useAuth();
+
+  return (
+    <>
+      <ScrollToTop />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/producer" element={<DashProducer />} />
+        <Route path="/producer/clients" element={<ClientProducer />} />
+        <Route path="/producer/activity" element={<ActivityProducer />} />
+        <Route path="/producer/public" element={<PublicProducer />} />
+        <Route path="/client" element={<ClientDashboard />} />
+        <Route path="/client/book" element={<ClientBook />} />
+        <Route path="/client/orders" element={<ClientOrders />} />
+      </Routes>
+      <AuthPopover open={authOpen} onClose={closeAuth} />
+    </>
+  );
+}
 
 function Root() {
   const [theme, setTheme] = useState<any>(null);
@@ -68,17 +91,9 @@ function Root() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <BrowserRouter>
-          <ScrollToTop />
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/producer" element={<DashProducer />} />
-            <Route path="/producer/clients" element={<ClientProducer />} />
-            <Route path="/producer/activity" element={<ActivityProducer />} />
-            <Route path="/producer/public" element={<PublicProducer />} />
-            <Route path="/client" element={<ClientDashboard />} />
-            <Route path="/client/book" element={<ClientBook />} />
-            <Route path="/client/orders" element={<ClientOrders />} />
-          </Routes>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
         </BrowserRouter>
       </ThemeProvider>
     </StrictMode>

@@ -14,8 +14,10 @@ import {
   Shuffle,
   ChatBubbleOutline,
   Logout,
+  Login,
 } from '@mui/icons-material';
 import { RoleSwitcherPopover } from '../popovers/RoleSwitcherPopover';
+import { useAuth } from '../../context/auth';
 
 interface UserDropdownMenuProps {
   anchorEl: HTMLElement | null;
@@ -26,6 +28,7 @@ interface UserDropdownMenuProps {
 
 export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: UserDropdownMenuProps) {
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
+  const { isAuthenticated, signOut, openAuth } = useAuth();
 
   const menuItems = [
     { 
@@ -57,8 +60,12 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
     },
   ];
 
-  const handleSignIn = () => {
-    console.log('Sign In clicked');
+  const handleAuthAction = async () => {
+    if (isAuthenticated) {
+      await signOut();
+    } else {
+      openAuth();
+    }
     onClose();
   };
 
@@ -207,7 +214,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       }} />
       
       <MenuItem
-        onClick={handleSignIn}
+        onClick={handleAuthAction}
         role="menuitem"
         sx={{
           py: 1,
@@ -230,7 +237,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
           '&:hover': {
             backgroundColor: 'transparent',
             '& .menu-icon': {
-              color: '#10b981',
+              color: isAuthenticated ? '#ef4444' : '#10b981',
               transform: 'scale(1.05) rotate(10deg)',
             },
           },
@@ -254,19 +261,19 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
           className="menu-icon"
           sx={{ 
             minWidth: 24,
-            color: '#10b981',
+            color: isAuthenticated ? '#ef4444' : '#10b981',
             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
-          <Logout fontSize="small" />
+          {isAuthenticated ? <Logout fontSize="small" /> : <Login fontSize="small" />}
         </ListItemIcon>
         <ListItemText 
-          primary="Sign in"
+          primary={isAuthenticated ? "Sign out" : "Sign in"}
           sx={{
             '& .MuiListItemText-primary': {
               fontSize: '0.9rem',
               fontWeight: 500,
-              color: '#10b981',
+              color: isAuthenticated ? '#ef4444' : '#10b981',
             },
           }}
         />
