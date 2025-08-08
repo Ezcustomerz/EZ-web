@@ -139,7 +139,7 @@ export function LandingPage() {
                 text="Get Started For Free"
                 buttonVariant="landing"
                 size="large"
-                onClick={() => navigate('/producer')}
+                onClick={() => navigate('/producer?auth=1')}
               />
             </Box>
           </Box>

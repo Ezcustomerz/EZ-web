@@ -7,7 +7,7 @@ import { InProgressTab } from './tabs/InProgressTab';
 import { PastServicesTab } from './tabs/PastServicesTab';
 
 const tabLabels = [
-  { label: 'Service Retrieval', icon: <TaskAlt sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Downloads', icon: <TaskAlt sx={{ fontSize: 18, mr: 1 }} /> },
   { label: 'In Progress', icon: <HourglassEmpty sx={{ fontSize: 18, mr: 1 }} /> },
   { label: 'Past Services', icon: <History sx={{ fontSize: 18, mr: 1 }} /> },
 ];

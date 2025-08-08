@@ -333,10 +333,10 @@ export function Header() {
             gap: { xs: 0.5, sm: 1 },
             minWidth: 'max-content'
           }}>
-            <AnimatedButton 
+              <AnimatedButton 
               text="Dashboard"
               buttonVariant="header"
-              onClick={() => navigate('/producer')}
+              onClick={() => navigate('/producer?auth=1')}
               sx={{ 
                 fontSize: { xs: '13px', sm: '14px' }, 
                 padding: { xs: '5px 12px', sm: '6px 16px' },
@@ -492,7 +492,7 @@ export function Header() {
               <AnimatedButton 
                 text="Dashboard"
                 buttonVariant="header"
-                onClick={() => navigate('/producer')}
+                onClick={() => navigate('/producer?auth=1')}
                 onMouseEnter={() => {
                   if (featuresOpen) {
                     handleCloseMenu();

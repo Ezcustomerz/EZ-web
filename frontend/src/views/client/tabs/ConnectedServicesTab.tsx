@@ -117,7 +117,7 @@ const mockConnectedServices: Service[] = [
     rating: 4.8,
     reviewCount: 45,
     color: '#F3E8FF',
-  },  
+  },
   {
     id: 'service-10',
     title: 'Mixing',
@@ -128,7 +128,7 @@ const mockConnectedServices: Service[] = [
     rating: 4.8,
     reviewCount: 45,
     color: '#F3E8FF',
-  },  
+  },
 ];
 
 const sortOptions = [
@@ -140,7 +140,7 @@ const sortOptions = [
 export function ConnectedServicesTab() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   // Search/filter/sort state
   const [sortBy, setSortBy] = useState<'title' | 'price' | 'delivery'>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -156,7 +156,7 @@ export function ConnectedServicesTab() {
 
   // Animation key that changes on every filter/search
   const animationKey = sortBy + '-' + sortOrder + '-' + producerFilter + '-' + search;
-  
+
   // Filter and sort services
   const filteredAndSortedServices = useMemo(() => {
     const filtered = mockConnectedServices.filter(service =>
@@ -165,7 +165,7 @@ export function ConnectedServicesTab() {
         service.description.toLowerCase().includes(search.toLowerCase()) ||
         service.producer.toLowerCase().includes(search.toLowerCase()))
     );
-    
+
     return [...filtered].sort((a, b) => {
       let cmp = 0;
       if (sortBy === 'title') cmp = a.title.localeCompare(b.title);
@@ -232,7 +232,7 @@ export function ConnectedServicesTab() {
             }}
             sx={{ width: { xs: '100%', sm: 220 } }}
           />
-          
+
           {isMobile ? (
             <Button
               variant="outlined"
@@ -285,14 +285,14 @@ export function ConnectedServicesTab() {
                       backgroundColor: 'transparent !important',
                     },
                   }}>
-                    <FontAwesomeIcon 
-                      icon={faLayerGroup} 
+                    <FontAwesomeIcon
+                      icon={faLayerGroup}
                       className="fa-icon"
-                      style={{ 
-                        marginRight: 12, 
+                      style={{
+                        marginRight: 12,
                         fontSize: 16,
-                        fontWeight: producerFilter === 'all' ? 600 : 400 
-                      }} 
+                        fontWeight: producerFilter === 'all' ? 600 : 400
+                      }}
                     />
                     All Producers
                   </MenuItem>
@@ -315,14 +315,14 @@ export function ConnectedServicesTab() {
                         backgroundColor: 'transparent !important',
                       },
                     }}>
-                      <FontAwesomeIcon 
-                        icon={faUser} 
+                      <FontAwesomeIcon
+                        icon={faUser}
                         className="fa-icon"
-                        style={{ 
-                          marginRight: 12, 
+                        style={{
+                          marginRight: 12,
                           fontSize: 16,
-                          fontWeight: producerFilter === producer ? 600 : 400 
-                        }} 
+                          fontWeight: producerFilter === producer ? 600 : 400
+                        }}
                       />
                       {producer}
                     </MenuItem>
@@ -372,14 +372,14 @@ export function ConnectedServicesTab() {
                         backgroundColor: 'transparent !important',
                       },
                     }}>
-                      <FontAwesomeIcon 
-                        icon={faArrowDown} 
+                      <FontAwesomeIcon
+                        icon={faArrowDown}
                         className="fa-icon"
-                        style={{ 
-                          marginRight: 12, 
+                        style={{
+                          marginRight: 12,
                           fontSize: 18,
-                          fontWeight: (sortBy === opt.value && sortOrder === 'desc') ? 600 : 400 
-                        }} 
+                          fontWeight: (sortBy === opt.value && sortOrder === 'desc') ? 600 : 400
+                        }}
                       />
                       <Box sx={{ flex: 1, fontWeight: (sortBy === opt.value && sortOrder === 'desc') ? 600 : 400 }}>{opt.label}</Box>
                     </MenuItem>,
@@ -401,14 +401,14 @@ export function ConnectedServicesTab() {
                         backgroundColor: 'transparent !important',
                       },
                     }}>
-                      <FontAwesomeIcon 
-                        icon={faArrowUp} 
+                      <FontAwesomeIcon
+                        icon={faArrowUp}
                         className="fa-icon"
-                        style={{ 
-                          marginRight: 12, 
+                        style={{
+                          marginRight: 12,
                           fontSize: 18,
-                          fontWeight: (sortBy === opt.value && sortOrder === 'asc') ? 600 : 400 
-                        }} 
+                          fontWeight: (sortBy === opt.value && sortOrder === 'asc') ? 600 : 400
+                        }}
                       />
                       <Box sx={{ flex: 1, fontWeight: (sortBy === opt.value && sortOrder === 'asc') ? 600 : 400 }}>{opt.label}</Box>
                     </MenuItem>
@@ -472,14 +472,14 @@ export function ConnectedServicesTab() {
                   backgroundColor: 'transparent !important',
                 },
               }}>
-                <FontAwesomeIcon 
-                  icon={faLayerGroup} 
+                <FontAwesomeIcon
+                  icon={faLayerGroup}
                   className="fa-icon"
-                  style={{ 
-                    marginRight: 12, 
+                  style={{
+                    marginRight: 12,
                     fontSize: 16,
-                    fontWeight: producerFilter === 'all' ? 600 : 400 
-                  }} 
+                    fontWeight: producerFilter === 'all' ? 600 : 400
+                  }}
                 />
                 All Producers
               </MenuItem>
@@ -502,14 +502,14 @@ export function ConnectedServicesTab() {
                     backgroundColor: 'transparent !important',
                   },
                 }}>
-                  <FontAwesomeIcon 
-                    icon={faUser} 
+                  <FontAwesomeIcon
+                    icon={faUser}
                     className="fa-icon"
-                    style={{ 
-                      marginRight: 12, 
+                    style={{
+                      marginRight: 12,
                       fontSize: 16,
-                      fontWeight: producerFilter === producer ? 600 : 400 
-                    }} 
+                      fontWeight: producerFilter === producer ? 600 : 400
+                    }}
                   />
                   {producer}
                 </MenuItem>
@@ -558,14 +558,14 @@ export function ConnectedServicesTab() {
                     backgroundColor: 'transparent !important',
                   },
                 }}>
-                  <FontAwesomeIcon 
-                    icon={faArrowDown} 
+                  <FontAwesomeIcon
+                    icon={faArrowDown}
                     className="fa-icon"
-                    style={{ 
-                      marginRight: 12, 
+                    style={{
+                      marginRight: 12,
                       fontSize: 18,
-                      fontWeight: (sortBy === opt.value && sortOrder === 'desc') ? 600 : 400 
-                    }} 
+                      fontWeight: (sortBy === opt.value && sortOrder === 'desc') ? 600 : 400
+                    }}
                   />
                   <Box sx={{ flex: 1, fontWeight: (sortBy === opt.value && sortOrder === 'desc') ? 600 : 400 }}>{opt.label}</Box>
                 </MenuItem>,
@@ -587,14 +587,14 @@ export function ConnectedServicesTab() {
                     backgroundColor: 'transparent !important',
                   },
                 }}>
-                  <FontAwesomeIcon 
-                    icon={faArrowUp} 
+                  <FontAwesomeIcon
+                    icon={faArrowUp}
                     className="fa-icon"
-                    style={{ 
-                      marginRight: 12, 
+                    style={{
+                      marginRight: 12,
                       fontSize: 18,
-                      fontWeight: (sortBy === opt.value && sortOrder === 'asc') ? 600 : 400 
-                    }} 
+                      fontWeight: (sortBy === opt.value && sortOrder === 'asc') ? 600 : 400
+                    }}
                   />
                   <Box sx={{ flex: 1, fontWeight: (sortBy === opt.value && sortOrder === 'asc') ? 600 : 400 }}>{opt.label}</Box>
                 </MenuItem>

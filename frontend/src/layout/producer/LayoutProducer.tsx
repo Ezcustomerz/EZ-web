@@ -4,6 +4,7 @@ import { SidebarProducer } from './SidebarProducer';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
+import { IntentAuthGate } from '../../components/popovers/IntentAuthGate';
 
 interface LayoutProducerProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
@@ -127,6 +128,8 @@ export function LayoutProducer({
       overflow: 'hidden' 
     }}>
       <CssBaseline />
+      {/* Show auth popover only when entering with ?auth=1 */}
+      <IntentAuthGate />
       
       {/* Sidebar */}
       <SidebarProducer
