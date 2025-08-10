@@ -9,12 +9,14 @@ import {
   Typography,
   Divider,
   Avatar,
+  Chip,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
   DashboardOutlined,
   Close,
   PersonOutlined,
+  EmojiEventsOutlined,
 } from '@mui/icons-material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl } from '@fortawesome/free-solid-svg-icons';
@@ -338,16 +340,23 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                       }}>
                         Demo User
                       </Typography>
-                      <Typography sx={{
-                        fontSize: '0.8rem',
-                        color: 'rgba(255, 255, 255, 0.85)',
-                        fontWeight: 400,
-                        lineHeight: 1.2,
-                        mb: 0.5,
-                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
-                      }}>
-                        Bronze Tier (0-5 referrals)
-                      </Typography>
+                      <Chip
+                        icon={<EmojiEventsOutlined sx={{ fontSize: 16, color: '#C0C0C0' }} />}
+                        label="Silver • 18%"
+                        size="small"
+                        sx={{
+                          backgroundColor: 'rgba(192, 192, 192, 0.2)',
+                          color: 'rgba(255, 255, 255, 0.95)',
+                          border: '1px solid rgba(192, 192, 192, 0.35)',
+                          fontSize: '0.65rem',
+                          fontWeight: 600,
+                          height: 26,
+                          px: 0.5,
+                          '& .MuiChip-icon': {
+                            color: '#C0C0C0',
+                          },
+                        }}
+                      />
                     </Box>
                   </Box>
                 </Box>

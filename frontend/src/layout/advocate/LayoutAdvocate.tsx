@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import { SidebarAdvocate } from './SidebarAdvocate';
 
 interface LayoutAdvocateProps {
@@ -37,6 +37,18 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
     }
   }, [isSidebarOpen, isMobile]);
 
+  // Add keyboard shortcut for sidebar toggle (Ctrl+B or Cmd+B)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+        event.preventDefault();
+        setIsSidebarOpen(prev => !prev);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const sidebarWidth = isMobile ? 280 : isSidebarOpen ? 280 : 64;
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const keybindHint = isMac ? 'Cmd+B' : 'Ctrl+B';
@@ -52,6 +64,65 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
         onItemSelect={() => { /* single dashboard item for now */ }}
         isMobile={isMobile}
       />
+
+      {/* Mobile Menu Button */}
+      {isMobile && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 16,
+            left: 16,
+            zIndex: 1400,
+            opacity: isSidebarOpen ? 0 : 1,
+            visibility: isSidebarOpen ? 'hidden' : 'visible',
+            transition: theme.transitions.create(['opacity', 'visibility'], {
+              easing: theme.transitions.easing.easeInOut,
+              duration: 100,
+            }),
+          }}
+        >
+          <Tooltip title={`Open Menu (${keybindHint})`}>
+            <Box
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+              sx={{
+                backgroundColor: alpha(theme.palette.secondary.main, 0.13),
+                color: theme.palette.text.primary,
+                width: 40,
+                height: 40,
+                borderRadius: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px 0 rgba(0,0,0,0.10)',
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.secondary.main, 0.19),
+                  transform: 'scale(1.05)',
+                },
+                '&:active': {
+                  transform: 'scale(0.95)',
+                  backgroundColor: alpha(theme.palette.secondary.main, 0.16),
+                },
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '3px',
+                width: '18px',
+                height: '18px',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: theme.palette.text.primary, borderRadius: '1px' }} />
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: theme.palette.text.primary, borderRadius: '1px' }} />
+                <Box sx={{ width: '100%', height: '2px', backgroundColor: theme.palette.text.primary, borderRadius: '1px' }} />
+              </Box>
+            </Box>
+          </Tooltip>
+        </Box>
+      )}
 
       <Box
         component="main"
