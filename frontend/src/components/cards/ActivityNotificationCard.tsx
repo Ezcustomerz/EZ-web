@@ -3,9 +3,7 @@ import { WarningAmberOutlined, ErrorOutline } from '@mui/icons-material';
 import type { ActivityItem } from '../../types/activity';
 
 interface ActivityNotificationProps {
-  // Preferred unified prop
   item?: ActivityItem;
-  // Backward-compat optional fields (will be normalized into an item if provided)
   icon?: any;
   label?: string;
   description?: string;
@@ -13,8 +11,8 @@ interface ActivityNotificationProps {
   producer?: string;
   date?: string;
   isNew?: boolean;
-  status?: string; // optional; used only for color/icon heuristics
-  statusText?: string; // ignored now
+  status?: string;
+  statusText?: string;
   onClick?: () => void;
   index?: number;
 }
@@ -34,7 +32,6 @@ export function ActivityNotificationCard({
 }: ActivityNotificationProps) {
   const theme = useTheme();
 
-  // Normalize to unified ActivityItem
   const normalized: ActivityItem = item ?? {
     icon,
     label: label ?? '',
@@ -47,7 +44,6 @@ export function ActivityNotificationCard({
 
   const statusLower = (normalized.status || '').toLowerCase();
 
-  // Border color/icon heuristics based on status (no chips)
   const borderColor = (() => {
     if (statusLower === 'payment') return theme.palette.error.main;
     if (statusLower === 'completed' || statusLower === 'booking' || statusLower === 'review') return theme.palette.success.main;

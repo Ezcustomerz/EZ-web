@@ -4,7 +4,7 @@ import {
   PersonAddOutlined,
   Payment,
   Download,
-  CheckCircle,
+  CheckCircleOutlined,
   History,
 } from '@mui/icons-material';
 import { ActivityNotificationCard } from '../ActivityNotificationCard';
@@ -54,7 +54,7 @@ export function ActivityFeedCard({ items }: ActivityFeedCardProps) {
       status: 'connection',
     },
     {
-      icon: CheckCircle,
+      icon: CheckCircleOutlined,
       label: 'Session Completed',
       description: "Vocal Recording session with 'David Chen' completed successfully",
       counterpart: 'David Chen',

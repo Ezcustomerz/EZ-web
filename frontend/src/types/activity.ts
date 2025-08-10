@@ -8,3 +8,4 @@ export interface ActivityItem {
   status: string; // e.g., 'completed' | 'payment' | 'waiting' | 'review'
   isNew?: boolean;
 }
+

@@ -18,6 +18,7 @@ import './config/supabase'
 import { ScrollToTop } from './utils/ScrollToTop.tsx'
 import { AuthProvider, useAuth } from './context/auth'
 import { AuthPopover } from './components/popovers/AuthPopover'
+import { DashAdvocate } from './views/advocate/DashAdvocate'
 
 function AppContent() {
   const { authOpen, closeAuth } = useAuth();
@@ -34,6 +35,7 @@ function AppContent() {
         <Route path="/client" element={<ClientDashboard />} />
         <Route path="/client/book" element={<ClientBook />} />
         <Route path="/client/orders" element={<ClientOrders />} />
+        <Route path="/advocate" element={<DashAdvocate />} />
       </Routes>
       <AuthPopover open={authOpen} onClose={closeAuth} />
     </>
