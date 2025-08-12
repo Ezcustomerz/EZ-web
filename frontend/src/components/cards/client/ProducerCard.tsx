@@ -211,6 +211,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
               >
                 services
               </Typography>
+              {/* No profile button here anymore */}
             </Box>
           </Box>
         </Box>
