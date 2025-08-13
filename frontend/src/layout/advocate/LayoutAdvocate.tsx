@@ -129,6 +129,10 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
         sx={{
           flexGrow: 1,
           bgcolor: theme.palette.background.default,
+          transition: theme.transitions.create(['margin-left'], {
+            easing: theme.transitions.easing.easeInOut,
+            duration: theme.transitions.duration.standard,
+          }),
           marginLeft: isMobile ? 0 : `${sidebarWidth}px`,
           minHeight: '100vh',
           display: 'flex',

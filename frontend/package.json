@@ -24,6 +24,7 @@
     "@mui/x-date-pickers-pro": "^8.8.0",
     "@supabase/supabase-js": "^2.50.3",
     "@types/react-router-dom": "^5.3.3",
+    "axios": "^1.11.0",
     "date-fns": "^4.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
