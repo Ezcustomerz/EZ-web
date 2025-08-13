@@ -133,20 +133,20 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
           </Box>
 
           {/* Stats Section */}
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 1.5, 
+          <Box sx={{
+            display: 'flex',
+            gap: 1.5,
             mb: 2.5,
-            p: 1.5,
+            p: 1,
             backgroundColor: 'rgba(122, 95, 255, 0.04)',
             borderRadius: 2,
             border: '1px solid rgba(122, 95, 255, 0.08)',
           }}>
             {/* Rating */}
             <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
                 backgroundColor: 'rgba(255, 215, 0, 0.12)',
                 borderRadius: 1.5,
                 px: 1.2,
@@ -179,15 +179,16 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
 
             {/* Services Count */}
             <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                backgroundColor: 'rgba(122, 95, 255, 0.12)',
-                borderRadius: 1.5,
-                px: 1.2,
-                py: 0.6,
-                mr: 1,
-              }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(122, 95, 255, 0.12)',
+                  borderRadius: 1.5,
+                  px: 1.2,
+                  py: 0.6,
+                  mr: 1,
+                }}>
                 <MusicNote sx={{ fontSize: 16, color: theme.palette.primary.main, mr: 0.5 }} />
                 <Typography
                   variant="body2"
@@ -210,43 +211,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
               >
                 services
               </Typography>
-            </Box>
-          </Box>
-
-          {/* Action Button */}
-          <Box sx={{ mt: 'auto' }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'rgba(122, 95, 255, 0.08)',
-                color: theme.palette.primary.main,
-                borderRadius: 2.5,
-                py: 1.2,
-                px: 2.5,
-                border: '1px solid rgba(122, 95, 255, 0.15)',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-                '&:hover': {
-                  backgroundColor: 'rgba(122, 95, 255, 0.12)',
-                  borderColor: 'rgba(122, 95, 255, 0.25)',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px rgba(122, 95, 255, 0.2)',
-                },
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  fontSize: '0.8rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.8px',
-                }}
-              >
-                View Profile
-              </Typography>
+              {/* No profile button here anymore */}
             </Box>
           </Box>
         </Box>
