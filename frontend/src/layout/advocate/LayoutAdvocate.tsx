@@ -16,8 +16,19 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
     if (typeof window !== 'undefined') {
       if (window.matchMedia('(max-width: 960px)').matches) return false;
       try {
-        const saved = localStorage.getItem('advocate-sidebar-open');
-        return saved ? JSON.parse(saved) : true;
+        // Unified key across roles
+        const unified = localStorage.getItem('sidebar-open');
+        if (unified !== null) return JSON.parse(unified);
+        // Migrate from legacy keys if present
+        const legacyKeys = ['client-sidebar-open', 'producer-sidebar-open', 'advocate-sidebar-open'];
+        for (const key of legacyKeys) {
+          const val = localStorage.getItem(key);
+          if (val !== null) {
+            try { localStorage.setItem('sidebar-open', val); } catch {}
+            return JSON.parse(val);
+          }
+        }
+        return true;
       } catch {
         return true;
       }
@@ -32,7 +43,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
   useEffect(() => {
     if (!isMobile) {
       try {
-        localStorage.setItem('advocate-sidebar-open', JSON.stringify(isSidebarOpen));
+        localStorage.setItem('sidebar-open', JSON.stringify(isSidebarOpen));
       } catch {}
     }
   }, [isSidebarOpen, isMobile]);

@@ -28,8 +28,19 @@ export function LayoutClient({
         return false;
       }
         try {
-          const saved = localStorage.getItem('client-sidebar-open');
-        return saved !== null ? JSON.parse(saved) : true;
+          // Unified key across roles
+          const unified = localStorage.getItem('sidebar-open');
+          if (unified !== null) return JSON.parse(unified);
+          // Migrate from legacy keys if present
+          const legacyKeys = ['client-sidebar-open', 'producer-sidebar-open', 'advocate-sidebar-open'];
+          for (const key of legacyKeys) {
+            const val = localStorage.getItem(key);
+            if (val !== null) {
+              try { localStorage.setItem('sidebar-open', val); } catch {}
+              return JSON.parse(val);
+            }
+          }
+        return true;
         } catch {
         return true;
       }
@@ -48,7 +59,7 @@ export function LayoutClient({
   useEffect(() => {
     if (!isMobile) {
       try {
-        localStorage.setItem('client-sidebar-open', JSON.stringify(isSidebarOpen));
+        localStorage.setItem('sidebar-open', JSON.stringify(isSidebarOpen));
       } catch {
         // Handle localStorage errors gracefully
       }
