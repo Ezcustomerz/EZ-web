@@ -5,6 +5,7 @@ import axios, {
   } from 'axios';
   import { toast } from '../components/toast/toast';
   import { supabase } from '../config/supabase';
+  import { API_BASE_URL } from '../config/api';
   
   export interface ApiResponse extends AxiosResponse {
     data: {
@@ -70,4 +71,7 @@ import axios, {
   
     return http;
   };
+
+  // Default API client using the configured base URL
+  export const http = createApiClient(API_BASE_URL);
   

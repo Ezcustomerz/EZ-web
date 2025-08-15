@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "EZ-Web full-stack application",
 "scripts": {
-  "start:backend": "cd backend && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8000",
+  "start:backend": "cd backend && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --host localhost --port 8000",
   "start:frontend": "cd frontend && npm run dev",
   "start:both": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
   "install:backend": "cd backend && python -m venv venv && .\\venv\\Scripts\\python.exe -m pip install -r requirements.txt",

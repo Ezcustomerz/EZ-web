@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { supabase } from '../config/supabase';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '../config/api';
 
 // Helper function to get auth headers
 const getAuthHeaders = async () => {
