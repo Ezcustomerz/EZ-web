@@ -20,7 +20,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
         const unified = localStorage.getItem('sidebar-open');
         if (unified !== null) return JSON.parse(unified);
         // Migrate from legacy keys if present
-        const legacyKeys = ['client-sidebar-open', 'producer-sidebar-open', 'advocate-sidebar-open'];
+        const legacyKeys = ['client-sidebar-open', 'creative-sidebar-open', 'advocate-sidebar-open'];
         for (const key of legacyKeys) {
           const val = localStorage.getItem(key);
           if (val !== null) {

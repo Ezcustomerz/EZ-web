@@ -33,7 +33,7 @@ export function HeroSection(props: HeroSectionProps) {
   const avatar = props?.avatar || '';
   const username = props?.username || 'Demo User';
   const bio = props?.bio || 'This is a demo description of this user';
-  const title = props?.title || 'music producer'; // Default title
+  const title = props?.title || 'music creative'; // Default title
   const socials = props?.socials || [
     { icon: <InstagramIcon />, url: '', label: 'Instagram' },
     { icon: <YouTubeIcon />, url: '', label: 'YouTube' },

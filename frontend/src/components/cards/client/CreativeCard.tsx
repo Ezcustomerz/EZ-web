@@ -1,7 +1,7 @@
 import { Box, Card, Typography, Avatar, useTheme } from '@mui/material';
 import { Star, MusicNote, Email } from '@mui/icons-material';
 
-interface Producer {
+interface Creative {
   id: string;
   name: string;
   avatar: string | null;
@@ -14,13 +14,13 @@ interface Producer {
   color: string;
 }
 
-interface ProducerCardProps {
-  producer: Producer;
+interface CreativeCardProps {
+  creative: Creative;
   index: number;
   onClick: (producerId: string) => void;
 }
 
-export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
+export function CreativeCard({ creative, index, onClick }: CreativeCardProps) {
   const theme = useTheme();
 
   return (
@@ -30,7 +30,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
       }}
     >
       <Card
-        onClick={() => onClick(producer.id)}
+        onClick={() => onClick(creative.id)}
         sx={{
           position: 'relative',
           height: '100%',
@@ -47,8 +47,8 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
           transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           '&:hover': {
             transform: 'translateY(-6px) scale(1.03)',
-            boxShadow: `0 8px 25px ${producer.color}40, 0 4px 12px rgba(0, 0, 0, 0.08)`,
-            borderColor: `${producer.color}60`,
+            boxShadow: `0 8px 25px ${creative.color}40, 0 4px 12px rgba(0, 0, 0, 0.08)`,
+            borderColor: `${creative.color}60`,
           },
         }}
       >
@@ -56,7 +56,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
         <Box
           sx={{
             height: 6,
-            background: `linear-gradient(135deg, ${producer.color} 0%, ${producer.color}80 50%, ${producer.color}40 100%)`,
+            background: `linear-gradient(135deg, ${creative.color} 0%, ${creative.color}80 50%, ${creative.color}40 100%)`,
             position: 'relative',
             '&::after': {
               content: '""',
@@ -71,7 +71,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
         >
         </Box>
 
-        {/* Producer Info */}
+        {/* Creative Info */}
         <Box sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Avatar and Name */}
           <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2.5 }}>
@@ -79,7 +79,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
               sx={{
                 width: 52,
                 height: 52,
-                backgroundColor: producer.color,
+                backgroundColor: creative.color,
                 mr: 2,
                 fontSize: '1.25rem',
                 fontWeight: 700,
@@ -87,7 +87,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
                 border: '2px solid rgba(255,255,255,0.8)',
               }}
             >
-              {producer.name.split(' ').map(n => n[0]).join('')}
+              {creative.name.split(' ').map(n => n[0]).join('')}
             </Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography
@@ -101,7 +101,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
                   letterSpacing: '-0.02em',
                 }}
               >
-                {producer.name}
+                {creative.name}
               </Typography>
               <Typography
                 variant="body2"
@@ -113,7 +113,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
                   letterSpacing: '0.5px',
                 }}
               >
-                {producer.specialty}
+                {creative.specialty}
               </Typography>
               {/* Contact Info */}
               <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
@@ -126,7 +126,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
                     fontWeight: 500,
                   }}
                 >
-                  {producer.email}
+                  {creative.email}
                 </Typography>
               </Box>
             </Box>
@@ -162,7 +162,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
                     color: 'text.primary',
                   }}
                 >
-                  {producer.rating}
+                  {creative.rating}
                 </Typography>
               </Box>
               <Typography
@@ -173,7 +173,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
                   fontWeight: 500,
                 }}
               >
-                ({producer.reviewCount})
+                ({creative.reviewCount})
               </Typography>
             </Box>
 
@@ -198,7 +198,7 @@ export function ProducerCard({ producer, index, onClick }: ProducerCardProps) {
                     color: 'text.primary',
                   }}
                 >
-                  {producer.servicesCount}
+                  {creative.servicesCount}
                 </Typography>
               </Box>
               <Typography

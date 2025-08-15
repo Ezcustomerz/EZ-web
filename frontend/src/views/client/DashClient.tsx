@@ -12,7 +12,7 @@ const upcomingBookings: any[] = [
     id: 1,
     serviceTitle: 'Full Production',
     dateTime: '2024-01-15T14:00:00Z',
-    producer: 'Mike Johnson',
+    creative: 'Mike Johnson',
     startsIn: '2 days',
     color: '#F3E8FF'
   },
@@ -20,7 +20,7 @@ const upcomingBookings: any[] = [
     id: 2,
     serviceTitle: 'Mixing & Mastering',
     dateTime: '2024-01-18T10:30:00Z',
-    producer: 'Sarah Wilson',
+    creative: 'Sarah Wilson',
     startsIn: '5 days',
     color: '#E0F2FE'
   },
@@ -28,7 +28,7 @@ const upcomingBookings: any[] = [
     id: 3,
     serviceTitle: 'Vocal Production',
     dateTime: '2024-01-20T16:00:00Z',
-    producer: 'Alex Thompson',
+    creative: 'Alex Thompson',
     startsIn: '7 days',
     color: '#FEF9C3'
   },
@@ -36,7 +36,7 @@ const upcomingBookings: any[] = [
     id: 4,
     serviceTitle: 'Beat Making',
     dateTime: '2024-01-22T11:00:00Z',
-    producer: 'David Chen',
+    creative: 'David Chen',
     startsIn: '9 days',
     color: '#FEE2E2'
   },
@@ -44,7 +44,7 @@ const upcomingBookings: any[] = [
     id: 5,
     serviceTitle: 'Beat Making',
     dateTime: '2024-01-22T11:00:00Z',
-    producer: 'David Chen',
+    creative: 'David Chen',
     startsIn: '9 days',
     color: '#FEE2E2'
   },
@@ -52,7 +52,7 @@ const upcomingBookings: any[] = [
     id: 6,
     serviceTitle: 'Beat Making',
     dateTime: '2024-01-22T11:00:00Z',
-    producer: 'David Chen',
+    creative: 'David Chen',
     startsIn: '9 days',
     color: '#FEE2E2'
   }

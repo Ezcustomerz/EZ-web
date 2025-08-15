@@ -34,7 +34,7 @@ export function AuthGate({ enabled = true }: AuthGateProps) {
       open={isOpen}
       onClose={() => setIsOpen(false)}
       title="Sign Up / Sign In"
-      subtitle="Sign in with Google to use producer tools"
+      subtitle="Sign in with Google to use creative tools"
     />
   );
 }

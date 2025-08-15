@@ -11,7 +11,7 @@ import { Fab, Menu as MuiMenu, MenuItem as MuiMenuItem } from '@mui/material';
 import { HeadsetMic, MoreVert } from '@mui/icons-material';
 import { CalendarDaySessionListPopover } from '../../../components/popovers/CalendarDaySessionListPopover';
 import { CalendarSessionDetailPopover } from '../../../components/popovers/CalendarSessionDetailPopover';
-import { CalendarDayCard } from '../../../components/cards/producer/CalendarDayCard';
+import { CalendarDayCard } from '../../../components/cards/creative/CalendarDayCard';
 
 interface Session {
   id: string;

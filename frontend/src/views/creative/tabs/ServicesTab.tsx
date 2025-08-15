@@ -1,6 +1,6 @@
 import { Box, Card, Tooltip } from '@mui/material';
 import { useMemo } from 'react';
-import { ServiceCard } from '../../../components/cards/producer/ServiceCard';
+import { ServiceCard } from '../../../components/cards/creative/ServiceCard';
 
 const mockServices: any[] = [
   {
@@ -11,7 +11,7 @@ const mockServices: any[] = [
     delivery: '3 days',
     status: 'Public',
     color: '#F3E8FF',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-2',
@@ -21,7 +21,7 @@ const mockServices: any[] = [
     delivery: '2 days',
     status: 'Private',
     color: '#E0F2FE',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-3',
@@ -31,7 +31,7 @@ const mockServices: any[] = [
     delivery: '1 day',
     status: 'Public',
     color: '#FEF9C3',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-4',
@@ -41,7 +41,7 @@ const mockServices: any[] = [
     delivery: '10 days',
     status: 'Public',
     color: '#FEE2E2',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-5',
@@ -51,7 +51,7 @@ const mockServices: any[] = [
     delivery: '4 days',
     status: 'Private',
     color: '#DCFCE7',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-6',
@@ -61,7 +61,7 @@ const mockServices: any[] = [
     delivery: '2 days',
     status: 'Public',
     color: '#E0E7FF',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-7',
@@ -71,7 +71,7 @@ const mockServices: any[] = [
     delivery: '3 days',
     status: 'Public',
     color: '#FFE4E6',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-8',
@@ -81,7 +81,7 @@ const mockServices: any[] = [
     delivery: '2 days',
     status: 'Private',
     color: '#F1F5F9',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-9',
@@ -91,7 +91,7 @@ const mockServices: any[] = [
     delivery: '1 day',
     status: 'Public',
     color: '#FDE68A',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
   {
     id: 'service-10',
@@ -101,7 +101,7 @@ const mockServices: any[] = [
     delivery: '2 days',
     status: 'Public',
     color: '#C7D2FE',
-    producer: 'Demo User',
+    creative: 'Demo User',
   },
 ];
 
@@ -413,7 +413,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
               price={service.price}
               delivery={service.delivery}
               status={service.status}
-              producer={service.producer}
+              creative={service.creative}
               onEdit={() => {/* TODO: trigger edit flow */}}
               color={service.color}
             />

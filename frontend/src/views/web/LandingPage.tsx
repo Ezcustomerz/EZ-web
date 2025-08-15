@@ -126,7 +126,7 @@ export function LandingPage() {
                 willChange: 'opacity'
               }}
             >
-              The complete CRM solution for music producers. Manage your studio sessions, track client relationships, handle bookings and payments, and streamline your music
+              The complete CRM solution for music creatives. Manage your studio sessions, track client relationships, handle bookings and payments, and streamline your music
               production business all in one place.
             </Typography>
             <Box sx={{
@@ -139,7 +139,7 @@ export function LandingPage() {
                 text="Get Started For Free"
                 buttonVariant="landing"
                 size="large"
-                onClick={() => navigate('/producer?auth=1')}
+                onClick={() => navigate('/creative?auth=1')}
               />
             </Box>
           </Box>

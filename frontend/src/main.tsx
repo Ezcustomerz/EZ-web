@@ -3,10 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import {LandingPage} from './views/web/LandingPage.tsx'
-import { DashProducer } from './views/producer/DashProducer.tsx'
-import { ClientProducer } from './views/producer/ClientProducer.tsx'
-import { ActivityProducer } from './views/producer/ActivityProducer.tsx'
-import { PublicProducer } from './views/producer/PublicProducer.tsx'
+import { DashCreative } from './views/creative/DashCreative.tsx'
+import { ClientCreative } from './views/creative/ClientCreative.tsx'
+import { ActivityCreative } from './views/creative/ActivityCreative.tsx'
+import { PublicCreative } from './views/creative/PublicCreative.tsx'
 import { ClientDashboard } from './views/client/DashClient.tsx'
 import { ClientBook } from './views/client/BookClient.tsx'
 import { ClientOrders } from './views/client/OrdersClient.tsx'
@@ -18,26 +18,52 @@ import './config/supabase'
 import { ScrollToTop } from './utils/ScrollToTop.tsx'
 import { AuthProvider, useAuth } from './context/auth'
 import { AuthPopover } from './components/popovers/AuthPopover'
+import { RoleSelectionPopover } from './components/popovers/RoleSelectionPopover'
+import { CreativeSetupPopover } from './components/popovers/CreativeSetupPopover'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
+import { ToastProvider } from './components/toast/toast'
 
 function AppContent() {
-  const { authOpen, closeAuth } = useAuth();
+  const { 
+    authOpen, 
+    closeAuth, 
+    roleSelectionOpen, 
+    closeRoleSelection, 
+    userProfile,
+    producerSetupOpen,
+    closeCreativeSetup,
+    openCreativeSetup,
+    backToRoleSelection
+  } = useAuth();
 
   return (
     <>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/producer" element={<DashProducer />} />
-        <Route path="/producer/clients" element={<ClientProducer />} />
-        <Route path="/producer/activity" element={<ActivityProducer />} />
-        <Route path="/producer/public" element={<PublicProducer />} />
+        <Route path="/creative" element={<DashCreative />} />
+        <Route path="/creative/clients" element={<ClientCreative />} />
+        <Route path="/creative/activity" element={<ActivityCreative />} />
+        <Route path="/creative/public" element={<PublicCreative />} />
         <Route path="/client" element={<ClientDashboard />} />
         <Route path="/client/book" element={<ClientBook />} />
         <Route path="/client/orders" element={<ClientOrders />} />
         <Route path="/advocate" element={<DashAdvocate />} />
       </Routes>
       <AuthPopover open={authOpen} onClose={closeAuth} />
+      <RoleSelectionPopover 
+        open={roleSelectionOpen} 
+        onClose={closeRoleSelection}
+        userName={userProfile?.name}
+        onCreativeSetup={openCreativeSetup}
+      />
+      <CreativeSetupPopover 
+        open={producerSetupOpen} 
+        onClose={closeCreativeSetup}
+        userName={userProfile?.name}
+        userEmail={userProfile?.email}
+        onBack={backToRoleSelection}
+      />
     </>
   );
 }
@@ -93,9 +119,11 @@ function Root() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <BrowserRouter>
-          <AuthProvider>
-            <AppContent />
-          </AuthProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <AppContent />
+            </AuthProvider>
+          </ToastProvider>
         </BrowserRouter>
       </ThemeProvider>
     </StrictMode>

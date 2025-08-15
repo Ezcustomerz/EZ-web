@@ -1,11 +1,11 @@
 import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material';
-import { LayoutProducer } from '../../layout/producer/LayoutProducer';
-import { WelcomeCard } from '../../components/cards/producer/WelcomeCard';
-import { ActivityFeedCard } from '../../components/cards/producer/ActivityFeedCard';
+import { LayoutCreative } from '../../layout/creative/LayoutCreative';
+import { WelcomeCard } from '../../components/cards/creative/WelcomeCard';
+import { ActivityFeedCard } from '../../components/cards/creative/ActivityFeedCard';
 import type { ActivityItem } from '../../types/activity';
 import { GraphicEqOutlined, Payment, Download, PersonAddOutlined, CheckCircleOutlined, History } from '@mui/icons-material';
 
-export function DashProducer() {
+export function DashCreative() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
 
@@ -19,7 +19,7 @@ export function DashProducer() {
   ];
 
   return (
-    <LayoutProducer selectedNavItem="dashboard">
+    <LayoutCreative selectedNavItem="dashboard">
       {({ isSidebarOpen }) => (
         <Box
           sx={{
@@ -40,7 +40,7 @@ export function DashProducer() {
           }}
         >
           {/* Welcome Card */}
-          <WelcomeCard userName="Demo User" userRole="Music Producer" isSidebarOpen={isSidebarOpen} />
+          <WelcomeCard userName="Demo User" userRole="Music Creative" isSidebarOpen={isSidebarOpen} />
 
           {/* Section Divider */}
           <Box sx={{ position: 'relative', zIndex: 1, mb: 2, animation: 'fadeIn 0.6s ease-out 0.35s both', '@keyframes fadeIn': { from: { opacity: 0 }, to: { opacity: 1 } } }}>
@@ -58,6 +58,6 @@ export function DashProducer() {
           </Box>
         </Box>
       )}
-    </LayoutProducer>
+    </LayoutCreative>
   );
 } 

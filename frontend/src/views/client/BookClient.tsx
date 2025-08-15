@@ -2,11 +2,11 @@ import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuI
 import { LayoutClient } from '../../layout/client/LayoutClient';
 import { useState } from 'react';
 import { People, MusicNote } from '@mui/icons-material';
-import { ConnectedProducersTab } from './tabs/ConnectedProducersTab';
+import { ConnectedCreativesTab } from './tabs/ConnectedCreativesTab';
 import { ConnectedServicesTab } from './tabs/ConnectedServicesTab';
 
 const tabLabels = [
-  { label: 'Connected Producers', icon: <People sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Connected Creatives', icon: <People sx={{ fontSize: 18, mr: 1 }} /> },
   { label: 'Connected Services', icon: <MusicNote sx={{ fontSize: 18, mr: 1 }} /> },
 ];
 
@@ -93,7 +93,7 @@ export function ClientBook() {
               letterSpacing: '0.01em',
             }}
           >
-            Connect with producers and browse services
+            Connect with creatives and browse services
           </Typography>
         </Box>
 
@@ -301,7 +301,7 @@ export function ClientBook() {
             }}
           >
             {activeTab === 0 ? (
-              <ConnectedProducersTab />
+              <ConnectedCreativesTab />
             ) : (
               <ConnectedServicesTab />
             )}

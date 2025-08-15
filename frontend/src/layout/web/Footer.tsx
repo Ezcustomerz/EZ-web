@@ -11,7 +11,7 @@ export function Footer() {
 
   const pages = [
     { name: 'Pricing', href: '/pricing' },
-    { name: 'Producer Features', href: '/producer-features' },
+    { name: 'Creative Features', href: '/creative-features' },
     { name: 'Client Features', href: '/client-features' },
     { name: 'Affiliate Details', href: '/affiliate' }
   ];
@@ -62,7 +62,7 @@ export function Footer() {
               buttonVariant="landing"
               size="medium"
               borderColor={theme.palette.secondary.main}
-              onClick={() => navigate('/producer')}
+              onClick={() => navigate('/creative')}
             />
           </Box>
 
@@ -202,7 +202,7 @@ export function Footer() {
               textAlign: 'center'
             }}
           >
-            Made for music producers, by music producers.
+            Made for music creatives, by music creatives.
           </Typography>
         </Box>
       </Box>

@@ -8,7 +8,7 @@ interface ActivityNotificationProps {
   label?: string;
   description?: string;
   client?: string;
-  producer?: string;
+  creative?: string;
   date?: string;
   isNew?: boolean;
   status?: string;
@@ -23,7 +23,7 @@ export function ActivityNotificationCard({
   label,
   description,
   client,
-  producer,
+  creative,
   date,
   isNew,
   status,
@@ -36,7 +36,7 @@ export function ActivityNotificationCard({
     icon,
     label: label ?? '',
     description,
-    counterpart: client ?? producer ?? '',
+    counterpart: client ?? creative ?? '',
     date: date ?? '',
     status: status ?? '',
     isNew,

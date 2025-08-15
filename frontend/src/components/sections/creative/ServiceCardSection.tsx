@@ -2,7 +2,7 @@ import { Box, IconButton, useTheme, Typography, Button } from '@mui/material';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { ServiceCardSimple } from '../../cards/producer/ServiceCard';
+import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { useEffect, useState, useRef } from 'react';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
@@ -14,7 +14,7 @@ export interface ServiceCardRowProps {
     price: number;
     delivery: string;
     color: string;
-    producer: string;
+    creative: string;
   }>;
   arrowPosition?: 'inside';
   showSeeAll?: boolean;
@@ -22,13 +22,13 @@ export interface ServiceCardRowProps {
 }
 
 const DEMO_SERVICES: ServiceCardRowProps['services'] = [
-  { id: 'service-1', title: 'Mixing', description: 'Professional mixing for your tracks', price: 200, delivery: '3 days', color: '#F3E8FF', producer: 'Demo User' },
-  { id: 'service-2', title: 'Mastering', description: 'High-quality mastering for release', price: 150, delivery: '2 days', color: '#E0F2FE', producer: 'Demo User' },
-  { id: 'service-3', title: 'Vocal Tuning', description: 'Pitch correction and tuning for vocals', price: 100, delivery: '1 day', color: '#FEF9C3', producer: 'Demo User' },
-  { id: 'service-4', title: 'Full Production', description: 'From songwriting to final mix', price: 1000, delivery: '10 days', color: '#FEE2E2', producer: 'Demo User' },
-  { id: 'service-5', title: 'Beat Making', description: 'Custom beats for any genre', price: 300, delivery: '4 days', color: '#DCFCE7', producer: 'Demo User' },
-  { id: 'service-6', title: 'Session Guitar', description: 'Professional guitar tracks for your song', price: 120, delivery: '2 days', color: '#E0E7FF', producer: 'Demo User' },
-  { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6', producer: 'Demo User' },
+  { id: 'service-1', title: 'Mixing', description: 'Professional mixing for your tracks', price: 200, delivery: '3 days', color: '#F3E8FF', creative: 'Demo User' },
+  { id: 'service-2', title: 'Mastering', description: 'High-quality mastering for release', price: 150, delivery: '2 days', color: '#E0F2FE', creative: 'Demo User' },
+  { id: 'service-3', title: 'Vocal Tuning', description: 'Pitch correction and tuning for vocals', price: 100, delivery: '1 day', color: '#FEF9C3', creative: 'Demo User' },
+  { id: 'service-4', title: 'Full Production', description: 'From songwriting to final mix', price: 1000, delivery: '10 days', color: '#FEE2E2', creative: 'Demo User' },
+  { id: 'service-5', title: 'Beat Making', description: 'Custom beats for any genre', price: 300, delivery: '4 days', color: '#DCFCE7', creative: 'Demo User' },
+  { id: 'service-6', title: 'Session Guitar', description: 'Professional guitar tracks for your song', price: 120, delivery: '2 days', color: '#E0E7FF', creative: 'Demo User' },
+  { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6', creative: 'Demo User' },
 ];
 
 export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeAll }: ServiceCardRowProps) {
@@ -373,7 +373,7 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
                       py: 1,
                     }}
                   >
-                    <ServiceCardSimple {...service} color={service.color} producer={service.producer} />
+                    <ServiceCardSimple {...service} color={service.color} creative={service.creative} />
                   </Box>
                 );
               })}

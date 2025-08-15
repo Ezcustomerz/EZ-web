@@ -1,10 +1,10 @@
-import { HeroSection } from '../../../components/sections/producer/HeroSection';
-import { ServiceCardSection } from '../../../components/sections/producer/ServiceCardSection';
+import { HeroSection } from '../../../components/sections/creative/HeroSection';
+import { ServiceCardSection } from '../../../components/sections/creative/ServiceCardSection';
 import { Box, Tabs, Tab, Typography, useTheme } from '@mui/material';
 import { useState, useEffect } from 'react';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import StarIcon from '@mui/icons-material/Star';
-import { ReviewCardSection } from '../../../components/sections/producer/ReviewCardSection';
+import { ReviewCardSection } from '../../../components/sections/creative/ReviewCardSection';
 import { ReviewPopover } from '../../../components/popovers/ReviewPopover';
 import { SessionPopover } from '../../../components/popovers/ServicePopover';
 
@@ -105,13 +105,13 @@ export function ProfileTab({ seeAllDialogOpen, onSeeAllDialogChange }: ProfileTa
 
   // Import demo services from ServiceCardRow
   const DEMO_SERVICES = [
-    { id: 'service-1', title: 'Mixing', description: 'Professional mixing for your tracks', price: 200, delivery: '3 days', color: '#F3E8FF', producer: 'Demo User' },
-    { id: 'service-2', title: 'Mastering', description: 'High-quality mastering for release', price: 150, delivery: '2 days', color: '#E0F2FE', producer: 'Demo User' },
-    { id: 'service-3', title: 'Vocal Tuning', description: 'Pitch correction and tuning for vocals', price: 100, delivery: '1 day', color: '#FEF9C3', producer: 'Demo User' },
-    { id: 'service-4', title: 'Full Production', description: 'From songwriting to final mix', price: 1000, delivery: '10 days', color: '#FEE2E2', producer: 'Demo User' },
-    { id: 'service-5', title: 'Beat Making', description: 'Custom beats for any genre', price: 300, delivery: '4 days', color: '#DCFCE7', producer: 'Demo User' },
-    { id: 'service-6', title: 'Session Guitar', description: 'Professional guitar tracks for your song', price: 120, delivery: '2 days', color: '#E0E7FF', producer: 'Demo User' },
-    { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6', producer: 'Demo User' },
+    { id: 'service-1', title: 'Mixing', description: 'Professional mixing for your tracks', price: 200, delivery: '3 days', color: '#F3E8FF', creative: 'Demo User' },
+    { id: 'service-2', title: 'Mastering', description: 'High-quality mastering for release', price: 150, delivery: '2 days', color: '#E0F2FE', creative: 'Demo User' },
+    { id: 'service-3', title: 'Vocal Tuning', description: 'Pitch correction and tuning for vocals', price: 100, delivery: '1 day', color: '#FEF9C3', creative: 'Demo User' },
+    { id: 'service-4', title: 'Full Production', description: 'From songwriting to final mix', price: 1000, delivery: '10 days', color: '#FEE2E2', creative: 'Demo User' },
+    { id: 'service-5', title: 'Beat Making', description: 'Custom beats for any genre', price: 300, delivery: '4 days', color: '#DCFCE7', creative: 'Demo User' },
+    { id: 'service-6', title: 'Session Guitar', description: 'Professional guitar tracks for your song', price: 120, delivery: '2 days', color: '#E0E7FF', creative: 'Demo User' },
+    { id: 'service-7', title: 'Drum Programming', description: 'Realistic drum programming for your track', price: 180, delivery: '3 days', color: '#FFE4E6', creative: 'Demo User' },
   ];
 
   return (

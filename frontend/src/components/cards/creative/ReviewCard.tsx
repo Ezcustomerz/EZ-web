@@ -1,6 +1,6 @@
 import { Card, CardContent, Box, Avatar, Typography, useTheme, Chip, Rating } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
-import type { Review } from '../../../views/producer/tabs/ProfileTab';
+import type { Review } from '../../../views/creative/tabs/ProfileTab';
 
 export function ReviewCard({ review }: { review: Review }) {
   const theme = useTheme();

@@ -1,5 +1,5 @@
 import { Box, Typography, Paper, Tab, Tabs, useTheme, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { LayoutProducer } from '../../layout/producer/LayoutProducer';
+import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { useState } from 'react';
 import { Build, Search, FilterList } from '@mui/icons-material';
 import { ServicesTab } from './tabs/ServicesTab';
@@ -23,7 +23,7 @@ const sortOptions = [
   { value: 'delivery', label: 'Delivery Time' },
 ];
 
-export function PublicProducer() {
+export function PublicCreative() {
   // Dialog open states for CalendarTab
   const [calendarDayDialogOpen, setCalendarDayDialogOpen] = useState(false);
   const [calendarSessionDialogOpen, setCalendarSessionDialogOpen] = useState(false);
@@ -60,7 +60,7 @@ export function PublicProducer() {
   };
 
   return (
-    <LayoutProducer selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen || profileSeeAllDialogOpen}>
+    <LayoutCreative selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen || profileSeeAllDialogOpen}>
       <Box sx={{
         px: { xs: 2, sm: 2, md: 3 },
         pb: { xs: 2, sm: 2, md: 3 },
@@ -731,6 +731,6 @@ export function PublicProducer() {
           )}
         </Paper>
       </Box>
-    </LayoutProducer>
+    </LayoutCreative>
   );
 } 

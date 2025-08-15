@@ -31,7 +31,7 @@ export function WelcomeCard({ userName = "Demo User", userType = "Country Artist
       bgColor: `${theme.palette.primary.main}1A`,
     },
     {
-      title: 'Connected Producers',
+      title: 'Connected Creatives',
       value: '0',
       icon: PeopleOutlined,
       color: theme.palette.success.main,

@@ -1,8 +1,8 @@
 import { Box, Typography } from '@mui/material';
 import { People } from '@mui/icons-material';
-import { ProducerCard } from '../../../components/cards/client/ProducerCard';
+import { CreativeCard } from '../../../components/cards/client/CreativeCard';
 
-interface Producer {
+interface Creative {
   id: string;
   name: string;
   avatar: string | null;
@@ -15,13 +15,13 @@ interface Producer {
   color: string;
 }
 
-// Mock data for connected producers
-const mockConnectedProducers: Producer[] = [
+// Mock data for connected creatives
+const mockConnectedCreatives: Creative[] = [
     {
-        id: 'producer-1',
-        name: 'Producer 1',
+        id: 'creative-1',
+        name: 'Creative 1',
         avatar: null,
-        specialty: 'Producer 1',
+        specialty: 'Creative 1',
         email: 'producer1@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -30,10 +30,10 @@ const mockConnectedProducers: Producer[] = [
         color: '#E0E7FF'
     },
     {
-        id: 'producer-2',
-        name: 'Producer 2',
+        id: 'creative-2',
+        name: 'Creative 2',
         avatar: null,
-        specialty: 'Producer 2',
+        specialty: 'Creative 2',
         email: 'producer2@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -42,10 +42,10 @@ const mockConnectedProducers: Producer[] = [
         color: '#E0E7FF'
     },
     {
-        id: 'producer-3',
-        name: 'Producer 3',
+        id: 'creative-3',
+        name: 'Creative 3',
         avatar: null,
-        specialty: 'Producer 3',
+        specialty: 'Creative 3',
         email: 'producer3@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -54,10 +54,10 @@ const mockConnectedProducers: Producer[] = [
         color: '#E0E7FF'
     },
     {
-        id: 'producer-4',
-        name: 'Producer 4',
+        id: 'creative-4',
+        name: 'Creative 4',
         avatar: null,
-        specialty: 'Producer 4',
+        specialty: 'Creative 4',
         email: 'producer4@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -66,10 +66,10 @@ const mockConnectedProducers: Producer[] = [
         color: '#E0E7FF'
     },
     {
-        id: 'producer-5',
-        name: 'Producer 5',
+        id: 'creative-5',
+        name: 'Creative 5',
         avatar: null,
-        specialty: 'Producer 5',
+        specialty: 'Creative 5',
         email: 'producer5@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -78,10 +78,10 @@ const mockConnectedProducers: Producer[] = [
         color: '#E0E7FF'
     },
     {
-        id: 'producer-6',
-        name: 'Producer 6',
+        id: 'creative-6',
+        name: 'Creative 6',
         avatar: null,
-        specialty: 'Producer 6',
+        specialty: 'Creative 6',
         email: 'producer6@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -90,10 +90,10 @@ const mockConnectedProducers: Producer[] = [
         color: '#E0E7FF'
     },
     {
-        id: 'producer-7',
-        name: 'Producer 7',
+        id: 'creative-7',
+        name: 'Creative 7',
         avatar: null,
-        specialty: 'Producer 7',
+        specialty: 'Creative 7',
         email: 'producer7@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -102,10 +102,10 @@ const mockConnectedProducers: Producer[] = [
         color: '#E0E7FF'
     },
     {
-        id: 'producer-8',
-        name: 'Producer 8',
+        id: 'creative-8',
+        name: 'Creative 8',
         avatar: null,
-        specialty: 'Producer 8',
+        specialty: 'Creative 8',
         email: 'producer8@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -114,10 +114,10 @@ const mockConnectedProducers: Producer[] = [
         color: '#E0E7FF'
     },
     {
-        id: 'producer-9',
-        name: 'Producer 9',
+        id: 'creative-9',
+        name: 'Creative 9',
         avatar: null,
-        specialty: 'Producer 9',
+        specialty: 'Creative 9',
         email: 'producer9@example.com',
         rating: 4.5,
         reviewCount: 100,
@@ -129,10 +129,10 @@ const mockConnectedProducers: Producer[] = [
 
 ];
 
-export function ConnectedProducersTab() {
+export function ConnectedCreativesTab() {
 
-  const handleProducerClick = (producerId: string) => {
-    // Navigate to the producer's profile page
+  const handleCreativeClick = (producerId: string) => {
+    // Navigate to the creative's profile page
     // You can adjust the route structure as needed
     console.log(producerId);
   };
@@ -145,7 +145,7 @@ export function ConnectedProducersTab() {
       overflowY: { xs: 'auto', sm: 'auto', md: 'auto' },
       minHeight: 0,
     }}>
-      {mockConnectedProducers.length === 0 ? (
+      {mockConnectedCreatives.length === 0 ? (
         <Box sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -157,10 +157,10 @@ export function ConnectedProducersTab() {
         }}>
           <People sx={{ fontSize: 64, mb: 2, opacity: 0.4, color: 'secondary.main' }} />
           <Typography variant="h6" sx={{ mb: 1, color: 'secondary.main' }}>
-            No Connected Producers
+            No Connected Creatives
           </Typography>
           <Typography variant="body2" sx={{ color: 'secondary.main' }}>
-            Connect with music producers to start booking services
+            Connect with music creatives to start booking services
           </Typography>
         </Box>
       ) : (
@@ -181,12 +181,12 @@ export function ConnectedProducersTab() {
           width: '100%',
           overflow: 'hidden',
         }}>
-          {mockConnectedProducers.map((producer, index) => (
-            <ProducerCard
-              key={producer.id}
-              producer={producer}
+          {mockConnectedCreatives.map((creative, index) => (
+            <CreativeCard
+              key={creative.id}
+              creative={creative}
               index={index}
-              onClick={handleProducerClick}
+              onClick={handleCreativeClick}
             />
           ))}
         </Box>

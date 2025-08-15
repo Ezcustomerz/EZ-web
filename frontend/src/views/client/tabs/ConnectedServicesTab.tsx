@@ -1,6 +1,6 @@
 import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { MusicNote, Search, FilterList } from '@mui/icons-material';
-import { ServiceCardSimple } from '../../../components/cards/producer/ServiceCard';
+import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
 import { useState, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown, faUser, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
@@ -11,7 +11,7 @@ interface Service {
   description: string;
   price: number;
   delivery: string;
-  producer: string;
+  creative: string;
   rating: number;
   reviewCount: number;
   color: string;
@@ -25,7 +25,7 @@ const mockConnectedServices: Service[] = [
     description: 'Professional mixing for your tracks',
     price: 200,
     delivery: '3 days',
-    producer: 'Mike Johnson',
+    creative: 'Mike Johnson',
     rating: 4.8,
     reviewCount: 45,
     color: '#F3E8FF',
@@ -36,7 +36,7 @@ const mockConnectedServices: Service[] = [
     description: 'High-quality mastering for release',
     price: 150,
     delivery: '2 days',
-    producer: 'Sarah Wilson',
+    creative: 'Sarah Wilson',
     rating: 4.9,
     reviewCount: 32,
     color: '#E0F2FE',
@@ -47,7 +47,7 @@ const mockConnectedServices: Service[] = [
     description: 'Pitch correction and tuning for vocals',
     price: 100,
     delivery: '1 day',
-    producer: 'Alex Thompson',
+    creative: 'Alex Thompson',
     rating: 4.7,
     reviewCount: 28,
     color: '#FEF9C3',
@@ -58,7 +58,7 @@ const mockConnectedServices: Service[] = [
     description: 'From songwriting to final mix',
     price: 1000,
     delivery: '10 days',
-    producer: 'David Chen',
+    creative: 'David Chen',
     rating: 4.9,
     reviewCount: 15,
     color: '#FEE2E2',
@@ -69,7 +69,7 @@ const mockConnectedServices: Service[] = [
     description: 'Custom beats for any genre',
     price: 300,
     delivery: '4 days',
-    producer: 'Emma Davis',
+    creative: 'Emma Davis',
     rating: 4.6,
     reviewCount: 38,
     color: '#DCFCE7',
@@ -80,7 +80,7 @@ const mockConnectedServices: Service[] = [
     description: 'Professional guitar tracks for your song',
     price: 120,
     delivery: '2 days',
-    producer: 'Mike Johnson',
+    creative: 'Mike Johnson',
     rating: 4.8,
     reviewCount: 22,
     color: '#E0E7FF',
@@ -91,7 +91,7 @@ const mockConnectedServices: Service[] = [
     description: 'Realistic drum programming for your track',
     price: 180,
     delivery: '3 days',
-    producer: 'Sarah Wilson',
+    creative: 'Sarah Wilson',
     rating: 4.7,
     reviewCount: 19,
     color: '#FFE4E6',
@@ -102,7 +102,7 @@ const mockConnectedServices: Service[] = [
     description: 'Song arrangement and structure advice',
     price: 80,
     delivery: '2 days',
-    producer: 'Alex Thompson',
+    creative: 'Alex Thompson',
     rating: 4.5,
     reviewCount: 12,
     color: '#F1F5F9',
@@ -113,7 +113,7 @@ const mockConnectedServices: Service[] = [
     description: 'Professional mixing for your tracks',
     price: 200,
     delivery: '3 days',
-    producer: 'Mike Johnson',
+    creative: 'Mike Johnson',
     rating: 4.8,
     reviewCount: 45,
     color: '#F3E8FF',
@@ -124,7 +124,7 @@ const mockConnectedServices: Service[] = [
     description: 'Professional mixing for your tracks',
     price: 200,
     delivery: '3 days',
-    producer: 'Mike Johnson',
+    creative: 'Mike Johnson',
     rating: 4.8,
     reviewCount: 45,
     color: '#F3E8FF',
@@ -145,13 +145,13 @@ export function ConnectedServicesTab() {
   const [sortBy, setSortBy] = useState<'title' | 'price' | 'delivery'>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
-  const [producerFilter, setProducerFilter] = useState<string>('all');
+  const [producerFilter, setCreativeFilter] = useState<string>('all');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
-  // Get unique producers for filter
-  const uniqueProducers = useMemo(() => {
-    const producers = [...new Set(mockConnectedServices.map(service => service.producer))];
-    return producers.sort();
+  // Get unique creatives for filter
+  const uniqueCreatives = useMemo(() => {
+    const creatives = [...new Set(mockConnectedServices.map(service => service.creative))];
+    return creatives.sort();
   }, []);
 
   // Animation key that changes on every filter/search
@@ -160,10 +160,10 @@ export function ConnectedServicesTab() {
   // Filter and sort services
   const filteredAndSortedServices = useMemo(() => {
     const filtered = mockConnectedServices.filter(service =>
-      (producerFilter === 'all' || service.producer === producerFilter) &&
+      (producerFilter === 'all' || service.creative === producerFilter) &&
       (service.title.toLowerCase().includes(search.toLowerCase()) ||
         service.description.toLowerCase().includes(search.toLowerCase()) ||
-        service.producer.toLowerCase().includes(search.toLowerCase()))
+        service.creative.toLowerCase().includes(search.toLowerCase()))
     );
 
     return [...filtered].sort((a, b) => {
@@ -244,17 +244,17 @@ export function ConnectedServicesTab() {
             </Button>
           ) : (
             <>
-              {/* Producer Filter */}
+              {/* Creative Filter */}
               <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel id="producer-label">Producer</InputLabel>
+                <InputLabel id="creative-label">Creative</InputLabel>
                 <Select
-                  labelId="producer-label"
+                  labelId="creative-label"
                   value={producerFilter}
-                  label="Producer"
-                  onChange={e => setProducerFilter(e.target.value)}
+                  label="Creative"
+                  onChange={e => setCreativeFilter(e.target.value)}
                   renderValue={() => {
                     let icon = faLayerGroup;
-                    let label = 'All Producers';
+                    let label = 'All Creatives';
                     if (producerFilter !== 'all') {
                       icon = faUser;
                       label = producerFilter;
@@ -294,10 +294,10 @@ export function ConnectedServicesTab() {
                         fontWeight: producerFilter === 'all' ? 600 : 400
                       }}
                     />
-                    All Producers
+                    All Creatives
                   </MenuItem>
-                  {uniqueProducers.map(producer => (
-                    <MenuItem key={producer} value={producer} sx={{
+                  {uniqueCreatives.map(creative => (
+                    <MenuItem key={creative} value={creative} sx={{
                       transition: 'all 0.2s ease',
                       '&:hover': {
                         transform: 'translateX(4px)',
@@ -321,10 +321,10 @@ export function ConnectedServicesTab() {
                         style={{
                           marginRight: 12,
                           fontSize: 16,
-                          fontWeight: producerFilter === producer ? 600 : 400
+                          fontWeight: producerFilter === creative ? 600 : 400
                         }}
                       />
-                      {producer}
+                      {creative}
                     </MenuItem>
                   ))}
                 </Select>
@@ -433,15 +433,15 @@ export function ConnectedServicesTab() {
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', pb: 1.5 }}>Filters</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2.5, px: 4, overflow: 'visible' }}>
           <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
-            <InputLabel id="modal-producer-label" shrink={true}>Producer</InputLabel>
+            <InputLabel id="modal-creative-label" shrink={true}>Creative</InputLabel>
             <Select
-              labelId="modal-producer-label"
+              labelId="modal-creative-label"
               value={producerFilter}
-              label="Producer"
-              onChange={e => setProducerFilter(e.target.value)}
+              label="Creative"
+              onChange={e => setCreativeFilter(e.target.value)}
               renderValue={() => {
                 let icon = faLayerGroup;
-                let label = 'All Producers';
+                let label = 'All Creatives';
                 if (producerFilter !== 'all') {
                   icon = faUser;
                   label = producerFilter;
@@ -481,10 +481,10 @@ export function ConnectedServicesTab() {
                     fontWeight: producerFilter === 'all' ? 600 : 400
                   }}
                 />
-                All Producers
+                All Creatives
               </MenuItem>
-              {uniqueProducers.map(producer => (
-                <MenuItem key={producer} value={producer} sx={{
+              {uniqueCreatives.map(creative => (
+                <MenuItem key={creative} value={creative} sx={{
                   transition: 'all 0.2s ease',
                   '&:hover': {
                     transform: 'translateX(4px)',
@@ -508,10 +508,10 @@ export function ConnectedServicesTab() {
                     style={{
                       marginRight: 12,
                       fontSize: 16,
-                      fontWeight: producerFilter === producer ? 600 : 400
+                      fontWeight: producerFilter === creative ? 600 : 400
                     }}
                   />
-                  {producer}
+                  {creative}
                 </MenuItem>
               ))}
             </Select>
@@ -622,7 +622,7 @@ export function ConnectedServicesTab() {
             No Connected Services
           </Typography>
           <Typography variant="body2" sx={{ color: 'secondary.main' }}>
-            Browse and book services from your connected producers
+            Browse and book services from your connected creatives
           </Typography>
         </Box>
       ) : (
@@ -666,7 +666,7 @@ export function ConnectedServicesTab() {
                 price={service.price}
                 delivery={service.delivery}
                 color={service.color}
-                producer={service.producer}
+                creative={service.creative}
                 onBook={() => handleServiceClick(service.id)}
               />
             </Box>

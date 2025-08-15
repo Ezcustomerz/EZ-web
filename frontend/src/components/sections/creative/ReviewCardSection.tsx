@@ -2,8 +2,8 @@ import { Box, Typography, Button, IconButton, useTheme } from '@mui/material';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useState, useEffect, useRef } from 'react';
-import { ReviewCard } from '../../cards/producer/ReviewCard';
-import type { Review } from '../../../views/producer/tabs/ProfileTab';
+import { ReviewCard } from '../../cards/creative/ReviewCard';
+import type { Review } from '../../../views/creative/tabs/ProfileTab';
 
 export function ReviewCardSection({ reviews, onSeeAll }: { reviews: Review[]; onSeeAll: () => void }) {
   const theme = useTheme();
