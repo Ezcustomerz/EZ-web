@@ -16,7 +16,6 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 // Use the full-color Google "G" mark instead of monochrome icon
 import { supabase } from '../../config/supabase';
-import { FRONTEND_URL } from '../../config/api';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl } from '@fortawesome/free-solid-svg-icons';
 import { errorToast } from '../toast/toast';
@@ -57,7 +56,7 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
     localStorage.setItem('justSignedIn', 'true');
     
     try {
-      const redirectTo = `${FRONTEND_URL}/creative`;
+      const redirectTo = `${window.location.origin}/creative`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

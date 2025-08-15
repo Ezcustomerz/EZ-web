@@ -56,26 +56,8 @@ npm run start:both
    ```
 
 4. **Configure environment variables**:
-   
-   Create a `.env` file in the root directory with:
-   ```bash
-   # Frontend Configuration
-   VITE_FRONTEND_URL=https://ez-web-iota.vercel.app  # Your production frontend URL
-   VITE_API_BASE_URL=https://your-backend-api.com    # Your production backend URL
-   
-   # Supabase Configuration  
-   VITE_SUPABASE_URL=your_supabase_project_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-   
-   # Backend Configuration (for Supabase config.toml)
-   FRONTEND_URL=https://ez-web-iota.vercel.app       # Used by Supabase for OAuth redirects
-   
-   # Development Project Configuration
-   DEV_PROJECT_REF=your_dev_project_ref
-   DEV_DB_PASSWORD=your_dev_db_password
-   ```
-   
-   **For local development**, you can omit `VITE_FRONTEND_URL` and `VITE_API_BASE_URL` - they will default to localhost URLs.
+   - Backend: Create `backend/.env` with your configuration
+   - Frontend: Create `frontend/.env` with your Supabase credentials
 
 ### Running the Application
 
