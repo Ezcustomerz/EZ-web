@@ -42,12 +42,12 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
   // Dummy data for roles - in real app this would come from backend
   const roles: RoleData[] = [
     {
-      id: 'producer',
-      title: 'Producer',
-      subtitle: 'Music Producer',
+      id: 'creative',
+      title: 'Creative',
+      subtitle: 'Music Creative',
       icon: Business,
       exists: true,
-      type: 'Music Producer'
+      type: 'Music Creative'
     },
     {
       id: 'client',
@@ -74,8 +74,8 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
     
     // Navigate to appropriate layout based on role
     switch (roleId) {
-      case 'producer':
-        navigate('/producer');
+      case 'creative':
+        navigate('/creative');
         break;
       case 'client':
         navigate('/client');
@@ -120,10 +120,10 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
   // Determine current active role based on current path
   const getCurrentRole = () => {
     const path = window.location.pathname;
-    if (path.startsWith('/producer')) return 'producer';
+    if (path.startsWith('/creative')) return 'creative';
     if (path.startsWith('/client')) return 'client';
     if (path.startsWith('/advocate')) return 'advocate';
-    return 'producer'; // default
+    return 'creative'; // default
   };
 
   const currentRole = getCurrentRole();

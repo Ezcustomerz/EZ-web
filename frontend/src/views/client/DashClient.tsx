@@ -3,6 +3,8 @@ import { LayoutClient } from '../../layout/client/LayoutClient';
 import { WelcomeCard } from '../../components/cards/client/WelcomeCard';
 import { UpcomingBookingsCard } from '../../components/cards/client/UpcomingBookingsCard';
 import { RecentActivityCard } from '../../components/cards/client/RecentActivityCard';
+import type { ActivityItem } from '../../types/activity';
+import { CheckCircleOutlined, Payment } from '@mui/icons-material';
 
 // Mock data for upcoming bookings
 const upcomingBookings: any[] = [
@@ -10,7 +12,7 @@ const upcomingBookings: any[] = [
     id: 1,
     serviceTitle: 'Full Production',
     dateTime: '2024-01-15T14:00:00Z',
-    producer: 'Mike Johnson',
+    creative: 'Mike Johnson',
     startsIn: '2 days',
     color: '#F3E8FF'
   },
@@ -18,7 +20,7 @@ const upcomingBookings: any[] = [
     id: 2,
     serviceTitle: 'Mixing & Mastering',
     dateTime: '2024-01-18T10:30:00Z',
-    producer: 'Sarah Wilson',
+    creative: 'Sarah Wilson',
     startsIn: '5 days',
     color: '#E0F2FE'
   },
@@ -26,7 +28,7 @@ const upcomingBookings: any[] = [
     id: 3,
     serviceTitle: 'Vocal Production',
     dateTime: '2024-01-20T16:00:00Z',
-    producer: 'Alex Thompson',
+    creative: 'Alex Thompson',
     startsIn: '7 days',
     color: '#FEF9C3'
   },
@@ -34,7 +36,7 @@ const upcomingBookings: any[] = [
     id: 4,
     serviceTitle: 'Beat Making',
     dateTime: '2024-01-22T11:00:00Z',
-    producer: 'David Chen',
+    creative: 'David Chen',
     startsIn: '9 days',
     color: '#FEE2E2'
   },
@@ -42,7 +44,7 @@ const upcomingBookings: any[] = [
     id: 5,
     serviceTitle: 'Beat Making',
     dateTime: '2024-01-22T11:00:00Z',
-    producer: 'David Chen',
+    creative: 'David Chen',
     startsIn: '9 days',
     color: '#FEE2E2'
   },
@@ -50,77 +52,49 @@ const upcomingBookings: any[] = [
     id: 6,
     serviceTitle: 'Beat Making',
     dateTime: '2024-01-22T11:00:00Z',
-    producer: 'David Chen',
+    creative: 'David Chen',
     startsIn: '9 days',
     color: '#FEE2E2'
   }
 ];
 
-// Mock data for recent activity
-const recentActivity: any[] = [
+// Unified mock data for recent activity (client side)
+const recentItems: ActivityItem[] = [
   {
-    id: 1,
-    action: 'Booking confirmed with Mike Johnson',
-    timestamp: '1 day ago',
+    label: 'Booking confirmed with Mike Johnson',
+    description: 'Your booking has been confirmed.',
+    date: '1 day ago',
     status: 'completed',
-    statusText: 'Confirmed',
-    producer: 'Mike Johnson'
+    counterpart: 'Mike Johnson',
+    isNew: true,
+    icon: CheckCircleOutlined,
   },
   {
-    id: 2,
-    action: 'Session completed with Sarah Wilson',
-    timestamp: '2 days ago',
+    label: 'Session completed with Sarah Wilson',
+    description: 'Your session was completed successfully.',
+    date: '2 days ago',
     status: 'completed',
-    statusText: 'Completed',
-    producer: 'Sarah Wilson'
+    counterpart: 'Sarah Wilson',
+    isNew: true,
+    icon: CheckCircleOutlined,
   },
   {
-    id: 3,
-    action: 'Booking requested with Alex Thompson',
-    timestamp: '3 days ago',
-    status: 'waiting',
-    statusText: 'Pending',
-    producer: 'Alex Thompson'
-  },
-  {
-    id: 4,
-    action: 'Payment received from David Chen',
-    timestamp: '4 days ago',
+    label: 'Payment received from David Chen',
+    description: 'Payment received and recorded.',
+    date: '4 days ago',
     status: 'payment',
-    statusText: 'Payment',
-    producer: 'David Chen'
+    counterpart: 'David Chen',
+    isNew: false,
+    icon: Payment,
   },
   {
-    id: 5,
-    action: 'Review submitted for Emma Davis',
-    timestamp: '5 days ago',
+    label: 'Review submitted for Emma Davis',
+    description: 'Thanks for leaving a review.',
+    date: '5 days ago',
     status: 'completed',
-    statusText: 'Completed',
-    producer: 'Emma Davis'
-  },
-  {
-    id: 6,
-    action: 'Review submitted for Emma Davis',
-    timestamp: '5 days ago',
-    status: 'completed',
-    statusText: 'Completed',
-    producer: 'Emma Davis'
-  },
-  {
-    id: 7,
-    action: 'Review submitted for Emma Davis',
-    timestamp: '5 days ago',
-    status: 'completed',
-    statusText: 'Completed',
-    producer: 'Emma Davis'
-  },
-  {
-    id: 8,
-    action: 'Review submitted for Emma Davis',
-    timestamp: '5 days ago',
-    status: 'completed',
-    statusText: 'Completed',
-    producer: 'Emma Davis'
+    counterpart: 'Emma Davis',
+    isNew: false,
+    icon: CheckCircleOutlined,
   },
 ];
 
@@ -165,7 +139,7 @@ export function ClientDashboard() {
           <UpcomingBookingsCard bookings={upcomingBookings} />
 
           {/* Recent Activity Section */}
-          <RecentActivityCard activities={recentActivity} />
+          <RecentActivityCard items={recentItems} />
         </Box>
       </Box>
     </LayoutClient>

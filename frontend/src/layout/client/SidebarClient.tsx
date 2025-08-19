@@ -317,27 +317,30 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
           ) : (
             // Expanded user panel
             <Box sx={{ px: 2, pb: isMobile ? 6 : 2 }}>
-              <Box
+                <Box
                 onClick={handleUserPanelClick}
                 onMouseEnter={() => setIsUserPanelHovered(true)}
                 onMouseLeave={() => setIsUserPanelHovered(false)}
                 sx={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: 3,
-                  p: 1.5,
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease-in-out',
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%)',
-                  backdropFilter: 'blur(12px)',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                  },
-                }}
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: 3,
+                    pt: 2,
+                    pr: 2,
+                    pl: 2,
+                    pb: 3.25, // extra bottom padding so sash doesn’t collide with card border
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease-in-out',
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%)',
+                    backdropFilter: 'blur(12px)',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                    },
+                  }}
               >
                 {/* User Profile Section */}
                 <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
@@ -356,7 +359,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
                     <Box
                       sx={{
                         position: 'absolute',
-                        bottom: -12,
+                        bottom: -14, // drop slightly lower to avoid border collision
                         left: '50%',
                         transform: 'translateX(-50%)',
                         backgroundColor: '#FFCD38',
@@ -365,7 +368,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
                         fontWeight: 700,
                         fontVariant: 'small-caps',
                         px: 1.2,
-                        py: 0.3,
+                        py: 0.34,
                         borderRadius: '16px',
                         boxShadow: '0 3px 8px rgba(0, 0, 0, 0.2)',
                         zIndex: 2,
@@ -397,28 +400,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
                     }}>
                       Country Artist
                     </Typography>
-                    {/* Status indicator */}
-                    <Box sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      mt: 1,
-                    }}>
-                      <Box sx={{
-                        width: 8,
-                        height: 8,
-                        backgroundColor: '#10B981',
-                        borderRadius: '50%',
-                        boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.3)',
-                      }} />
-                      <Typography sx={{
-                        fontSize: '0.7rem',
-                        color: 'rgba(255, 255, 255, 0.7)',
-                        fontWeight: 500,
-                      }}>
-                        Online
-                      </Typography>
-                    </Box>
+                    {/* Status indicator removed per design request */}
                   </Box>
                 </Box>
               </Box>

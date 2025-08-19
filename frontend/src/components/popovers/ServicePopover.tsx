@@ -1,6 +1,6 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Button, Box, useTheme, useMediaQuery, Slide } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { ServiceCardSimple } from '../cards/producer/ServiceCard';
+import { ServiceCardSimple } from '../cards/creative/ServiceCard';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 
