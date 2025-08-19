@@ -4,6 +4,12 @@ import { supabase } from '../config/supabase';
 import { toast, errorToast } from '../components/toast/toast';
 import { userService, type UserProfile } from '../api/userService';
 
+type SetupData = {
+  creative?: any;
+  client?: any;
+  advocate?: any;
+};
+
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
@@ -25,6 +31,14 @@ type AuthContextValue = {
   openAdvocateSetup: () => void;
   closeAdvocateSetup: () => void;
   backToRoleSelection: () => void;
+  backToPreviousSetup: () => void;
+  startSequentialSetup: (selectedRoles: string[]) => void;
+  pendingSetups: string[];
+  completedSetups: string[];
+  isFirstSetup: boolean;
+  tempSetupData: SetupData;
+  saveSetupData: (role: string, data: any) => void;
+  originalSelectedRoles: string[];
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -37,6 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [producerSetupOpen, setCreativeSetupOpen] = useState(false);
   const [clientSetupOpen, setClientSetupOpen] = useState(false);
   const [advocateSetupOpen, setAdvocateSetupOpen] = useState(false);
+  const [pendingSetups, setPendingSetups] = useState<string[]>([]);
+  const [completedSetups, setCompletedSetups] = useState<string[]>([]);
+  const [tempSetupData, setTempSetupData] = useState<SetupData>({});
+  const [originalSelectedRoles, setOriginalSelectedRoles] = useState<string[]>([]);
 
   useEffect(() => {
     // Initial read
@@ -77,7 +95,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Show auth popover and toast when user signs out
       if (!newSession && event === 'SIGNED_OUT') {
-        setAuthOpen(true);
+        // Don't show auth popover on landing page - just show the toast
+        const isOnLandingPage = window.location.pathname === '/';
+        if (!isOnLandingPage) {
+          setAuthOpen(true);
+        }
         
         // Show sign out toast (sign out is always a real user action)
         toast({
@@ -104,13 +126,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Show role selection instead of welcome toast
         setRoleSelectionOpen(true);
       } else {
-        // Show regular welcome toast for returning users
-        toast({
-          title: 'Welcome back!',
-          description: 'You have successfully signed in.',
-          variant: 'success',
-          duration: 4000
-        });
+        // Check for incomplete setups
+        try {
+          const setupStatus = await userService.getIncompleteSetups();
+          if (setupStatus.incomplete_setups.length > 0) {
+            // For incomplete setups, store the user's current roles as original selection
+            setOriginalSelectedRoles(profile.roles || []);
+            // Resume incomplete setups
+            startSequentialSetup(setupStatus.incomplete_setups);
+          } else {
+            // Show regular welcome toast for returning users with complete setups
+            toast({
+              title: 'Welcome back!',
+              description: 'You have successfully signed in.',
+              variant: 'success',
+              duration: 4000
+            });
+          }
+        } catch (setupErr) {
+          console.error('Error checking setup status:', setupErr);
+          // Fallback to welcome toast if setup check fails
+          toast({
+            title: 'Welcome back!',
+            description: 'You have successfully signed in.',
+            variant: 'success',
+            duration: 4000
+          });
+        }
       }
     } catch (err) {
       console.error('Unexpected error fetching user profile:', err);
@@ -151,12 +193,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthOpen(false);
   };
 
+  const startSequentialSetup = (selectedRoles: string[]) => {
+    // Set up the sequence: creative -> client -> advocate
+    const setupOrder = ['creative', 'client', 'advocate'];
+    const orderedSetups = setupOrder.filter(role => selectedRoles.includes(role));
+    setPendingSetups(orderedSetups);
+    setCompletedSetups([]); // Reset completed setups
+    setTempSetupData({}); // Reset temp setup data
+    setOriginalSelectedRoles(selectedRoles); // Store original selection
+    
+    // Start with the first setup
+    if (orderedSetups.length > 0) {
+      openNextSetup(orderedSetups);
+    }
+  };
+
+  const openNextSetup = (setups: string[]) => {
+    if (setups.length === 0) return;
+    
+    const nextSetup = setups[0];
+    if (nextSetup === 'creative') {
+      setCreativeSetupOpen(true);
+    } else if (nextSetup === 'client') {
+      setClientSetupOpen(true);
+    } else if (nextSetup === 'advocate') {
+      setAdvocateSetupOpen(true);
+    }
+  };
+
   const openCreativeSetup = () => {
     setCreativeSetupOpen(true);
   };
 
   const closeCreativeSetup = () => {
     setCreativeSetupOpen(false);
+    // Mark creative as completed
+    const currentSetup = pendingSetups[0];
+    if (currentSetup === 'creative') {
+      setCompletedSetups(prev => [...prev, 'creative']);
+    }
+    // Continue to next setup if there are pending ones
+    const remainingSetups = pendingSetups.slice(1);
+    setPendingSetups(remainingSetups);
+    if (remainingSetups.length > 0) {
+      openNextSetup(remainingSetups);
+    }
   };
 
   const openClientSetup = () => {
@@ -165,6 +246,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const closeClientSetup = () => {
     setClientSetupOpen(false);
+    // Mark client as completed
+    const currentSetup = pendingSetups[0];
+    if (currentSetup === 'client') {
+      setCompletedSetups(prev => [...prev, 'client']);
+    }
+    // Continue to next setup if there are pending ones
+    const remainingSetups = pendingSetups.slice(1);
+    setPendingSetups(remainingSetups);
+    if (remainingSetups.length > 0) {
+      openNextSetup(remainingSetups);
+    }
   };
 
   const openAdvocateSetup = () => {
@@ -173,14 +265,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const closeAdvocateSetup = () => {
     setAdvocateSetupOpen(false);
+    // Mark advocate as completed
+    const currentSetup = pendingSetups[0];
+    if (currentSetup === 'advocate') {
+      setCompletedSetups(prev => [...prev, 'advocate']);
+    }
+    // Continue to next setup if there are pending ones
+    const remainingSetups = pendingSetups.slice(1);
+    setPendingSetups(remainingSetups);
+    if (remainingSetups.length > 0) {
+      openNextSetup(remainingSetups);
+    }
+  };
+
+  const saveSetupData = (role: string, data: any) => {
+    setTempSetupData(prev => ({ ...prev, [role]: data }));
   };
 
   const backToRoleSelection = () => {
     setCreativeSetupOpen(false);
     setClientSetupOpen(false);
     setAdvocateSetupOpen(false);
+    setPendingSetups([]); // Clear pending setups when going back
+    setCompletedSetups([]); // Clear completed setups when going back
+    setTempSetupData({}); // Clear temp setup data when going back to roles
     setRoleSelectionOpen(true);
   };
+
+  const backToPreviousSetup = () => {
+    // Close current setup
+    setCreativeSetupOpen(false);
+    setClientSetupOpen(false);
+    setAdvocateSetupOpen(false);
+    
+    // Get the previous setup from completed setups
+    if (completedSetups.length > 0) {
+      const previousSetup = completedSetups[completedSetups.length - 1];
+      // Remove the last completed setup and add it back to pending
+      setCompletedSetups(prev => prev.slice(0, -1));
+      setPendingSetups(prev => [previousSetup, ...prev]);
+      
+      // Open the previous setup
+      if (previousSetup === 'creative') {
+        setCreativeSetupOpen(true);
+      } else if (previousSetup === 'client') {
+        setClientSetupOpen(true);
+      } else if (previousSetup === 'advocate') {
+        setAdvocateSetupOpen(true);
+      }
+    }
+  };
+
+  // Determine if this is the first setup (no completed setups yet)
+  const isFirstSetup = completedSetups.length === 0;
 
   const value = useMemo<AuthContextValue>(() => ({
     session,
@@ -203,7 +340,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     openAdvocateSetup,
     closeAdvocateSetup,
     backToRoleSelection,
-  }), [session, authOpen, roleSelectionOpen, userProfile, producerSetupOpen, clientSetupOpen, advocateSetupOpen]);
+    backToPreviousSetup,
+    startSequentialSetup,
+    pendingSetups,
+    completedSetups,
+    isFirstSetup,
+    tempSetupData,
+    saveSetupData,
+    originalSelectedRoles,
+  }), [session, authOpen, roleSelectionOpen, userProfile, producerSetupOpen, clientSetupOpen, advocateSetupOpen, pendingSetups, completedSetups, isFirstSetup, tempSetupData, originalSelectedRoles]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

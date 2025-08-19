@@ -75,6 +75,21 @@ export interface AdvocateSetupResponse {
   message: string;
 }
 
+export interface SetupStatusResponse {
+  incomplete_setups: string[];
+}
+
+export interface BatchSetupRequest {
+  creative_data?: any;
+  client_data?: any;
+  advocate_data?: any;
+}
+
+export interface BatchSetupResponse {
+  success: boolean;
+  message: string;
+}
+
 export const userService = {
   /**
    * Get the current user's profile
@@ -134,6 +149,31 @@ export const userService = {
     const response = await axios.post<AdvocateSetupResponse>(
       `${API_BASE_URL}/users/advocate-setup`,
       {}, // No body needed, backend uses hardcoded values
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Check which role setups are incomplete
+   */
+  async getIncompleteSetups(): Promise<SetupStatusResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<SetupStatusResponse>(
+      `${API_BASE_URL}/users/setup-status`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Create all profiles at once after all setups are completed
+   */
+  async batchSetupProfiles(setupData: BatchSetupRequest): Promise<BatchSetupResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<BatchSetupResponse>(
+      `${API_BASE_URL}/users/batch-setup`,
+      setupData,
       { headers }
     );
     return response.data;

@@ -41,7 +41,9 @@ function AppContent() {
     advocateSetupOpen,
     closeAdvocateSetup,
     openAdvocateSetup,
-    backToRoleSelection
+    backToRoleSelection,
+    isFirstSetup,
+    originalSelectedRoles
   } = useAuth();
 
   return (
@@ -63,16 +65,15 @@ function AppContent() {
         open={roleSelectionOpen} 
         onClose={closeRoleSelection}
         userName={userProfile?.name}
-        onCreativeSetup={openCreativeSetup}
-        onClientSetup={openClientSetup}
-        onAdvocateSetup={openAdvocateSetup}
+        userRoles={originalSelectedRoles.length > 0 ? originalSelectedRoles : undefined}
       />
-      <CreativeSetupPopover 
+            <CreativeSetupPopover 
         open={producerSetupOpen} 
         onClose={closeCreativeSetup}
         userName={userProfile?.name}
         userEmail={userProfile?.email}
         onBack={backToRoleSelection}
+        isFirstSetup={isFirstSetup}
       />
       <ClientSetupPopover 
         open={clientSetupOpen} 
@@ -80,13 +81,15 @@ function AppContent() {
         userName={userProfile?.name}
         userEmail={userProfile?.email}
         onBack={backToRoleSelection}
+        isFirstSetup={false}
       />
       <AdvocateSetupPopover 
-        open={advocateSetupOpen} 
+        open={advocateSetupOpen}
         onClose={closeAdvocateSetup}
         userName={userProfile?.name}
         userEmail={userProfile?.email}
         onBack={backToRoleSelection}
+        isFirstSetup={false}
       />
     </>
   );

@@ -26,6 +26,7 @@ export interface AdvocateSetupPopoverProps {
   userName?: string;
   userEmail?: string;
   onBack?: () => void;
+  isFirstSetup?: boolean;
 }
 
 // Slide transition for dialogs
@@ -41,24 +42,44 @@ export function AdvocateSetupPopover({
   onClose, 
   userName = '', 
   userEmail = '',
-  onBack
+  onBack,
+  isFirstSetup = false
 }: AdvocateSetupPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const [isLoading, setIsLoading] = useState(false);
-  const { userProfile } = useAuth();
+  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
 
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      const response = await userService.setupAdvocateProfile();
+      // Save advocate data temporarily (advocate uses hardcoded data on backend)
+      saveSetupData('advocate', { setup_complete: true });
       
-      if (response.success) {
-        successToast('Setup Complete!', response.message);
-        onClose();
+      // Check if this is the last setup - if so, commit all data to database
+      const isLastSetup = pendingSetups.length === 1; // Current setup is the last one
+      
+      if (isLastSetup) {
+        // This is the final setup - commit all data to database
+        const batchData = {
+          creative_data: tempSetupData.creative,
+          client_data: tempSetupData.client,
+          advocate_data: { setup_complete: true }, // Advocate uses hardcoded data
+        };
+        
+        const response = await userService.batchSetupProfiles(batchData);
+        
+        if (response.success) {
+          successToast('All Setups Complete!', 'Welcome to EZ! Your profiles have been created.');
+          onClose();
+        } else {
+          errorToast('Setup Failed', response.message);
+        }
       } else {
-        errorToast('Setup Failed', response.message);
+        // Not the last setup - just save and continue
+        successToast('Advocate Setup Saved!', 'Moving to next setup...');
+        onClose();
       }
     } catch (err: any) {
       console.error('Advocate setup error:', err);
@@ -155,38 +176,28 @@ export function AdvocateSetupPopover({
           viewBox="0 0 24 24"
           fill="none"
         >
-          {/* Advocate network/referral icon */}
+          {/* Advocate handshake/partnership icon */}
           <path
-            d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2Z"
+            d="M12 2L13.5 8.5L20 7L14 12L18 18L12 16L6 18L10 12L4 7L10.5 8.5L12 2Z"
             fill="url(#advocateGradient)"
             stroke="white"
-            strokeWidth="0.5"
+            strokeWidth="1"
+          />
+          
+          {/* Connection lines representing network */}
+          <path
+            d="M8 10L12 12L16 10"
+            stroke="url(#advocateGradient)"
+            strokeWidth="2"
+            strokeLinecap="round"
           />
           <path
-            d="M21 9V7L15 1L9 7V9C9 10 9 12 11 12H13C15 12 15 10 15 9Z"
-            fill="url(#advocateGradient)"
-            stroke="white"
-            strokeWidth="0.5"
-          />
-          <path
-            d="M16 5.5L19 8.5L16 11.5"
-            fill="none"
+            d="M6 8L12 12L18 8"
             stroke="url(#advocateGradient)"
             strokeWidth="1.5"
             strokeLinecap="round"
-            strokeLinejoin="round"
+            opacity="0.7"
           />
-          <path
-            d="M8 5.5L5 8.5L8 11.5"
-            fill="none"
-            stroke="url(#advocateGradient)"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <circle cx="12" cy="18" r="3" fill="url(#advocateGradient)" stroke="white" strokeWidth="0.5"/>
-          <circle cx="6" cy="18" r="2" fill="url(#advocateGradient)" stroke="white" strokeWidth="0.5"/>
-          <circle cx="18" cy="18" r="2" fill="url(#advocateGradient)" stroke="white" strokeWidth="0.5"/>
           
           {/* Define gradient */}
           <defs>
@@ -197,11 +208,10 @@ export function AdvocateSetupPopover({
             </linearGradient>
           </defs>
           
-          {/* Network sparkle effects */}
-          <circle cx="7" cy="4" r="0.8" fill="#DDD6FE" opacity="0.8" />
-          <circle cx="17" cy="5" r="0.6" fill="#C4B5FD" opacity="0.7" />
-          <circle cx="4" cy="14" r="0.7" fill="#E9D5FF" opacity="0.9" />
-          <circle cx="20" cy="15" r="0.5" fill="#F3E8FF" opacity="0.8" />
+          {/* Partnership sparkle effects */}
+          <circle cx="8" cy="6" r="1" fill="#DDD6FE" opacity="0.8" />
+          <circle cx="16" cy="6" r="1" fill="#C4B5FD" opacity="0.7" />
+          <circle cx="12" cy="20" r="0.8" fill="#E9D5FF" opacity="0.9" />
         </Box>
         Set Up Your Advocate Profile
       </DialogTitle>
@@ -297,7 +307,7 @@ export function AdvocateSetupPopover({
       }}>
         {/* Back Button */}
         <Button
-          onClick={onBack}
+          onClick={isFirstSetup ? onBack : backToPreviousSetup}
           variant="outlined"
           size="large"
           disabled={isLoading}
@@ -318,7 +328,7 @@ export function AdvocateSetupPopover({
             transition: 'all 0.3s ease',
           }}
         >
-          ← Back to Roles
+          {isFirstSetup ? '← Back to Roles' : '← Back to Previous'}
         </Button>
 
         {/* Submit Button */}
