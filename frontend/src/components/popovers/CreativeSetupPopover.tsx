@@ -35,6 +35,7 @@ export interface CreativeSetupPopoverProps {
   userName?: string;
   userEmail?: string;
   onBack?: () => void;
+  isFirstSetup?: boolean;
 }
 
 const CREATIVE_TITLES = [
@@ -185,13 +186,14 @@ export function CreativeSetupPopover({
   onClose, 
   userName = '', 
   userEmail = '',
-  onBack
+  onBack,
+  isFirstSetup = true
 }: CreativeSetupPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const [isLoading, setIsLoading] = useState(false);
-  const { userProfile } = useAuth();
+  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -205,16 +207,29 @@ export function CreativeSetupPopover({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Update form data when userProfile loads
+  // Update form data when userProfile loads or restore from temp data
   useEffect(() => {
-    if (userProfile && open) {
-      setFormData(prev => ({
-        ...prev,
-        displayName: userProfile.name || prev.displayName,
-        primaryContact: userProfile.email || prev.primaryContact,
-      }));
+    if (open) {
+      if (tempSetupData.creative) {
+        // Restore from temp data if available
+        const tempData = tempSetupData.creative;
+        setFormData({
+          displayName: tempData.display_name || userProfile?.name || userName,
+          title: tempData.title || '',
+          customTitle: tempData.custom_title || '',
+          primaryContact: tempData.primary_contact || userProfile?.email || userEmail || '',
+          secondaryContact: tempData.secondary_contact || '',
+          subscriptionTier: tempData.subscription_tier || 'basic',
+        });
+      } else if (userProfile) {
+        setFormData(prev => ({
+          ...prev,
+          displayName: userProfile.name || prev.displayName,
+          primaryContact: userProfile.email || prev.primaryContact,
+        }));
+      }
     }
-  }, [userProfile, open]);
+  }, [userProfile, open, tempSetupData.creative, userName, userEmail]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -274,18 +289,36 @@ export function CreativeSetupPopover({
         subscription_tier: formData.subscriptionTier,
       };
 
-      const response = await userService.setupCreativeProfile(setupData);
+      // Save data temporarily instead of creating profile immediately
+      saveSetupData('creative', setupData);
       
-      if (response.success) {
-        successToast('Setup Complete!', response.message);
-        onClose();
+      // Check if this is the last setup - if so, commit all data to database
+      const isLastSetup = pendingSetups.length === 1; // Current setup is the last one
+      
+      if (isLastSetup) {
+        // This is the final setup - commit all data to database
+        const batchData = {
+          creative_data: setupData,
+          client_data: tempSetupData.client,
+          advocate_data: tempSetupData.advocate || undefined,
+        };
+        
+        const response = await userService.batchSetupProfiles(batchData);
+        
+        if (response.success) {
+          successToast('All Setups Complete!', 'Welcome to EZ! Your profiles have been created.');
+          onClose();
+        } else {
+          errorToast('Setup Failed', response.message);
+        }
       } else {
-        errorToast('Setup Failed', response.message);
+        // Not the last setup - just save and continue
+        successToast('Creative Setup Saved!', 'Moving to next setup...');
+        onClose();
       }
     } catch (err: any) {
       console.error('Creative setup error:', err);
-      const errorMessage = err.response?.data?.detail || 'Unable to complete creative setup. Please try again.';
-      errorToast('Setup Failed', errorMessage);
+      errorToast('Setup Failed', 'Unable to save creative setup. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -868,7 +901,7 @@ export function CreativeSetupPopover({
       }}>
         {/* Back Button */}
         <Button
-          onClick={onBack}
+          onClick={isFirstSetup ? onBack : backToPreviousSetup}
           variant="outlined"
           size="large"
           disabled={isLoading}
@@ -889,7 +922,7 @@ export function CreativeSetupPopover({
             transition: 'all 0.3s ease',
           }}
         >
-          ← Back to Roles
+          {isFirstSetup ? '← Back to Roles' : '← Back to Previous'}
         </Button>
 
         {/* Submit Button */}

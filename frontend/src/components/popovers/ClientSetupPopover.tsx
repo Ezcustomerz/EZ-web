@@ -26,6 +26,7 @@ export interface ClientSetupPopoverProps {
   userName?: string;
   userEmail?: string;
   onBack?: () => void;
+  isFirstSetup?: boolean;
 }
 
 const CLIENT_TITLES = [
@@ -123,13 +124,14 @@ export function ClientSetupPopover({
   onClose, 
   userName = '', 
   userEmail = '',
-  onBack
+  onBack,
+  isFirstSetup = false
 }: ClientSetupPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const [isLoading, setIsLoading] = useState(false);
-  const { userProfile } = useAuth();
+  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -141,16 +143,27 @@ export function ClientSetupPopover({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Update form data when userProfile loads
+  // Update form data when userProfile loads or restore from temp data
   useEffect(() => {
-    if (userProfile && open) {
-      setFormData(prev => ({
-        ...prev,
-        displayName: userProfile.name || prev.displayName,
-        email: userProfile.email || prev.email,
-      }));
+    if (open) {
+      if (tempSetupData.client) {
+        // Restore from temp data if available
+        const tempData = tempSetupData.client;
+        setFormData({
+          displayName: tempData.display_name || userProfile?.name || userName,
+          title: tempData.title || '',
+          customTitle: tempData.custom_title || '',
+          email: tempData.email || userProfile?.email || userEmail || '',
+        });
+      } else if (userProfile) {
+        setFormData(prev => ({
+          ...prev,
+          displayName: userProfile.name || prev.displayName,
+          email: userProfile.email || prev.email,
+        }));
+      }
     }
-  }, [userProfile, open]);
+  }, [userProfile, open, tempSetupData.client, userName, userEmail]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -204,18 +217,36 @@ export function ClientSetupPopover({
         email: formData.email,
       };
 
-      const response = await userService.setupClientProfile(setupData);
+      // Save data temporarily instead of creating profile immediately
+      saveSetupData('client', setupData);
       
-      if (response.success) {
-        successToast('Setup Complete!', response.message);
-        onClose();
+      // Check if this is the last setup - if so, commit all data to database
+      const isLastSetup = pendingSetups.length === 1; // Current setup is the last one
+      
+      if (isLastSetup) {
+        // This is the final setup - commit all data to database
+        const batchData = {
+          creative_data: tempSetupData.creative,
+          client_data: setupData,
+          advocate_data: tempSetupData.advocate || undefined,
+        };
+        
+        const response = await userService.batchSetupProfiles(batchData);
+        
+        if (response.success) {
+          successToast('All Setups Complete!', 'Welcome to EZ! Your profiles have been created.');
+          onClose();
+        } else {
+          errorToast('Setup Failed', response.message);
+        }
       } else {
-        errorToast('Setup Failed', response.message);
+        // Not the last setup - just save and continue
+        successToast('Client Setup Saved!', 'Moving to next setup...');
+        onClose();
       }
     } catch (err: any) {
       console.error('Client setup error:', err);
-      const errorMessage = err.response?.data?.detail || 'Unable to complete client setup. Please try again.';
-      errorToast('Setup Failed', errorMessage);
+      errorToast('Setup Failed', 'Unable to save client setup. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -519,7 +550,7 @@ export function ClientSetupPopover({
       }}>
         {/* Back Button */}
         <Button
-          onClick={onBack}
+          onClick={isFirstSetup ? onBack : backToPreviousSetup}
           variant="outlined"
           size="large"
           disabled={isLoading}
@@ -540,7 +571,7 @@ export function ClientSetupPopover({
             transition: 'all 0.3s ease',
           }}
         >
-          ← Back to Roles
+          {isFirstSetup ? '← Back to Roles' : '← Back to Previous'}
         </Button>
 
         {/* Submit Button */}

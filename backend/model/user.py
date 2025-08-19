@@ -47,3 +47,15 @@ class ClientSetupResponse(BaseModel):
 class AdvocateSetupResponse(BaseModel):
     success: bool
     message: str
+
+class SetupStatusResponse(BaseModel):
+    incomplete_setups: List[str]
+
+class BatchSetupRequest(BaseModel):
+    creative_data: Optional[dict] = None
+    client_data: Optional[dict] = None
+    advocate_data: Optional[dict] = None
+
+class BatchSetupResponse(BaseModel):
+    success: bool
+    message: str

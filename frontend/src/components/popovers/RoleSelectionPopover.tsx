@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -21,14 +21,13 @@ import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 import { userService } from '../../api/userService';
 import { errorToast, successToast } from '../toast/toast';
+import { useAuth } from '../../context/auth';
 
 export interface RoleSelectionPopoverProps {
   open: boolean;
   onClose: () => void;
   userName?: string;
-  onCreativeSetup?: () => void;
-  onClientSetup?: () => void;
-  onAdvocateSetup?: () => void;
+  userRoles?: string[];
 }
 
 const ROLE_OPTIONS = [
@@ -57,11 +56,25 @@ const Transition = React.forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export function RoleSelectionPopover({ open, onClose, userName, onCreativeSetup, onClientSetup, onAdvocateSetup }: RoleSelectionPopoverProps) {
+export function RoleSelectionPopover({ open, onClose, userName, userRoles }: RoleSelectionPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(['creative']); // Default to creative
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(['creative']); // Default to creative for new users
   const [isLoading, setIsLoading] = useState(false);
+  const { startSequentialSetup, userProfile } = useAuth();
+
+  // Update selected roles when userRoles prop changes or when popover opens
+  useEffect(() => {
+    if (open) {
+      if (userProfile?.first_login === true) {
+        // New user - default to creative
+        setSelectedRoles(['creative']);
+      } else if (userRoles && userRoles.length > 0) {
+        // Returning user with incomplete setups - use their actual roles
+        setSelectedRoles(userRoles);
+      }
+    }
+  }, [userRoles, open, userProfile?.first_login]);
 
   const handleRoleChange = (role: string) => {
     setSelectedRoles(prev => {
@@ -86,22 +99,10 @@ export function RoleSelectionPopover({ open, onClose, userName, onCreativeSetup,
       const response = await userService.updateUserRoles(selectedRoles);
       
       if (response.success) {
-        if (selectedRoles.includes('creative')) {
-          successToast('Welcome to EZ!', response.message);
-          onCreativeSetup?.();
-          onClose();
-        } else if (selectedRoles.includes('client')) {
-          successToast('Welcome to EZ!', response.message);
-          onClientSetup?.();
-          onClose();
-        } else if (selectedRoles.includes('advocate')) {
-          successToast('Welcome to EZ!', response.message);
-          onAdvocateSetup?.();
-          onClose();
-        } else {
-          successToast('Welcome to EZ!', response.message);
-          onClose();
-        }
+        successToast('Welcome to EZ!', response.message);
+        onClose();
+        // Start sequential setup flow in order: creative -> client -> advocate
+        startSequentialSetup(selectedRoles);
       } else {
         errorToast('Role Selection Failed', response.message);
       }
