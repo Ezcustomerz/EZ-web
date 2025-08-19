@@ -58,6 +58,23 @@ export interface CreativeSetupResponse {
   message: string;
 }
 
+export interface ClientSetupRequest {
+  display_name: string;
+  title: string;
+  custom_title?: string;
+  email: string;
+}
+
+export interface ClientSetupResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface AdvocateSetupResponse {
+  success: boolean;
+  message: string;
+}
+
 export const userService = {
   /**
    * Get the current user's profile
@@ -91,6 +108,32 @@ export const userService = {
     const response = await axios.post<CreativeSetupResponse>(
       `${API_BASE_URL}/users/creative-setup`,
       setupData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Set up client profile
+   */
+  async setupClientProfile(setupData: ClientSetupRequest): Promise<ClientSetupResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<ClientSetupResponse>(
+      `${API_BASE_URL}/users/client-setup`,
+      setupData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Set up advocate profile (demo mode with hardcoded values)
+   */
+  async setupAdvocateProfile(): Promise<AdvocateSetupResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<AdvocateSetupResponse>(
+      `${API_BASE_URL}/users/advocate-setup`,
+      {}, // No body needed, backend uses hardcoded values
       { headers }
     );
     return response.data;

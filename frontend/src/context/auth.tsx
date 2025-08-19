@@ -18,6 +18,12 @@ type AuthContextValue = {
   producerSetupOpen: boolean;
   openCreativeSetup: () => void;
   closeCreativeSetup: () => void;
+  clientSetupOpen: boolean;
+  openClientSetup: () => void;
+  closeClientSetup: () => void;
+  advocateSetupOpen: boolean;
+  openAdvocateSetup: () => void;
+  closeAdvocateSetup: () => void;
   backToRoleSelection: () => void;
 };
 
@@ -29,6 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [roleSelectionOpen, setRoleSelectionOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [producerSetupOpen, setCreativeSetupOpen] = useState(false);
+  const [clientSetupOpen, setClientSetupOpen] = useState(false);
+  const [advocateSetupOpen, setAdvocateSetupOpen] = useState(false);
 
   useEffect(() => {
     // Initial read
@@ -151,8 +159,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCreativeSetupOpen(false);
   };
 
+  const openClientSetup = () => {
+    setClientSetupOpen(true);
+  };
+
+  const closeClientSetup = () => {
+    setClientSetupOpen(false);
+  };
+
+  const openAdvocateSetup = () => {
+    setAdvocateSetupOpen(true);
+  };
+
+  const closeAdvocateSetup = () => {
+    setAdvocateSetupOpen(false);
+  };
+
   const backToRoleSelection = () => {
     setCreativeSetupOpen(false);
+    setClientSetupOpen(false);
+    setAdvocateSetupOpen(false);
     setRoleSelectionOpen(true);
   };
 
@@ -170,8 +196,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     producerSetupOpen,
     openCreativeSetup,
     closeCreativeSetup,
+    clientSetupOpen,
+    openClientSetup,
+    closeClientSetup,
+    advocateSetupOpen,
+    openAdvocateSetup,
+    closeAdvocateSetup,
     backToRoleSelection,
-  }), [session, authOpen, roleSelectionOpen, userProfile, producerSetupOpen]);
+  }), [session, authOpen, roleSelectionOpen, userProfile, producerSetupOpen, clientSetupOpen, advocateSetupOpen]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

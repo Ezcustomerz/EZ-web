@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -7,10 +7,6 @@ import {
   Box,
   Typography,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Button,
   useMediaQuery,
   useTheme,
@@ -19,7 +15,6 @@ import {
   Card,
   CardContent,
   Chip,
-  FormHelperText,
   Autocomplete,
 } from '@mui/material';
 import {
@@ -27,9 +22,6 @@ import {
   TrendingUp,
   Diamond,
   Storage,
-  MonetizationOn,
-  Percent,
-  Palette,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
@@ -923,7 +915,7 @@ export function CreativeSetupPopover({
             transition: 'all 0.3s ease',
           }}
         >
-          {isLoading ? 'Setting Up Your Profile...' : `🚀 Complete Setup with ${selectedTier?.name} Plan`}
+          {isLoading ? 'Setting Up Your Profile...' : `🚀 Complete Creative Setup with ${selectedTier?.name} Plan`}
         </Button>
       </DialogActions>
     </Dialog>

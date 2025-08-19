@@ -20,6 +20,8 @@ import { AuthProvider, useAuth } from './context/auth'
 import { AuthPopover } from './components/popovers/AuthPopover'
 import { RoleSelectionPopover } from './components/popovers/RoleSelectionPopover'
 import { CreativeSetupPopover } from './components/popovers/CreativeSetupPopover'
+import { ClientSetupPopover } from './components/popovers/ClientSetupPopover'
+import { AdvocateSetupPopover } from './components/popovers/AdvocateSetupPopover'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { ToastProvider } from './components/toast/toast'
 
@@ -33,6 +35,12 @@ function AppContent() {
     producerSetupOpen,
     closeCreativeSetup,
     openCreativeSetup,
+    clientSetupOpen,
+    closeClientSetup,
+    openClientSetup,
+    advocateSetupOpen,
+    closeAdvocateSetup,
+    openAdvocateSetup,
     backToRoleSelection
   } = useAuth();
 
@@ -56,10 +64,26 @@ function AppContent() {
         onClose={closeRoleSelection}
         userName={userProfile?.name}
         onCreativeSetup={openCreativeSetup}
+        onClientSetup={openClientSetup}
+        onAdvocateSetup={openAdvocateSetup}
       />
       <CreativeSetupPopover 
         open={producerSetupOpen} 
         onClose={closeCreativeSetup}
+        userName={userProfile?.name}
+        userEmail={userProfile?.email}
+        onBack={backToRoleSelection}
+      />
+      <ClientSetupPopover 
+        open={clientSetupOpen} 
+        onClose={closeClientSetup}
+        userName={userProfile?.name}
+        userEmail={userProfile?.email}
+        onBack={backToRoleSelection}
+      />
+      <AdvocateSetupPopover 
+        open={advocateSetupOpen} 
+        onClose={closeAdvocateSetup}
         userName={userProfile?.name}
         userEmail={userProfile?.email}
         onBack={backToRoleSelection}

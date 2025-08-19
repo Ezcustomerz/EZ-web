@@ -27,6 +27,8 @@ export interface RoleSelectionPopoverProps {
   onClose: () => void;
   userName?: string;
   onCreativeSetup?: () => void;
+  onClientSetup?: () => void;
+  onAdvocateSetup?: () => void;
 }
 
 const ROLE_OPTIONS = [
@@ -55,7 +57,7 @@ const Transition = React.forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export function RoleSelectionPopover({ open, onClose, userName, onCreativeSetup }: RoleSelectionPopoverProps) {
+export function RoleSelectionPopover({ open, onClose, userName, onCreativeSetup, onClientSetup, onAdvocateSetup }: RoleSelectionPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [selectedRoles, setSelectedRoles] = useState<string[]>(['creative']); // Default to creative
@@ -87,6 +89,14 @@ export function RoleSelectionPopover({ open, onClose, userName, onCreativeSetup 
         if (selectedRoles.includes('creative')) {
           successToast('Welcome to EZ!', response.message);
           onCreativeSetup?.();
+          onClose();
+        } else if (selectedRoles.includes('client')) {
+          successToast('Welcome to EZ!', response.message);
+          onClientSetup?.();
+          onClose();
+        } else if (selectedRoles.includes('advocate')) {
+          successToast('Welcome to EZ!', response.message);
+          onAdvocateSetup?.();
           onClose();
         } else {
           successToast('Welcome to EZ!', response.message);
