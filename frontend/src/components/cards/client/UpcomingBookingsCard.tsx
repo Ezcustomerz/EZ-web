@@ -6,7 +6,7 @@ interface Booking {
   id: number;
   serviceTitle: string;
   dateTime: string;
-  producer: string;
+  creative: string;
   startsIn: string;
   color: string;
 }
@@ -144,7 +144,7 @@ export function UpcomingBookingsCard({ bookings = [] }: UpcomingBookingsCardProp
                   mb: { xs: 2, sm: 2.5, md: 3 },
                 }}
               >
-                Explore connected producers to get started!
+                Explore connected creatives to get started!
               </Typography>
               <Button
                 variant="outlined"
@@ -152,7 +152,7 @@ export function UpcomingBookingsCard({ bookings = [] }: UpcomingBookingsCardProp
                 startIcon={<People />}
                 onClick={() => {
                   navigate('/client/book');
-                  // Set the active tab to 0 (Connected Producers) in localStorage
+                  // Set the active tab to 0 (Connected Creatives) in localStorage
                   localStorage.setItem('book-active-tab', '0');
                 }}
                 sx={{
@@ -261,7 +261,7 @@ export function UpcomingBookingsCard({ bookings = [] }: UpcomingBookingsCardProp
                     transition: 'all 0.2s ease-in-out',
                   }}
                 />
-                Connected Producers
+                Connected Creatives
               </Button>
             </Box>
           ) : (
@@ -342,7 +342,7 @@ export function UpcomingBookingsCard({ bookings = [] }: UpcomingBookingsCardProp
                               borderRadius: 1,
                             }}
                           >
-                            {booking.producer}
+                            {booking.creative}
                           </Box>
                         </Box>
                       </Box>

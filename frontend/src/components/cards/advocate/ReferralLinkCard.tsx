@@ -8,7 +8,7 @@ interface ReferralLinkCardProps {
 }
 
 export function ReferralLinkCard({ 
-  referralLink = 'http://localhost:3000/signup/producer?via=demoUser123',
+  referralLink = 'http://localhost:3000/signup/creative?via=demoUser123',
   description = "Share this link with creatives to start earning commissions. You'll receive 18% commission on all their client transactions."
 }: ReferralLinkCardProps) {
   const theme = useTheme();

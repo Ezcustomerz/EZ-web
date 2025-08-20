@@ -32,7 +32,7 @@ import { InviteClientButton } from '../../components/buttons/CassetteButton';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
 import React from 'react';
 
-interface SidebarProducerProps {
+interface SidebarCreativeProps {
   isOpen: boolean;
   onToggle: () => void;
   selectedItem: string;
@@ -40,7 +40,7 @@ interface SidebarProducerProps {
   isMobile?: boolean;
 }
 
-export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarProducerProps) {
+export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarCreativeProps) {
   const theme = useTheme();
   const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
@@ -329,7 +329,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
                     zIndex: 2,
                   }}
                 >
-                  Producer
+                  Creative
                 </Box>
               </Box>
             </Box>
@@ -387,7 +387,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
                         zIndex: 2,
                       }}
                     >
-                      Producer
+                      Creative
                     </Box>
                   </Box>
                   <Box sx={{ flexGrow: 1 }}>
@@ -408,7 +408,7 @@ export function SidebarProducer({ isOpen, onToggle, selectedItem, onItemSelect, 
                       lineHeight: 1.1,
                       mb: 0.75,
                     }}>
-                      Music Producer
+                      Music Creative
                     </Typography>
                     <Box
                       ref={demoPillRef}

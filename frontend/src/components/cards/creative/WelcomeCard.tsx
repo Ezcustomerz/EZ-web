@@ -20,7 +20,7 @@ interface WelcomeCardProps {
   isSidebarOpen?: boolean;
 }
 
-export function WelcomeCard({ userName = "Demo User", userRole = "Music Producer", isSidebarOpen = true }: WelcomeCardProps) {
+export function WelcomeCard({ userName = "Demo User", userRole = "Music Creative", isSidebarOpen = true }: WelcomeCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   

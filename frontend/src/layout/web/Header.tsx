@@ -336,7 +336,7 @@ export function Header() {
               <AnimatedButton 
               text="Dashboard"
               buttonVariant="header"
-              onClick={() => navigate('/producer?auth=1')}
+              onClick={() => navigate('/creative?auth=1')}
               sx={{ 
                 fontSize: { xs: '13px', sm: '14px' }, 
                 padding: { xs: '5px 12px', sm: '6px 16px' },
@@ -437,7 +437,7 @@ export function Header() {
                     }
                   >
                   <StyledMenuItem 
-                    onClick={(event) => handleMenuItemClick(event, 'Producer Features')}
+                    onClick={(event) => handleMenuItemClick(event, 'Creative Features')}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                       <FontAwesomeIcon 
@@ -447,7 +447,7 @@ export function Header() {
                           fontSize: '1rem'
                         }}
                       />
-                      <Typography sx={{ fontWeight: 500 }}>Producer Features</Typography>
+                      <Typography sx={{ fontWeight: 500 }}>Creative Features</Typography>
                     </Box>
                   </StyledMenuItem>
                   <StyledMenuItem 
@@ -492,7 +492,7 @@ export function Header() {
               <AnimatedButton 
                 text="Dashboard"
                 buttonVariant="header"
-                onClick={() => navigate('/producer?auth=1')}
+                onClick={() => navigate('/creative?auth=1')}
                 onMouseEnter={() => {
                   if (featuresOpen) {
                     handleCloseMenu();
@@ -662,7 +662,7 @@ export function Header() {
                   <List sx={{ py: { xs: 1, sm: 1.5 } }}>
                     <ListItemButton 
                       onClick={() => {
-                        console.log('Producer Features clicked');
+                        console.log('Creative Features clicked');
                         closeMobileMenu();
                       }}
                       sx={{ 
@@ -698,7 +698,7 @@ export function Header() {
                             fontSize: { xs: '0.9rem', sm: '0.95rem' }
                           }}
                         >
-                          Producer Features
+                          Creative Features
                         </Typography>
                       </Box>
                     </ListItemButton>

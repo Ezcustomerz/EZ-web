@@ -1,22 +1,22 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
-import { SidebarProducer } from './SidebarProducer';
+import { SidebarCreative } from './SidebarCreative';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 import { IntentAuthGate } from '../../components/popovers/IntentAuthGate';
 
-interface LayoutProducerProps {
+interface LayoutCreativeProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
   selectedNavItem?: string;
   hideMenuButton?: boolean;
 }
 
-export function LayoutProducer({ 
+export function LayoutCreative({ 
   children, 
   selectedNavItem,
   hideMenuButton
-}: LayoutProducerProps) {
+}: LayoutCreativeProps) {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
@@ -29,8 +29,19 @@ export function LayoutProducer({
         return false;
       }
         try {
-          const saved = localStorage.getItem('producer-sidebar-open');
-        return saved !== null ? JSON.parse(saved) : true;
+          // Unified key across roles
+          const unified = localStorage.getItem('sidebar-open');
+          if (unified !== null) return JSON.parse(unified);
+          // Migrate from legacy keys if present
+          const legacyKeys = ['client-sidebar-open', 'creative-sidebar-open', 'advocate-sidebar-open'];
+          for (const key of legacyKeys) {
+            const val = localStorage.getItem(key);
+            if (val !== null) {
+              try { localStorage.setItem('sidebar-open', val); } catch {}
+              return JSON.parse(val);
+            }
+          }
+        return true;
         } catch {
         return true;
       }
@@ -49,7 +60,7 @@ export function LayoutProducer({
   useEffect(() => {
     if (!isMobile) {
       try {
-        localStorage.setItem('producer-sidebar-open', JSON.stringify(isSidebarOpen));
+        localStorage.setItem('sidebar-open', JSON.stringify(isSidebarOpen));
       } catch {
         // Handle localStorage errors gracefully
       }
@@ -79,16 +90,16 @@ export function LayoutProducer({
   function handleNavItemChange(item: string) {
     switch (item) {
       case 'dashboard':
-        navigate('/producer');
+        navigate('/creative');
         break;
       case 'clients':
-        navigate('/producer/clients');
+        navigate('/creative/clients');
         break;
       case 'activity':
-        navigate('/producer/activity');
+        navigate('/creative/activity');
         break;
       case 'public':
-        navigate('/producer/public');
+        navigate('/creative/public');
         break;
       default:
         break;
@@ -132,7 +143,7 @@ export function LayoutProducer({
       <IntentAuthGate />
       
       {/* Sidebar */}
-      <SidebarProducer
+      <SidebarCreative
         isOpen={isSidebarOpen}
         onToggle={handleSidebarToggle}
         selectedItem={selectedNavItem || 'dashboard'}

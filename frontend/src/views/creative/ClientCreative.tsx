@@ -3,10 +3,10 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import { LayoutProducer } from '../../layout/producer/LayoutProducer';
+import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { ClientTable, mockClients } from '../../components/tables/ClientTable';
 
-export function ClientProducer() {
+export function ClientCreative() {
   const [clients] = useState(mockClients);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -22,7 +22,7 @@ export function ClientProducer() {
   };
 
   return (
-    <LayoutProducer selectedNavItem="clients">
+    <LayoutCreative selectedNavItem="clients">
       <Box sx={{ 
         px: { xs: 2, sm: 2, md: 3 }, 
         pb: { xs: 2, sm: 2, md: 3 }, 
@@ -95,6 +95,6 @@ export function ClientProducer() {
           onInviteClient={handleInviteClient}
         />
       </Box>
-    </LayoutProducer>
+    </LayoutCreative>
   );
 } 

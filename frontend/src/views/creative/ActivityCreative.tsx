@@ -1,5 +1,5 @@
 import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
-import { LayoutProducer } from '../../layout/producer/LayoutProducer';
+import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { useState } from 'react';
 import { ReceiptLong, BarChart, MusicNote } from '@mui/icons-material';
 import { RequestsTab } from './tabs/RequestsTab';
@@ -10,7 +10,7 @@ const tabLabels = [
   { label: 'Analytics', icon: <BarChart sx={{ fontSize: 18, mr: 1 }} /> },
 ];
 
-export function ActivityProducer() {
+export function ActivityCreative() {
   const [activeTab, setActiveTab] = useState(() => {
     const stored = localStorage.getItem('activity-active-tab');
     return stored !== null ? Number(stored) : 0;
@@ -31,7 +31,7 @@ export function ActivityProducer() {
   };
 
   return (
-    <LayoutProducer selectedNavItem="activity">
+    <LayoutCreative selectedNavItem="activity">
       <Box
         sx={{
         px: { xs: 2, sm: 2, md: 3 },
@@ -313,6 +313,6 @@ export function ActivityProducer() {
           </Box>
         </Paper>
         </Box>
-    </LayoutProducer>
+    </LayoutCreative>
   );
 } 

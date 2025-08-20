@@ -18,6 +18,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { supabase } from '../../config/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl } from '@fortawesome/free-solid-svg-icons';
+import { errorToast } from '../toast/toast';
 
 export interface AuthPopoverProps {
   open: boolean;
@@ -51,8 +52,11 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
 
   async function handleGoogle() {
     setIsLoading(true);
+    // Set flag to show toast after successful sign in
+    localStorage.setItem('justSignedIn', 'true');
+    
     try {
-      const redirectTo = `${window.location.origin}/producer`;
+      const redirectTo = `${window.location.origin}/creative`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -64,10 +68,14 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
       });
       if (error) {
         console.error('Google sign-in failed:', error.message);
+        errorToast('Sign In Failed', `Unable to sign in with Google: ${error.message}`);
+        localStorage.removeItem('justSignedIn'); // Clear flag on error
         setIsLoading(false);
       }
     } catch (err) {
       console.error('Unexpected sign-in error:', err);
+      errorToast('Unexpected Error', 'An unexpected error occurred during sign in');
+      localStorage.removeItem('justSignedIn'); // Clear flag on error
       setIsLoading(false);
     }
   }
@@ -119,7 +127,7 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
           mb: 1.25,
         }}
       >
-        {title ?? 'Join as a Producer'}
+        {title ?? 'Join as a Creative'}
       </DialogTitle>
 
       <DialogContent sx={{ pb: 4 }}>
@@ -145,7 +153,7 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
           </Avatar>
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {subtitle ?? 'Sign in with Google to access producer tools'}
+            {subtitle ?? 'Sign in with Google to access creative tools'}
           </Typography>
 
           <Button
