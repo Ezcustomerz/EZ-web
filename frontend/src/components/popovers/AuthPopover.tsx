@@ -17,7 +17,7 @@ import CloseIcon from '@mui/icons-material/Close';
 // Use the full-color Google "G" mark instead of monochrome icon
 import { supabase } from '../../config/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRecordVinyl } from '@fortawesome/free-solid-svg-icons';
+import { faRecordVinyl, faEye } from '@fortawesome/free-solid-svg-icons';
 import { errorToast } from '../toast/toast';
 
 export interface AuthPopoverProps {
@@ -41,6 +41,23 @@ function GoogleBrandIcon() {
       <path fill="#FF3D00" d="M6.306 14.691l6.586 4.827C14.357 16.152 18.82 12 24 12c3.059 0 5.842 1.154 7.957 3.042l5.657-5.657C34.671 6.053 29.671 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
       <path fill="#4CAF50" d="M24 44c5.167 0 9.86-1.977 13.409-5.197l-6.197-5.238C29.127 35.927 26.702 37 24 37c-5.202 0-9.617-3.317-11.277-7.95l-6.54 5.037C8.5 39.556 15.674 44 24 44z"/>
       <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.793 2.236-2.219 4.166-4.091 5.565.001-.001 6.197 5.238 6.197 5.238l.004-.003C40.508 35.077 44 29.889 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+    </Box>
+  );
+}
+
+function DemoIcon() {
+  return (
+    <Box
+      sx={{
+        width: 18,
+        height: 18,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'text.secondary',
+      }}
+    >
+      <FontAwesomeIcon icon={faEye} style={{ fontSize: '16px' }} />
     </Box>
   );
 }
@@ -131,7 +148,7 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
       </DialogTitle>
 
       <DialogContent sx={{ pb: 4 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
           <Avatar
             sx={{
               bgcolor: theme.palette.secondary.main,
@@ -153,7 +170,7 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
           </Avatar>
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {subtitle ?? 'Sign in with Google to access creative tools'}
+            {subtitle ?? 'Sign in with Google to create an account'}
           </Typography>
 
           <Button
@@ -186,7 +203,41 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
             {isLoading ? 'Redirecting…' : 'Continue with Google'}
           </Button> 
 
-          <Divider sx={{ width: '100%', mt: 2.25, mb: 0.5 }} />
+          <Button
+            onClick={onClose}
+            startIcon={<DemoIcon />}
+            variant="outlined"
+            size="large"
+            fullWidth
+            sx={{
+              justifyContent: 'center',
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: '0.95rem',
+              borderRadius: 1.25,
+              py: 1.7,
+              backgroundColor: 'transparent',
+              color: 'text.secondary',
+              border: '1px solid rgba(0, 0, 0, 0.12)',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                borderColor: 'rgba(0, 0, 0, 0.24)',
+                color: 'text.primary',
+                '& .MuiButton-startIcon': {
+                  color: 'text.primary',
+                },
+              },
+              '&:focus-visible': {
+                outline: 'none',
+                boxShadow: `0 0 0 3px ${theme.palette.secondary.main}33`,
+              },
+            }}
+            aria-label="Explore with Demo"
+          >
+            Explore the Demo
+          </Button>
+
+          <Divider sx={{ width: '100%', mt: 1.5, mb: 0.5 }} />
 
           <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
             By continuing you agree to our{' '}

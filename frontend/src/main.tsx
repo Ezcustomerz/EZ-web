@@ -60,7 +60,12 @@ function AppContent() {
         <Route path="/client/orders" element={<ClientOrders />} />
         <Route path="/advocate" element={<DashAdvocate />} />
       </Routes>
-      <AuthPopover open={authOpen} onClose={closeAuth} />
+      <AuthPopover 
+        open={authOpen} 
+        onClose={closeAuth} 
+        title="Sign Up / Sign In"
+        subtitle="Sign in with Google to create an account"
+      />
       <RoleSelectionPopover 
         open={roleSelectionOpen} 
         onClose={closeRoleSelection}
