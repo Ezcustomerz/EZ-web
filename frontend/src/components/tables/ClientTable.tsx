@@ -19,7 +19,9 @@ import {
   useTheme,
   Tooltip,
   Stack,
+  IconButton,
 } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   PersonAddOutlined,
   Search as SearchIcon,
@@ -916,7 +918,14 @@ export function ClientTable({
                   backgroundColor: '#e6f3fa',
                 }}
               >
-                Status
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  Status
+                  <Tooltip title="Active means the client is currently engaged in a project or session." arrow>
+                    <IconButton size="small" sx={{ ml: 0.5, p: 0 }}>
+                      <InfoOutlinedIcon fontSize="small" color="action" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </TableCell>
               <TableCell
                 onClick={() => handleSort('totalSpent')}
