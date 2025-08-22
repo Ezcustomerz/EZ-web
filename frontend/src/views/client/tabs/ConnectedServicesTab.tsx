@@ -1,7 +1,7 @@
 import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { MusicNote, Search, FilterList } from '@mui/icons-material';
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown, faUser, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 
@@ -187,6 +187,13 @@ export function ConnectedServicesTab() {
     // TODO: Navigate to service booking page
   };
 
+  // Scroll to leftmost position on mount
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = 0;
+    }
+  }, [filteredAndSortedServices.length, animationKey]);
   return (
         <Box sx={{
           width: '100vw',
@@ -629,50 +636,63 @@ export function ConnectedServicesTab() {
         </Box>
       ) : (
         <Box sx={{
-          display: 'grid',
-          gap: { xs: 1.5, sm: 2 },
+          display: 'flex',
+          flexDirection: 'row',
+          gap: 2,
           px: { xs: 1, sm: 2 },
           pt: 2,
           pb: 1,
-          gridTemplateColumns: {
-            xs: '1fr',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(3, 1fr)',
-            lg: 'repeat(4, 1fr)',
-          },
-          alignItems: 'stretch',
-          minHeight: 0,
+          overflowX: 'auto',
           width: '100%',
-          overflow: 'hidden',
-          '@keyframes fadeInCard': {
-            '0%': {
-              opacity: 0,
-              transform: 'translateY(20px) scale(0.95)',
-            },
-            '100%': {
-              opacity: 1,
-              transform: 'translateY(0) scale(1)',
-            },
-          },
+          minHeight: 0,
+          alignItems: 'stretch',
+          scrollbarWidth: 'thin',
         }}>
-          {filteredAndSortedServices.map((service, index) => (
-            <Box
-              key={service.id + '-' + animationKey}
-              sx={{
-                animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${index * 0.1}s both`,
-              }}
-            >
-              <ServiceCardSimple
-                title={service.title}
-                description={service.description}
-                price={service.price}
-                delivery={service.delivery}
-                color={service.color}
-                creative={service.creative}
-                onBook={() => handleServiceClick(service.id)}
-              />
-            </Box>
-          ))}
+          {/* Left scroll button (smaller, always visible, scrolls right) */}
+          <Button
+            variant="outlined"
+            sx={{ minWidth: 22, height: 32, alignSelf: 'center', mr: 1, borderRadius: 2, fontSize: '1rem', p: 0, zIndex: 2, position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}
+            disabled={scrollRef.current ? (scrollRef.current.scrollLeft + scrollRef.current.offsetWidth >= scrollRef.current.scrollWidth) : false}
+            onClick={() => {
+              const container = document.getElementById('services-scroll-container');
+              if (container) container.scrollLeft += 300;
+            }}
+          >
+            {'<'}
+          </Button>
+          <Box id="services-scroll-container" ref={scrollRef} sx={{ display: 'flex', flexDirection: 'row', gap: 2, overflowX: 'auto', width: '100%', scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' }, position: 'relative', height: '100%', overflowY: 'hidden' }}>
+            {filteredAndSortedServices.map((service, index) => (
+              <Box
+                key={service.id + '-' + animationKey}
+                sx={{
+                  minWidth: 220,
+                  animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${index * 0.1}s both`,
+                }}
+              >
+                <ServiceCardSimple
+                  title={service.title}
+                  description={service.description}
+                  price={service.price}
+                  delivery={service.delivery}
+                  color={service.color}
+                  creative={service.creative}
+                  onBook={() => handleServiceClick(service.id)}
+                />
+              </Box>
+            ))}
+          </Box>
+          {/* Right scroll button (smaller, always visible at right edge, scrolls left) */}
+          <Button
+            variant="outlined"
+            sx={{ minWidth: 22, height: 32, alignSelf: 'center', ml: 1, borderRadius: 2, fontSize: '1rem', p: 0, zIndex: 2, position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)' }}
+            disabled={scrollRef.current ? scrollRef.current.scrollLeft <= 0 : false}
+            onClick={() => {
+              const container = document.getElementById('services-scroll-container');
+              if (container) container.scrollLeft -= 300;
+            }}
+          >
+            {'>'}
+          </Button>
         </Box>
       )}
     </Box>

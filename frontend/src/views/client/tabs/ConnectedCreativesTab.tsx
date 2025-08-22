@@ -132,9 +132,11 @@ const mockConnectedCreatives: Creative[] = [
 export function ConnectedCreativesTab() {
 
   const handleCreativeClick = (producerId: string) => {
-    // Navigate to the creative's profile page
-    // You can adjust the route structure as needed
-    console.log(producerId);
+    // Set a flag in localStorage to open booking dialog on calendar
+    localStorage.setItem('calendar-open-booking', 'true');
+    // Optionally pass producerId for context
+    localStorage.setItem('calendar-booking-creative', producerId);
+    window.location.href = '/creative/calendar';
   };
 
   return (

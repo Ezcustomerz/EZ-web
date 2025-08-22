@@ -2,16 +2,16 @@
   "name": "ez-web",
   "version": "1.0.0",
   "description": "EZ-Web full-stack application",
-"scripts": {
-  "start:backend": "cd backend && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --host localhost --port 8000",
-  "start:frontend": "cd frontend && npm run dev",
-  "start:both": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
-  "install:backend": "cd backend && python -m venv venv && .\\venv\\Scripts\\python.exe -m pip install -r requirements.txt",
-  "install:frontend": "cd frontend && npm install",
-  "install:all": "npm run install:backend && npm run install:frontend",
-  "link:dev":   "dotenv -e .env -- powershell -NoProfile -Command \"cd backend; supabase link --project-ref $env:DEV_PROJECT_REF --password \\\"$env:DEV_DB_PASSWORD\\\"\"",
-  "db:diff:dev": "dotenv -e .env -- powershell -NoProfile -Command \"cd backend; npx supabase db diff -f init_baseline --schema public --linked\""
-},
+  "scripts": {
+    "start:backend": "cd backend && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --host localhost --port 8000",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:both": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "install:backend": "cd backend && python -m venv venv && .\\venv\\Scripts\\python.exe -m pip install -r requirements.txt",
+    "install:frontend": "cd frontend && npm install",
+    "install:all": "npm run install:backend && npm run install:frontend",
+    "link:dev": "dotenv -e .env -- powershell -NoProfile -Command \"cd backend; supabase link --project-ref $env:DEV_PROJECT_REF --password \\\"$env:DEV_DB_PASSWORD\\\"\"",
+    "db:diff:dev": "dotenv -e .env -- powershell -NoProfile -Command \"cd backend; npx supabase db diff -f init_baseline --schema public --linked\""
+  },
   "devDependencies": {
     "concurrently": "^8.2.2",
     "dotenv-cli": "^10.0.0",
@@ -28,5 +28,8 @@
     "supabase"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.11.0"
+  }
 }

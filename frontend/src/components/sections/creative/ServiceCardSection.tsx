@@ -44,7 +44,11 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
     return 1;
   };
   const [cardsPerView, setCardsPerView] = useState(getCardsPerView());
+  // Always start at the very left
   const [startIdx, setStartIdx] = useState(0);
+  useEffect(() => {
+    setStartIdx(0);
+  }, [cardsPerView, data.length]);
   const [isSliding, setIsSliding] = useState(false);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [pendingIdx, setPendingIdx] = useState<number | null>(null);
@@ -65,8 +69,16 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
     }
   }, [cardsPerView, data.length, startIdx]);
 
+  // Button activation logic
+  // Initial scroll is left-to-right (right button enabled if more content exists)
+  // Left button only enabled after scrolling right
+  // Both buttons should be reactive if there is content to scroll in their direction
+  // Allow continuous scrolling in both directions
   const canScrollLeft = startIdx > 0;
   const canScrollRight = startIdx + cardsPerView < data.length;
+
+  // Ensure right button is always active if more content is available to the right
+  // Left button only active if you can scroll left
   const showArrows = data.length > cardsPerView;
 
   // Only render visible cards in a grid
@@ -81,26 +93,29 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
     }
   }, [cardsPerView, startIdx]);
 
+  // Fix: left arrow scrolls left, right arrow scrolls right
+  // Switch scroll direction: initial scroll is right-to-left
+  // First scroll is always left-to-right (right button slides content right)
   const handleLeft = () => {
-    if (canScrollRight && !isSliding) {
+    if (canScrollLeft && !isSliding) {
       setSlideDirection('left');
       directionRef.current = 'left';
       setIsSliding(true);
       setTimeout(() => {
         setIsSliding(false);
-        setPendingIdx(startIdx + 1);
-      }, 500); // match review card
+        setPendingIdx(startIdx - 1);
+      }, 500);
     }
   };
   const handleRight = () => {
-    if (canScrollLeft && !isSliding) {
+    if (canScrollRight && !isSliding) {
       setSlideDirection('right');
       directionRef.current = 'right';
       setIsSliding(true);
       setTimeout(() => {
         setIsSliding(false);
-        setPendingIdx(startIdx - 1);
-      }, 500); // match review card
+        setPendingIdx(startIdx + 1);
+      }, 500);
     }
   };
 
@@ -126,9 +141,10 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
   }, [pendingIdx, cardsPerView]);
 
   // Animation style for the grid
+  // Animation: right button slides content to the right, left button slides content to the left
   let gridTransform = 'translateX(0)';
-  if (isSliding && slideDirection === 'left') gridTransform = `translateX(-${cardPixelWidth}px)`;
-  if (isSliding && slideDirection === 'right') gridTransform = `translateX(${cardPixelWidth}px)`;
+  if (isSliding && slideDirection === 'right') gridTransform = `translateX(-${cardPixelWidth}px)`;
+  if (isSliding && slideDirection === 'left') gridTransform = `translateX(${cardPixelWidth}px)`;
 
   if (data.length === 0) {
     return (
@@ -298,32 +314,36 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
             justifyContent: 'center',
             position: 'relative',
             minHeight: { xs: 160, sm: 200 },
+            overflowX: showArrows ? 'hidden' : 'auto',
+            overflowY: 'visible',
           }}
         >
           {showArrows && arrowPosition === 'inside' && (
             <IconButton
               onClick={handleLeft}
-              disabled={!canScrollRight || isSliding}
+                disabled={!canScrollLeft || isSliding}
               sx={{
-                position: 'static',
-                mr: { xs: 0.5, sm: 1.5 },
+                position: 'absolute',
+                left: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 2,
                 width: 32,
                 height: 32,
                 minWidth: 32,
                 minHeight: 32,
                 border: '1px solid',
-                borderColor: !canScrollRight || isSliding ? '#ccc' : theme.palette.primary.main,
+                borderColor: !canScrollLeft || isSliding ? '#ccc' : theme.palette.primary.main,
                 background: '#fff',
                 boxShadow: 'none',
                 borderRadius: '50%',
                 p: 0,
                 display: 'flex',
-                transition: 'border-color 180ms ease, transform 180ms cubic-bezier(0.4,0,0.2,1)',
+                transition: 'border-color 180ms ease',
                 '&:hover': {
-                  borderColor: !canScrollRight || isSliding ? '#ccc' : theme.palette.primary.main,
-                  transform: 'scale(1.1)',
+                  borderColor: !canScrollLeft || isSliding ? '#ccc' : theme.palette.primary.main,
                   '& .arrow-icon': {
-                    color: !canScrollRight || isSliding ? '#ccc' : theme.palette.primary.main,
+                    color: !canScrollLeft || isSliding ? '#ccc' : theme.palette.primary.main,
                   },
                 },
                 '&:disabled': {
@@ -335,16 +355,58 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
               }}
               aria-label="Scroll left"
             >
-              <ArrowBackIosNewIcon className="arrow-icon" sx={{ fontSize: 18, color: !canScrollRight || isSliding ? '#ccc' : '#444', transition: 'color 180ms' }} />
+              <ArrowBackIosNewIcon className="arrow-icon" sx={{ fontSize: 18, color: !canScrollLeft || isSliding ? '#ccc' : '#444', transition: 'color 180ms' }} />
+            </IconButton>
+          )}
+          {showArrows && arrowPosition === 'inside' && (
+            <IconButton
+              onClick={handleRight}
+                disabled={!canScrollRight || isSliding}
+              sx={{
+                position: 'absolute',
+                right: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 2,
+                width: 32,
+                height: 32,
+                minWidth: 32,
+                minHeight: 32,
+                border: '1px solid',
+                borderColor: !canScrollRight || isSliding ? '#ccc' : theme.palette.primary.main,
+                background: '#fff',
+                boxShadow: 'none',
+                borderRadius: '50%',
+                p: 0,
+                display: 'flex',
+                transition: 'border-color 180ms ease',
+                '&:hover': {
+                  borderColor: !canScrollRight || isSliding ? '#ccc' : theme.palette.primary.main,
+                  '& .arrow-icon': {
+                    color: !canScrollRight || isSliding ? '#ccc' : theme.palette.primary.main,
+                  },
+                },
+                '&:disabled': {
+                  borderColor: '#ccc',
+                  background: '#fafaff',
+                  cursor: 'not-allowed',
+                  opacity: 0.6,
+                },
+              }}
+              aria-label="Scroll right"
+            >
+              <ArrowForwardIosIcon className="arrow-icon" sx={{ fontSize: 18, color: !canScrollRight || isSliding ? '#ccc' : '#444', transition: 'color 180ms' }} />
             </IconButton>
           )}
           {/* Card Grid */}
           <Box
             sx={{
               width: '100%',
-              overflow: 'hidden',
+              overflow: showArrows ? 'hidden' : 'auto',
               flex: 1,
               py: 1,
+              minHeight: { xs: 120, sm: 160, md: 180 },
+              boxSizing: 'border-box',
             }}
             className="hide-scrollbar"
           >
@@ -353,8 +415,10 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
                 display: 'flex',
                 gap: { xs: 1.5, sm: 2.5 },
                 justifyContent: 'center',
+                alignItems: 'stretch',
                 transform: gridTransform,
                 transition: isSliding ? 'transform 500ms cubic-bezier(0.4,0,0.2,1)' : 'none',
+                minHeight: { xs: 120, sm: 160, md: 180 },
               }}
             >
               {visibleCards.map((service, i) => {

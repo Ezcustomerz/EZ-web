@@ -77,6 +77,18 @@ export function ActivityNotificationCard({
     return null;
   }
 
+  // Navigation logic for booking notifications
+  const navigateToCalendar = () => {
+    // Only trigger for booking-type notifications
+    if (normalized.status === 'booking' || normalized.label.toLowerCase().includes('book')) {
+      // Set a flag in localStorage to open booking dialog on calendar
+      localStorage.setItem('calendar-open-booking', 'true');
+      window.location.href = '/creative/calendar';
+    } else if (onClick) {
+      onClick();
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -89,13 +101,13 @@ export function ActivityNotificationCard({
         border: `1px solid rgba(0, 0, 0, 0.06)`,
         borderLeft: `4px solid ${borderColor}`,
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        cursor: onClick ? 'pointer' : 'default',
+        cursor: 'pointer',
         position: 'relative',
         overflow: 'visible',
         '&:hover': {
-          transform: onClick ? 'scale(1.03) translateY(-8px)' : 'none',
+          transform: 'scale(1.03) translateY(-8px)',
           backgroundColor: theme.palette.background.paper,
-          boxShadow: onClick ? '0 2px 8px rgba(0, 0, 0, 0.10)' : '0 1px 3px rgba(0, 0, 0, 0.08)',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.10)',
         },
         animation: `slideInLeft 0.6s ease-out ${index * 0.1 + 0.5}s both`,
         '@keyframes slideInLeft': {
@@ -103,7 +115,7 @@ export function ActivityNotificationCard({
           to: { opacity: 1, transform: 'translateX(0)' },
         },
       }}
-      onClick={onClick}
+      onClick={navigateToCalendar}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flex: 1 }}>
