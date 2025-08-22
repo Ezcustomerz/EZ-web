@@ -34,13 +34,10 @@ function AppContent() {
     userProfile,
     producerSetupOpen,
     closeCreativeSetup,
-    openCreativeSetup,
     clientSetupOpen,
     closeClientSetup,
-    openClientSetup,
     advocateSetupOpen,
     closeAdvocateSetup,
-    openAdvocateSetup,
     backToRoleSelection,
     isFirstSetup,
     originalSelectedRoles

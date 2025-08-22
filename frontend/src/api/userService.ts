@@ -121,7 +121,7 @@ export const userService = {
   async setupCreativeProfile(setupData: CreativeSetupRequest): Promise<CreativeSetupResponse> {
     const headers = await getAuthHeaders();
     const response = await axios.post<CreativeSetupResponse>(
-      `${API_BASE_URL}/users/creative-setup`,
+      `${API_BASE_URL}/creative/setup`,
       setupData,
       { headers }
     );
@@ -134,7 +134,7 @@ export const userService = {
   async setupClientProfile(setupData: ClientSetupRequest): Promise<ClientSetupResponse> {
     const headers = await getAuthHeaders();
     const response = await axios.post<ClientSetupResponse>(
-      `${API_BASE_URL}/users/client-setup`,
+      `${API_BASE_URL}/client/setup`,
       setupData,
       { headers }
     );
@@ -147,7 +147,7 @@ export const userService = {
   async setupAdvocateProfile(): Promise<AdvocateSetupResponse> {
     const headers = await getAuthHeaders();
     const response = await axios.post<AdvocateSetupResponse>(
-      `${API_BASE_URL}/users/advocate-setup`,
+      `${API_BASE_URL}/advocate/setup`,
       {}, // No body needed, backend uses hardcoded values
       { headers }
     );

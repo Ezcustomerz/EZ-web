@@ -21,33 +21,6 @@ class UpdateRolesResponse(BaseModel):
     message: str
     user_profile: Optional[UserProfile] = None
 
-class CreativeSetupRequest(BaseModel):
-    display_name: str
-    title: str
-    custom_title: Optional[str] = None
-    primary_contact: Optional[str] = None
-    secondary_contact: Optional[str] = None
-    bio: Optional[str] = None
-    subscription_tier: str = 'basic'
-
-class CreativeSetupResponse(BaseModel):
-    success: bool
-    message: str
-
-class ClientSetupRequest(BaseModel):
-    display_name: str
-    title: str
-    custom_title: Optional[str] = None
-    email: str
-
-class ClientSetupResponse(BaseModel):
-    success: bool
-    message: str
-
-class AdvocateSetupResponse(BaseModel):
-    success: bool
-    message: str
-
 class SetupStatusResponse(BaseModel):
     incomplete_setups: List[str]
 
