@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
+
 import { errorToast, successToast } from '../toast/toast';
 import { userService } from '../../api/userService';
 import { useAuth } from '../../context/auth';
@@ -36,6 +37,7 @@ export interface CreativeSetupPopoverProps {
   userEmail?: string;
   onBack?: () => void;
   isFirstSetup?: boolean;
+  onComplete?: () => void;
 }
 
 const CREATIVE_TITLES = [
@@ -187,13 +189,15 @@ export function CreativeSetupPopover({
   userName = '', 
   userEmail = '',
   onBack,
-  isFirstSetup = true
+  isFirstSetup = true,
+  onComplete
 }: CreativeSetupPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const [isLoading, setIsLoading] = useState(false);
-  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
+  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
+
 
   // Form state
   const [formData, setFormData] = useState({
@@ -289,7 +293,21 @@ export function CreativeSetupPopover({
         subscription_tier: formData.subscriptionTier,
       };
 
-      // Save data temporarily instead of creating profile immediately
+      // If onComplete is provided, this is individual setup - call individual endpoint
+      if (onComplete) {
+        const response = await userService.setupCreativeProfile(setupData);
+        
+        if (response.success) {
+          successToast('Creative Profile Created!', 'Your creative profile has been set up successfully.');
+          onClose();
+          onComplete();
+        } else {
+          errorToast('Setup Failed', response.message);
+        }
+        return;
+      }
+
+      // Otherwise, this is batch setup - save data temporarily
       saveSetupData('creative', setupData);
       
       // Check if this is the last setup - if so, commit all data to database
@@ -901,7 +919,7 @@ export function CreativeSetupPopover({
       }}>
         {/* Back Button */}
         <Button
-          onClick={isFirstSetup ? onBack : backToPreviousSetup}
+          onClick={isFirstSetup ? onBack : (onComplete ? onBack : backToPreviousSetup)}
           variant="outlined"
           size="large"
           disabled={isLoading}
@@ -922,7 +940,7 @@ export function CreativeSetupPopover({
             transition: 'all 0.3s ease',
           }}
         >
-          {isFirstSetup ? '← Back to Roles' : '← Back to Previous'}
+          {isFirstSetup ? '← Back to Roles' : (onComplete ? 'Cancel' : '← Back to Previous')}
         </Button>
 
         {/* Submit Button */}

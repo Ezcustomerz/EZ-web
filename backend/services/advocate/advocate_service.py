@@ -7,10 +7,21 @@ class AdvocateController:
     async def setup_advocate_profile(user_id: str) -> AdvocateSetupResponse:
         """Set up advocate profile in the advocates table with hardcoded demo values"""
         try:
-            # Verify user has advocate role
+            # Get user profile data
             user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
-            if not user_result.data or 'advocate' not in user_result.data['roles']:
-                raise HTTPException(status_code=403, detail="User must have advocate role to set up advocate profile")
+            if not user_result.data:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            user_data = user_result.data
+            user_roles = user_data.get('roles', [])
+            
+            # If user doesn't have advocate role, add it
+            if 'advocate' not in user_roles:
+                user_roles.append('advocate')
+                # Update user's roles in the database
+                update_result = db_admin.table('users').update({'roles': user_roles}).eq('user_id', user_id).execute()
+                if not update_result.data:
+                    raise HTTPException(status_code=500, detail="Failed to update user roles")
             
             # Create advocate profile with hardcoded demo data
             advocate_data = {

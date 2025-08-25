@@ -4,6 +4,7 @@ import { supabase } from '../config/supabase';
 import { toast, errorToast } from '../components/toast/toast';
 import { userService, type UserProfile } from '../api/userService';
 
+
 type SetupData = {
   creative?: any;
   client?: any;
@@ -21,6 +22,7 @@ type AuthContextValue = {
   roleSelectionOpen: boolean;
   closeRoleSelection: () => void;
   userProfile: UserProfile | null;
+  fetchUserProfile: () => Promise<void>;
   producerSetupOpen: boolean;
   openCreativeSetup: () => void;
   closeCreativeSetup: () => void;
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authOpen, setAuthOpen] = useState(false);
   const [roleSelectionOpen, setRoleSelectionOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [producerSetupOpen, setCreativeSetupOpen] = useState(false);
   const [clientSetupOpen, setClientSetupOpen] = useState(false);
   const [advocateSetupOpen, setAdvocateSetupOpen] = useState(false);
@@ -55,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [completedSetups, setCompletedSetups] = useState<string[]>([]);
   const [tempSetupData, setTempSetupData] = useState<SetupData>({});
   const [originalSelectedRoles, setOriginalSelectedRoles] = useState<string[]>([]);
+
 
   useEffect(() => {
     // Initial read
@@ -116,7 +120,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Fetch user profile when session exists but profile is null
+  useEffect(() => {
+    if (session && !userProfile && !isLoadingProfile) {
+      fetchUserProfile();
+    }
+  }, [session]);
+
   const fetchUserProfile = async () => {
+    // Prevent multiple simultaneous calls
+    if (isLoadingProfile) {
+      return;
+    }
+    
+    setIsLoadingProfile(true);
+    
     try {
       const profile = await userService.getUserProfile();
       setUserProfile(profile);
@@ -157,6 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Unexpected error fetching user profile:', err);
       errorToast('Profile Error', 'Failed to load user profile');
+    } finally {
+      setIsLoadingProfile(false);
     }
   };
 
@@ -330,6 +350,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     roleSelectionOpen,
     closeRoleSelection,
     userProfile,
+    fetchUserProfile,
     producerSetupOpen,
     openCreativeSetup,
     closeCreativeSetup,
@@ -348,7 +369,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tempSetupData,
     saveSetupData,
     originalSelectedRoles,
-  }), [session, authOpen, roleSelectionOpen, userProfile, producerSetupOpen, clientSetupOpen, advocateSetupOpen, pendingSetups, completedSetups, isFirstSetup, tempSetupData, originalSelectedRoles]);
+  }), [session, authOpen, roleSelectionOpen, userProfile, isLoadingProfile, producerSetupOpen, clientSetupOpen, advocateSetupOpen, pendingSetups, completedSetups, isFirstSetup, tempSetupData, originalSelectedRoles]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

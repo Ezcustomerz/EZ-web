@@ -188,15 +188,13 @@ export function ConnectedServicesTab() {
   };
 
   return (
-        <Box sx={{
-          width: '100vw',
-          minHeight: '100vh',
-          overflowY: 'auto',
-          boxSizing: 'border-box',
-          display: 'flex',
-          flexDirection: 'column',
-          py: 1,
-        }}>
+    <Box sx={{
+      width: '100%',
+      flexGrow: 1,
+      py: 1,
+      overflowY: { xs: 'auto', sm: 'auto', md: 'auto' },
+      minHeight: 0,
+    }}>
       {/* Search and Filter Bar */}
       <Box
         sx={{

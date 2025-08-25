@@ -83,7 +83,7 @@ function AppContent() {
         userName={userProfile?.name}
         userEmail={userProfile?.email}
         onBack={backToRoleSelection}
-        isFirstSetup={false}
+        isFirstSetup={isFirstSetup}
       />
       <AdvocateSetupPopover 
         open={advocateSetupOpen}
@@ -91,7 +91,7 @@ function AppContent() {
         userName={userProfile?.name}
         userEmail={userProfile?.email}
         onBack={backToRoleSelection}
-        isFirstSetup={false}
+        isFirstSetup={isFirstSetup}
       />
     </>
   );
