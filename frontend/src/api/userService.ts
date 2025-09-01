@@ -239,4 +239,16 @@ export const userService = {
     );
     return response.data;
   },
+
+  /**
+   * Get the current user's creative profile
+   */
+  async getCreativeProfile(): Promise<CreativeProfile> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<CreativeProfile>(
+      `${API_BASE_URL}/creative/profile`,
+      { headers }
+    );
+    return response.data;
+  },
 };

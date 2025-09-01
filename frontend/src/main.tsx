@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode, useEffect, useState, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
@@ -24,6 +24,7 @@ import { ClientSetupPopover } from './components/popovers/ClientSetupPopover'
 import { AdvocateSetupPopover } from './components/popovers/AdvocateSetupPopover'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { ToastProvider } from './components/toast/toast'
+import { LoadingProvider, useLoading } from './context/loading'
 
 function AppContent() {
   const { 
@@ -97,10 +98,12 @@ function AppContent() {
   );
 }
 
-function Root() {
+function ThemeLoader({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<any>(null);
+  const { setThemeLoading } = useLoading();
 
   useEffect(() => {
+    setThemeLoading(true);
     fetch('/appTheme.json')
       .then(res => res.json())
       .then((data: ColorConfig) => {
@@ -109,6 +112,7 @@ function Root() {
         Object.entries(data).forEach(([key, value]) => {
           document.documentElement.style.setProperty(`--${key}`, value);
         });
+        setThemeLoading(false);
       })
       .catch(error => {
         console.error('Failed to load theme:', error);
@@ -126,35 +130,36 @@ function Root() {
           info: "#3B82F6"
         };
         setTheme(createAppTheme(defaultColors));
+        setThemeLoading(false);
       });
-  }, []);
+  }, []); // Empty dependency array - only run once on mount
 
   if (!theme) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontFamily: 'system-ui'
-      }}>
-        Loading...
-      </div>
-    );
+    return null; // Loading will be handled by unified loader
   }
 
   return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+}
+
+function Root() {
+  return (
     <StrictMode>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <BrowserRouter>
-          <ToastProvider>
-            <AuthProvider>
-              <AppContent />
-            </AuthProvider>
-          </ToastProvider>
-        </BrowserRouter>
-      </ThemeProvider>
+      <LoadingProvider>
+        <ThemeLoader>
+          <BrowserRouter>
+            <ToastProvider>
+              <AuthProvider>
+                <AppContent />
+              </AuthProvider>
+            </ToastProvider>
+          </BrowserRouter>
+        </ThemeLoader>
+      </LoadingProvider>
     </StrictMode>
   );
 }

@@ -239,7 +239,7 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
         await fetchRoleProfiles();
         
         // Refresh user profile to update roles array
-        await fetchUserProfile();
+        await fetchUserProfile(false); // false = not a fresh sign-in, just refreshing after setup
         
         // Don't navigate away - keep the role switcher popover open
         // The user can manually switch to the new role if they want

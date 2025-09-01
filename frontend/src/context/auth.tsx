@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
 import { toast, errorToast } from '../components/toast/toast';
+import { useLoading } from './loading';
 import { userService, type UserProfile } from '../api/userService';
 
 
@@ -22,7 +23,7 @@ type AuthContextValue = {
   roleSelectionOpen: boolean;
   closeRoleSelection: () => void;
   userProfile: UserProfile | null;
-  fetchUserProfile: () => Promise<void>;
+  fetchUserProfile: (isFreshSignIn?: boolean) => Promise<void>;
   producerSetupOpen: boolean;
   openCreativeSetup: () => void;
   closeCreativeSetup: () => void;
@@ -46,6 +47,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { setUserAuthLoading } = useLoading();
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [roleSelectionOpen, setRoleSelectionOpen] = useState(false);
@@ -74,6 +76,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const isAuthed = !!newSession;
       console.log('[Auth] state changed:', { event, isAuthenticated: isAuthed, userId: newSession?.user.id });
       
+      // Reset user profile when session becomes null (logout, token expiry, etc.)
+      if (!newSession) {
+        setUserProfile(null);
+        setUserAuthLoading(false);
+      }
+      
       // Track login only on actual sign in (not token refresh)
       if (newSession && event === 'SIGNED_IN') {
         const justSignedIn = localStorage.getItem('justSignedIn') === 'true';
@@ -87,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
           
           // Fetch user profile to check first_login status
-          fetchUserProfile();
+          fetchUserProfile(true); // true = fresh sign-in
           localStorage.removeItem('justSignedIn');
         }
       }
@@ -99,6 +107,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Show auth popover and toast when user signs out
       if (!newSession && event === 'SIGNED_OUT') {
+        // Reset user profile when signing out
+        setUserProfile(null);
+        setUserAuthLoading(false);
+        
         // Don't show auth popover on landing page - just show the toast
         const isOnLandingPage = window.location.pathname === '/';
         if (!isOnLandingPage) {
@@ -123,17 +135,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user profile when session exists but profile is null
   useEffect(() => {
     if (session && !userProfile && !isLoadingProfile) {
-      fetchUserProfile();
+      fetchUserProfile(false); // false = not a fresh sign-in, just loading profile on page reload
     }
   }, [session]);
 
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (isFreshSignIn: boolean = false) => {
     // Prevent multiple simultaneous calls
     if (isLoadingProfile) {
       return;
     }
     
     setIsLoadingProfile(true);
+    setUserAuthLoading(true);
     
     try {
       const profile = await userService.getUserProfile();
@@ -153,7 +166,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Resume incomplete setups
             startSequentialSetup(setupStatus.incomplete_setups);
           } else {
-            // Show regular welcome toast for returning users with complete setups
+            // Only show welcome toast for fresh sign-ins, not page reloads
+            if (isFreshSignIn) {
+              toast({
+                title: 'Welcome back!',
+                description: 'You have successfully signed in.',
+                variant: 'success',
+                duration: 4000
+              });
+            }
+          }
+        } catch (setupErr) {
+          console.error('Error checking setup status:', setupErr);
+          // Only show fallback welcome toast for fresh sign-ins
+          if (isFreshSignIn) {
             toast({
               title: 'Welcome back!',
               description: 'You have successfully signed in.',
@@ -161,15 +187,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               duration: 4000
             });
           }
-        } catch (setupErr) {
-          console.error('Error checking setup status:', setupErr);
-          // Fallback to welcome toast if setup check fails
-          toast({
-            title: 'Welcome back!',
-            description: 'You have successfully signed in.',
-            variant: 'success',
-            duration: 4000
-          });
         }
       }
     } catch (err) {
@@ -177,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       errorToast('Profile Error', 'Failed to load user profile');
     } finally {
       setIsLoadingProfile(false);
+      setUserAuthLoading(false);
     }
   };
 
@@ -184,7 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRoleSelectionOpen(false);
     // Refresh user profile after role selection
     if (session?.user?.id) {
-      fetchUserProfile();
+      fetchUserProfile(false); // false = not a fresh sign-in, just refreshing after role selection
     }
   };
 
