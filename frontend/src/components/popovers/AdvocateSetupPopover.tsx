@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -13,9 +13,17 @@ import {
   Slide,
   Card,
   CardContent,
+  Chip,
 } from '@mui/material';
+import {
+  Support,
+  Star,
+  TrendingUp,
+  Diamond,
+} from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
+
 import { errorToast, successToast } from '../toast/toast';
 import { userService } from '../../api/userService';
 import { useAuth } from '../../context/auth';
@@ -27,6 +35,7 @@ export interface AdvocateSetupPopoverProps {
   userEmail?: string;
   onBack?: () => void;
   isFirstSetup?: boolean;
+  onComplete?: () => void;
 }
 
 // Slide transition for dialogs
@@ -43,7 +52,8 @@ export function AdvocateSetupPopover({
   userName = '', 
   userEmail = '',
   onBack,
-  isFirstSetup = false
+  isFirstSetup = false,
+  onComplete
 }: AdvocateSetupPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -51,10 +61,25 @@ export function AdvocateSetupPopover({
   const [isLoading, setIsLoading] = useState(false);
   const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
 
+
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      // Save advocate data temporarily (advocate uses hardcoded data on backend)
+      // If onComplete is provided, this is individual setup - call individual endpoint
+      if (onComplete) {
+        const response = await userService.setupAdvocateProfile();
+        
+        if (response.success) {
+          successToast('Advocate Profile Created!', 'Your advocate profile has been set up successfully.');
+          onClose();
+          onComplete();
+        } else {
+          errorToast('Setup Failed', response.message);
+        }
+        return;
+      }
+
+      // Otherwise, this is batch setup - save advocate data temporarily (advocate uses hardcoded data on backend)
       saveSetupData('advocate', { setup_complete: true });
       
       // Check if this is the last setup - if so, commit all data to database
@@ -307,7 +332,7 @@ export function AdvocateSetupPopover({
       }}>
         {/* Back Button */}
         <Button
-          onClick={isFirstSetup ? onBack : backToPreviousSetup}
+          onClick={isFirstSetup ? onBack : (onComplete ? onBack : backToPreviousSetup)}
           variant="outlined"
           size="large"
           disabled={isLoading}
@@ -328,7 +353,7 @@ export function AdvocateSetupPopover({
             transition: 'all 0.3s ease',
           }}
         >
-          {isFirstSetup ? '← Back to Roles' : '← Back to Previous'}
+          {isFirstSetup ? '← Back to Roles' : (onComplete ? 'Cancel' : '← Back to Previous')}
         </Button>
 
         {/* Submit Button */}

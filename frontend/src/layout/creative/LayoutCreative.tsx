@@ -1,10 +1,15 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
 import { SidebarCreative } from './SidebarCreative';
+import { useAuth } from '../../context/auth';
+import { userService, type CreativeProfile } from '../../api/userService';
+import demoCreativeData from '../../../demoData/creativeUserData.json';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 import { IntentAuthGate } from '../../components/popovers/IntentAuthGate';
+import { useLoading } from '../../context/loading';
+import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 
 interface LayoutCreativeProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
@@ -20,6 +25,29 @@ export function LayoutCreative({
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
+  const { userProfile } = useAuth();
+  const { setProfileLoading, isAnyLoading } = useLoading();
+  const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
+  
+  // Helper function to check if we've already fetched profile for current user
+  const hasFetchedProfileForUser = (userId: string) => {
+    const fetchedUsers = JSON.parse(localStorage.getItem('creativeProfileFetchedUsers') || '[]');
+    return fetchedUsers.includes(userId);
+  };
+  
+  // Helper function to mark profile as fetched for current user
+  const markProfileAsFetched = (userId: string) => {
+    const fetchedUsers = JSON.parse(localStorage.getItem('creativeProfileFetchedUsers') || '[]');
+    if (!fetchedUsers.includes(userId)) {
+      fetchedUsers.push(userId);
+      localStorage.setItem('creativeProfileFetchedUsers', JSON.stringify(fetchedUsers));
+    }
+  };
+  
+  // Helper function to clear fetched users (on logout)
+  const clearFetchedUsers = () => {
+    localStorage.removeItem('creativeProfileFetchedUsers');
+  };
   
   // Initialize sidebar open state from localStorage or mobile detection
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -55,6 +83,45 @@ export function LayoutCreative({
       setIsSidebarOpen(false);
     }
   }, [isMobile]);
+
+  // Initialize with demo data on component mount
+  useEffect(() => {
+    if (!creativeProfile) {
+      setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
+    }
+  }, []);
+
+  // Fetch creative profile once at layout level and provide to children/sidebar
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!userProfile) {
+        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
+        setProfileLoading(false);
+        clearFetchedUsers();
+        return;
+      }
+      
+      // If we already fetched the profile for this user, don't fetch again
+      if (hasFetchedProfileForUser(userProfile.user_id)) {
+        // If we don't have profile data but we've fetched before, it means we need to restore from cache
+        // For now, we'll skip the loading state since we should have the data
+        setProfileLoading(false);
+        return;
+      }
+      
+      setProfileLoading(true);
+      try {
+        const profile = await userService.getCreativeProfile();
+        setCreativeProfile(profile);
+        markProfileAsFetched(userProfile.user_id);
+      } catch (e) {
+        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, [userProfile]);
 
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
@@ -149,6 +216,8 @@ export function LayoutCreative({
         selectedItem={selectedNavItem || 'dashboard'}
         onItemSelect={handleNavItemSelect}
         isMobile={isMobile}
+        providedProfile={creativeProfile}
+
       />
 
       {/* Mobile Menu Button */}
@@ -308,6 +377,35 @@ export function LayoutCreative({
           }
         </Box>
       </Box>
+
+      {/* Unified Loading Overlay */}
+      {useMemo(() => 
+        isAnyLoading ? (
+          <Box
+            sx={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backdropFilter: 'blur(6px)',
+            }}
+          >
+            <RecordSpinner 
+              key="unified-loader" 
+              size={140} 
+              speed="normal" 
+              variant="scratch" 
+              ariaLabel="Loading application" 
+            />
+          </Box>
+        ) : null
+      , [isAnyLoading])}
     </Box>
   );
 } 

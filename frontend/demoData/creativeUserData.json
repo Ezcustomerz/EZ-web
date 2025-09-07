@@ -1,0 +1,14 @@
+{
+  "user_id": "demo-user-123",
+  "display_name": "Demo User",
+  "title": "Music Creative",
+  "bio": "Demo creative user for testing purposes",
+  "subscription_tier": "Demo (Fee: N/A)",
+  "primary_contact": "demo@example.com",
+  "secondary_contact": null,
+  "profile_banner_url": null,
+  "profile_source": "demo",
+  "storage_used_bytes": 0,
+  "storage_limit_bytes": 0,
+  "created_at": "2024-01-01T00:00:00Z"
+}

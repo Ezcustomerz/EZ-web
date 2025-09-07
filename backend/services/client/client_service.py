@@ -8,10 +8,21 @@ class ClientController:
     async def setup_client_profile(user_id: str, setup_request: ClientSetupRequest) -> ClientSetupResponse:
         """Set up client profile in the clients table"""
         try:
-            # Verify user has client role and get user profile data
+            # Get user profile data
             user_result = db_admin.table('users').select('roles, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
-            if not user_result.data or 'client' not in user_result.data['roles']:
-                raise HTTPException(status_code=403, detail="User must have client role to set up client profile")
+            if not user_result.data:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            user_data = user_result.data
+            user_roles = user_data.get('roles', [])
+            
+            # If user doesn't have client role, add it
+            if 'client' not in user_roles:
+                user_roles.append('client')
+                # Update user's roles in the database
+                update_result = db_admin.table('users').update({'roles': user_roles}).eq('user_id', user_id).execute()
+                if not update_result.data:
+                    raise HTTPException(status_code=500, detail="Failed to update user roles")
             
             # Validate email format
             if not validate_email(setup_request.email):
@@ -22,7 +33,6 @@ class ClientController:
             title_to_use = setup_request.custom_title if setup_request.custom_title else setup_request.title
             
             # Get user's profile picture and avatar source for client profile
-            user_data = user_result.data
             profile_picture_url = user_data.get('profile_picture_url')
             avatar_source = user_data.get('avatar_source', 'google')
             
