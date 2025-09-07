@@ -211,3 +211,40 @@ class UserController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create profiles: {str(e)}")
+
+    @staticmethod
+    async def get_user_role_profiles(user_id: str) -> dict:
+        """Get all role profiles for the current user"""
+        try:
+            # Get user's roles first
+            user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
+            if not user_result.data:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            user_roles = user_result.data.get('roles', [])
+            role_profiles = {}
+            
+            # Fetch creative profile if user has creative role
+            if 'creative' in user_roles:
+                creative_result = db_admin.table('creatives').select('*').eq('user_id', user_id).single().execute()
+                if creative_result.data:
+                    role_profiles['creative'] = creative_result.data
+            
+            # Fetch client profile if user has client role
+            if 'client' in user_roles:
+                client_result = db_admin.table('clients').select('*').eq('user_id', user_id).single().execute()
+                if client_result.data:
+                    role_profiles['client'] = client_result.data
+            
+            # Fetch advocate profile if user has advocate role
+            if 'advocate' in user_roles:
+                advocate_result = db_admin.table('advocates').select('*').eq('user_id', user_id).single().execute()
+                if advocate_result.data:
+                    role_profiles['advocate'] = advocate_result.data
+            
+            return role_profiles
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch role profiles: {str(e)}")
