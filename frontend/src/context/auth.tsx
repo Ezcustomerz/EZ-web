@@ -354,7 +354,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Determine if this is the first setup (no completed setups yet)
   const isFirstSetup = completedSetups.length === 0;
 
   const value = useMemo<AuthContextValue>(() => ({
