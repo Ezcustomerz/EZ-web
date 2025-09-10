@@ -48,7 +48,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
     { id: 'book', label: 'Book', icon: CalendarTodayOutlined },
-    { id: 'orders', label: 'My Orders', icon: ShoppingBagOutlined },
+    { id: 'orders', label: 'Orders', icon: ShoppingBagOutlined },
   ];
 
   // Mobile: Always 280px, use transform for hide/show

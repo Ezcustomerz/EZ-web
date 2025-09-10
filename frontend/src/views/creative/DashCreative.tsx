@@ -3,6 +3,7 @@ import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { WelcomeCard } from '../../components/cards/creative/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/creative/ActivityFeedCard';
 import type { ActivityItem } from '../../types/activity';
+import type { CreativeProfile } from '../../api/userService';
 import { GraphicEqOutlined, Payment, Download, PersonAddOutlined, CheckCircleOutlined, History } from '@mui/icons-material';
 
 export function DashCreative() {
@@ -20,7 +21,7 @@ export function DashCreative() {
 
   return (
     <LayoutCreative selectedNavItem="dashboard">
-      {({ isSidebarOpen }) => (
+      {({ isSidebarOpen, creativeProfile }) => (
         <Box
           sx={{
             p: { xs: 1.5, sm: 1.5, md: 2.5 },
@@ -40,7 +41,11 @@ export function DashCreative() {
           }}
         >
           {/* Welcome Card */}
-          <WelcomeCard userName="Demo User" userRole="Music Creative" isSidebarOpen={isSidebarOpen} />
+          <WelcomeCard 
+            userName={creativeProfile?.display_name || "Demo User"} 
+            userRole={creativeProfile?.title || "Music Creative"} 
+            isSidebarOpen={isSidebarOpen} 
+          />
 
           {/* Section Divider */}
           <Box sx={{ position: 'relative', zIndex: 1, mb: 2, animation: 'fadeIn 0.6s ease-out 0.35s both', '@keyframes fadeIn': { from: { opacity: 0 }, to: { opacity: 1 } } }}>

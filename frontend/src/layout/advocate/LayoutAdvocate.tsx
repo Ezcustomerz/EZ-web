@@ -1,19 +1,52 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
 import { useTheme, alpha } from '@mui/material/styles';
 import { SidebarAdvocate } from './SidebarAdvocate';
 import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
+import { useAuth } from '../../context/auth';
+import { userService, type AdvocateProfile } from '../../api/userService';
 
 interface LayoutAdvocateProps {
-  children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
+  children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; advocateProfile: AdvocateProfile | null }) => ReactNode);
   selectedNavItem?: string;
 }
 
 export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: LayoutAdvocateProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { isAnyLoading } = useLoading();
+  const { isAnyLoading, setProfileLoading } = useLoading();
+  const { userProfile } = useAuth();
+  const [advocateProfile, setAdvocateProfile] = useState<AdvocateProfile | null>(null);
+  const fetchingRef = useRef<Set<string>>(new Set());
+  
+  // Helper function to check if we've already fetched profile for current user
+  const hasFetchedProfileForUser = (userId: string) => {
+    const cachedProfile = localStorage.getItem(`advocateProfile_${userId}`);
+    return cachedProfile !== null;
+  };
+  
+  // Helper function to get cached profile for current user
+  const getCachedProfileForUser = (userId: string) => {
+    const cachedProfile = localStorage.getItem(`advocateProfile_${userId}`);
+    return cachedProfile ? JSON.parse(cachedProfile) : null;
+  };
+  
+  // Helper function to cache profile for current user
+  const cacheProfileForUser = (userId: string, profile: AdvocateProfile) => {
+    localStorage.setItem(`advocateProfile_${userId}`, JSON.stringify(profile));
+  };
+  
+  // Helper function to clear cached profiles (on logout)
+  const clearCachedProfiles = () => {
+    // Clear all advocate profile caches
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('advocateProfile_')) {
+        localStorage.removeItem(key);
+      }
+    });
+  };
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -50,6 +83,71 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
       } catch {}
     }
   }, [isSidebarOpen, isMobile]);
+
+  // Fetch advocate profile once at layout level and provide to children/sidebar
+  useEffect(() => {
+    console.log('[LayoutAdvocate] useEffect triggered', { 
+      userProfile: userProfile?.user_id, 
+      userRoles: userProfile?.roles,
+      hasProfile: !!advocateProfile,
+      hasFetched: userProfile ? hasFetchedProfileForUser(userProfile.user_id) : false,
+      isFetching: userProfile ? fetchingRef.current.has(userProfile.user_id) : false
+    });
+    
+    const loadProfile = async () => {
+      if (!userProfile) {
+        console.log('[LayoutAdvocate] No userProfile, setting null profile');
+        setAdvocateProfile(null);
+        setProfileLoading(false);
+        clearCachedProfiles();
+        return;
+      }
+      
+      // If we already fetched the profile for this user, restore from cache
+      if (hasFetchedProfileForUser(userProfile.user_id)) {
+        console.log('[LayoutAdvocate] Profile already fetched for user, restoring from cache');
+        const cachedProfile = getCachedProfileForUser(userProfile.user_id);
+        if (cachedProfile) {
+          setAdvocateProfile(cachedProfile);
+        }
+        setProfileLoading(false);
+        return;
+      }
+      
+      // If we're already fetching for this user, don't start another fetch
+      if (fetchingRef.current.has(userProfile.user_id)) {
+        console.log('[LayoutAdvocate] Already fetching for user, skipping duplicate call');
+        return;
+      }
+      
+      console.log('[LayoutAdvocate] Fetching advocate profile for user:', userProfile.user_id);
+      console.log('[LayoutAdvocate] User roles:', userProfile.roles);
+      
+      // Check if user has advocate role
+      if (!userProfile.roles.includes('advocate')) {
+        console.log('[LayoutAdvocate] User does not have advocate role, setting null profile');
+        setAdvocateProfile(null);
+        setProfileLoading(false);
+        return;
+      }
+      
+      fetchingRef.current.add(userProfile.user_id);
+      setProfileLoading(true);
+      try {
+        const profile = await userService.getAdvocateProfile();
+        console.log('[LayoutAdvocate] Advocate profile fetched successfully:', profile);
+        setAdvocateProfile(profile);
+        cacheProfileForUser(userProfile.user_id, profile);
+      } catch (e) {
+        console.error('[LayoutAdvocate] Failed to load advocate profile:', e);
+        setAdvocateProfile(null);
+      } finally {
+        fetchingRef.current.delete(userProfile.user_id);
+        setProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, [userProfile]);
 
   // Add keyboard shortcut for sidebar toggle (Ctrl+B or Cmd+B)
   useEffect(() => {
@@ -169,7 +267,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
               <RecordSpinner />
             </Box>
           ) : (
-            typeof children === 'function' ? children({ isSidebarOpen, isMobile }) : children
+            typeof children === 'function' ? children({ isSidebarOpen, isMobile, advocateProfile }) : children
           )}
         </Box>
       </Box>
