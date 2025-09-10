@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
 import { SidebarCreative } from './SidebarCreative';
 import { useAuth } from '../../context/auth';
@@ -28,25 +28,34 @@ export function LayoutCreative({
   const { userProfile } = useAuth();
   const { setProfileLoading, isAnyLoading } = useLoading();
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
+  const fetchingRef = useRef<Set<string>>(new Set());
   
   // Helper function to check if we've already fetched profile for current user
   const hasFetchedProfileForUser = (userId: string) => {
-    const fetchedUsers = JSON.parse(localStorage.getItem('creativeProfileFetchedUsers') || '[]');
-    return fetchedUsers.includes(userId);
+    const cachedProfile = localStorage.getItem(`creativeProfile_${userId}`);
+    return cachedProfile !== null;
   };
   
-  // Helper function to mark profile as fetched for current user
-  const markProfileAsFetched = (userId: string) => {
-    const fetchedUsers = JSON.parse(localStorage.getItem('creativeProfileFetchedUsers') || '[]');
-    if (!fetchedUsers.includes(userId)) {
-      fetchedUsers.push(userId);
-      localStorage.setItem('creativeProfileFetchedUsers', JSON.stringify(fetchedUsers));
-    }
+  // Helper function to get cached profile for current user
+  const getCachedProfileForUser = (userId: string) => {
+    const cachedProfile = localStorage.getItem(`creativeProfile_${userId}`);
+    return cachedProfile ? JSON.parse(cachedProfile) : null;
   };
   
-  // Helper function to clear fetched users (on logout)
-  const clearFetchedUsers = () => {
-    localStorage.removeItem('creativeProfileFetchedUsers');
+  // Helper function to cache profile for current user
+  const cacheProfileForUser = (userId: string, profile: CreativeProfile) => {
+    localStorage.setItem(`creativeProfile_${userId}`, JSON.stringify(profile));
+  };
+  
+  // Helper function to clear cached profiles (on logout)
+  const clearCachedProfiles = () => {
+    // Clear all creative profile caches
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('creativeProfile_')) {
+        localStorage.removeItem(key);
+      }
+    });
   };
   
   // Initialize sidebar open state from localStorage or mobile detection
@@ -93,30 +102,63 @@ export function LayoutCreative({
 
   // Fetch creative profile once at layout level and provide to children/sidebar
   useEffect(() => {
+    console.log('[LayoutCreative] useEffect triggered', { 
+      userProfile: userProfile?.user_id, 
+      userRoles: userProfile?.roles,
+      hasProfile: !!creativeProfile,
+      hasFetched: userProfile ? hasFetchedProfileForUser(userProfile.user_id) : false,
+      isFetching: userProfile ? fetchingRef.current.has(userProfile.user_id) : false
+    });
+    
     const loadProfile = async () => {
       if (!userProfile) {
+        console.log('[LayoutCreative] No userProfile, setting demo data');
         setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
         setProfileLoading(false);
-        clearFetchedUsers();
+        clearCachedProfiles();
         return;
       }
       
-      // If we already fetched the profile for this user, don't fetch again
+      // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
-        // If we don't have profile data but we've fetched before, it means we need to restore from cache
-        // For now, we'll skip the loading state since we should have the data
+        console.log('[LayoutCreative] Profile already fetched for user, restoring from cache');
+        const cachedProfile = getCachedProfileForUser(userProfile.user_id);
+        if (cachedProfile) {
+          setCreativeProfile(cachedProfile);
+        }
         setProfileLoading(false);
         return;
       }
       
+      // If we're already fetching for this user, don't start another fetch
+      if (fetchingRef.current.has(userProfile.user_id)) {
+        console.log('[LayoutCreative] Already fetching for user, skipping duplicate call');
+        return;
+      }
+      
+      console.log('[LayoutCreative] Fetching creative profile for user:', userProfile.user_id);
+      console.log('[LayoutCreative] User roles:', userProfile.roles);
+      
+      // Check if user has creative role
+      if (!userProfile.roles.includes('creative')) {
+        console.log('[LayoutCreative] User does not have creative role, using demo data');
+        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
+      fetchingRef.current.add(userProfile.user_id);
       setProfileLoading(true);
       try {
         const profile = await userService.getCreativeProfile();
+        console.log('[LayoutCreative] Creative profile fetched successfully:', profile);
         setCreativeProfile(profile);
-        markProfileAsFetched(userProfile.user_id);
+        cacheProfileForUser(userProfile.user_id, profile);
       } catch (e) {
+        console.error('[LayoutCreative] Failed to load creative profile:', e);
         setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
       } finally {
+        fetchingRef.current.delete(userProfile.user_id);
         setProfileLoading(false);
       }
     };

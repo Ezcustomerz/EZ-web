@@ -214,7 +214,7 @@ class UserController:
 
     @staticmethod
     async def get_user_role_profiles(user_id: str) -> dict:
-        """Get all role profiles for the current user"""
+        """Get minimal role profile data for role switching"""
         try:
             # Get user's roles first
             user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
@@ -224,21 +224,27 @@ class UserController:
             user_roles = user_result.data.get('roles', [])
             role_profiles = {}
             
-            # Fetch creative profile if user has creative role
+            # Fetch minimal creative profile data if user has creative role
             if 'creative' in user_roles:
-                creative_result = db_admin.table('creatives').select('*').eq('user_id', user_id).single().execute()
+                creative_result = db_admin.table('creatives').select(
+                    'user_id, title'
+                ).eq('user_id', user_id).single().execute()
                 if creative_result.data:
                     role_profiles['creative'] = creative_result.data
             
-            # Fetch client profile if user has client role
+            # Fetch minimal client profile data if user has client role
             if 'client' in user_roles:
-                client_result = db_admin.table('clients').select('*').eq('user_id', user_id).single().execute()
+                client_result = db_admin.table('clients').select(
+                    'user_id, title'
+                ).eq('user_id', user_id).single().execute()
                 if client_result.data:
                     role_profiles['client'] = client_result.data
             
-            # Fetch advocate profile if user has advocate role
+            # Fetch minimal advocate profile data if user has advocate role
             if 'advocate' in user_roles:
-                advocate_result = db_admin.table('advocates').select('*').eq('user_id', user_id).single().execute()
+                advocate_result = db_admin.table('advocates').select(
+                    'user_id, tier'
+                ).eq('user_id', user_id).single().execute()
                 if advocate_result.data:
                     role_profiles['advocate'] = advocate_result.data
             

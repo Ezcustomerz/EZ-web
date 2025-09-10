@@ -13,6 +13,20 @@ import { ClientOrders } from './views/client/OrdersClient.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
+
+// Inline theme configuration to avoid network request
+const defaultThemeConfig: ColorConfig = {
+  primary: "#7A5FFF",
+  secondary: "#339BFF",
+  accent: "#FFCD38",
+  text: "#241E1A",
+  textSecondary: "#6B7280",
+  background: "#FFFFFF",
+  success: "#10B981",
+  error: "#EF4444",
+  warning: "#F59E0B",
+  info: "#3B82F6"
+};
 // Import Supabase configuration to trigger connection test
 import './config/supabase'
 import { ScrollToTop } from './utils/ScrollToTop.tsx'
@@ -24,7 +38,7 @@ import { ClientSetupPopover } from './components/popovers/ClientSetupPopover'
 import { AdvocateSetupPopover } from './components/popovers/AdvocateSetupPopover'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { ToastProvider } from './components/toast/toast'
-import { LoadingProvider, useLoading } from './context/loading'
+import { LoadingProvider } from './context/loading'
 
 function AppContent() {
   const { 
@@ -99,44 +113,39 @@ function AppContent() {
 }
 
 function ThemeLoader({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<any>(null);
-  const { setThemeLoading } = useLoading();
+  const [theme, setTheme] = useState(() => createAppTheme(defaultThemeConfig));
 
   useEffect(() => {
-    setThemeLoading(true);
-    fetch('/appTheme.json')
-      .then(res => res.json())
-      .then((data: ColorConfig) => {
-        setTheme(createAppTheme(data));
-        // Set CSS variables for any non-MUI styling
-        Object.entries(data).forEach(([key, value]) => {
-          document.documentElement.style.setProperty(`--${key}`, value);
-        });
-        setThemeLoading(false);
-      })
-      .catch(error => {
-        console.error('Failed to load theme:', error);
-        // Fallback to default theme if loading fails
-        const defaultColors: ColorConfig = {
-          primary: "#1A8FFF",
-          secondary: "#2E9C69",
-          accent: "#FF6B6B",
-          text: "#241E1A",
-          textSecondary: "#6F665F",
-          background: "#FFFFFF",
-          success: "#10B981",
-          error: "#EF4444",
-          warning: "#F59E0B",
-          info: "#3B82F6"
-        };
-        setTheme(createAppTheme(defaultColors));
-        setThemeLoading(false);
-      });
-  }, []); // Empty dependency array - only run once on mount
+    // Set CSS variables immediately with default theme
+    Object.entries(defaultThemeConfig).forEach(([key, value]) => {
+      document.documentElement.style.setProperty(`--${key}`, value);
+    });
 
-  if (!theme) {
-    return null; // Loading will be handled by unified loader
-  }
+    // Try to load custom theme in background (non-blocking)
+    // Use requestIdleCallback for better performance
+    const loadCustomTheme = () => {
+      fetch('/appTheme.json')
+        .then(res => res.json())
+        .then((data: ColorConfig) => {
+          setTheme(createAppTheme(data));
+          // Update CSS variables with custom theme
+          Object.entries(data).forEach(([key, value]) => {
+            document.documentElement.style.setProperty(`--${key}`, value);
+          });
+        })
+        .catch(error => {
+          console.warn('Failed to load custom theme, using default:', error);
+          // Keep using default theme
+        });
+    };
+
+    // Load custom theme when browser is idle
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(loadCustomTheme);
+    } else {
+      setTimeout(loadCustomTheme, 100);
+    }
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>
@@ -151,7 +160,12 @@ function Root() {
     <StrictMode>
       <LoadingProvider>
         <ThemeLoader>
-          <BrowserRouter>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true
+            }}
+          >
             <ToastProvider>
               <AuthProvider>
                 <AppContent />

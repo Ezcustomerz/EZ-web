@@ -32,3 +32,21 @@ class BatchSetupRequest(BaseModel):
 class BatchSetupResponse(BaseModel):
     success: bool
     message: str
+
+# Ultra-minimal role profile schemas for role switching
+class MinimalCreativeProfile(BaseModel):
+    user_id: str
+    title: str
+
+class MinimalClientProfile(BaseModel):
+    user_id: str
+    title: str
+
+class MinimalAdvocateProfile(BaseModel):
+    user_id: str
+    tier: str
+
+class RoleProfilesResponse(BaseModel):
+    creative: Optional[MinimalCreativeProfile] = None
+    client: Optional[MinimalClientProfile] = None
+    advocate: Optional[MinimalAdvocateProfile] = None

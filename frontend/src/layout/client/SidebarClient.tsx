@@ -23,6 +23,8 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useTheme } from '@mui/material/styles';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
+import { useAuth } from '../../context/auth';
+import { type ClientProfile } from '../../api/userService';
 import React from 'react';
 
 interface SidebarClientProps {
@@ -31,12 +33,17 @@ interface SidebarClientProps {
   selectedItem: string;
   onItemSelect: (item: string) => void;
   isMobile?: boolean;
+  providedProfile?: ClientProfile | null;
 }
 
-export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarClientProps) {
+export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false, providedProfile }: SidebarClientProps) {
   const theme = useTheme();
+  const { userProfile } = useAuth();
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
+  
+  // Use provided profile from LayoutClient
+  const clientProfile = providedProfile;
   
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
@@ -280,15 +287,18 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
                   },
                 }}
               >
-                <Avatar sx={{ 
-                  width: 36, 
-                  height: 36, 
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                  transition: 'all 0.2s ease-in-out',
-                  transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
-                }}>
+                <Avatar 
+                  src={clientProfile?.profile_banner_url}
+                  sx={{ 
+                    width: 36, 
+                    height: 36, 
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    border: '2px solid rgba(255, 255, 255, 0.3)',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    transition: 'all 0.2s ease-in-out',
+                    transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
+                  }}
+                >
                   <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
                 </Avatar>
                 {/* Role Sash */}
@@ -345,14 +355,17 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
                 {/* User Profile Section */}
                 <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                   <Box sx={{ position: 'relative', mr: 2 }}>
-                    <Avatar sx={{ 
-                      width: 52, 
-                      height: 52, 
-                      backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                      border: '2px solid rgba(255, 255, 255, 0.4)',
-                      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-                      transition: 'all 0.2s ease-in-out',
-                    }}>
+                    <Avatar 
+                      src={clientProfile?.profile_banner_url}
+                      sx={{ 
+                        width: 52, 
+                        height: 52, 
+                        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                        border: '2px solid rgba(255, 255, 255, 0.4)',
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+                        transition: 'all 0.2s ease-in-out',
+                      }}
+                    >
                       <PersonOutlined sx={{ color: 'white', fontSize: '26px' }} />
                     </Avatar>
                     {/* Role Sash */}
@@ -388,7 +401,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
                       mb: 0.5,
                       textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                     }}>
-                      Demo User
+                      {clientProfile?.display_name || userProfile?.name || 'Loading...'}
                     </Typography>
                     <Typography sx={{
                       fontSize: '0.8rem',
@@ -398,9 +411,8 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
                       mb: 0.5,
                       textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                     }}>
-                      Country Artist
+                      {clientProfile?.title || 'Loading...'}
                     </Typography>
-                    {/* Status indicator removed per design request */}
                   </Box>
                 </Box>
               </Box>

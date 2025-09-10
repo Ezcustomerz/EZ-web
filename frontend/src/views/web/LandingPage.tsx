@@ -57,24 +57,23 @@ export function LandingPage() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    // Add a small delay to ensure the page is fully rendered
+    // Reduce delay for faster LCP
     const timer = setTimeout(() => {
       setIsLoaded(true);
-    }, 150);
+    }, 50);
 
     return () => clearTimeout(timer);
   }, []);
   return (
     <LayoutWeb>
       {/* Hero Section with Gradient Background */}
-      <Box sx={{
-        background: `linear-gradient(135deg, ${theme.palette.custom.amber} 0%, ${theme.palette.primary.main} 100%)`,
+      <Box className="hero-section" sx={{
         pt: { xs: 3, sm: 4, md: 6, lg: 8 },
         pb: { xs: 6, sm: 8, lg: 10 },
         mb: { xs: 6, md: 8 },
-        opacity: isLoaded ? 1 : 0,
-        animation: isLoaded ? `${fadeIn} 1s ease-out 0.2s both` : 'none',
-        willChange: 'opacity'
+        // Render immediately for better LCP
+        opacity: 1,
+        animation: 'none'
       }}>
         <Box sx={{
           display: 'flex',
@@ -97,20 +96,9 @@ export function LandingPage() {
             animation: isLoaded ? `${slideInLeft} 1.2s ease-out 0.5s both` : 'none',
             willChange: 'transform, opacity'
           }}>
-            <Typography
-              variant="h1"
-              component="h1"
-              sx={{
-                fontSize: { xs: '2.5rem', sm: '3rem', md: '4rem', lg: '4.5rem' },
-                fontWeight: 700,
-                color: theme.palette.primary.main,
-                mb: { xs: 2, md: 3 },
-                letterSpacing: '0.1em',
-                lineHeight: { xs: 1.1, md: 1.2 }
-              }}
-            >
+            <h1 className="lcp-heading">
               EZ
-            </Typography>
+            </h1>
             <Typography
               variant="h5"
               component="p"

@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
 import { useTheme, alpha } from '@mui/material/styles';
 import { SidebarAdvocate } from './SidebarAdvocate';
+import { useLoading } from '../../context/loading';
+import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 
 interface LayoutAdvocateProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
@@ -11,6 +13,7 @@ interface LayoutAdvocateProps {
 export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: LayoutAdvocateProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { isAnyLoading } = useLoading();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -53,7 +56,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
         event.preventDefault();
-        setIsSidebarOpen(prev => !prev);
+        setIsSidebarOpen((prev: boolean) => !prev);
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -70,7 +73,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
 
       <SidebarAdvocate
         isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen(prev => !prev)}
+        onToggle={() => setIsSidebarOpen((prev: boolean) => !prev)}
         selectedItem={selectedNavItem}
         onItemSelect={() => { /* single dashboard item for now */ }}
         isMobile={isMobile}
@@ -94,7 +97,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
         >
           <Tooltip title={`Open Menu (${keybindHint})`}>
             <Box
-              onClick={() => setIsSidebarOpen(prev => !prev)}
+              onClick={() => setIsSidebarOpen((prev: boolean) => !prev)}
               sx={{
                 backgroundColor: alpha(theme.palette.secondary.main, 0.13),
                 color: theme.palette.text.primary,
@@ -153,7 +156,21 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
         }}
       >
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          {typeof children === 'function' ? children({ isSidebarOpen, isMobile }) : children}
+          {isAnyLoading ? (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                flexGrow: 1,
+                minHeight: '50vh',
+              }}
+            >
+              <RecordSpinner />
+            </Box>
+          ) : (
+            typeof children === 'function' ? children({ isSidebarOpen, isMobile }) : children
+          )}
         </Box>
       </Box>
 
@@ -174,7 +191,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
         >
           <Tooltip title={`Toggle Sidebar (${keybindHint})`}>
             <Box
-              onClick={() => setIsSidebarOpen(prev => !prev)}
+              onClick={() => setIsSidebarOpen((prev: boolean) => !prev)}
               sx={{
                 backgroundColor: theme.palette.secondary.main,
                 color: 'white',

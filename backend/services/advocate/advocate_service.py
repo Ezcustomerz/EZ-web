@@ -7,8 +7,8 @@ class AdvocateController:
     async def setup_advocate_profile(user_id: str) -> AdvocateSetupResponse:
         """Set up advocate profile in the advocates table with hardcoded demo values"""
         try:
-            # Get user profile data
-            user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
+            # Get user profile data including name, profile_picture_url, and avatar_source
+            user_result = db_admin.table('users').select('roles, name, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
@@ -23,9 +23,12 @@ class AdvocateController:
                 if not update_result.data:
                     raise HTTPException(status_code=500, detail="Failed to update user roles")
             
-            # Create advocate profile with hardcoded demo data
+            # Create advocate profile with hardcoded demo data and user profile data
             advocate_data = {
                 'user_id': user_id,
+                'display_name': user_data.get('name'),  # Use name from users table
+                'profile_banner_url': user_data.get('profile_picture_url'),  # Use profile picture as banner
+                'profile_source': user_data.get('avatar_source', 'google'),  # Use avatar source from users table
                 'tier': 'silver',  # Default tier
                 'fp_affiliate_id': f'demo_affiliate_{user_id[:8]}',  # Demo affiliate ID
                 'fp_referral_code': f'DEMO{user_id[:6].upper()}',  # Demo referral code

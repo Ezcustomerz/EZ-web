@@ -1,0 +1,17 @@
+{
+  "user_id": "demo-advocate-user",
+  "display_name": "Demo User",
+  "profile_banner_url": null,
+  "profile_source": "demo",
+  "tier": "silver",
+  "active_referrals": 12,
+  "total_earned": 1250.50,
+  "earned_this_month": 180.75,
+  "total_paid_out": 1070.00,
+  "pending_payout": 180.50,
+  "currency": "USD",
+  "fp_affiliate_id": "demo_affiliate_12345678",
+  "fp_referral_code": "DEMO123456",
+  "fp_referral_link": "https://ez-web-demo.vercel.app/signup?ref=DEMO123456",
+  "created_at": "2024-01-15T10:30:00.000Z"
+}

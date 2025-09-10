@@ -1,9 +1,14 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Box, CssBaseline, useMediaQuery, Tooltip } from '@mui/material';
 import { SidebarClient } from './SidebarClient';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
+import { useAuth } from '../../context/auth';
+import { userService, type ClientProfile } from '../../api/userService';
+import { useLoading } from '../../context/loading';
+import { RecordSpinner } from '../../components/loaders/RecordSpinner';
+import demoClientData from '../../../demoData/clientUserData.json';
 
 interface LayoutClientProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
@@ -19,6 +24,38 @@ export function LayoutClient({
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
+  const { userProfile } = useAuth();
+  const { setProfileLoading, isAnyLoading } = useLoading();
+  const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
+  const fetchingRef = useRef<Set<string>>(new Set());
+  
+  // Helper function to check if we've already fetched profile for current user
+  const hasFetchedProfileForUser = (userId: string) => {
+    const cachedProfile = localStorage.getItem(`clientProfile_${userId}`);
+    return cachedProfile !== null;
+  };
+  
+  // Helper function to get cached profile for current user
+  const getCachedProfileForUser = (userId: string) => {
+    const cachedProfile = localStorage.getItem(`clientProfile_${userId}`);
+    return cachedProfile ? JSON.parse(cachedProfile) : null;
+  };
+  
+  // Helper function to cache profile for current user
+  const cacheProfileForUser = (userId: string, profile: ClientProfile) => {
+    localStorage.setItem(`clientProfile_${userId}`, JSON.stringify(profile));
+  };
+  
+  // Helper function to clear cached profiles (on logout)
+  const clearCachedProfiles = () => {
+    // Clear all client profile caches
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('clientProfile_')) {
+        localStorage.removeItem(key);
+      }
+    });
+  };
   
   // Initialize sidebar open state from localStorage or mobile detection
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -54,6 +91,77 @@ export function LayoutClient({
       setIsSidebarOpen(false);
     }
   }, [isMobile]);
+
+  // Initialize with demo data on component mount
+  useEffect(() => {
+    if (!clientProfile) {
+      setClientProfile(demoClientData as unknown as ClientProfile);
+    }
+  }, []);
+
+  // Fetch client profile once at layout level and provide to sidebar
+  useEffect(() => {
+    console.log('[LayoutClient] useEffect triggered', { 
+      userProfile: userProfile?.user_id, 
+      hasProfile: !!clientProfile,
+      hasFetched: userProfile ? hasFetchedProfileForUser(userProfile.user_id) : false,
+      isFetching: userProfile ? fetchingRef.current.has(userProfile.user_id) : false
+    });
+    
+    const loadProfile = async () => {
+      if (!userProfile) {
+        console.log('[LayoutClient] No userProfile, setting demo data');
+        setClientProfile(demoClientData as unknown as ClientProfile);
+        setProfileLoading(false);
+        clearCachedProfiles();
+        return;
+      }
+      
+      // If we already fetched the profile for this user, restore from cache
+      if (hasFetchedProfileForUser(userProfile.user_id)) {
+        console.log('[LayoutClient] Profile already fetched for user, restoring from cache');
+        const cachedProfile = getCachedProfileForUser(userProfile.user_id);
+        if (cachedProfile) {
+          setClientProfile(cachedProfile);
+        }
+        setProfileLoading(false);
+        return;
+      }
+      
+      // If we're already fetching for this user, don't start another fetch
+      if (fetchingRef.current.has(userProfile.user_id)) {
+        console.log('[LayoutClient] Already fetching for user, skipping duplicate call');
+        return;
+      }
+      
+      console.log('[LayoutClient] Fetching client profile for user:', userProfile.user_id);
+      console.log('[LayoutClient] User roles:', userProfile.roles);
+      
+      // Check if user has client role
+      if (!userProfile.roles.includes('client')) {
+        console.log('[LayoutClient] User does not have client role, using demo data');
+        setClientProfile(demoClientData as unknown as ClientProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
+      fetchingRef.current.add(userProfile.user_id);
+      setProfileLoading(true);
+      try {
+        const profile = await userService.getClientProfile();
+        console.log('[LayoutClient] Client profile fetched successfully:', profile);
+        setClientProfile(profile);
+        cacheProfileForUser(userProfile.user_id, profile);
+      } catch (e) {
+        console.error('[LayoutClient] Failed to load client profile:', e);
+        setClientProfile(demoClientData as unknown as ClientProfile);
+      } finally {
+        fetchingRef.current.delete(userProfile.user_id);
+        setProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, [userProfile]);
 
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
@@ -143,6 +251,7 @@ export function LayoutClient({
         selectedItem={selectedNavItem || 'dashboard'}
         onItemSelect={handleNavItemSelect}
         isMobile={isMobile}
+        providedProfile={clientProfile}
       />
 
       {/* Mobile Menu Button */}
@@ -296,10 +405,23 @@ export function LayoutClient({
             minHeight: 0,
           }}
         >
-          {typeof children === 'function' 
-            ? children({ isSidebarOpen, isMobile })
-            : children
-          }
+          {isAnyLoading ? (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                flexGrow: 1,
+                minHeight: '50vh',
+              }}
+            >
+              <RecordSpinner />
+            </Box>
+          ) : (
+            typeof children === 'function' 
+              ? children({ isSidebarOpen, isMobile })
+              : children
+          )}
         </Box>
       </Box>
     </Box>

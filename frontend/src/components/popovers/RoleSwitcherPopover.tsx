@@ -166,6 +166,17 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
 
   const handleSwitchRole = (roleId: string) => {
     console.log(`Switching to role: ${roleId}`);
+    
+    // Clear all profile caches to ensure fresh data is fetched
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('creativeProfile_') || 
+          key.startsWith('clientProfile_') || 
+          key.startsWith('advocateProfile_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
     onClose();
     
     // Navigate to appropriate layout based on role

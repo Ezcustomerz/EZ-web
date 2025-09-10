@@ -18,7 +18,7 @@ const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
 export function LoadingProvider({ children }: { children: ReactNode }) {
   const [loadingStates, setLoadingStates] = useState<LoadingState>({
-    theme: true, // Start with theme loading
+    theme: false, // Theme is now inline, no loading needed
     userAuth: false,
     profile: false,
   });

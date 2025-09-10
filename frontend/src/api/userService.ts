@@ -117,6 +117,9 @@ export interface ClientProfile {
 
 export interface AdvocateProfile {
   user_id: string;
+  display_name?: string;
+  profile_banner_url?: string;
+  profile_source: string;
   tier: string;
   fp_affiliate_id?: string;
   fp_referral_code?: string;
@@ -247,6 +250,30 @@ export const userService = {
     const headers = await getAuthHeaders();
     const response = await axios.get<CreativeProfile>(
       `${API_BASE_URL}/creative/profile`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get the current user's client profile
+   */
+  async getClientProfile(): Promise<ClientProfile> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<ClientProfile>(
+      `${API_BASE_URL}/client/profile`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get the current user's advocate profile
+   */
+  async getAdvocateProfile(): Promise<AdvocateProfile> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<AdvocateProfile>(
+      `${API_BASE_URL}/advocate/profile`,
       { headers }
     );
     return response.data;
