@@ -11,7 +11,7 @@ import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import demoClientData from '../../../demoData/clientUserData.json';
 
 interface LayoutClientProps {
-  children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
+  children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; clientProfile: ClientProfile | null }) => ReactNode);
   selectedNavItem?: string;
   hideMenuButton?: boolean;
 }
@@ -419,7 +419,7 @@ export function LayoutClient({
             </Box>
           ) : (
             typeof children === 'function' 
-              ? children({ isSidebarOpen, isMobile })
+              ? children({ isSidebarOpen, isMobile, clientProfile })
               : children
           )}
         </Box>

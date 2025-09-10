@@ -12,7 +12,7 @@ import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 
 interface LayoutCreativeProps {
-  children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean }) => ReactNode);
+  children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; creativeProfile: CreativeProfile | null }) => ReactNode);
   selectedNavItem?: string;
   hideMenuButton?: boolean;
 }
@@ -414,7 +414,7 @@ export function LayoutCreative({
           }}
         >
           {typeof children === 'function' 
-            ? children({ isSidebarOpen, isMobile })
+            ? children({ isSidebarOpen, isMobile, creativeProfile })
             : children
           }
         </Box>

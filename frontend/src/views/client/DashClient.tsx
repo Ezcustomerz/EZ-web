@@ -4,6 +4,7 @@ import { WelcomeCard } from '../../components/cards/client/WelcomeCard';
 import { UpcomingBookingsCard } from '../../components/cards/client/UpcomingBookingsCard';
 import { RecentActivityCard } from '../../components/cards/client/RecentActivityCard';
 import type { ActivityItem } from '../../types/activity';
+import type { ClientProfile } from '../../api/userService';
 import { CheckCircleOutlined, Payment } from '@mui/icons-material';
 
 // Mock data for upcoming bookings
@@ -102,7 +103,8 @@ export function ClientDashboard() {
 
   return (
     <LayoutClient selectedNavItem="dashboard">
-      <Box sx={{
+      {({ isSidebarOpen, isMobile, clientProfile }) => (
+        <Box sx={{
         px: { xs: 1.5, sm: 1.5, md: 2.5 },
         pt: { xs: 1.5, sm: 1.5, md: 2.5 },
         pb: { xs: 1.5, sm: 1.5, md: 0.5 },
@@ -123,7 +125,10 @@ export function ClientDashboard() {
         },
       }}>
         {/* Welcome Card */}
-        <WelcomeCard />
+        <WelcomeCard 
+          userName={clientProfile?.display_name || "Demo User"} 
+          userType={clientProfile?.title || "Country Artist"} 
+        />
 
         {/* Main Content Grid - Half and Half */}
         <Box sx={{
@@ -142,6 +147,7 @@ export function ClientDashboard() {
           <RecentActivityCard items={recentItems} />
         </Box>
       </Box>
+      )}
     </LayoutClient>
   );
 } 

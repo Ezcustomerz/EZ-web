@@ -3,6 +3,7 @@ import { LayoutAdvocate } from '../../layout/advocate/LayoutAdvocate';
 import { WelcomeCard } from '../../components/cards/advocate/WelcomeCard';
 import { ReferralLinkCard } from '../../components/cards/advocate/ReferralLinkCard';
 import { ProgressCard } from '../../components/cards/advocate/ProgressCard';
+import type { AdvocateProfile } from '../../api/userService';
 
 export function DashAdvocate() {
   const handleRewardfulClick = () => {
@@ -11,7 +12,8 @@ export function DashAdvocate() {
 
     return (
     <LayoutAdvocate selectedNavItem="dashboard">
-      <Box sx={{
+      {({ isSidebarOpen, isMobile, advocateProfile }) => (
+        <Box sx={{
         px: { xs: 1.5, sm: 1.5, md: 2.5 },
         pt: { xs: 1.5, sm: 1.5, md: 2.5 },
         pb: { xs: 1.5, sm: 1.5, md: 0.5 },
@@ -32,9 +34,9 @@ export function DashAdvocate() {
         },
       }}>
         <WelcomeCard 
-          userName="Demo User"
+          userName={advocateProfile?.display_name || "Demo User"}
           userRole="Advocate"
-          tierLabel="Silver • 18%"
+          tierLabel={advocateProfile ? `${advocateProfile.tier} • ${advocateProfile.active_referrals}%` : "Silver • 18%"}
           onRewardfulClick={handleRewardfulClick}
         />
         
@@ -42,6 +44,7 @@ export function DashAdvocate() {
         
         <ProgressCard />
       </Box>
+      )}
     </LayoutAdvocate>
   );
 }
