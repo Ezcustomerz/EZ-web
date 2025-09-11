@@ -4,8 +4,6 @@ import { supabase } from '../config/supabase';
 import { toast, errorToast } from '../components/toast/toast';
 import { useLoading } from './loading';
 import { userService, type UserProfile } from '../api/userService';
-
-
 type SetupData = {
   creative?: any;
   client?: any;
@@ -61,7 +59,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tempSetupData, setTempSetupData] = useState<SetupData>({});
   const [originalSelectedRoles, setOriginalSelectedRoles] = useState<string[]>([]);
 
-
   useEffect(() => {
     // Initial read
     supabase.auth.getSession().then(({ data }) => {
@@ -110,7 +107,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Reset user profile when signing out
         setUserProfile(null);
         setUserAuthLoading(false);
-        
         // Don't show auth popover on landing page - just show the toast
         const isOnLandingPage = window.location.pathname === '/';
         if (!isOnLandingPage) {
@@ -354,6 +350,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Determine if this is the first setup (no completed setups yet)
   const isFirstSetup = completedSetups.length === 0;
 
   const value = useMemo<AuthContextValue>(() => ({

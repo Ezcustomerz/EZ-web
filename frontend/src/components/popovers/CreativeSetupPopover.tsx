@@ -198,7 +198,6 @@ export function CreativeSetupPopover({
   const [isLoading, setIsLoading] = useState(false);
   const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
 
-
   // Form state
   const [formData, setFormData] = useState({
     displayName: userProfile?.name || userName,

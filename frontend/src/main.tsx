@@ -53,6 +53,7 @@ function AppContent() {
     closeClientSetup,
     advocateSetupOpen,
     closeAdvocateSetup,
+    openAdvocateSetup,
     backToRoleSelection,
     isFirstSetup,
     originalSelectedRoles

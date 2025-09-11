@@ -61,7 +61,6 @@ export function AdvocateSetupPopover({
   const [isLoading, setIsLoading] = useState(false);
   const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
 
-
   const handleSubmit = async () => {
     setIsLoading(true);
     try {

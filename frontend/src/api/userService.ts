@@ -141,7 +141,6 @@ export interface UserRoleProfiles {
   client?: ClientProfile;
   advocate?: AdvocateProfile;
 }
-
 export const userService = {
   /**
    * Get the current user's profile
@@ -230,7 +229,6 @@ export const userService = {
     );
     return response.data;
   },
-
   /**
    * Get all role profiles for the current user
    */
