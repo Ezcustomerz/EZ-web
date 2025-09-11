@@ -19,7 +19,9 @@ import {
   useTheme,
   Tooltip,
   Stack,
+  IconButton,
 } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   PersonAddOutlined,
   Search as SearchIcon,
@@ -58,96 +60,7 @@ interface ClientTableProps {
 }
 
 export const mockClients: Client[] = [
-  {
-    id: 'client-1',
-    name: 'Alice Johnson',
-    contact: 'alice@email.com',
-    contactType: 'email',
-    status: 'active',
-    totalSpent: 1200,
-    projects: 5,
-  },
-  {
-    id: 'client-2',
-    name: 'Bob Smith',
-    contact: '555-123-4567',
-    contactType: 'phone',
-    status: 'inactive',
-    totalSpent: 800,
-    projects: 2,
-  },
-  {
-    id: 'client-3',
-    name: 'Carol Lee',
-    contact: 'carol@email.com',
-    contactType: 'email',
-    status: 'active',
-    totalSpent: 1500,
-    projects: 7,
-  },
-  {
-    id: 'client-4',
-    name: 'David Kim',
-    contact: '555-987-6543',
-    contactType: 'phone',
-    status: 'active',
-    totalSpent: 950,
-    projects: 3,
-  },
-  {
-    id: 'client-5',
-    name: 'Eve White',
-    contact: 'eve@email.com',
-    contactType: 'email',
-    status: 'inactive',
-    totalSpent: 400,
-    projects: 1,
-  },
-  {
-    id: 'client-6',
-    name: 'Frank Green',
-    contact: 'frank@email.com',
-    contactType: 'email',
-    status: 'active',
-    totalSpent: 2100,
-    projects: 9,
-  },
-  {
-    id: 'client-7',
-    name: 'Grace Brown',
-    contact: '555-222-3333',
-    contactType: 'phone',
-    status: 'active',
-    totalSpent: 600,
-    projects: 2,
-  },
-  {
-    id: 'client-8',
-    name: 'Henry Davis',
-    contact: 'henry@email.com',
-    contactType: 'email',
-    status: 'inactive',
-    totalSpent: 300,
-    projects: 1,
-  },
-  {
-    id: 'client-9',
-    name: 'Ivy Wilson',
-    contact: 'ivy@email.com',
-    contactType: 'email',
-    status: 'active',
-    totalSpent: 1750,
-    projects: 6,
-  },
-  {
-    id: 'client-10',
-    name: 'Jackie Brown',
-    contact: 'jackie@email.com',
-    contactType: 'email',
-    status: 'active',
-    totalSpent: 900,
-    projects: 3,
-  },
+ 
 ];
 
 function EmptyClientState({ onInviteClient }: { onInviteClient: () => void }) {
@@ -916,7 +829,14 @@ export function ClientTable({
                   backgroundColor: '#e6f3fa',
                 }}
               >
-                Status
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  Status
+                  <Tooltip title="Active means the client is currently engaged in a project or session." arrow>
+                    <IconButton size="small" sx={{ ml: 0.5, p: 0 }}>
+                      <InfoOutlinedIcon fontSize="small" color="action" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </TableCell>
               <TableCell
                 onClick={() => handleSort('totalSpent')}

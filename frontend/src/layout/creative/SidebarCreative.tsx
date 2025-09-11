@@ -30,7 +30,13 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { InviteClientButton } from '../../components/buttons/CassetteButton';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
+import { InviteClientPopover } from '../../components/popovers/InviteClientPopover';
+import { useAuth } from '../../context/auth';
+import { useInviteClient } from '../../hooks/useInviteClient';
+import { type CreativeProfile } from '../../api/userService';
 import React from 'react';
+
+import demoCreativeData from '../../../demoData/creativeUserData.json';
 
 interface SidebarCreativeProps {
   isOpen: boolean;
@@ -38,16 +44,46 @@ interface SidebarCreativeProps {
   selectedItem: string;
   onItemSelect: (item: string) => void;
   isMobile?: boolean;
+  providedProfile?: CreativeProfile | null;
 }
 
-export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarCreativeProps) {
+export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false, providedProfile }: SidebarCreativeProps) {
   const theme = useTheme();
+  const { userProfile, session } = useAuth();
+  const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
   const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  // Use provided profile from LayoutCreative
+  const creativeProfile = providedProfile ?? (demoCreativeData as unknown as CreativeProfile);
+  const [forceDemoMode] = useState(false);
   const demoPillRef = React.useRef<HTMLDivElement | null>(null);
-  
+
+  // Helper function to format storage
+  const formatStorage = (bytes: number) => {
+    if (bytes === 0) return '0 GB';
+    const gb = bytes / (1024 * 1024 * 1024);
+    return `${gb.toFixed(1)} GB`;
+  };
+
+  // Helper function to calculate storage percentage
+  const getStoragePercentage = () => {
+    if (!creativeProfile || creativeProfile.storage_limit_bytes === 0) return 0;
+    return (creativeProfile.storage_used_bytes / creativeProfile.storage_limit_bytes) * 100;
+  };
+
+  // Helper function to detect demo mode
+  const isDemoMode = () => {
+    return forceDemoMode || 
+      (userProfile && (
+        userProfile.avatar_source === 'demo' || 
+        userProfile.roles.includes('demo') || 
+        userProfile.email?.includes('demo') ||
+        userProfile.name?.toLowerCase().includes('demo')
+      ));
+  };
+
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
     { id: 'clients', label: 'Clients', icon: PeopleOutlined },
@@ -61,10 +97,6 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
     ? 280
     : (isOpen ? 280 : 64);
 
-  function handleInviteClient() {
-    console.log('Invite client clicked');
-    // Add your invite client logic here
-  }
 
   function handleUserPanelClick(event: React.MouseEvent<HTMLElement>) {
     setUserMenuAnchor(event.currentTarget);
@@ -299,17 +331,20 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                   },
                 }}
               >
-                <Avatar sx={{ 
-                  width: 36, 
-                  height: 36, 
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                  transition: 'all 0.2s ease-in-out',
-                  transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
-                }}>
-                  <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
-                </Avatar>
+                                 <Avatar sx={{ 
+                   width: 36, 
+                   height: 36, 
+                   backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                   border: '2px solid rgba(255, 255, 255, 0.3)',
+                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                   transition: 'all 0.2s ease-in-out',
+                   transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
+                 }}
+                   src={userProfile?.profile_picture_url || session?.user?.user_metadata?.avatar_url || undefined}
+                   alt={creativeProfile?.display_name || userProfile?.name || 'User'}
+                 >
+                   <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
+                 </Avatar>
                 {/* Role Sash */}
                 <Box
                   sx={{
@@ -317,7 +352,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                     bottom: -8,
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    backgroundColor: '#FFCD38',
+                    backgroundColor: isDemoMode() ? '#FF9800' : '#FFCD38',
                     color: '#241E1A',
                     fontSize: '0.45rem',
                     fontWeight: 700,
@@ -329,7 +364,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                     zIndex: 2,
                   }}
                 >
-                  Creative
+                  {isDemoMode() ? 'Demo' : 'Creative'}
                 </Box>
               </Box>
             </Box>
@@ -359,15 +394,18 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                 {/* User Profile Section */}
                 <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                   <Box sx={{ position: 'relative', mr: 1.5 }}>
-                    <Avatar sx={{ 
-                      width: 48, 
-                      height: 48, 
-                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                      border: '2px solid rgba(255, 255, 255, 0.3)',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                    }}>
-                      <PersonOutlined sx={{ color: 'white', fontSize: '24px' }} />
-                    </Avatar>
+                                         <Avatar sx={{ 
+                       width: 48, 
+                       height: 48, 
+                       backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                       border: '2px solid rgba(255, 255, 255, 0.3)',
+                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                     }}
+                       src={userProfile?.profile_picture_url || session?.user?.user_metadata?.avatar_url || undefined}
+                       alt={creativeProfile?.display_name || userProfile?.name || 'User'}
+                     >
+                       <PersonOutlined sx={{ color: 'white', fontSize: '24px' }} />
+                     </Avatar>
                     {/* Role Sash */}
                     <Box
                       sx={{
@@ -375,7 +413,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                         bottom: -12,
                         left: '50%',
                         transform: 'translateX(-50%)',
-                        backgroundColor: '#FFCD38',
+                        backgroundColor: isDemoMode() ? '#FF9800' : '#FFCD38',
                         color: '#241E1A',
                         fontSize: '0.5rem',
                         fontWeight: 700,
@@ -387,7 +425,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                         zIndex: 2,
                       }}
                     >
-                      Creative
+                      {isDemoMode() ? 'Demo' : 'Creative'}
                     </Box>
                   </Box>
                   <Box sx={{ flexGrow: 1 }}>
@@ -399,56 +437,56 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                       lineHeight: 1.2,
                       mb: 0.5,
                     }}>
-                      Demo User
+                      {creativeProfile?.display_name || userProfile?.name || 'Loading...'}
                     </Typography>
-                    <Typography sx={{
-                      fontSize: '0.75rem',
-                      color: 'rgba(255, 255, 255, 0.8)',
-                      fontWeight: 300,
-                      lineHeight: 1.1,
-                      mb: 0.75,
-                    }}>
-                      Music Creative
-                    </Typography>
-                    <Box
-                      ref={demoPillRef}
-                      sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      color: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '0.6rem',
-                      fontWeight: 600,
-                      px: 1,
-                      py: 0.25,
-                      borderRadius: '12px',
-                      letterSpacing: '0.02em',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      width: 'fit-content',
-                        cursor: isMobileView ? 'pointer' : 'default',
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isMobileView) {
-                          setSnackbarOpen(true);
-                        }
-                      }}
-                    >
+                                         <Typography sx={{
+                       fontSize: '0.75rem',
+                       color: 'rgba(255, 255, 255, 0.8)',
+                       fontWeight: 300,
+                       lineHeight: 1.1,
+                       mb: 0.75,
+                     }}>
+                       {creativeProfile?.title || 'Loading...'}
+                     </Typography>
+                                         <Box
+                       ref={demoPillRef}
+                       sx={{
+                       backgroundColor: isDemoMode() ? 'rgba(255, 193, 7, 0.3)' : 'rgba(255, 255, 255, 0.15)',
+                       color: 'rgba(255, 255, 255, 0.9)',
+                       fontSize: '0.6rem',
+                       fontWeight: 600,
+                       px: 1,
+                       py: 0.25,
+                       borderRadius: '12px',
+                       letterSpacing: '0.02em',
+                       border: isDemoMode() ? '1px solid rgba(255, 193, 7, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
+                       display: 'flex',
+                       alignItems: 'center',
+                       gap: 0.5,
+                       width: 'fit-content',
+                         cursor: isMobileView ? 'pointer' : 'default',
+                       }}
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         if (isMobileView) {
+                           setSnackbarOpen(true);
+                         }
+                       }}
+                     >
                       {isMobileView ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
-                          Demo (Fee: N/A)
+                          {creativeProfile?.subscription_tier || 'Loading...'}
                         </Box>
                       ) : (
                         <Tooltip
-                          title="Demo mode does not allow real transactions, so no percentage fee is taken from the user."
+                          title={`Current plan: ${creativeProfile?.subscription_tier || 'Loading...'}`}
                           arrow
                           placement="top"
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
-                            Demo (Fee: N/A)
+                            {creativeProfile?.subscription_tier || 'Loading...'}
                           </Box>
                         </Tooltip>
                       )}
@@ -469,26 +507,28 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                     }}>
                       Storage
                     </Typography>
-                    <Button
-                      size="small"
-                      sx={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                        color: 'white',
-                        px: 1,
-                        py: 0.25,
-                        minWidth: 'auto',
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        borderRadius: 1.5,
-                        transition: 'all 0.2s ease-in-out',
-                        '&:hover': {
-                          backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                          transform: 'translateY(-1px)',
-                        },
-                      }}
-                    >
-                      Upgrade
-                    </Button>
+                                                               <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          size="small"
+                          sx={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                            color: 'white',
+                            px: 1,
+                            py: 0.25,
+                            minWidth: 'auto',
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            borderRadius: 1.5,
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                              transform: 'translateY(-1px)',
+                            },
+                          }}
+                        >
+                          Upgrade
+                        </Button>
+                      </Box>
                   </Box>
                   
                   <Typography variant="body2" sx={{ 
@@ -497,7 +537,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                     fontSize: '0.75rem',
                     fontWeight: 400
                   }}>
-                    0 GB of 0 GB used
+                    {`${formatStorage(creativeProfile?.storage_used_bytes || 0)} of ${formatStorage(creativeProfile?.storage_limit_bytes || 0)} used`}
                   </Typography>
                   
                   <Box sx={{
@@ -508,19 +548,15 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                     overflow: 'hidden',
                     mb: 0.5,
                     position: 'relative',
-                    '&::before': {
-                      content: '""',
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      background: `linear-gradient(45deg, transparent 30%, ${theme.palette.error.main} 30%, ${theme.palette.error.main} 70%, transparent 70%), linear-gradient(-45deg, transparent 30%, ${theme.palette.error.main} 30%, ${theme.palette.error.main} 70%, transparent 70%)`,
-                      backgroundSize: '8px 8px',
-                      zIndex: 1,
-                    }
                   }}>
-                    {/* Empty progress bar - no fill since 0 GB of 0 GB */}
+                    {/* Storage progress bar */}
+                    <Box sx={{
+                      width: `${getStoragePercentage()}%`,
+                      height: '100%',
+                      backgroundColor: getStoragePercentage() > 80 ? theme.palette.error.main : theme.palette.success.main,
+                      borderRadius: 2,
+                      transition: 'width 0.3s ease-in-out',
+                    }} />
                   </Box>
                   
                   <Typography variant="caption" sx={{ 
@@ -528,7 +564,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                     fontSize: '0.65rem',
                     fontWeight: 300
                   }}>
-                    0 GB remaining
+                    {`${formatStorage((creativeProfile?.storage_limit_bytes || 0) - (creativeProfile?.storage_used_bytes || 0))} remaining`}
                   </Typography>
                 </Box>
               </Box>
@@ -545,11 +581,18 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
       onClose={() => setUserMenuAnchor(null)} 
       isOpen={isOpen}
     />
+
+    {/* Invite Client Popover */}
+    <InviteClientPopover
+      open={inviteClientOpen}
+      onClose={closeInviteClient}
+    />
+
     <Snackbar
       open={snackbarOpen}
       autoHideDuration={2500}
       onClose={() => setSnackbarOpen(false)}
-      message="Demo mode does not allow real transactions, so no percentage fee is taken from the user."
+      message={isDemoMode() ? "Demo mode is active - using demo data instead of API calls" : "Demo mode does not allow real transactions, so no percentage fee is taken from the user."}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
     />
     </>

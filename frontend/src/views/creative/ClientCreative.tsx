@@ -5,20 +5,20 @@ import {
 } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { ClientTable, mockClients } from '../../components/tables/ClientTable';
+import { InviteClientPopover } from '../../components/popovers/InviteClientPopover';
+import { useInviteClient } from '../../hooks/useInviteClient';
 
 export function ClientCreative() {
   const [clients] = useState(mockClients);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
   };
   const handleStatusFilterChange = (value: 'all' | 'active' | 'inactive') => {
     setStatusFilter(value);
-  };
-  const handleInviteClient = () => {
-    console.log('Invite client clicked');
   };
 
   return (
@@ -93,6 +93,12 @@ export function ClientCreative() {
           statusFilter={statusFilter}
           onStatusFilterChange={handleStatusFilterChange}
           onInviteClient={handleInviteClient}
+        />
+
+        {/* Invite Client Popover */}
+        <InviteClientPopover
+          open={inviteClientOpen}
+          onClose={closeInviteClient}
         />
       </Box>
     </LayoutCreative>

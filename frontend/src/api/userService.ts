@@ -90,6 +90,57 @@ export interface BatchSetupResponse {
   message: string;
 }
 
+export interface CreativeProfile {
+  user_id: string;
+  display_name: string;
+  title: string;
+  bio?: string;
+  subscription_tier: string;
+  primary_contact?: string;
+  secondary_contact?: string;
+  profile_banner_url?: string;
+  profile_source: string;
+  storage_used_bytes: number;
+  storage_limit_bytes: number;
+  created_at: string;
+}
+
+export interface ClientProfile {
+  user_id: string;
+  display_name: string;
+  title: string;
+  email: string;
+  profile_banner_url?: string;
+  profile_source: string;
+  created_at: string;
+}
+
+export interface AdvocateProfile {
+  user_id: string;
+  display_name?: string;
+  profile_banner_url?: string;
+  profile_source: string;
+  tier: string;
+  fp_affiliate_id?: string;
+  fp_referral_code?: string;
+  fp_referral_link?: string;
+  active_referrals: number;
+  currency: string;
+  total_earned: number;
+  earned_this_month: number;
+  total_paid_out: number;
+  pending_payout: number;
+  last_payout_at?: string;
+  last_synced_at?: string;
+  sync_source: string;
+  created_at: string;
+}
+
+export interface UserRoleProfiles {
+  creative?: CreativeProfile;
+  client?: ClientProfile;
+  advocate?: AdvocateProfile;
+}
 export const userService = {
   /**
    * Get the current user's profile
@@ -121,7 +172,7 @@ export const userService = {
   async setupCreativeProfile(setupData: CreativeSetupRequest): Promise<CreativeSetupResponse> {
     const headers = await getAuthHeaders();
     const response = await axios.post<CreativeSetupResponse>(
-      `${API_BASE_URL}/users/creative-setup`,
+      `${API_BASE_URL}/creative/setup`,
       setupData,
       { headers }
     );
@@ -134,7 +185,7 @@ export const userService = {
   async setupClientProfile(setupData: ClientSetupRequest): Promise<ClientSetupResponse> {
     const headers = await getAuthHeaders();
     const response = await axios.post<ClientSetupResponse>(
-      `${API_BASE_URL}/users/client-setup`,
+      `${API_BASE_URL}/client/setup`,
       setupData,
       { headers }
     );
@@ -147,7 +198,7 @@ export const userService = {
   async setupAdvocateProfile(): Promise<AdvocateSetupResponse> {
     const headers = await getAuthHeaders();
     const response = await axios.post<AdvocateSetupResponse>(
-      `${API_BASE_URL}/users/advocate-setup`,
+      `${API_BASE_URL}/advocate/setup`,
       {}, // No body needed, backend uses hardcoded values
       { headers }
     );
@@ -174,6 +225,53 @@ export const userService = {
     const response = await axios.post<BatchSetupResponse>(
       `${API_BASE_URL}/users/batch-setup`,
       setupData,
+      { headers }
+    );
+    return response.data;
+  },
+  /**
+   * Get all role profiles for the current user
+   */
+  async getUserRoleProfiles(): Promise<UserRoleProfiles> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<UserRoleProfiles>(
+      `${API_BASE_URL}/users/role-profiles`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get the current user's creative profile
+   */
+  async getCreativeProfile(): Promise<CreativeProfile> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<CreativeProfile>(
+      `${API_BASE_URL}/creative/profile`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get the current user's client profile
+   */
+  async getClientProfile(): Promise<ClientProfile> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<ClientProfile>(
+      `${API_BASE_URL}/client/profile`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get the current user's advocate profile
+   */
+  async getAdvocateProfile(): Promise<AdvocateProfile> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<AdvocateProfile>(
+      `${API_BASE_URL}/advocate/profile`,
       { headers }
     );
     return response.data;

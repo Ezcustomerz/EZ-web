@@ -279,8 +279,8 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
 
   // Month navigation
   const [monthTransition, setMonthTransition] = useState<'left' | 'right' | null>(null);
-  function handlePrevMonth() { setMonthTransition('right'); setTimeout(() => { setCurrentMonth(subMonths(currentMonth, 1)); setMonthTransition(null); }, 180); }
-  function handleNextMonth() { setMonthTransition('left'); setTimeout(() => { setCurrentMonth(addMonths(currentMonth, 1)); setMonthTransition(null); }, 180); }
+  function handlePrevMonth() { setMonthTransition('left'); setTimeout(() => { setCurrentMonth(subMonths(currentMonth, 1)); setMonthTransition(null); }, 180); }
+  function handleNextMonth() { setMonthTransition('right'); setTimeout(() => { setCurrentMonth(addMonths(currentMonth, 1)); setMonthTransition(null); }, 180); }
 
   // Calendar grid generation
   const monthStart = startOfMonth(currentMonth);
@@ -555,7 +555,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
               </Box>
             </Box>
             {/* Calendar grid with animated transition */}
-            <Box sx={{ position: 'relative', flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'visible', height: '100%' }}>
+            <Box sx={{ position: 'relative', flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', minHeight: 0, height: '100%' }}>
               <Fade in={!monthTransition} timeout={180} style={{ transitionDelay: monthTransition ? '180ms' : '0ms' }}>
                 <Paper sx={{
                   p: { xs: 0.5, sm: 2 },

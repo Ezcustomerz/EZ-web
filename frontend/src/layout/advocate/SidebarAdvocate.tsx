@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   List,
@@ -21,6 +21,10 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl } from '@fortawesome/free-solid-svg-icons';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
+import { useAuth } from '../../context/auth';
+import { useLoading } from '../../context/loading';
+import { userService, type AdvocateProfile } from '../../api/userService';
+import advocateUserData from '../../../demoData/advocateUserData.json';
 
 interface SidebarAdvocateProps {
   isOpen: boolean;
@@ -32,14 +36,118 @@ interface SidebarAdvocateProps {
 
 export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarAdvocateProps) {
   const theme = useTheme();
+  const { userProfile } = useAuth();
+  const { setProfileLoading } = useLoading();
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
+  const [advocateProfile, setAdvocateProfile] = useState<AdvocateProfile | null>(null);
+  const fetchingRef = useRef<Set<string>>(new Set());
+  
+  // Helper function to check if we've already fetched profile for current user
+  const hasFetchedProfileForUser = (userId: string) => {
+    const cachedProfile = localStorage.getItem(`advocateProfile_${userId}`);
+    return cachedProfile !== null;
+  };
+  
+  // Helper function to get cached profile for current user
+  const getCachedProfileForUser = (userId: string) => {
+    const cachedProfile = localStorage.getItem(`advocateProfile_${userId}`);
+    return cachedProfile ? JSON.parse(cachedProfile) : null;
+  };
+  
+  // Helper function to cache profile for current user
+  const cacheProfileForUser = (userId: string, profile: AdvocateProfile) => {
+    localStorage.setItem(`advocateProfile_${userId}`, JSON.stringify(profile));
+  };
+  
+  // Helper function to clear cached profiles (on logout)
+  const clearCachedProfiles = () => {
+    // Clear all advocate profile caches
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('advocateProfile_')) {
+        localStorage.removeItem(key);
+      }
+    });
+  };
 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
   ];
 
   const sidebarWidth = isMobile ? 280 : (isOpen ? 280 : 64);
+
+
+  // Initialize with demo data on component mount
+  useEffect(() => {
+    if (!advocateProfile) {
+      setAdvocateProfile(advocateUserData as unknown as AdvocateProfile);
+    }
+  }, []);
+
+  // Fetch advocate profile when userProfile changes
+  useEffect(() => {
+    console.log('[SidebarAdvocate] useEffect triggered', { 
+      userProfile: userProfile?.user_id, 
+      hasProfile: !!advocateProfile,
+      hasFetched: userProfile ? hasFetchedProfileForUser(userProfile.user_id) : false,
+      isFetching: userProfile ? fetchingRef.current.has(userProfile.user_id) : false
+    });
+    
+    const loadProfile = async () => {
+      if (!userProfile) {
+        console.log('[SidebarAdvocate] No userProfile, setting demo data');
+        setAdvocateProfile(advocateUserData as unknown as AdvocateProfile);
+        setProfileLoading(false);
+        clearCachedProfiles();
+        return;
+      }
+      
+      // If we already fetched the profile for this user, restore from cache
+      if (hasFetchedProfileForUser(userProfile.user_id)) {
+        console.log('[SidebarAdvocate] Profile already fetched for user, restoring from cache');
+        const cachedProfile = getCachedProfileForUser(userProfile.user_id);
+        if (cachedProfile) {
+          setAdvocateProfile(cachedProfile);
+        }
+        setProfileLoading(false);
+        return;
+      }
+      
+      // If we're already fetching for this user, don't start another fetch
+      if (fetchingRef.current.has(userProfile.user_id)) {
+        console.log('[SidebarAdvocate] Already fetching for user, skipping duplicate call');
+        return;
+      }
+      
+      console.log('[SidebarAdvocate] Fetching advocate profile for user:', userProfile.user_id);
+      console.log('[SidebarAdvocate] User roles:', userProfile.roles);
+      
+      // Check if user has advocate role
+      if (!userProfile.roles.includes('advocate')) {
+        console.log('[SidebarAdvocate] User does not have advocate role, using demo data');
+        setAdvocateProfile(advocateUserData as unknown as AdvocateProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
+      fetchingRef.current.add(userProfile.user_id);
+      setProfileLoading(true);
+      try {
+        const profile = await userService.getAdvocateProfile();
+        console.log('[SidebarAdvocate] Advocate profile fetched successfully:', profile);
+        setAdvocateProfile(profile);
+        cacheProfileForUser(userProfile.user_id, profile);
+      } catch (e) {
+        console.error('[SidebarAdvocate] Failed to load advocate profile:', e);
+        setAdvocateProfile(advocateUserData as unknown as AdvocateProfile);
+      } finally {
+        fetchingRef.current.delete(userProfile.user_id);
+        setProfileLoading(false);
+      }
+    };
+    loadProfile();
+  }, [userProfile]);
 
   function handleUserPanelClick(event: React.MouseEvent<HTMLElement>) {
     setUserMenuAnchor(event.currentTarget);
@@ -230,16 +338,21 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                     '&:hover': { transform: 'translateY(-1px)' },
                   }}
                 >
-                  <Avatar sx={{
-                    width: 36,
-                    height: 36,
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    border: '2px solid rgba(255, 255, 255, 0.3)',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                    transition: 'all 0.2s ease-in-out',
-                    transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
-                  }}>
-                    <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
+                  <Avatar 
+                    src={advocateProfile?.profile_banner_url}
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                      border: '2px solid rgba(255, 255, 255, 0.3)',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                      transition: 'all 0.2s ease-in-out',
+                      transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
+                    }}
+                  >
+                    {!advocateProfile?.profile_banner_url && (
+                      <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
+                    )}
                   </Avatar>
                   {/* Role Sash */}
                   <Box
@@ -295,15 +408,20 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                   {/* User Profile Section */}
                   <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                     <Box sx={{ position: 'relative', mr: 2 }}>
-                      <Avatar sx={{
-                        width: 52,
-                        height: 52,
-                        backgroundColor: 'rgba(255, 255, 255, 0.25)',
-                        border: '2px solid rgba(255, 255, 255, 0.4)',
-                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-                        transition: 'all 0.2s ease-in-out',
-                      }}>
-                        <PersonOutlined sx={{ color: 'white', fontSize: '26px' }} />
+                      <Avatar 
+                        src={advocateProfile?.profile_banner_url}
+                        sx={{
+                          width: 52,
+                          height: 52,
+                          backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                          border: '2px solid rgba(255, 255, 255, 0.4)',
+                          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+                          transition: 'all 0.2s ease-in-out',
+                        }}
+                      >
+                        {!advocateProfile?.profile_banner_url && (
+                          <PersonOutlined sx={{ color: 'white', fontSize: '26px' }} />
+                        )}
                       </Avatar>
                       {/* Role Sash */}
                       <Box
@@ -338,11 +456,11 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                         mb: 0.5,
                         textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
                       }}>
-                        Demo User
+                        {advocateProfile?.display_name || 'Demo User'}
                       </Typography>
                       <Chip
                         icon={<EmojiEventsOutlined sx={{ fontSize: 16, color: '#C0C0C0' }} />}
-                        label="Silver • 18%"
+                        label={`${advocateProfile?.tier || 'Silver'} • ${advocateProfile?.active_referrals || 0} refs`}
                         size="small"
                         sx={{
                           backgroundColor: 'rgba(192, 192, 192, 0.2)',

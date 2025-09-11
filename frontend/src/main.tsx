@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode, useEffect, useState, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
@@ -13,6 +13,20 @@ import { ClientOrders } from './views/client/OrdersClient.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
+
+// Inline theme configuration to avoid network request
+const defaultThemeConfig: ColorConfig = {
+  primary: "#7A5FFF",
+  secondary: "#339BFF",
+  accent: "#FFCD38",
+  text: "#241E1A",
+  textSecondary: "#6B7280",
+  background: "#FFFFFF",
+  success: "#10B981",
+  error: "#EF4444",
+  warning: "#F59E0B",
+  info: "#3B82F6"
+};
 // Import Supabase configuration to trigger connection test
 import './config/supabase'
 import { ScrollToTop } from './utils/ScrollToTop.tsx'
@@ -24,6 +38,7 @@ import { ClientSetupPopover } from './components/popovers/ClientSetupPopover'
 import { AdvocateSetupPopover } from './components/popovers/AdvocateSetupPopover'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { ToastProvider } from './components/toast/toast'
+import { LoadingProvider } from './context/loading'
 
 function AppContent() {
   const { 
@@ -34,10 +49,8 @@ function AppContent() {
     userProfile,
     producerSetupOpen,
     closeCreativeSetup,
-    openCreativeSetup,
     clientSetupOpen,
     closeClientSetup,
-    openClientSetup,
     advocateSetupOpen,
     closeAdvocateSetup,
     openAdvocateSetup,
@@ -60,7 +73,12 @@ function AppContent() {
         <Route path="/client/orders" element={<ClientOrders />} />
         <Route path="/advocate" element={<DashAdvocate />} />
       </Routes>
-      <AuthPopover open={authOpen} onClose={closeAuth} />
+      <AuthPopover 
+        open={authOpen} 
+        onClose={closeAuth} 
+        title="Sign Up / Sign In"
+        subtitle="Sign in with Google to create an account"
+      />
       <RoleSelectionPopover 
         open={roleSelectionOpen} 
         onClose={closeRoleSelection}
@@ -81,7 +99,7 @@ function AppContent() {
         userName={userProfile?.name}
         userEmail={userProfile?.email}
         onBack={backToRoleSelection}
-        isFirstSetup={false}
+        isFirstSetup={isFirstSetup}
       />
       <AdvocateSetupPopover 
         open={advocateSetupOpen}
@@ -89,70 +107,74 @@ function AppContent() {
         userName={userProfile?.name}
         userEmail={userProfile?.email}
         onBack={backToRoleSelection}
-        isFirstSetup={false}
+        isFirstSetup={isFirstSetup}
       />
     </>
   );
 }
 
-function Root() {
-  const [theme, setTheme] = useState<any>(null);
+function ThemeLoader({ children }: { children: ReactNode }) {
+  const [theme, setTheme] = useState(() => createAppTheme(defaultThemeConfig));
 
   useEffect(() => {
-    fetch('/appTheme.json')
-      .then(res => res.json())
-      .then((data: ColorConfig) => {
-        setTheme(createAppTheme(data));
-        // Set CSS variables for any non-MUI styling
-        Object.entries(data).forEach(([key, value]) => {
-          document.documentElement.style.setProperty(`--${key}`, value);
+    // Set CSS variables immediately with default theme
+    Object.entries(defaultThemeConfig).forEach(([key, value]) => {
+      document.documentElement.style.setProperty(`--${key}`, value);
+    });
+
+    // Try to load custom theme in background (non-blocking)
+    // Use requestIdleCallback for better performance
+    const loadCustomTheme = () => {
+      fetch('/appTheme.json')
+        .then(res => res.json())
+        .then((data: ColorConfig) => {
+          setTheme(createAppTheme(data));
+          // Update CSS variables with custom theme
+          Object.entries(data).forEach(([key, value]) => {
+            document.documentElement.style.setProperty(`--${key}`, value);
+          });
+        })
+        .catch(error => {
+          console.warn('Failed to load custom theme, using default:', error);
+          // Keep using default theme
         });
-      })
-      .catch(error => {
-        console.error('Failed to load theme:', error);
-        // Fallback to default theme if loading fails
-        const defaultColors: ColorConfig = {
-          primary: "#1A8FFF",
-          secondary: "#2E9C69",
-          accent: "#FF6B6B",
-          text: "#241E1A",
-          textSecondary: "#6F665F",
-          background: "#FFFFFF",
-          success: "#10B981",
-          error: "#EF4444",
-          warning: "#F59E0B",
-          info: "#3B82F6"
-        };
-        setTheme(createAppTheme(defaultColors));
-      });
+    };
+
+    // Load custom theme when browser is idle
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(loadCustomTheme);
+    } else {
+      setTimeout(loadCustomTheme, 100);
+    }
   }, []);
 
-  if (!theme) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh',
-        fontFamily: 'system-ui'
-      }}>
-        Loading...
-      </div>
-    );
-  }
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+}
 
+function Root() {
   return (
     <StrictMode>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <BrowserRouter>
-          <ToastProvider>
-            <AuthProvider>
-              <AppContent />
-            </AuthProvider>
-          </ToastProvider>
-        </BrowserRouter>
-      </ThemeProvider>
+      <LoadingProvider>
+        <ThemeLoader>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true
+            }}
+          >
+            <ToastProvider>
+              <AuthProvider>
+                <AppContent />
+              </AuthProvider>
+            </ToastProvider>
+          </BrowserRouter>
+        </ThemeLoader>
+      </LoadingProvider>
     </StrictMode>
   );
 }

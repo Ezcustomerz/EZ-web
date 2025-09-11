@@ -35,6 +35,8 @@ export function createAppTheme(colors: ColorConfig): ThemeOptions {
     const successHex = colors.success;
 
     return createTheme({
+        // Optimize for performance
+        unstable_strictMode: false,
         palette: {
             mode: 'light',
             primary: {

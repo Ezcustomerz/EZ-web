@@ -118,7 +118,7 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
   return (
     <Dialog
       open={open}
-      onClose={undefined} // Make it non-dismissible
+      onClose={undefined}
       fullScreen={isMobile}
       slots={{ transition: Transition }}
       maxWidth={isMobile ? false : 'sm'}

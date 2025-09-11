@@ -3,9 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from utils.limiter import limiter
-from routers import auth, users
-from utils.verify import jwt_auth_middleware
+from api.advocate import advocate_router
+from api.client import client_router
+from api.creative import creative_router
+from api.user import user_router
+from core.limiter import limiter
+from api import auth
+from core.verify import jwt_auth_middleware
 # Import database module to trigger connection test
 from db import db_session
 
@@ -24,7 +28,10 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
-app.include_router(users.router)
+app.include_router(user_router.router)
+app.include_router(creative_router.router)
+app.include_router(client_router.router)
+app.include_router(advocate_router.router)
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
