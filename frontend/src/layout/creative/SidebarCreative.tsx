@@ -30,7 +30,9 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { InviteClientButton } from '../../components/buttons/CassetteButton';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
+import { InviteClientPopover } from '../../components/popovers/InviteClientPopover';
 import { useAuth } from '../../context/auth';
+import { useInviteClient } from '../../hooks/useInviteClient';
 import { type CreativeProfile } from '../../api/userService';
 import React from 'react';
 
@@ -48,6 +50,7 @@ interface SidebarCreativeProps {
 export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false, providedProfile }: SidebarCreativeProps) {
   const theme = useTheme();
   const { userProfile, session } = useAuth();
+  const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
   const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
@@ -94,10 +97,6 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
     ? 280
     : (isOpen ? 280 : 64);
 
-  function handleInviteClient() {
-    console.log('Invite client clicked');
-    // Add your invite client logic here
-  }
 
   function handleUserPanelClick(event: React.MouseEvent<HTMLElement>) {
     setUserMenuAnchor(event.currentTarget);
@@ -582,13 +581,20 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
       onClose={() => setUserMenuAnchor(null)} 
       isOpen={isOpen}
     />
-         <Snackbar
-       open={snackbarOpen}
-       autoHideDuration={2500}
-       onClose={() => setSnackbarOpen(false)}
-       message={isDemoMode() ? "Demo mode is active - using demo data instead of API calls" : "Demo mode does not allow real transactions, so no percentage fee is taken from the user."}
-       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-     />
+
+    {/* Invite Client Popover */}
+    <InviteClientPopover
+      open={inviteClientOpen}
+      onClose={closeInviteClient}
+    />
+
+    <Snackbar
+      open={snackbarOpen}
+      autoHideDuration={2500}
+      onClose={() => setSnackbarOpen(false)}
+      message={isDemoMode() ? "Demo mode is active - using demo data instead of API calls" : "Demo mode does not allow real transactions, so no percentage fee is taken from the user."}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    />
     </>
   );
 } 
