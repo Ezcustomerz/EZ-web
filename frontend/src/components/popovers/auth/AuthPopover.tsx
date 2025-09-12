@@ -15,10 +15,10 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 // Use the full-color Google "G" mark instead of monochrome icon
-import { supabase } from '../../config/supabase';
+import { supabase } from '../../../config/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl, faEye } from '@fortawesome/free-solid-svg-icons';
-import { errorToast } from '../toast/toast';
+import { errorToast } from '../../../components/toast/toast';
 
 export interface AuthPopoverProps {
   open: boolean;

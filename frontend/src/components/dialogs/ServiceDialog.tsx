@@ -1,4 +1,4 @@
-import { Edit, Delete, Block } from '@mui/icons-material';
+import { Edit, Delete, Block, CheckCircle } from '@mui/icons-material';
 import MenuList from '@mui/material/MenuList';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -15,9 +15,10 @@ export interface ServiceDialogProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onDisable?: () => void;
+  isEnabled?: boolean;
 }
 
-export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete, onDisable }: ServiceDialogProps) {
+export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete, onDisable, isEnabled = true }: ServiceDialogProps) {
   return (
     <Popper
       anchorEl={anchorEl}
@@ -162,9 +163,9 @@ export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete, onDis
               }}
             >
               <ListItemIcon className="menu-icon" sx={{ minWidth: 24, color: '#6B7280', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                <Block fontSize="small" />
+                {isEnabled ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
               </ListItemIcon>
-              <ListItemText primary="Disable" sx={{ '& .MuiListItemText-primary': { fontSize: '0.9rem', fontWeight: 500, color: '#241E1A' } }} />
+              <ListItemText primary={isEnabled ? "Disable" : "Enable"} sx={{ '& .MuiListItemText-primary': { fontSize: '0.9rem', fontWeight: 500, color: '#241E1A' } }} />
             </MenuItem>
             <Divider sx={{
               my: 0.25,

@@ -7,7 +7,7 @@ import demoCreativeData from '../../../demoData/creativeUserData.json';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
-import { IntentAuthGate } from '../../components/popovers/IntentAuthGate';
+import { IntentAuthGate } from '../../components/popovers/auth/IntentAuthGate';
 import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 

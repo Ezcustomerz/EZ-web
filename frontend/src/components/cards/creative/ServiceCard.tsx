@@ -21,9 +21,10 @@ export interface ServiceCardProps {
   onDelete?: () => void;
   onDisable?: () => void;
   color: string;
+  isEnabled?: boolean;
 }
 
-export function ServiceCard({ title, description, price, delivery, status, creative, onEdit, onDelete, onDisable, color }: ServiceCardProps) {
+export function ServiceCard({ title, description, price, delivery, status, creative, onEdit, onDelete, onDisable, color, isEnabled = true }: ServiceCardProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -38,21 +39,21 @@ export function ServiceCard({ title, description, price, delivery, status, creat
         flexDirection: 'column',
         justifyContent: 'space-between',
         borderRadius: 1,
-        boxShadow: '0px 1.5px 6px rgba(59,130,246,0.05)',
+        boxShadow: isEnabled ? '0px 1.5px 6px rgba(59,130,246,0.05)' : '0px 1px 3px rgba(0,0,0,0.08)',
         p: { xs: 1.2, sm: 1.6 },
-        transition: 'box-shadow 0.18s, transform 0.18s',
+        transition: 'box-shadow 0.18s, transform 0.18s, opacity 0.2s',
         cursor: 'pointer',
         backgroundColor: theme.palette.background.paper,
         '&:hover': {
-          boxShadow: `0 4px 16px ${color}`,
-          transform: 'scale(1.025) translateY(-2px)',
+          boxShadow: isEnabled ? `0 4px 16px ${color}` : '0px 2px 8px rgba(0,0,0,0.12)',
+          transform: isEnabled ? 'scale(1.025) translateY(-2px)' : 'scale(1.01) translateY(-1px)',
         },
       }}
     >
       <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Top row: Title + More menu */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Box sx={{ mb: 1 }}>
+          <Box sx={{ mb: 1, opacity: isEnabled ? 1 : 0.6, filter: isEnabled ? 'none' : 'grayscale(40%)' }}>
             <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary' }}>
               {title}
             </Typography>
@@ -71,8 +72,20 @@ export function ServiceCard({ title, description, price, delivery, status, creat
           </Box>
             <IconButton
               size="small"
-            sx={{ color: 'primary.main', background: '#fff', border: '2px solid', borderColor: 'primary.main', boxShadow: '0 2px 8px 0 rgba(59,130,246,0.10)' }}
-            onClick={handleMenuOpen}
+              sx={{
+                color: 'primary.main',
+                backgroundColor: '#ffffff',
+                border: '2px solid',
+                borderColor: 'primary.main',
+                boxShadow: '0 3px 12px rgba(59,130,246,0.25)',
+                transition: 'box-shadow 0.2s, transform 0.2s, background-color 0.2s',
+                '&:hover, &:focus': {
+                  backgroundColor: '#eef5ff',
+                  boxShadow: '0 6px 18px rgba(59,130,246,0.35)',
+                  transform: 'scale(1.06)'
+                }
+              }}
+              onClick={handleMenuOpen}
             >
             <MoreVert fontSize="small" />
             </IconButton>
@@ -83,6 +96,7 @@ export function ServiceCard({ title, description, price, delivery, status, creat
             onEdit={onEdit}
             onDelete={onDelete}
             onDisable={onDisable}
+            isEnabled={isEnabled}
           />
         </Box>
         {/* Description */}
@@ -97,6 +111,8 @@ export function ServiceCard({ title, description, price, delivery, status, creat
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            opacity: isEnabled ? 1 : 0.6,
+            filter: isEnabled ? 'none' : 'grayscale(40%)',
           }}
         >
           {description}
@@ -111,6 +127,8 @@ export function ServiceCard({ title, description, price, delivery, status, creat
             gap: { xs: 1, sm: 0 },
             mt: 'auto',
             pt: 1,
+            opacity: isEnabled ? 1 : 0.6,
+            filter: isEnabled ? 'none' : 'grayscale(40%)',
           }}
         >
           <Typography fontWeight={700} color="primary" fontSize="1rem" sx={{ mb: { xs: 0.5, sm: 0 } }}>

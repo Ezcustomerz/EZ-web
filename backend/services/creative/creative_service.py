@@ -1,7 +1,8 @@
 from fastapi import HTTPException
 from db.db_session import db_admin
-from schemas.creative import CreativeSetupRequest, CreativeSetupResponse
+from schemas.creative import CreativeSetupRequest, CreativeSetupResponse, CreativeClientsListResponse, CreativeClientResponse, CreativeServicesListResponse, CreativeServiceResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, ToggleServiceStatusRequest, ToggleServiceStatusResponse, UpdateServiceResponse
 from core.validation import validate_contact_field
+import re
 
 class CreativeController:
     @staticmethod
@@ -112,3 +113,290 @@ class CreativeController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to fetch creative profile: {str(e)}")
+
+    @staticmethod
+    async def get_creative_clients(user_id: str) -> CreativeClientsListResponse:
+        """Get all clients associated with the creative"""
+        try:
+            # First get the creative_client_relationships for this creative
+            relationships_result = db_admin.table('creative_client_relationships').select(
+                'id, status, total_spent, projects_count, client_user_id'
+            ).eq('creative_user_id', user_id).order('updated_at', desc=True).execute()
+            
+            if not relationships_result.data:
+                return CreativeClientsListResponse(clients=[], total_count=0)
+            
+            clients = []
+            for relationship in relationships_result.data:
+                client_user_id = relationship['client_user_id']
+                
+                # Get client details
+                client_result = db_admin.table('clients').select(
+                    'display_name, email'
+                ).eq('user_id', client_user_id).single().execute()
+                
+                # Get user details
+                user_result = db_admin.table('users').select(
+                    'name'
+                ).eq('user_id', client_user_id).single().execute()
+                
+                if not client_result.data or not user_result.data:
+                    continue  # Skip if client or user data not found
+                
+                client_data = client_result.data
+                user_data = user_result.data
+                
+                # Determine contact type and primary contact
+                contact = client_data.get('email', '')
+                contact_type = 'email'
+                
+                # If no email, we might need to check for phone in the future
+                if not contact:
+                    contact = 'No contact info'
+                    contact_type = 'email'
+                
+                # Use display_name if available, otherwise use name
+                client_name = client_data.get('display_name') or user_data.get('name', 'Unknown Client')
+                
+                client = CreativeClientResponse(
+                    id=relationship['id'],
+                    name=client_name,
+                    contact=contact,
+                    contactType=contact_type,
+                    status=relationship.get('status', 'active'),
+                    totalSpent=float(relationship.get('total_spent', 0)),
+                    projects=int(relationship.get('projects_count', 0))
+                )
+                clients.append(client)
+            
+            return CreativeClientsListResponse(
+                clients=clients,
+                total_count=len(clients)
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch creative clients: {str(e)}")
+
+    @staticmethod
+    async def get_creative_services(user_id: str) -> CreativeServicesListResponse:
+        """Get all services associated with the creative"""
+        try:
+            # Query the creative_services table for this creative user
+            result = db_admin.table('creative_services').select(
+                'id, title, description, price, delivery_time, status, color, is_active, is_enabled, created_at, updated_at'
+            ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
+            
+            if not result.data:
+                return CreativeServicesListResponse(services=[], total_count=0)
+            
+            services = []
+            for service_data in result.data:
+                service = CreativeServiceResponse(
+                    id=service_data['id'],
+                    title=service_data['title'],
+                    description=service_data['description'],
+                    price=float(service_data['price']),
+                    delivery_time=service_data['delivery_time'],
+                    status=service_data['status'],
+                    color=service_data['color'],
+                    is_active=service_data['is_active'],
+                    is_enabled=service_data.get('is_enabled', True),  # Default to True for backward compatibility
+                    created_at=service_data['created_at'],
+                    updated_at=service_data['updated_at']
+                )
+                services.append(service)
+            
+            return CreativeServicesListResponse(
+                services=services,
+                total_count=len(services)
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch creative services: {str(e)}")
+
+    @staticmethod
+    async def create_service(user_id: str, service_request: CreateServiceRequest) -> CreateServiceResponse:
+        """Create a new service for the creative"""
+        try:
+            # Validate that the user has a creative profile
+            creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
+            if not creative_result.data:
+                raise HTTPException(status_code=404, detail="Creative profile not found. Please complete your creative setup first.")
+            
+            # Validate price is positive
+            if service_request.price <= 0:
+                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+            
+            # Validate status
+            if service_request.status not in ['Public', 'Private']:
+                raise HTTPException(status_code=422, detail="Status must be either 'Public' or 'Private'")
+            
+            # Prepare service data
+            service_data = {
+                'creative_user_id': user_id,
+                'title': service_request.title.strip(),
+                'description': service_request.description.strip(),
+                'price': service_request.price,
+                'delivery_time': service_request.delivery_time,
+                'status': service_request.status,
+                'color': service_request.color,
+                'is_active': True
+            }
+            
+            # Insert the service
+            result = db_admin.table('creative_services').insert(service_data).execute()
+            
+            if not result.data:
+                raise HTTPException(status_code=500, detail="Failed to create service")
+            
+            service_id = result.data[0]['id']
+            
+            return CreateServiceResponse(
+                success=True,
+                message="Service created successfully",
+                service_id=service_id
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+
+    @staticmethod
+    async def delete_service(user_id: str, service_id: str) -> DeleteServiceResponse:
+        """Soft delete a service by setting is_active to False"""
+        try:
+            # First, verify the service exists and belongs to the user
+            service_result = db_admin.table('creative_services').select(
+                'id, creative_user_id, is_active, title'
+            ).eq('id', service_id).single().execute()
+            
+            if not service_result.data:
+                raise HTTPException(status_code=404, detail="Service not found")
+            
+            service_data = service_result.data
+            
+            # Check if the service belongs to the current user
+            if service_data['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to delete this service")
+            
+            # Check if service is already deleted
+            if not service_data['is_active']:
+                raise HTTPException(status_code=400, detail="Service is already deleted")
+            
+            # Soft delete by setting is_active to False and updating timestamp
+            result = db_admin.table('creative_services').update({
+                'is_active': False,
+                'updated_at': 'now()'
+            }).eq('id', service_id).execute()
+            
+            if not result.data:
+                raise HTTPException(status_code=500, detail="Failed to delete service")
+            
+            return DeleteServiceResponse(
+                success=True,
+                message=f"Service '{service_data['title']}' has been deleted successfully"
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete service: {str(e)}")
+
+    @staticmethod
+    async def toggle_service_status(user_id: str, service_id: str, toggle_request: ToggleServiceStatusRequest) -> ToggleServiceStatusResponse:
+        """Toggle service enabled/disabled status"""
+        try:
+            # First, verify the service exists and belongs to the user
+            service_result = db_admin.table('creative_services').select(
+                'id, creative_user_id, is_active, is_enabled, title'
+            ).eq('id', service_id).single().execute()
+            
+            if not service_result.data:
+                raise HTTPException(status_code=404, detail="Service not found")
+            
+            service_data = service_result.data
+            
+            # Check if the service belongs to the current user
+            if service_data['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to modify this service")
+            
+            # Check if service is deleted
+            if not service_data['is_active']:
+                raise HTTPException(status_code=400, detail="Cannot modify deleted service")
+            
+            # Check if service is already in the requested state
+            current_enabled = service_data.get('is_enabled', True)
+            if current_enabled == toggle_request.enabled:
+                status_word = "enabled" if toggle_request.enabled else "disabled"
+                raise HTTPException(status_code=400, detail=f"Service is already {status_word}")
+            
+            # Update the enabled status
+            result = db_admin.table('creative_services').update({
+                'is_enabled': toggle_request.enabled,
+                'updated_at': 'now()'
+            }).eq('id', service_id).execute()
+            
+            if not result.data:
+                raise HTTPException(status_code=500, detail="Failed to update service status")
+            
+            action_word = "enabled" if toggle_request.enabled else "disabled"
+            return ToggleServiceStatusResponse(
+                success=True,
+                message=f"Service '{service_data['title']}' has been {action_word}",
+                enabled=toggle_request.enabled
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to toggle service status: {str(e)}")
+
+    @staticmethod
+    async def update_service(user_id: str, service_id: str, service_request: CreateServiceRequest) -> UpdateServiceResponse:
+        """Update an existing service (same fields as create)."""
+        try:
+            # Verify the service exists and belongs to the user
+            service_result = db_admin.table('creative_services').select(
+                'id, creative_user_id, is_active'
+            ).eq('id', service_id).single().execute()
+
+            if not service_result.data:
+                raise HTTPException(status_code=404, detail="Service not found")
+
+            if service_result.data['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to edit this service")
+
+            if not service_result.data['is_active']:
+                raise HTTPException(status_code=400, detail="Cannot edit a deleted service")
+
+            if service_request.price <= 0:
+                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+
+            if service_request.status not in ['Public', 'Private']:
+                raise HTTPException(status_code=422, detail="Status must be either 'Public' or 'Private'")
+
+            update_data = {
+                'title': service_request.title.strip(),
+                'description': service_request.description.strip(),
+                'price': service_request.price,
+                'delivery_time': service_request.delivery_time,
+                'status': service_request.status,
+                'color': service_request.color,
+                'updated_at': 'now()'
+            }
+
+            result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
+            if not result.data:
+                raise HTTPException(status_code=500, detail="Failed to update service")
+
+            return UpdateServiceResponse(success=True, message="Service updated successfully")
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")

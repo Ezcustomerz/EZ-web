@@ -20,9 +20,9 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/auth';
 import { userService, type UserRoleProfiles } from '../../api/userService';
-import { CreativeSetupPopover } from './CreativeSetupPopover';
-import { ClientSetupPopover } from './ClientSetupPopover';
-import { AdvocateSetupPopover } from './AdvocateSetupPopover';
+import { CreativeSetupPopover } from './setup/CreativeSetupPopover';
+import { ClientSetupPopover } from './setup/ClientSetupPopover';
+import { AdvocateSetupPopover } from './setup/AdvocateSetupPopover';
 import { errorToast } from '../toast/toast';
 
 interface RoleData {

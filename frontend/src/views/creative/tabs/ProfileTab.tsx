@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import StarIcon from '@mui/icons-material/Star';
 import { ReviewCardSection } from '../../../components/sections/creative/ReviewCardSection';
-import { ReviewPopover } from '../../../components/popovers/ReviewPopover';
-import { SessionPopover } from '../../../components/popovers/ServicePopover';
+import { ReviewPopover } from '../../../components/popovers/creative/ReviewPopover';
+import { SessionPopover } from '../../../components/popovers/creative/ServicePopover';
 
 // Mock data for reviews
 const MOCK_REVIEWS = [

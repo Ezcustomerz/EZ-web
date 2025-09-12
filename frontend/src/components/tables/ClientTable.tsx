@@ -20,6 +20,7 @@ import {
   Tooltip,
   Stack,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
@@ -57,6 +58,7 @@ interface ClientTableProps {
   onStatusFilterChange: (value: 'all' | 'active' | 'inactive') => void;
   onInviteClient: () => void;
   itemsPerPage?: number;
+  loading?: boolean;
 }
 
 export const mockClients: Client[] = [
@@ -277,6 +279,7 @@ export function ClientTable({
   statusFilter,
   onStatusFilterChange,
   onInviteClient,
+  loading = false,
 }: ClientTableProps) {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -695,7 +698,18 @@ export function ClientTable({
           pt: 2,
         }}
       >
-        {totalItems === 0 ? (
+        {loading ? (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              py: 8,
+            }}
+          >
+            <CircularProgress size={40} />
+          </Box>
+        ) : totalItems === 0 ? (
           <Box
             sx={{
               width: '100%',
@@ -905,7 +919,31 @@ export function ClientTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {totalItems === 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  sx={{
+                    border: 0,
+                    p: 0,
+                    height: '100%',
+                    verticalAlign: 'middle',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      py: 8,
+                    }}
+                  >
+                    <CircularProgress size={40} />
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : totalItems === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}

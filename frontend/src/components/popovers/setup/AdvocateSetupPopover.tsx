@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -13,20 +13,13 @@ import {
   Slide,
   Card,
   CardContent,
-  Chip,
 } from '@mui/material';
-import {
-  Support,
-  Star,
-  TrendingUp,
-  Diamond,
-} from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 
-import { errorToast, successToast } from '../toast/toast';
-import { userService } from '../../api/userService';
-import { useAuth } from '../../context/auth';
+import { errorToast, successToast } from '../../../components/toast/toast';
+import { userService } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
 
 export interface AdvocateSetupPopoverProps {
   open: boolean;

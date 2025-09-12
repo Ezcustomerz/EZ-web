@@ -14,21 +14,14 @@ import {
   Slide,
   Card,
   CardContent,
-  Chip,
   Autocomplete,
 } from '@mui/material';
-import {
-  Business,
-  Email,
-  Person,
-  Star,
-} from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 
-import { errorToast, successToast } from '../toast/toast';
-import { userService } from '../../api/userService';
-import { useAuth } from '../../context/auth';
+import { errorToast, successToast } from '../../../components/toast/toast';
+import { userService } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
 
 export interface ClientSetupPopoverProps {
   open: boolean;

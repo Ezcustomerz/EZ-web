@@ -1,18 +1,64 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
 } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { ClientTable, mockClients } from '../../components/tables/ClientTable';
-import { InviteClientPopover } from '../../components/popovers/InviteClientPopover';
+import { InviteClientPopover } from '../../components/popovers/creative/InviteClientPopover';
 import { useInviteClient } from '../../hooks/useInviteClient';
+import { userService, type CreativeClient } from '../../api/userService';
+import { useAuth } from '../../context/auth';
+import { errorToast } from '../../components/toast/toast';
 
 export function ClientCreative() {
-  const [clients] = useState(mockClients);
+  const { isAuthenticated } = useAuth();
+  const [clients, setClients] = useState<CreativeClient[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
+  
+  // Ref to prevent duplicate API calls (especially in React StrictMode)
+  const fetchingRef = useRef(false);
+  const lastAuthStateRef = useRef<boolean | null>(null);
+
+  // Fetch clients when component mounts and user is authenticated
+  useEffect(() => {
+    const fetchClients = async () => {
+      // Prevent duplicate calls if already fetching or auth state hasn't changed
+      if (fetchingRef.current || lastAuthStateRef.current === isAuthenticated) {
+        return;
+      }
+
+      fetchingRef.current = true;
+      lastAuthStateRef.current = isAuthenticated;
+
+      if (!isAuthenticated) {
+        // In demo mode (not authenticated), use empty mock data
+        setClients(mockClients);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await userService.getCreativeClients();
+        setClients(response.clients);
+      } catch (error) {
+        console.error('Failed to fetch clients:', error);
+        errorToast('Failed to load clients');
+        // Fallback to empty array
+        setClients([]);
+      } finally {
+        setLoading(false);
+        fetchingRef.current = false;
+      }
+    };
+
+    fetchClients();
+  }, [isAuthenticated]);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -93,6 +139,7 @@ export function ClientCreative() {
           statusFilter={statusFilter}
           onStatusFilterChange={handleStatusFilterChange}
           onInviteClient={handleInviteClient}
+          loading={loading}
         />
 
         {/* Invite Client Popover */}

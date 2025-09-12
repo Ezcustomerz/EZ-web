@@ -30,7 +30,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { InviteClientButton } from '../../components/buttons/CassetteButton';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
-import { InviteClientPopover } from '../../components/popovers/InviteClientPopover';
+import { InviteClientPopover } from '../../components/popovers/creative/InviteClientPopover';
 import { useAuth } from '../../context/auth';
 import { useInviteClient } from '../../hooks/useInviteClient';
 import { type CreativeProfile } from '../../api/userService';

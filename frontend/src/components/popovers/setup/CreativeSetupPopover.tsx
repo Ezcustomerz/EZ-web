@@ -26,9 +26,9 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 
-import { errorToast, successToast } from '../toast/toast';
-import { userService } from '../../api/userService';
-import { useAuth } from '../../context/auth';
+import { errorToast, successToast } from '../../toast/toast';
+import { userService } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
 
 export interface CreativeSetupPopoverProps {
   open: boolean;

@@ -136,6 +136,75 @@ export interface AdvocateProfile {
   created_at: string;
 }
 
+export interface CreativeClient {
+  id: string;
+  name: string;
+  contact: string;
+  contactType: 'email' | 'phone';
+  status: 'active' | 'inactive';
+  totalSpent: number;
+  projects: number;
+}
+
+export interface CreativeClientsListResponse {
+  clients: CreativeClient[];
+  total_count: number;
+}
+
+export interface CreativeService {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  delivery_time: string;
+  status: 'Public' | 'Private';
+  color: string;
+  is_active: boolean;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreativeServicesListResponse {
+  services: CreativeService[];
+  total_count: number;
+}
+
+export interface CreateServiceRequest {
+  title: string;
+  description: string;
+  price: number;
+  delivery_time: string;
+  status: 'Public' | 'Private';
+  color: string;
+}
+
+export interface CreateServiceResponse {
+  success: boolean;
+  message: string;
+  service_id?: string;
+}
+
+export interface UpdateServiceResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface DeleteServiceResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface ToggleServiceStatusRequest {
+  enabled: boolean;
+}
+
+export interface ToggleServiceStatusResponse {
+  success: boolean;
+  message: string;
+  enabled: boolean;
+}
+
 export interface UserRoleProfiles {
   creative?: CreativeProfile;
   client?: ClientProfile;
@@ -272,6 +341,69 @@ export const userService = {
     const headers = await getAuthHeaders();
     const response = await axios.get<AdvocateProfile>(
       `${API_BASE_URL}/advocate/profile`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all clients associated with the current creative
+   */
+  async getCreativeClients(): Promise<CreativeClientsListResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<CreativeClientsListResponse>(
+      `${API_BASE_URL}/creative/clients`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all services associated with the current creative
+   */
+  async getCreativeServices(): Promise<CreativeServicesListResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<CreativeServicesListResponse>(
+      `${API_BASE_URL}/creative/services`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  async createService(serviceData: CreateServiceRequest): Promise<CreateServiceResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<CreateServiceResponse>(
+      `${API_BASE_URL}/creative/services`,
+      serviceData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  async updateService(serviceId: string, serviceData: CreateServiceRequest): Promise<UpdateServiceResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.put<UpdateServiceResponse>(
+      `${API_BASE_URL}/creative/services/${serviceId}`,
+      serviceData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  async deleteService(serviceId: string): Promise<DeleteServiceResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.delete<DeleteServiceResponse>(
+      `${API_BASE_URL}/creative/services/${serviceId}`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  async toggleServiceStatus(serviceId: string, enabled: boolean): Promise<ToggleServiceStatusResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.patch<ToggleServiceStatusResponse>(
+      `${API_BASE_URL}/creative/services/${serviceId}/status`,
+      { enabled },
       { headers }
     );
     return response.data;

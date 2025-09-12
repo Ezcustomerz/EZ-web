@@ -19,9 +19,9 @@ import {
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
-import { userService } from '../../api/userService';
-import { errorToast, successToast } from '../toast/toast';
-import { useAuth } from '../../context/auth';
+import { userService } from '../../../api/userService';
+import { errorToast, successToast } from '../../../components/toast/toast';
+import { useAuth } from '../../../context/auth';
 
 export interface RoleSelectionPopoverProps {
   open: boolean;
