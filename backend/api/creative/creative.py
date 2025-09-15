@@ -121,3 +121,24 @@ async def update_service(request: Request, service_id: str, service_request: Cre
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+
+
+@router.get("/services/{service_id}/calendar")
+async def get_service_calendar_settings(request: Request, service_id: str):
+    """Get calendar settings for a specific service"""
+    try:
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+
+        calendar_settings = await CreativeController.get_calendar_settings(service_id, user_id)
+        
+        return {
+            "success": True,
+            "calendar_settings": calendar_settings
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get calendar settings: {str(e)}")

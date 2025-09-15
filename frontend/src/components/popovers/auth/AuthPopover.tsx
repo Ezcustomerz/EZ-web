@@ -103,6 +103,9 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
       onClose={onClose}
       maxWidth={false}
       fullWidth={false}
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
       PaperProps={{
         sx: {
           width: { xs: '92vw', sm: 420 },

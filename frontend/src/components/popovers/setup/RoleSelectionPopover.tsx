@@ -125,9 +125,9 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
       fullWidth={!isMobile}
       disableEscapeKeyDown={true} // Disable escape key
       sx={{
-        zIndex: isMobile ? 9999 : 1300, // Higher z-index on mobile to cover everything
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover everything including mobile menu
         '& .MuiDialog-paper': {
-          zIndex: isMobile ? 9999 : 1300, // Ensure paper is at correct level
+          zIndex: isMobile ? 10000 : 1300, // Ensure paper is at correct level
         }
       }}
       PaperProps={{
@@ -142,7 +142,7 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
             position: 'fixed',
             top: 0,
             left: 0,
-            zIndex: 9999,
+            zIndex: 10000,
           } : {
             width: { sm: 500 },
             maxWidth: 600,
@@ -160,7 +160,7 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
           sx: {
             backgroundColor: isMobile ? 'rgba(0,0,0,0.32)' : 'rgba(10, 10, 20, 0.45)',
             backdropFilter: isMobile ? 'none' : 'blur(2px)',
-            zIndex: isMobile ? 9998 : 1299, // Lower than dialog on desktop
+            zIndex: isMobile ? 9999 : 1299, // Lower than dialog on desktop
           }
         }
       }}

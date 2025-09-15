@@ -425,6 +425,9 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
         fullScreen={isMobile}
         disableAutoFocus
         disableEnforceFocus
+        sx={{
+          zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+        }}
         PaperProps={{
           sx: {
             borderRadius: isMobile ? 0 : 3,

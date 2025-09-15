@@ -10,9 +10,10 @@ import { userService, type AdvocateProfile } from '../../api/userService';
 interface LayoutAdvocateProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; advocateProfile: AdvocateProfile | null }) => ReactNode);
   selectedNavItem?: string;
+  hideMenuButton?: boolean;
 }
 
-export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: LayoutAdvocateProps) {
+export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMenuButton }: LayoutAdvocateProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAnyLoading, setProfileLoading } = useLoading();
@@ -178,7 +179,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
       />
 
       {/* Mobile Menu Button */}
-      {isMobile && (
+      {isMobile && !hideMenuButton && (
         <Box
           sx={{
             position: 'fixed',
@@ -254,21 +255,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
         }}
       >
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          {isAnyLoading ? (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                flexGrow: 1,
-                minHeight: '50vh',
-              }}
-            >
-              <RecordSpinner />
-            </Box>
-          ) : (
-            typeof children === 'function' ? children({ isSidebarOpen, isMobile, advocateProfile }) : children
-          )}
+          {typeof children === 'function' ? children({ isSidebarOpen, isMobile, advocateProfile }) : children}
         </Box>
       </Box>
 
@@ -324,6 +311,32 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard' }: Layo
               <span>{isSidebarOpen ? '‹' : '›'}</span>
             </Box>
           </Tooltip>
+        </Box>
+      )}
+
+      {/* Unified Loading Overlay */}
+      {isAnyLoading && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          <RecordSpinner 
+            size={140} 
+            speed="normal" 
+            variant="scratch" 
+            ariaLabel="Loading application" 
+          />
         </Box>
       )}
     </Box>

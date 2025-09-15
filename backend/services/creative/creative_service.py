@@ -255,6 +255,10 @@ class CreativeController:
             
             service_id = result.data[0]['id']
             
+            # Handle calendar settings if provided
+            if service_request.calendar_settings:
+                await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings)
+            
             return CreateServiceResponse(
                 success=True,
                 message="Service created successfully",
@@ -265,6 +269,123 @@ class CreativeController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+
+    @staticmethod
+    async def _save_calendar_settings(service_id: str, calendar_settings):
+        """Save calendar settings for a service"""
+        try:
+            # First, delete existing calendar settings for this service
+            db_admin.table('calendar_settings').delete().eq('service_id', service_id).execute()
+            
+            # Insert new calendar settings
+            calendar_data = {
+                'service_id': service_id,
+                'is_scheduling_enabled': calendar_settings.is_scheduling_enabled,
+                'use_time_slots': calendar_settings.use_time_slots,
+                'session_durations': calendar_settings.session_durations,
+                'default_session_length': calendar_settings.default_session_length,
+                'min_notice_amount': calendar_settings.min_notice_amount,
+                'min_notice_unit': calendar_settings.min_notice_unit,
+                'max_advance_amount': calendar_settings.max_advance_amount,
+                'max_advance_unit': calendar_settings.max_advance_unit,
+                'buffer_time_amount': calendar_settings.buffer_time_amount,
+                'buffer_time_unit': calendar_settings.buffer_time_unit,
+                'is_active': True
+            }
+            
+            calendar_result = db_admin.table('calendar_settings').insert(calendar_data).execute()
+            if not calendar_result.data:
+                raise HTTPException(status_code=500, detail="Failed to save calendar settings")
+            
+            calendar_setting_id = calendar_result.data[0]['id']
+            
+            # Save weekly schedule
+            for day_schedule in calendar_settings.weekly_schedule:
+                if day_schedule.enabled:  # Only save enabled days
+                    # Insert weekly schedule entry
+                    weekly_data = {
+                        'calendar_setting_id': calendar_setting_id,
+                        'day_of_week': day_schedule.day,
+                        'is_enabled': day_schedule.enabled
+                    }
+                    
+                    weekly_result = db_admin.table('weekly_schedule').insert(weekly_data).execute()
+                    if not weekly_result.data:
+                        continue  # Skip this day if insertion fails
+                    
+                    weekly_schedule_id = weekly_result.data[0]['id']
+                    
+                    # Save time blocks
+                    if day_schedule.time_blocks:
+                        time_blocks_data = []
+                        for block in day_schedule.time_blocks:
+                            time_blocks_data.append({
+                                'weekly_schedule_id': weekly_schedule_id,
+                                'start_time': block.start,
+                                'end_time': block.end
+                            })
+                        
+                        if time_blocks_data:
+                            db_admin.table('time_blocks').insert(time_blocks_data).execute()
+                    
+                    # Save time slots (if using time slot mode)
+                    if calendar_settings.use_time_slots and day_schedule.time_slots:
+                        time_slots_data = []
+                        for slot in day_schedule.time_slots:
+                            time_slots_data.append({
+                                'weekly_schedule_id': weekly_schedule_id,
+                                'slot_time': slot.time,
+                                'is_enabled': slot.enabled
+                            })
+                        
+                        if time_slots_data:
+                            db_admin.table('time_slots').insert(time_slots_data).execute()
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save calendar settings: {str(e)}")
+
+    @staticmethod
+    async def get_calendar_settings(service_id: str, user_id: str):
+        """Get active calendar settings for a service"""
+        try:
+            # Verify service exists and belongs to user
+            service_result = db_admin.table('creative_services').select(
+                'id, creative_user_id, is_active'
+            ).eq('id', service_id).single().execute()
+            
+            if not service_result.data:
+                raise HTTPException(status_code=404, detail="Service not found")
+            
+            if service_result.data['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to view this service")
+            
+            if not service_result.data['is_active']:
+                raise HTTPException(status_code=400, detail="Cannot access calendar settings for deleted service")
+            
+            # Get calendar settings
+            calendar_result = db_admin.table('calendar_settings').select(
+                '*'
+            ).eq('service_id', service_id).eq('is_active', True).execute()
+            
+            if not calendar_result.data:
+                return None  # No calendar settings configured
+            
+            calendar_data = calendar_result.data[0]
+            calendar_setting_id = calendar_data['id']
+            
+            # Get weekly schedule with time blocks and time slots
+            weekly_result = db_admin.table('weekly_schedule').select(
+                '*, time_blocks(*), time_slots(*)'
+            ).eq('calendar_setting_id', calendar_setting_id).execute()
+            
+            calendar_data['weekly_schedule'] = weekly_result.data if weekly_result.data else []
+            
+            return calendar_data
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to get calendar settings: {str(e)}")
 
     @staticmethod
     async def delete_service(user_id: str, service_id: str) -> DeleteServiceResponse:
@@ -296,6 +417,12 @@ class CreativeController:
             
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to delete service")
+            
+            # Also deactivate calendar settings for this service
+            db_admin.table('calendar_settings').update({
+                'is_active': False,
+                'updated_at': 'now()'
+            }).eq('service_id', service_id).execute()
             
             return DeleteServiceResponse(
                 success=True,
@@ -393,6 +520,10 @@ class CreativeController:
             result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to update service")
+
+            # Handle calendar settings if provided
+            if service_request.calendar_settings:
+                await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings)
 
             return UpdateServiceResponse(success=True, message="Service updated successfully")
 

@@ -280,9 +280,9 @@ export function ClientSetupPopover({
       maxWidth={false}
       disableEscapeKeyDown={true}
       sx={{
-        zIndex: isMobile ? 9999 : 1300,
+        zIndex: isMobile ? 10000 : 1300,
         '& .MuiDialog-paper': {
-          zIndex: isMobile ? 9999 : 1300,
+          zIndex: isMobile ? 10000 : 1300,
         }
       }}
       PaperProps={{
@@ -297,7 +297,7 @@ export function ClientSetupPopover({
             position: 'fixed',
             top: 0,
             left: 0,
-            zIndex: 9999,
+            zIndex: 10000,
           } : isTablet ? {
             width: '95vw',
             maxWidth: '95vw',
@@ -331,7 +331,7 @@ export function ClientSetupPopover({
           sx: {
             backgroundColor: isMobile ? 'rgba(0,0,0,0.32)' : 'rgba(10, 10, 20, 0.45)',
             backdropFilter: isMobile ? 'none' : 'blur(2px)',
-            zIndex: isMobile ? 9998 : 1299,
+            zIndex: isMobile ? 9999 : 1299,
           }
         }
       }}

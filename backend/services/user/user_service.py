@@ -121,8 +121,8 @@ class UserController:
     async def batch_setup_profiles(user_id: str, setup_request: BatchSetupRequest) -> BatchSetupResponse:
         """Create all profile data at once after all setups are completed"""
         try:
-            # Get user data for profile pictures and avatar source
-            user_result = db_admin.table('users').select('roles, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
+            # Get user data for profile fields
+            user_result = db_admin.table('users').select('roles, name, email, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
@@ -130,6 +130,20 @@ class UserController:
             user_roles = user_data.get('roles', [])
             profile_picture_url = user_data.get('profile_picture_url')
             avatar_source = user_data.get('avatar_source', 'google')
+            
+            # Compute display name with safe fallbacks
+            display_name = user_data.get('name')
+            if not display_name:
+                email_any = user_data.get('email')
+                if email_any:
+                    display_name = email_any.split('@')[0]
+            if not display_name:
+                display_name = 'User'
+            
+            # Ensure profile picture url is never null
+            if not profile_picture_url:
+                seed = display_name or user_id
+                profile_picture_url = f"https://api.dicebear.com/7.x/initials/svg?seed={seed}"
             
             created_profiles = []
             
@@ -183,6 +197,9 @@ class UserController:
             if setup_request.advocate_data is not None and 'advocate' in user_roles:
                 advocate_row = {
                     'user_id': user_id,
+                    'display_name': display_name,
+                    'profile_banner_url': profile_picture_url,
+                    'profile_source': avatar_source,
                     'tier': 'silver',
                     'fp_affiliate_id': f'demo_affiliate_{user_id[:8]}',
                     'fp_referral_code': f'DEMO{user_id[:6].upper()}',

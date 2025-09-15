@@ -40,6 +40,9 @@ export function ReviewPopover({ open, onClose, reviews }: ReviewPopoverProps) {
       scroll="paper"
       fullScreen={isMobile}
       slots={{ transition: Transition }}
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
       slotProps={{
         paper: {
           sx: {

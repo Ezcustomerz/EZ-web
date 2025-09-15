@@ -282,21 +282,39 @@ async def setup_client_profile(request: Request, setup_request: ClientSetupReque
 
 @router.post("/advocate-setup", response_model=AdvocateSetupResponse)
 async def setup_advocate_profile(request: Request):
-    """Set up advocate profile in the advocates table with hardcoded demo values"""
+    """Set up advocate profile and copy display/avatar from user with fallbacks"""
     try:
         # Get user ID from JWT token
         user_id = request.state.user.get('sub')
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
-        # Verify user has advocate role
-        user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
-        if not user_result.data or 'advocate' not in user_result.data['roles']:
+        # Verify user has advocate role and fetch fields
+        user_result = db_admin.table('users').select('roles, name, email, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
+        if not user_result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+        if 'advocate' not in user_result.data['roles']:
             raise HTTPException(status_code=403, detail="User must have advocate role to set up advocate profile")
         
-        # Create advocate profile with hardcoded demo data
+        # Compute fields with fallbacks
+        user_data = user_result.data
+        display_name = user_data.get('name')
+        if not display_name:
+            email_any = user_data.get('email')
+            if email_any:
+                display_name = email_any.split('@')[0]
+        avatar_source = user_data.get('avatar_source', 'google')
+        profile_banner_url = user_data.get('profile_picture_url')
+        if not profile_banner_url:
+            seed = display_name or user_id
+            profile_banner_url = f"https://api.dicebear.com/7.x/initials/svg?seed={seed}"
+
+        # Create advocate profile with data
         advocate_data = {
             'user_id': user_id,
+            'display_name': display_name,
+            'profile_banner_url': profile_banner_url,
+            'profile_source': avatar_source,
             'tier': 'silver',  # Default tier
             'fp_affiliate_id': f'demo_affiliate_{user_id[:8]}',  # Demo affiliate ID
             'fp_referral_code': f'DEMO{user_id[:6].upper()}',  # Demo referral code
@@ -312,16 +330,21 @@ async def setup_advocate_profile(request: Request):
             'sync_source': 'firstpromoter',  # Ready for future integration
         }
         
-        # Insert or update advocate profile (upsert)
+        # Insert or update advocate profile (upsert) then force-update core fields
         result = db_admin.table('advocates').upsert(advocate_data).execute()
+        try:
+            db_admin.table('advocates').update({
+                'display_name': display_name,
+                'profile_banner_url': profile_banner_url,
+                'profile_source': avatar_source,
+            }).eq('user_id', user_id).execute()
+        except Exception:
+            pass
         
         if not result.data:
             raise HTTPException(status_code=500, detail="Failed to create advocate profile")
         
-        return AdvocateSetupResponse(
-            success=True,
-            message="Advocate profile created successfully with demo data"
-        )
+        return AdvocateSetupResponse(success=True, message="Advocate profile created successfully")
         
     except HTTPException:
         raise
@@ -387,8 +410,8 @@ async def batch_setup_profiles(request: Request, setup_request: BatchSetupReques
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
-        # Get user data for profile pictures and avatar source
-        user_result = db_admin.table('users').select('roles, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
+        # Get user data for profile fields
+        user_result = db_admin.table('users').select('roles, name, email, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
         if not user_result.data:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -396,6 +419,16 @@ async def batch_setup_profiles(request: Request, setup_request: BatchSetupReques
         user_roles = user_data.get('roles', [])
         profile_picture_url = user_data.get('profile_picture_url')
         avatar_source = user_data.get('avatar_source', 'google')
+        # Compute display name with safe fallbacks
+        display_name = user_data.get('name')
+        if not display_name:
+            email_any = user_data.get('email')
+            if email_any:
+                display_name = email_any.split('@')[0]
+        if not profile_picture_url:
+            # Deterministic placeholder if avatar missing
+            seed = display_name or user_id
+            profile_picture_url = f"https://api.dicebear.com/7.x/initials/svg?seed={seed}"
         
         created_profiles = []
         
@@ -453,6 +486,9 @@ async def batch_setup_profiles(request: Request, setup_request: BatchSetupReques
         if setup_request.advocate_data is not None and 'advocate' in user_roles:
             advocate_row = {
                 'user_id': user_id,
+                'display_name': display_name,
+                'profile_banner_url': profile_picture_url,
+                'profile_source': avatar_source,
                 'tier': 'silver',
                 'fp_affiliate_id': f'demo_affiliate_{user_id[:8]}',
                 'fp_referral_code': f'DEMO{user_id[:6].upper()}',

@@ -16,10 +16,18 @@ import {
   MenuItem,
   Switch,
   FormControlLabel,
-  InputAdornment
+  InputAdornment,
+  Checkbox,
+  FormGroup,
+  Tooltip,
+  Radio,
+  RadioGroup
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import InfoIcon from '@mui/icons-material/Info';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -108,6 +116,164 @@ export function ServiceFormPopover({
     unit: 'day'
   });
 
+  // Calendar scheduling (UI-only)
+  const [isSchedulingEnabled, setIsSchedulingEnabled] = useState(false);
+  const sessionDurationOptions = ['15', '30', '45', '60', '90', '120']; // minutes
+  const [sessionDurations, setSessionDurations] = useState<string[]>(['60']);
+  const [defaultSessionLength, setDefaultSessionLength] = useState('60');
+  const [useTimeSlots, setUseTimeSlots] = useState(false);
+  const [minNotice, setMinNotice] = useState<{ amount: string; unit: 'hours' | 'days' }>({ amount: '24', unit: 'hours' });
+  const [maxAdvance, setMaxAdvance] = useState<{ amount: string; unit: 'days' | 'weeks' | 'months' }>({ amount: '30', unit: 'days' });
+  const [bufferTime, setBufferTime] = useState<{ amount: string; unit: 'minutes' | 'hours' }>({ amount: '15', unit: 'minutes' });
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const [weeklySchedule, setWeeklySchedule] = useState<{ 
+    day: string; 
+    enabled: boolean; 
+    timeBlocks: { start: string; end: string }[];
+    timeSlots: { time: string; enabled: boolean }[];
+  }[]>(
+    daysOfWeek.map((day) => ({ 
+      day, 
+      enabled: false, 
+      timeBlocks: [{ start: '09:00', end: '17:00' }],
+      timeSlots: []
+    }))
+  );
+
+  // Helper functions for managing time blocks
+  const addTimeBlock = (dayIndex: number) => {
+    setWeeklySchedule((prev) => prev.map((schedule, idx) => {
+      if (idx === dayIndex) {
+        return {
+          ...schedule,
+          timeBlocks: [...schedule.timeBlocks, { start: '09:00', end: '17:00' }]
+        };
+      }
+      return schedule;
+    }));
+  };
+
+  const removeTimeBlock = (dayIndex: number, blockIndex: number) => {
+    setWeeklySchedule((prev) => prev.map((schedule, idx) => {
+      if (idx === dayIndex && schedule.timeBlocks.length > 1) {
+        return {
+          ...schedule,
+          timeBlocks: schedule.timeBlocks.filter((_, bIdx) => bIdx !== blockIndex)
+        };
+      }
+      return schedule;
+    }));
+  };
+
+
+  const toggleDay = (dayIndex: number, enabled: boolean) => {
+    setWeeklySchedule((prev) => prev.map((schedule, idx) => {
+      if (idx === dayIndex) {
+        const newTimeSlots = enabled && useTimeSlots 
+          ? generateTimeSlots(schedule.timeBlocks, parseInt(defaultSessionLength))
+          : schedule.timeSlots;
+        
+        return { 
+          ...schedule, 
+          enabled,
+          timeSlots: newTimeSlots
+        };
+      }
+      return schedule;
+    }));
+  };
+
+  // Validation function to check for overlapping time blocks
+  const validateTimeBlocks = (timeBlocks: { start: string; end: string }[]) => {
+    const sortedBlocks = [...timeBlocks].sort((a, b) => a.start.localeCompare(b.start));
+    
+    for (let i = 0; i < sortedBlocks.length - 1; i++) {
+      const currentEnd = sortedBlocks[i].end;
+      const nextStart = sortedBlocks[i + 1].start;
+      
+      if (currentEnd > nextStart) {
+        return false; // Overlapping blocks found
+      }
+    }
+    return true;
+  };
+
+  // Enhanced updateTimeBlock with validation
+  const updateTimeBlockWithValidation = (dayIndex: number, blockIndex: number, field: 'start' | 'end', value: string) => {
+    setWeeklySchedule((prev) => prev.map((schedule, idx) => {
+      if (idx === dayIndex) {
+        const newTimeBlocks = schedule.timeBlocks.map((block, bIdx) => {
+          if (bIdx === blockIndex) {
+            return { ...block, [field]: value };
+          }
+          return block;
+        });
+        
+        // Generate time slots when time blocks change and we're in time slot mode
+        const newTimeSlots = useTimeSlots ? generateTimeSlots(newTimeBlocks, parseInt(defaultSessionLength)) : schedule.timeSlots;
+        
+        return {
+          ...schedule,
+          timeBlocks: newTimeBlocks,
+          timeSlots: newTimeSlots
+        };
+      }
+      return schedule;
+    }));
+  };
+
+  // Generate time slots based on time blocks, session duration, and buffer time
+  const generateTimeSlots = (timeBlocks: { start: string; end: string }[], sessionDurationMinutes: number) => {
+    const slots: { time: string; enabled: boolean }[] = [];
+    
+    // Calculate buffer time in minutes
+    const bufferMinutes = bufferTime.unit === 'hours' 
+      ? parseInt(bufferTime.amount) * 60 
+      : parseInt(bufferTime.amount);
+    
+    // Total time needed per slot = session duration + buffer time
+    const slotSpacing = sessionDurationMinutes + bufferMinutes;
+    
+    timeBlocks.forEach(block => {
+      const startTime = new Date(`1970-01-01T${block.start}:00`);
+      const endTime = new Date(`1970-01-01T${block.end}:00`);
+      
+      let currentTime = new Date(startTime);
+      
+      // Generate slots with buffer time spacing
+      while (currentTime < endTime) {
+        // Check if there's enough time for a full session (don't need buffer after last slot)
+        const sessionEndTime = new Date(currentTime.getTime() + sessionDurationMinutes * 60000);
+        
+        if (sessionEndTime <= endTime) {
+          const timeString = currentTime.toTimeString().slice(0, 5);
+          slots.push({ time: timeString, enabled: true });
+        }
+        
+        // Move to next slot position (session + buffer time)
+        currentTime.setMinutes(currentTime.getMinutes() + slotSpacing);
+      }
+    });
+    
+    return slots.sort((a, b) => a.time.localeCompare(b.time));
+  };
+
+  // Toggle individual time slot
+  const toggleTimeSlot = (dayIndex: number, slotIndex: number) => {
+    setWeeklySchedule((prev) => prev.map((schedule, idx) => {
+      if (idx === dayIndex) {
+        return {
+          ...schedule,
+          timeSlots: schedule.timeSlots.map((slot, sIdx) => 
+            sIdx === slotIndex ? { ...slot, enabled: !slot.enabled } : slot
+          )
+        };
+      }
+      return schedule;
+    }));
+  };
+
+
   // Reset or prefill form when popover opens
   useEffect(() => {
     if (open) {
@@ -132,6 +298,7 @@ export function ServiceFormPopover({
           setDeliveryTime({ minTime: '3', maxTime: '5', unit: 'day' });
         }
       } else {
+        // Reset form data for create mode
         setFormData({
           title: '',
           description: '',
@@ -145,6 +312,23 @@ export function ServiceFormPopover({
           maxTime: '5',
           unit: 'day'
         });
+        
+        // Reset calendar scheduling settings to defaults
+        setIsSchedulingEnabled(false);
+        setUseTimeSlots(false);
+        setSessionDurations(['60']);
+        setDefaultSessionLength('60');
+        setMinNotice({ amount: '24', unit: 'hours' });
+        setMaxAdvance({ amount: '30', unit: 'days' });
+        setBufferTime({ amount: '15', unit: 'minutes' });
+        setWeeklySchedule(
+          daysOfWeek.map((day) => ({ 
+            day, 
+            enabled: false, 
+            timeBlocks: [{ start: '09:00', end: '17:00' }],
+            timeSlots: []
+          }))
+        );
       }
       setIsSubmitting(false);
     }
@@ -167,6 +351,36 @@ export function ServiceFormPopover({
         status: formData.status as 'Public' | 'Private',
         color: formData.color
       };
+
+      // Add calendar settings if scheduling is enabled
+      if (isSchedulingEnabled) {
+        serviceData.calendar_settings = {
+          is_scheduling_enabled: isSchedulingEnabled,
+          use_time_slots: useTimeSlots,
+          session_durations: sessionDurations.map(d => parseInt(d)),
+          default_session_length: parseInt(defaultSessionLength),
+          min_notice_amount: parseInt(minNotice.amount),
+          min_notice_unit: minNotice.unit,
+          max_advance_amount: parseInt(maxAdvance.amount),
+          max_advance_unit: maxAdvance.unit,
+          buffer_time_amount: parseInt(bufferTime.amount),
+          buffer_time_unit: bufferTime.unit,
+          weekly_schedule: weeklySchedule
+            .filter(schedule => schedule.enabled)
+            .map(schedule => ({
+              day: schedule.day,
+              enabled: schedule.enabled,
+              time_blocks: schedule.timeBlocks.map(block => ({
+                start: block.start,
+                end: block.end
+              })),
+              time_slots: schedule.timeSlots.map(slot => ({
+                time: slot.time,
+                enabled: slot.enabled
+              }))
+            }))
+        };
+      }
       
       // Call the API
       const response = mode === 'edit' && initialService
@@ -223,6 +437,35 @@ export function ServiceFormPopover({
     setFormData(prev => ({ ...prev, deliveryTime: formattedTime }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Ensure default session length is part of selected durations
+  useEffect(() => {
+    if (sessionDurations.length > 0 && !sessionDurations.includes(defaultSessionLength)) {
+      setDefaultSessionLength(sessionDurations[0]);
+    }
+  }, [sessionDurations, defaultSessionLength]);
+
+  // Regenerate time slots when session duration or buffer time changes in time slot mode
+  useEffect(() => {
+    if (useTimeSlots && defaultSessionLength) {
+      setWeeklySchedule((prev) => prev.map((schedule) => ({
+        ...schedule,
+        timeSlots: schedule.enabled ? generateTimeSlots(schedule.timeBlocks, parseInt(defaultSessionLength)) : schedule.timeSlots
+      })));
+    }
+  }, [defaultSessionLength, useTimeSlots, bufferTime]);
+
+  // Restrict to single session duration when switching to time slot mode
+  useEffect(() => {
+    if (useTimeSlots && sessionDurations.length > 1) {
+      // Keep only the default session length when switching to time slot mode
+      const singleDuration = sessionDurations.includes(defaultSessionLength) 
+        ? defaultSessionLength 
+        : sessionDurations[0];
+      setSessionDurations([singleDuration]);
+      setDefaultSessionLength(singleDuration);
+    }
+  }, [useTimeSlots]);
+
   return (
     <Dialog
       open={open}
@@ -232,6 +475,9 @@ export function ServiceFormPopover({
       scroll="paper"
       fullScreen={isMobile}
       slots={{ transition: Transition }}
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
       slotProps={{
         paper: {
           sx: {
@@ -553,6 +799,572 @@ export function ServiceFormPopover({
                   </Box>
                 </Box>
               </Box>
+            </Box>
+
+            {/* Calendar Scheduling (UI-only) */}
+            <Box sx={{
+              p: 3,
+              borderRadius: 3,
+              backgroundColor: 'white',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+              border: '1px solid rgba(0,0,0,0.06)'
+            }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: 'text.primary' }}>
+                Calendar Scheduling
+              </Typography>
+
+              <Box sx={{
+                p: 2.5,
+                borderRadius: 2,
+                backgroundColor: '#f8f9fa',
+                border: '1px solid rgba(0,0,0,0.06)',
+                mb: 3
+              }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={isSchedulingEnabled}
+                      onChange={(e) => setIsSchedulingEnabled(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        Enable calendar scheduling for this service
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Clients will be taken to a booking screen to schedule a session
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{ alignItems: 'flex-start', margin: 0 }}
+                />
+              </Box>
+
+              {isSchedulingEnabled && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {/* Time Slot Mode Toggle */}
+                  <Box sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    backgroundColor: '#f0f8ff',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    mb: 1
+                  }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={useTimeSlots}
+                          onChange={(e) => setUseTimeSlots(e.target.checked)}
+                          color="primary"
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            Use predefined time slots
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {useTimeSlots 
+                              ? 'Clients book specific appointment times (e.g., 9:00 AM, 9:30 AM, 10:00 AM)'
+                              : 'Clients can book flexibly within your available hours'
+                            }
+                          </Typography>
+                        </Box>
+                      }
+                      sx={{ alignItems: 'flex-start', margin: 0 }}
+                    />
+                  </Box>
+
+                  {/* Session Durations */}
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        Available session durations
+                      </Typography>
+                      <Tooltip 
+                        title={useTimeSlots 
+                          ? "Choose one session duration. Time slots will be generated based on this duration."
+                          : "Select the session durations that clients can book. You can offer multiple options to give clients flexibility in choosing their session length."
+                        }
+                        placement="top"
+                        arrow
+                      >
+                        <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                      </Tooltip>
+                    </Box>
+                    {useTimeSlots ? (
+                      // Radio buttons for single selection in time slot mode
+                      <RadioGroup
+                        row
+                        value={sessionDurations[0] || ''}
+                        onChange={(e) => {
+                          const newDuration = e.target.value;
+                          setSessionDurations([newDuration]);
+                          setDefaultSessionLength(newDuration);
+                        }}
+                      >
+                        {sessionDurationOptions.map((opt) => (
+                          <FormControlLabel
+                            key={opt}
+                            value={opt}
+                            control={<Radio />}
+                            label={`${opt} min`}
+                          />
+                        ))}
+                      </RadioGroup>
+                    ) : (
+                      // Checkboxes for multiple selection in flexible mode
+                      <FormGroup row>
+                        {sessionDurationOptions.map((opt) => {
+                          const checked = sessionDurations.includes(opt);
+                          return (
+                            <FormControlLabel
+                              key={opt}
+                              control={
+                                <Checkbox
+                                  checked={checked}
+                                  onChange={(e) => {
+                                    const isChecked = e.target.checked;
+                                    setSessionDurations((prev) => {
+                                      if (isChecked) return [...prev, opt].sort((a, b) => parseInt(a) - parseInt(b));
+                                      return prev.filter((d) => d !== opt);
+                                    });
+                                  }}
+                                />
+                              }
+                              label={`${opt} min`}
+                            />
+                          );
+                        })}
+                      </FormGroup>
+                    )}
+                  </Box>
+
+                  {/* Default Session Length - Only show in flexible mode */}
+                  {!useTimeSlots && (
+                    <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        Default session length
+                      </Typography>
+                      <Tooltip 
+                        title="This duration will be pre-selected when clients book a session. Clients can still choose other available durations if you've enabled multiple options."
+                        placement="top"
+                        arrow
+                      >
+                        <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                      </Tooltip>
+                    </Box>
+                    <FormControl size="small" sx={{ minWidth: 180 }}>
+                      <Select
+                        value={defaultSessionLength}
+                        onChange={(e) => setDefaultSessionLength(String(e.target.value))}
+                        disabled={sessionDurations.length === 0}
+                        sx={{ borderRadius: 2, backgroundColor: '#f8f9fa' }}
+                      >
+                        {sessionDurations.length === 0 ? (
+                          <MenuItem value="" disabled>
+                            Select durations first
+                          </MenuItem>
+                        ) : (
+                          sessionDurations.map((d) => (
+                            <MenuItem key={d} value={d}>{`${d} min`}</MenuItem>
+                          ))
+                        )}
+                      </Select>
+                    </FormControl>
+                    </Box>
+                  )}
+
+                  {/* Booking Rules */}
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                    {/* Minimum Notice */}
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          Minimum notice required
+                        </Typography>
+                        <Tooltip 
+                          title="The minimum amount of time clients must book in advance. This gives you time to prepare and prevents last-minute bookings that may be inconvenient."
+                          placement="top"
+                          arrow
+                        >
+                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                        </Tooltip>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                        <TextField
+                          label="Amount"
+                          type="number"
+                          size="small"
+                          value={minNotice.amount}
+                          onChange={(e) => setMinNotice({ ...minNotice, amount: e.target.value })}
+                          sx={{ width: 120, '& .MuiOutlinedInput-root': { borderRadius: 2, backgroundColor: '#f8f9fa' } }}
+                          inputProps={{ min: 0 }}
+                        />
+                        <FormControl size="small" sx={{ minWidth: 140 }}>
+                          <Select
+                            value={minNotice.unit}
+                            onChange={(e) => setMinNotice({ ...minNotice, unit: e.target.value as 'hours' | 'days' })}
+                            sx={{ borderRadius: 2, backgroundColor: '#f8f9fa' }}
+                          >
+                            <MenuItem value="hours">Hours</MenuItem>
+                            <MenuItem value="days">Days</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Box>
+                    </Box>
+
+                    {/* Maximum Advance Booking */}
+                    <Box sx={{ gridColumn: { xs: 'auto', sm: '1 / -1' } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          Maximum advance booking
+                        </Typography>
+                        <Tooltip 
+                          title="The furthest into the future that clients can book sessions. This helps manage your schedule and prevents bookings too far ahead when your availability may change."
+                          placement="top"
+                          arrow
+                        >
+                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                        </Tooltip>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                        <TextField
+                          label="Amount"
+                          type="number"
+                          size="small"
+                          value={maxAdvance.amount}
+                          onChange={(e) => setMaxAdvance({ ...maxAdvance, amount: e.target.value })}
+                          sx={{ width: 120, '& .MuiOutlinedInput-root': { borderRadius: 2, backgroundColor: '#f8f9fa' } }}
+                          inputProps={{ min: 0 }}
+                        />
+                        <FormControl size="small" sx={{ minWidth: 140 }}>
+                          <Select
+                            value={maxAdvance.unit}
+                            onChange={(e) => setMaxAdvance({ ...maxAdvance, unit: e.target.value as 'days' | 'weeks' | 'months' })}
+                            sx={{ borderRadius: 2, backgroundColor: '#f8f9fa' }}
+                          >
+                            <MenuItem value="days">Days</MenuItem>
+                            <MenuItem value="weeks">Weeks</MenuItem>
+                            <MenuItem value="months">Months</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Box>
+                    </Box>
+
+                    {/* Buffer Time */}
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          Buffer time between bookings
+                        </Typography>
+                        <Tooltip 
+                          title="Time gap automatically added between consecutive bookings. This gives you time to wrap up one session, take notes, and prepare for the next client."
+                          placement="top"
+                          arrow
+                        >
+                          <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                        </Tooltip>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                        <TextField
+                          label="Amount"
+                          type="number"
+                          size="small"
+                          value={bufferTime.amount}
+                          onChange={(e) => setBufferTime({ ...bufferTime, amount: e.target.value })}
+                          sx={{ width: 120, '& .MuiOutlinedInput-root': { borderRadius: 2, backgroundColor: '#f8f9fa' } }}
+                          inputProps={{ min: 0 }}
+                        />
+                        <FormControl size="small" sx={{ minWidth: 140 }}>
+                          <Select
+                            value={bufferTime.unit}
+                            onChange={(e) => setBufferTime({ ...bufferTime, unit: e.target.value as 'minutes' | 'hours' })}
+                            sx={{ borderRadius: 2, backgroundColor: '#f8f9fa' }}
+                          >
+                            <MenuItem value="minutes">Minutes</MenuItem>
+                            <MenuItem value="hours">Hours</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* Weekly Schedule */}
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                        Weekly schedule
+                      </Typography>
+                      <Tooltip 
+                        title="Set your available hours for each day of the week. You can add multiple time blocks per day (e.g., 9am-12pm and 4pm-9pm). Clients can only book sessions during these times."
+                        placement="top"
+                        arrow
+                      >
+                        <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                      </Tooltip>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {weeklySchedule.map((daySchedule, dayIdx) => (
+                        <Box
+                          key={daySchedule.day}
+                          sx={{
+                            p: 2,
+                            borderRadius: 2,
+                            backgroundColor: '#f8f9fa',
+                            border: '1px solid rgba(0,0,0,0.06)'
+                          }}
+                        >
+                          {/* Day Header */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={daySchedule.enabled}
+                                  onChange={(e) => toggleDay(dayIdx, e.target.checked)}
+                                  color="primary"
+                                />
+                              }
+                              label={
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                  {daySchedule.day}
+                                </Typography>
+                              }
+                            />
+                            {daySchedule.enabled && (
+                              <Button
+                                size="small"
+                                startIcon={<AddIcon />}
+                                onClick={() => addTimeBlock(dayIdx)}
+                                sx={{ 
+                                  fontSize: '0.75rem',
+                                  textTransform: 'none',
+                                  color: 'primary.main'
+                                }}
+                              >
+                                Add Time Block
+                              </Button>
+                            )}
+                          </Box>
+
+                          {/* Time Blocks */}
+                          {daySchedule.enabled && (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                              {daySchedule.timeBlocks.map((timeBlock, blockIdx) => {
+                                const hasOverlap = !validateTimeBlocks(daySchedule.timeBlocks);
+                                const isInvalidBlock = timeBlock.start >= timeBlock.end;
+                                const hasError = hasOverlap || isInvalidBlock;
+                                
+                                return (
+                                  <Box
+                                    key={blockIdx}
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      flexDirection: { xs: 'column', sm: 'row' },
+                                      gap: { xs: 1, sm: 1.5 },
+                                      p: 1.5,
+                                      backgroundColor: hasError ? '#ffeaea' : '#fff',
+                                      borderRadius: 1.5,
+                                      border: hasError ? '1px solid #f44336' : '1px solid rgba(0,0,0,0.08)',
+                                      transition: 'all 0.2s ease'
+                                    }}
+                                  >
+                                    {/* Mobile Layout */}
+                                    <Box sx={{ 
+                                      display: { xs: 'flex', sm: 'none' },
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      width: '100%',
+                                      gap: 1
+                                    }}>
+                                      <TextField
+                                        label="Start"
+                                        type="time"
+                                        size="small"
+                                        value={timeBlock.start}
+                                        onChange={(e) => updateTimeBlockWithValidation(dayIdx, blockIdx, 'start', e.target.value)}
+                                        error={hasError}
+                                        sx={{ 
+                                          width: '120px',
+                                          '& .MuiOutlinedInput-root': { 
+                                            borderRadius: 2, 
+                                            backgroundColor: hasError ? '#ffeaea' : '#f8f9fa' 
+                                          } 
+                                        }}
+                                        inputProps={{ step: 300 }}
+                                      />
+                                      <Typography 
+                                        variant="body2" 
+                                        color="text.secondary"
+                                        sx={{ 
+                                          fontSize: '0.875rem',
+                                          px: 0.5
+                                        }}
+                                      >
+                                        to
+                                      </Typography>
+                                      <TextField
+                                        label="End"
+                                        type="time"
+                                        size="small"
+                                        value={timeBlock.end}
+                                        onChange={(e) => updateTimeBlockWithValidation(dayIdx, blockIdx, 'end', e.target.value)}
+                                        error={hasError}
+                                        sx={{ 
+                                          width: '120px',
+                                          '& .MuiOutlinedInput-root': { 
+                                            borderRadius: 2, 
+                                            backgroundColor: hasError ? '#ffeaea' : '#f8f9fa' 
+                                          } 
+                                        }}
+                                        inputProps={{ step: 300 }}
+                                      />
+                                    </Box>
+
+                                    {/* Desktop Layout */}
+                                    <TextField
+                                      label="Start"
+                                      type="time"
+                                      size="small"
+                                      value={timeBlock.start}
+                                      onChange={(e) => updateTimeBlockWithValidation(dayIdx, blockIdx, 'start', e.target.value)}
+                                      error={hasError}
+                                      sx={{ 
+                                        display: { xs: 'none', sm: 'block' },
+                                        minWidth: 120,
+                                        '& .MuiOutlinedInput-root': { 
+                                          borderRadius: 2, 
+                                          backgroundColor: hasError ? '#ffeaea' : '#f8f9fa' 
+                                        } 
+                                      }}
+                                      inputProps={{ step: 300 }}
+                                    />
+                                    <Typography 
+                                      variant="body2" 
+                                      color="text.secondary"
+                                      sx={{ 
+                                        display: { xs: 'none', sm: 'block' },
+                                        fontSize: '0.875rem'
+                                      }}
+                                    >
+                                      to
+                                    </Typography>
+                                    <TextField
+                                      label="End"
+                                      type="time"
+                                      size="small"
+                                      value={timeBlock.end}
+                                      onChange={(e) => updateTimeBlockWithValidation(dayIdx, blockIdx, 'end', e.target.value)}
+                                      error={hasError}
+                                      sx={{ 
+                                        display: { xs: 'none', sm: 'block' },
+                                        minWidth: 120,
+                                        '& .MuiOutlinedInput-root': { 
+                                          borderRadius: 2, 
+                                          backgroundColor: hasError ? '#ffeaea' : '#f8f9fa' 
+                                        } 
+                                      }}
+                                      inputProps={{ step: 300 }}
+                                    />
+
+                                    {/* Delete Button */}
+                                    {daySchedule.timeBlocks.length > 1 && (
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => removeTimeBlock(dayIdx, blockIdx)}
+                                        sx={{ 
+                                          color: 'error.main',
+                                          alignSelf: 'center',
+                                          '&:hover': { backgroundColor: 'error.light' }
+                                        }}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    )}
+                                  </Box>
+                                );
+                              })}
+
+                              {/* Time Slots (when time slot mode is enabled) */}
+                              {useTimeSlots && daySchedule.timeSlots.length > 0 && (
+                                <Box sx={{ 
+                                  mt: 2, 
+                                  p: 2, 
+                                  backgroundColor: '#f0f8ff', 
+                                  borderRadius: 2,
+                                  border: '1px solid rgba(59, 130, 246, 0.2)'
+                                }}>
+                                  <Box sx={{ mb: 1.5 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                      Available Time Slots ({defaultSessionLength} min each)
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Spaced {parseInt(defaultSessionLength) + (bufferTime.unit === 'hours' ? parseInt(bufferTime.amount) * 60 : parseInt(bufferTime.amount))} min apart (includes {bufferTime.amount} {bufferTime.unit} buffer)
+                                    </Typography>
+                                  </Box>
+                                  <Box sx={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', 
+                                    gap: 1 
+                                  }}>
+                                    {daySchedule.timeSlots.map((slot, slotIdx) => (
+                                      <Box
+                                        key={slotIdx}
+                                        onClick={() => toggleTimeSlot(dayIdx, slotIdx)}
+                                        sx={{
+                                          p: 1,
+                                          borderRadius: 1,
+                                          backgroundColor: slot.enabled ? 'primary.main' : '#e0e0e0',
+                                          color: slot.enabled ? 'white' : 'text.secondary',
+                                          textAlign: 'center',
+                                          cursor: 'pointer',
+                                          fontSize: '0.75rem',
+                                          fontWeight: slot.enabled ? 600 : 400,
+                                          transition: 'all 0.2s ease',
+                                          '&:hover': {
+                                            backgroundColor: slot.enabled ? 'primary.dark' : '#d0d0d0',
+                                            transform: 'scale(1.02)'
+                                          }
+                                        }}
+                                      >
+                                        {slot.time}
+                                      </Box>
+                                    ))}
+                                  </Box>
+                                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                    Click time slots to enable/disable them for booking
+                                  </Typography>
+                                </Box>
+                              )}
+
+                              {/* Validation Message */}
+                              {!validateTimeBlocks(daySchedule.timeBlocks) && (
+                                <Typography 
+                                  variant="caption" 
+                                  color="error" 
+                                  sx={{ 
+                                    mt: 0.5, 
+                                    fontStyle: 'italic',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5
+                                  }}
+                                >
+                                  ⚠️ Time blocks overlap. Please adjust the times.
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                </Box>
+              )}
             </Box>
 
             {/* Customization */}

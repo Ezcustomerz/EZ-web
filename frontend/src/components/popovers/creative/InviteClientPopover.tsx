@@ -76,6 +76,9 @@ export function InviteClientPopover({ open, onClose }: InviteClientPopoverProps)
       fullWidth
       fullScreen={isMobile}
       slots={{ transition: Transition }}
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
       PaperProps={{
         sx: {
           width: { xs: '92vw', sm: 420 },

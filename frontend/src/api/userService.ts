@@ -170,6 +170,38 @@ export interface CreativeServicesListResponse {
   total_count: number;
 }
 
+// Calendar scheduling types
+export interface TimeBlock {
+  start: string; // HH:MM format
+  end: string;   // HH:MM format
+}
+
+export interface TimeSlot {
+  time: string;    // HH:MM format
+  enabled: boolean;
+}
+
+export interface WeeklySchedule {
+  day: string;     // Day of week
+  enabled: boolean;
+  time_blocks: TimeBlock[];
+  time_slots: TimeSlot[];
+}
+
+export interface CalendarSettings {
+  is_scheduling_enabled: boolean;
+  use_time_slots: boolean;
+  session_durations: number[]; // Duration in minutes
+  default_session_length: number;
+  min_notice_amount: number;
+  min_notice_unit: 'hours' | 'days';
+  max_advance_amount: number;
+  max_advance_unit: 'days' | 'weeks' | 'months';
+  buffer_time_amount: number;
+  buffer_time_unit: 'minutes' | 'hours';
+  weekly_schedule: WeeklySchedule[];
+}
+
 export interface CreateServiceRequest {
   title: string;
   description: string;
@@ -177,6 +209,7 @@ export interface CreateServiceRequest {
   delivery_time: string;
   status: 'Public' | 'Private';
   color: string;
+  calendar_settings?: CalendarSettings;
 }
 
 export interface CreateServiceResponse {

@@ -45,6 +45,9 @@ export function ConfirmDeleteDialog({
       maxWidth="sm"
       fullWidth
       fullScreen={isMobile}
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
       PaperProps={{
         sx: {
           borderRadius: isMobile ? 0 : 3,
