@@ -12,8 +12,6 @@ import {
   useTheme,
   Divider,
   Slide,
-  Card,
-  CardContent,
   Autocomplete,
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
@@ -136,7 +134,7 @@ export function ClientSetupPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const [isLoading, setIsLoading] = useState(false);
-  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
+  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -515,6 +513,13 @@ export function ClientSetupPopover({
                     sx={{ width: '100%' }}
                     clearOnEscape
                     openOnFocus
+                    slotProps={{
+                      popper: {
+                        sx: {
+                          zIndex: isMobile ? 10001 : 1301, // Higher than dialog z-index
+                        }
+                      }
+                    }}
                   />
                 </Box>
               </Box>
@@ -563,9 +568,16 @@ export function ClientSetupPopover({
 
       <DialogActions sx={{ 
         px: isMobile ? 2 : isTablet ? 3 : 4, 
-        py: isMobile ? 1 : 2, 
+        py: isMobile ? 2 : 2, 
+        pb: isMobile ? 8 : 2, // Extra bottom padding on mobile to avoid interface elements
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        position: isMobile ? 'sticky' : 'relative',
+        bottom: isMobile ? 0 : 'auto',
+        backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.98)' : 'transparent',
+        backdropFilter: isMobile ? 'blur(8px)' : 'none',
+        borderTop: isMobile ? '1px solid rgba(0, 0, 0, 0.08)' : 'none',
+        zIndex: isMobile ? 1000 : 'auto',
       }}>
         {/* Back Button */}
         <Button

@@ -229,7 +229,18 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
 
       <Divider />
 
-      <DialogActions sx={{ px: 3, py: 3, justifyContent: 'center' }}>
+      <DialogActions sx={{ 
+        px: 3, 
+        py: isMobile ? 4 : 3, 
+        justifyContent: 'center',
+        pb: isMobile ? 8 : 3, // Extra bottom padding on mobile to avoid interface elements
+        position: isMobile ? 'sticky' : 'relative',
+        bottom: isMobile ? 0 : 'auto',
+        backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.98)' : 'transparent',
+        backdropFilter: isMobile ? 'blur(8px)' : 'none',
+        borderTop: isMobile ? '1px solid rgba(0, 0, 0, 0.08)' : 'none',
+        zIndex: isMobile ? 1000 : 'auto',
+      }}>
         <Button
           onClick={handleSubmit}
           variant="contained"
