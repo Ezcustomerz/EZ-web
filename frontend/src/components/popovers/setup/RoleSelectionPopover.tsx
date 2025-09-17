@@ -233,7 +233,7 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
         px: 3, 
         py: isMobile ? 4 : 3, 
         justifyContent: 'center',
-        pb: isMobile ? 8 : 3, // Extra bottom padding on mobile to avoid interface elements
+        pb: isMobile ? 9 : 3, // Extra bottom padding on mobile to avoid interface elements
         position: isMobile ? 'sticky' : 'relative',
         bottom: isMobile ? 0 : 'auto',
         backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.98)' : 'transparent',
