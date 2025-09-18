@@ -36,7 +36,7 @@ interface SidebarAdvocateProps {
 
 export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarAdvocateProps) {
   const theme = useTheme();
-  const { userProfile } = useAuth();
+  const { userProfile, isSetupInProgress } = useAuth();
   const { setProfileLoading } = useLoading();
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
@@ -103,6 +103,14 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
         return;
       }
       
+      // Don't fetch role-specific profiles during setup
+      if (isSetupInProgress) {
+        console.log('[SidebarAdvocate] Setup in progress, skipping profile fetch');
+        setAdvocateProfile(advocateUserData as unknown as AdvocateProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
       // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
         console.log('[SidebarAdvocate] Profile already fetched for user, restoring from cache');
@@ -147,7 +155,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
       }
     };
     loadProfile();
-  }, [userProfile]);
+  }, [userProfile, isSetupInProgress]);
 
   function handleUserPanelClick(event: React.MouseEvent<HTMLElement>) {
     setUserMenuAnchor(event.currentTarget);

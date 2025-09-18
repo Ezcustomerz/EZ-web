@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
-import { userService } from '../../../api/userService';
+import { userService, type UserRoleProfiles } from '../../../api/userService';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
 
@@ -28,6 +28,7 @@ export interface RoleSelectionPopoverProps {
   onClose: () => void;
   userName?: string;
   userRoles?: string[];
+  roleProfiles?: UserRoleProfiles;
 }
 
 const ROLE_OPTIONS = [
@@ -56,27 +57,99 @@ const Transition = React.forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export function RoleSelectionPopover({ open, onClose, userName, userRoles }: RoleSelectionPopoverProps) {
+export function RoleSelectionPopover({ open, onClose, userName, userRoles, roleProfiles }: RoleSelectionPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(['creative']); // Default to creative for new users
+  // Initialize state based on invite flow detection
+  const getInitialState = () => {
+    const invitePreSelectClient = localStorage.getItem('invitePreSelectClient') === 'true';
+    const inviteNeedsClientRole = localStorage.getItem('inviteNeedsClientRole') === 'true';
+    
+    if (invitePreSelectClient || inviteNeedsClientRole) {
+      return {
+        selectedRoles: ['client'],
+        isInviteFlow: true
+      };
+    }
+    return {
+      selectedRoles: ['creative'],
+      isInviteFlow: false
+    };
+  };
+
+  const initialState = getInitialState();
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(initialState.selectedRoles);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInviteFlow, setIsInviteFlow] = useState(initialState.isInviteFlow);
   const { startSequentialSetup, userProfile } = useAuth();
+
+  // Helper function to check if a role actually exists (has a profile)
+  const hasRoleProfile = (role: string): boolean => {
+    if (!roleProfiles) return false;
+    
+    switch (role) {
+      case 'creative':
+        return !!roleProfiles.creative;
+      case 'client':
+        return !!roleProfiles.client;
+      case 'advocate':
+        return !!roleProfiles.advocate;
+      default:
+        return false;
+    }
+  };
 
   // Update selected roles when userRoles prop changes or when popover opens
   useEffect(() => {
     if (open) {
-      if (userProfile?.first_login === true) {
-        // New user - default to creative
-        setSelectedRoles(['creative']);
-      } else if (userRoles && userRoles.length > 0) {
-        // Returning user with incomplete setups - use their actual roles
-        setSelectedRoles(userRoles);
+      // Re-check invite flow state when popover opens
+      const invitePreSelectClient = localStorage.getItem('invitePreSelectClient') === 'true';
+      const inviteNeedsClientRole = localStorage.getItem('inviteNeedsClientRole') === 'true';
+      
+      if (invitePreSelectClient || inviteNeedsClientRole) {
+        // This is an invite flow - client role is mandatory
+        setIsInviteFlow(true);
+        
+        if (userProfile?.first_login === true) {
+          // New user - only client role
+          setSelectedRoles(['client']);
+        } else if (userRoles && userRoles.length > 0) {
+          // Existing user - add client to existing roles
+          const rolesWithClient = userRoles.includes('client') ? userRoles : [...userRoles, 'client'];
+          setSelectedRoles(rolesWithClient);
+        } else {
+          // Fallback - just client role
+          setSelectedRoles(['client']);
+        }
+      } else {
+        // Normal flow
+        setIsInviteFlow(false);
+        
+        if (userProfile?.first_login === true) {
+          // New user - default to creative
+          setSelectedRoles(['creative']);
+        } else if (userRoles && userRoles.length > 0) {
+          // Existing user - use their actual roles
+          setSelectedRoles(userRoles);
+        } else {
+          // Fallback - default to creative
+          setSelectedRoles(['creative']);
+        }
       }
     }
   }, [userRoles, open, userProfile?.first_login]);
 
   const handleRoleChange = (role: string) => {
+    // Prevent removing client role during invite flow
+    if (isInviteFlow && role === 'client') {
+      return; // Do nothing - client role is mandatory for invite flows
+    }
+    
+    // Prevent changing existing roles (roles user already has a profile for)
+    if (hasRoleProfile(role)) {
+      return; // Do nothing - user already has this role profile
+    }
+    
     setSelectedRoles(prev => {
       if (prev.includes(role)) {
         // Remove role if already selected
@@ -99,10 +172,26 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
       const response = await userService.updateUserRoles(selectedRoles);
       
       if (response.success) {
+        // Clear invite flags after successful role selection
+        if (isInviteFlow) {
+          localStorage.removeItem('invitePreSelectClient');
+          localStorage.removeItem('inviteNeedsClientRole');
+        }
+        
         successToast('Welcome to EZ!', response.message);
         onClose();
-        // Start sequential setup flow in order: creative -> client -> advocate
-        startSequentialSetup(selectedRoles);
+        
+        // Filter out roles that user already has profiles for
+        const rolesNeedingSetup = selectedRoles.filter(role => !hasRoleProfile(role));
+        
+        // Only start setup process if there are roles that need setup
+        if (rolesNeedingSetup.length > 0) {
+          // Start sequential setup flow in order: creative -> client -> advocate
+          startSequentialSetup(rolesNeedingSetup);
+        } else {
+          // All selected roles already have profiles, no setup needed
+          console.log('[RoleSelectionPopover] All selected roles already have profiles, skipping setup');
+        }
       } else {
         errorToast('Role Selection Failed', response.message);
       }
@@ -183,47 +272,118 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
       <DialogContent sx={{ pb: 2 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
           <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>
-            Choose your role(s) to get started with EZ
+            {(() => {
+              const hasExistingProfiles = roleProfiles && (
+                roleProfiles.creative || 
+                roleProfiles.client || 
+                roleProfiles.advocate
+              );
+              
+              return hasExistingProfiles 
+                ? 'Add additional roles to expand your capabilities on EZ'
+                : 'Choose your role(s) to get started with EZ';
+            })()}
           </Typography>
           
           <FormControl component="fieldset" fullWidth>
             <FormLabel component="legend" sx={{ mb: 2, fontWeight: 'bold', textAlign: 'center' }}>
-              Select your role(s) - you can choose 1 to 3 roles:
+              {(() => {
+                const existingRoles = [];
+                if (roleProfiles?.creative) existingRoles.push('Creative');
+                if (roleProfiles?.client) existingRoles.push('Client');
+                if (roleProfiles?.advocate) existingRoles.push('Advocate');
+                
+                return existingRoles.length > 0 
+                  ? `Select additional role(s) - you already have: ${existingRoles.join(', ')}`
+                  : 'Select your role(s) - you can choose 1 to 3 roles:';
+              })()}
             </FormLabel>
           <FormGroup>
-            {ROLE_OPTIONS.map((role) => (
-              <Box key={role.value} sx={{ mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={selectedRoles.includes(role.value)}
-                      onChange={() => handleRoleChange(role.value)}
-                      disabled={isLoading}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight="medium">
-                        {role.label}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {role.description}
-                      </Typography>
-                    </Box>
-                  }
-                  sx={{ alignItems: 'flex-start', m: 0 }}
-                />
-              </Box>
-            ))}
+            {ROLE_OPTIONS.map((role) => {
+              const isExistingRole = hasRoleProfile(role.value);
+              const isInviteRequired = isInviteFlow && role.value === 'client';
+              const isDisabled = isLoading || isInviteRequired || isExistingRole;
+              
+              return (
+                <Box key={role.value} sx={{ mb: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={selectedRoles.includes(role.value)}
+                        onChange={() => handleRoleChange(role.value)}
+                        disabled={isDisabled}
+                        color="primary"
+                        sx={{
+                          ...(isInviteRequired && {
+                            '& .MuiSvgIcon-root': {
+                              color: theme.palette.primary.main,
+                              opacity: 1,
+                            }
+                          }),
+                          ...(isExistingRole && {
+                            '& .MuiSvgIcon-root': {
+                              color: theme.palette.success.main,
+                              opacity: 0.8,
+                            }
+                          })
+                        }}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography 
+                          variant="subtitle1" 
+                          fontWeight="medium"
+                          sx={{
+                            ...(isInviteRequired && {
+                              color: theme.palette.primary.main,
+                              fontWeight: 'bold',
+                            }),
+                            ...(isExistingRole && {
+                              color: theme.palette.success.main,
+                              fontWeight: 'bold',
+                            })
+                          }}
+                        >
+                          {role.label}
+                          {isInviteRequired && (
+                            <Typography component="span" sx={{ ml: 1, fontSize: '0.9rem', fontWeight: 'normal' }}>
+                              (Required for invitation)
+                            </Typography>
+                          )}
+                          {isExistingRole && (
+                            <Typography component="span" sx={{ ml: 1, fontSize: '0.9rem', fontWeight: 'normal' }}>
+                              ✓ (You already have this role)
+                            </Typography>
+                          )}
+                        </Typography>
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary"
+                          sx={{
+                            ...(isInviteRequired && {
+                              color: theme.palette.primary.dark,
+                              fontWeight: 'medium',
+                            }),
+                            ...(isExistingRole && {
+                              color: theme.palette.success.dark,
+                              fontWeight: 'medium',
+                            })
+                          }}
+                        >
+                          {role.description}
+                        </Typography>
+                      </Box>
+                    }
+                    sx={{ alignItems: 'flex-start', m: 0 }}
+                  />
+                </Box>
+              );
+            })}
             </FormGroup>
           </FormControl>
 
-          <Box sx={{ mt: 1, p: 2, backgroundColor: 'custom.amber', borderRadius: 1, width: '100%' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-              <strong>Note:</strong> You can add roles later in your profile settings.
-            </Typography>
-          </Box>
+
         </Box>
       </DialogContent>
 
@@ -233,7 +393,7 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
         px: 3, 
         py: isMobile ? 4 : 3, 
         justifyContent: 'center',
-        pb: isMobile ? 9 : 3, // Extra bottom padding on mobile to avoid interface elements
+        pb: isMobile ? 10 : 3, 
         position: isMobile ? 'sticky' : 'relative',
         bottom: isMobile ? 0 : 'auto',
         backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.98)' : 'transparent',
@@ -254,7 +414,12 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles }: Rol
             borderRadius: 2,
           }}
         >
-          {isLoading ? 'Setting Roles...' : `Continue with ${selectedRoles.length} role${selectedRoles.length !== 1 ? 's' : ''}`}
+          {isLoading 
+            ? 'Setting Roles...' 
+            : isInviteFlow 
+              ? `Accept Invitation with ${selectedRoles.length} role${selectedRoles.length !== 1 ? 's' : ''}`
+              : `Continue with ${selectedRoles.length} role${selectedRoles.length !== 1 ? 's' : ''}`
+          }
         </Button>
       </DialogActions>
     </Dialog>

@@ -17,7 +17,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAnyLoading, setProfileLoading } = useLoading();
-  const { userProfile } = useAuth();
+  const { userProfile, isSetupInProgress } = useAuth();
   const [advocateProfile, setAdvocateProfile] = useState<AdvocateProfile | null>(null);
   const fetchingRef = useRef<Set<string>>(new Set());
   
@@ -104,6 +104,14 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
         return;
       }
       
+      // Don't fetch role-specific profiles during setup
+      if (isSetupInProgress) {
+        console.log('[LayoutAdvocate] Setup in progress, skipping profile fetch');
+        setAdvocateProfile(null);
+        setProfileLoading(false);
+        return;
+      }
+      
       // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
         console.log('[LayoutAdvocate] Profile already fetched for user, restoring from cache');
@@ -148,7 +156,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
       }
     };
     loadProfile();
-  }, [userProfile]);
+  }, [userProfile, isSetupInProgress]);
 
   // Add keyboard shortcut for sidebar toggle (Ctrl+B or Cmd+B)
   useEffect(() => {

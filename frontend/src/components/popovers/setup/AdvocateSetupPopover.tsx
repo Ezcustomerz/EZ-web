@@ -42,8 +42,6 @@ const Transition = React.forwardRef(function Transition(
 export function AdvocateSetupPopover({ 
   open, 
   onClose, 
-  userName = '', 
-  userEmail = '',
   onBack,
   isFirstSetup = false,
   onComplete
@@ -52,7 +50,7 @@ export function AdvocateSetupPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const [isLoading, setIsLoading] = useState(false);
-  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
+  const { backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -319,7 +317,7 @@ export function AdvocateSetupPopover({
       <DialogActions sx={{ 
         px: isMobile ? 2 : isTablet ? 3 : 4, 
         py: isMobile ? 2 : 2, 
-        pb: isMobile ? 8 : 2, // Extra bottom padding on mobile to avoid interface elements
+        pb: isMobile ? 10 : 2, // Extra bottom padding on mobile to avoid interface elements
         justifyContent: 'space-between',
         alignItems: 'center',
         position: isMobile ? 'sticky' : 'relative',

@@ -25,7 +25,7 @@ export function LayoutCreative({
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
-  const { userProfile } = useAuth();
+  const { userProfile, isSetupInProgress } = useAuth();
   const { setProfileLoading, isAnyLoading } = useLoading();
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const fetchingRef = useRef<Set<string>>(new Set());
@@ -119,6 +119,14 @@ export function LayoutCreative({
         return;
       }
       
+      // Don't fetch role-specific profiles during setup
+      if (isSetupInProgress) {
+        console.log('[LayoutCreative] Setup in progress, skipping profile fetch');
+        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
       // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
         console.log('[LayoutCreative] Profile already fetched for user, restoring from cache');
@@ -163,7 +171,7 @@ export function LayoutCreative({
       }
     };
     loadProfile();
-  }, [userProfile]);
+  }, [userProfile, isSetupInProgress]);
 
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {

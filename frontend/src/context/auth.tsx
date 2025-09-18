@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
-import { toast, errorToast } from '../components/toast/toast';
+import { toast, errorToast, successToast } from '../components/toast/toast';
 import { useLoading } from './loading';
 import { userService, type UserProfile } from '../api/userService';
+import { inviteService } from '../api/inviteService';
+import { useNavigate } from 'react-router-dom';
 type SetupData = {
   creative?: any;
   client?: any;
@@ -40,12 +42,14 @@ type AuthContextValue = {
   tempSetupData: SetupData;
   saveSetupData: (role: string, data: any) => void;
   originalSelectedRoles: string[];
+  isSetupInProgress: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { setUserAuthLoading } = useLoading();
+  const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [roleSelectionOpen, setRoleSelectionOpen] = useState(false);
@@ -58,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [completedSetups, setCompletedSetups] = useState<string[]>([]);
   const [tempSetupData, setTempSetupData] = useState<SetupData>({});
   const [originalSelectedRoles, setOriginalSelectedRoles] = useState<string[]>([]);
+  const [isSetupInProgress, setIsSetupInProgress] = useState(false);
 
   useEffect(() => {
     // Initial read
@@ -148,21 +153,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const profile = await userService.getUserProfile();
       setUserProfile(profile);
 
+      // Check for pending invite flow
+      const pendingInviteToken = localStorage.getItem('pendingInviteToken');
+      const invitePreSelectClient = localStorage.getItem('invitePreSelectClient') === 'true';
+      const inviteNeedsClientRole = localStorage.getItem('inviteNeedsClientRole') === 'true';
+      
       // Check if this is first login
       if (profile?.first_login === true) {
-        // Show role selection instead of welcome toast
-        setRoleSelectionOpen(true);
+        // Check if user came from invite link
+        if (invitePreSelectClient && pendingInviteToken) {
+          // DON'T clear the flags yet - keep them for RoleSelectionPopover
+          // Keep pendingInviteToken for after role selection
+          
+          // Pre-select client role and show role selection
+          setOriginalSelectedRoles(['client']);
+          setRoleSelectionOpen(true);
+        } else {
+          // Show normal role selection
+          setRoleSelectionOpen(true);
+        }
+      } else if (invitePreSelectClient && pendingInviteToken) {
+        // User is authenticated and came from invite link - check if they have client role
+        const currentRoles = profile.roles || [];
+        if (currentRoles.includes('client')) {
+          // User has client role - automatically accept the invite
+          console.log('[Auth] User has client role, automatically accepting invite...');
+          handleInviteAfterSetup();
+        } else {
+          // User doesn't have client role - show role selection with client pre-selected
+          console.log('[Auth] User needs client role for invite, showing role selection...');
+          setOriginalSelectedRoles([...currentRoles, 'client']);
+          setRoleSelectionOpen(true);
+        }
+      } else if (inviteNeedsClientRole && pendingInviteToken) {
+        // User is authenticated but needs client role for invite
+        // DON'T clear the flags yet - keep them for RoleSelectionPopover
+        // Keep pendingInviteToken for after role selection
+        
+        // Show role selection with client pre-selected
+        const currentRoles = profile.roles || [];
+        if (!currentRoles.includes('client')) {
+          setOriginalSelectedRoles([...currentRoles, 'client']);
+          setRoleSelectionOpen(true);
+        }
       } else {
-        // Check for incomplete setups
-        try {
-          const setupStatus = await userService.getIncompleteSetups();
-          if (setupStatus.incomplete_setups.length > 0) {
-            // For incomplete setups, store the user's current roles as original selection
-            setOriginalSelectedRoles(profile.roles || []);
-            // Resume incomplete setups
-            startSequentialSetup(setupStatus.incomplete_setups);
-          } else {
-            // Only show welcome toast for fresh sign-ins, not page reloads
+        // Check for incomplete setups only if setup is not already in progress and role selection is not open
+        if (!isSetupInProgress && !roleSelectionOpen) {
+          try {
+            const setupStatus = await userService.getIncompleteSetups();
+            if (setupStatus.incomplete_setups.length > 0) {
+              // For incomplete setups, store the user's current roles as original selection
+              setOriginalSelectedRoles(profile.roles || []);
+              // Resume incomplete setups
+              startSequentialSetup(setupStatus.incomplete_setups);
+            } else {
+              // Only show welcome toast for fresh sign-ins, not page reloads
+              if (isFreshSignIn) {
+                toast({
+                  title: 'Welcome back!',
+                  description: 'You have successfully signed in.',
+                  variant: 'success',
+                  duration: 4000
+                });
+              }
+            }
+          } catch (setupErr) {
+            console.error('Error checking setup status:', setupErr);
+            // Only show fallback welcome toast for fresh sign-ins
             if (isFreshSignIn) {
               toast({
                 title: 'Welcome back!',
@@ -172,9 +229,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               });
             }
           }
-        } catch (setupErr) {
-          console.error('Error checking setup status:', setupErr);
-          // Only show fallback welcome toast for fresh sign-ins
+        } else {
+          // Setup is in progress or role selection is open, just show welcome toast for fresh sign-ins
           if (isFreshSignIn) {
             toast({
               title: 'Welcome back!',
@@ -196,8 +252,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const closeRoleSelection = () => {
     setRoleSelectionOpen(false);
-    // Refresh user profile after role selection
-    if (session?.user?.id) {
+    // Only refresh user profile after role selection if setup is not in progress
+    if (session?.user?.id && !isSetupInProgress) {
       fetchUserProfile(false); // false = not a fresh sign-in, just refreshing after role selection
     }
   };
@@ -235,10 +291,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCompletedSetups([]); // Reset completed setups
     setTempSetupData({}); // Reset temp setup data
     setOriginalSelectedRoles(selectedRoles); // Store original selection
+    setIsSetupInProgress(true); // Mark setup as in progress
     
     // Start with the first setup
     if (orderedSetups.length > 0) {
       openNextSetup(orderedSetups);
+    }
+  };
+
+  const handleInviteAfterSetup = async () => {
+    const pendingInviteToken = localStorage.getItem('pendingInviteToken');
+    if (pendingInviteToken) {
+      try {
+        const response = await inviteService.acceptInviteAfterRoleSetup(pendingInviteToken);
+        
+        if (response.success) {
+          // Clear the invite token
+          localStorage.removeItem('pendingInviteToken');
+          localStorage.removeItem('inviteCreativeUserId');
+          
+          if (response.relationship_exists) {
+            successToast('Already Connected', response.message);
+          } else {
+            successToast('Success!', response.message);
+          }
+          
+          // Redirect to client dashboard after a short delay
+          setTimeout(() => {
+            navigate('/client');
+          }, 2000);
+        } else {
+          errorToast('Connection Failed', response.message);
+        }
+      } catch (err) {
+        console.error('Error accepting invite after setup:', err);
+        errorToast('Connection Failed', 'Unable to connect with creative. Please try again.');
+      }
+    } else {
+      // No pending invite - refresh user profile to get updated data after setup completion
+      if (session?.user?.id) {
+        try {
+          await fetchUserProfile(false); // false = not a fresh sign-in, just refreshing after setup
+        } catch (err) {
+          console.error('Error refreshing profile after setup:', err);
+        }
+      }
     }
   };
 
@@ -269,8 +366,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Continue to next setup if there are pending ones
     const remainingSetups = pendingSetups.slice(1);
     setPendingSetups(remainingSetups);
+    
     if (remainingSetups.length > 0) {
       openNextSetup(remainingSetups);
+    } else {
+      // All setups complete - clear setup in progress flag and check for pending invite
+      setIsSetupInProgress(false);
+      handleInviteAfterSetup();
     }
   };
 
@@ -288,8 +390,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Continue to next setup if there are pending ones
     const remainingSetups = pendingSetups.slice(1);
     setPendingSetups(remainingSetups);
+    
     if (remainingSetups.length > 0) {
       openNextSetup(remainingSetups);
+    } else {
+      // All setups complete - clear setup in progress flag and check for pending invite
+      setIsSetupInProgress(false);
+      handleInviteAfterSetup();
     }
   };
 
@@ -307,8 +414,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Continue to next setup if there are pending ones
     const remainingSetups = pendingSetups.slice(1);
     setPendingSetups(remainingSetups);
+    
     if (remainingSetups.length > 0) {
       openNextSetup(remainingSetups);
+    } else {
+      // All setups complete - clear setup in progress flag and check for pending invite
+      setIsSetupInProgress(false);
+      handleInviteAfterSetup();
     }
   };
 
@@ -323,6 +435,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPendingSetups([]); // Clear pending setups when going back
     setCompletedSetups([]); // Clear completed setups when going back
     setTempSetupData({}); // Clear temp setup data when going back to roles
+    setIsSetupInProgress(false); // Clear setup in progress flag
     setRoleSelectionOpen(true);
   };
 
@@ -383,7 +496,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tempSetupData,
     saveSetupData,
     originalSelectedRoles,
-  }), [session, authOpen, roleSelectionOpen, userProfile, isLoadingProfile, producerSetupOpen, clientSetupOpen, advocateSetupOpen, pendingSetups, completedSetups, isFirstSetup, tempSetupData, originalSelectedRoles]);
+    isSetupInProgress,
+  }), [session, authOpen, roleSelectionOpen, userProfile, isLoadingProfile, producerSetupOpen, clientSetupOpen, advocateSetupOpen, pendingSetups, completedSetups, isFirstSetup, tempSetupData, originalSelectedRoles, isSetupInProgress]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
