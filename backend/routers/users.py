@@ -118,22 +118,17 @@ async def update_user_roles(request: Request, role_request: UpdateRolesRequest):
                 # Delete advocate profile if role is removed
                 db_admin.table('advocates').delete().eq('user_id', user_id).execute()
         
-        # Update user roles and first_login flag
+        # Update user roles (keep first_login as True until setup is completed)
         update_result = db_admin.table('users').update({
-            'roles': selected_roles,
-            'first_login': False
+            'roles': selected_roles
         }).eq('user_id', user_id).execute()
         
         if not update_result.data:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Fetch updated profile
-        profile_result = db_admin.table('users').select('*').eq('user_id', user_id).single().execute()
-        
         return UpdateRolesResponse(
             success=True,
-            message="Roles updated successfully",
-            user_profile=UserProfile(**profile_result.data)
+            message="Roles updated successfully"
         )
         
     except HTTPException:
@@ -368,9 +363,15 @@ async def get_setup_status(request: Request):
         user_roles = user_result.data['roles']
         first_login = user_result.data['first_login']
         
-        # If first_login is True, they haven't completed role selection yet
+        # If first_login is True, they haven't completed setup yet
+        # Check if they have roles selected (setup in progress) or no roles (need role selection)
         if first_login:
-            return SetupStatusResponse(incomplete_setups=[])
+            if not user_roles or len(user_roles) == 0:
+                # No roles selected yet - need role selection
+                return SetupStatusResponse(incomplete_setups=[])
+            else:
+                # Roles selected but setup not complete - return incomplete setups
+                pass  # Continue to check which setups are incomplete
         
         incomplete_setups = []
         

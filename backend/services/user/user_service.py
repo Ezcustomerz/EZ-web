@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from db.db_session import db_admin
-from schemas.user import UserProfile, UpdateRolesRequest, UpdateRolesResponse, SetupStatusResponse, BatchSetupRequest, BatchSetupResponse
+from schemas.user import UserProfile, UpdateRolesRequest, UpdateRolesResponse, SetupStatusResponse, BatchSetupRequest, BatchSetupResponse, RoleProfilesResponse
 from core.validation import validate_roles
 
 class UserController:
@@ -49,22 +49,17 @@ class UserController:
                     # Delete advocate profile if role is removed
                     db_admin.table('advocates').delete().eq('user_id', user_id).execute()
             
-            # Update user roles and first_login flag
+            # Update user roles (keep first_login as True until setup is completed)
             update_result = db_admin.table('users').update({
-                'roles': selected_roles,
-                'first_login': False
+                'roles': selected_roles
             }).eq('user_id', user_id).execute()
             
             if not update_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
-            # Fetch updated profile
-            profile_result = db_admin.table('users').select('*').eq('user_id', user_id).single().execute()
-            
             return UpdateRolesResponse(
                 success=True,
-                message="Roles updated successfully",
-                user_profile=UserProfile(**profile_result.data)
+                message="Roles updated successfully"
             )
             
         except HTTPException:
@@ -84,9 +79,15 @@ class UserController:
             user_roles = user_result.data['roles']
             first_login = user_result.data['first_login']
             
-            # If first_login is True, they haven't completed role selection yet
+            # If first_login is True, they haven't completed setup yet
+            # Check if they have roles selected (setup in progress) or no roles (need role selection)
             if first_login:
-                return SetupStatusResponse(incomplete_setups=[])
+                if not user_roles or len(user_roles) == 0:
+                    # No roles selected yet - need role selection
+                    return SetupStatusResponse(incomplete_setups=[])
+                else:
+                    # Roles selected but setup not complete - return incomplete setups
+                    pass  # Continue to check which setups are incomplete
             
             incomplete_setups = []
             
@@ -219,6 +220,11 @@ class UserController:
                 if result.data:
                     created_profiles.append('advocate')
             
+            # Mark setup as complete by setting first_login to False
+            db_admin.table('users').update({
+                'first_login': False
+            }).eq('user_id', user_id).execute()
+            
             return BatchSetupResponse(
                 success=True,
                 message=f"Successfully created {len(created_profiles)} profile(s): {', '.join(created_profiles)}"
@@ -230,7 +236,7 @@ class UserController:
             raise HTTPException(status_code=500, detail=f"Failed to create profiles: {str(e)}")
 
     @staticmethod
-    async def get_user_role_profiles(user_id: str) -> dict:
+    async def get_user_role_profiles(user_id: str) -> RoleProfilesResponse:
         """Get minimal role profile data for role switching"""
         try:
             # Get user's roles first
@@ -245,27 +251,27 @@ class UserController:
             if 'creative' in user_roles:
                 creative_result = db_admin.table('creatives').select(
                     'user_id, title'
-                ).eq('user_id', user_id).single().execute()
-                if creative_result.data:
-                    role_profiles['creative'] = creative_result.data
+                ).eq('user_id', user_id).execute()
+                if creative_result.data and len(creative_result.data) > 0:
+                    role_profiles['creative'] = creative_result.data[0]
             
             # Fetch minimal client profile data if user has client role
             if 'client' in user_roles:
                 client_result = db_admin.table('clients').select(
                     'user_id, title'
-                ).eq('user_id', user_id).single().execute()
-                if client_result.data:
-                    role_profiles['client'] = client_result.data
+                ).eq('user_id', user_id).execute()
+                if client_result.data and len(client_result.data) > 0:
+                    role_profiles['client'] = client_result.data[0]
             
             # Fetch minimal advocate profile data if user has advocate role
             if 'advocate' in user_roles:
                 advocate_result = db_admin.table('advocates').select(
                     'user_id, tier'
-                ).eq('user_id', user_id).single().execute()
-                if advocate_result.data:
-                    role_profiles['advocate'] = advocate_result.data
+                ).eq('user_id', user_id).execute()
+                if advocate_result.data and len(advocate_result.data) > 0:
+                    role_profiles['advocate'] = advocate_result.data[0]
             
-            return role_profiles
+            return RoleProfilesResponse(**role_profiles)
             
         except HTTPException:
             raise

@@ -117,9 +117,12 @@ export function LayoutClient({
         return;
       }
       
-      // Don't fetch role-specific profiles during setup
-      if (isSetupInProgress) {
-        console.log('[LayoutClient] Setup in progress, skipping profile fetch');
+      // Don't fetch role-specific profiles during setup or if first_login is true
+      if (isSetupInProgress || userProfile.first_login) {
+        console.log('[LayoutClient] Setup in progress or first login, skipping profile fetch', { 
+          isSetupInProgress, 
+          first_login: userProfile.first_login 
+        });
         setClientProfile(demoClientData as unknown as ClientProfile);
         setProfileLoading(false);
         return;

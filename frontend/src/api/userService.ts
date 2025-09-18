@@ -95,6 +95,7 @@ export interface CreativeProfile {
   display_name: string;
   title: string;
   bio?: string;
+  description?: string;
   subscription_tier: string;
   primary_contact?: string;
   secondary_contact?: string;
@@ -102,6 +103,10 @@ export interface CreativeProfile {
   profile_source: string;
   storage_used_bytes: number;
   storage_limit_bytes: number;
+  availability_location?: string;
+  projects_count: number;
+  experience_years: number;
+  average_response_hours: number;
   created_at: string;
 }
 
@@ -351,6 +356,26 @@ export const userService = {
     const response = await axios.get<CreativeProfile>(
       `${API_BASE_URL}/creative/profile`,
       { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get a creative profile by user ID (for public viewing)
+   */
+  async getCreativeProfileById(userId: string): Promise<CreativeProfile> {
+    const response = await axios.get<CreativeProfile>(
+      `${API_BASE_URL}/creative/profile/${userId}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Get creative services by user ID (for public viewing)
+   */
+  async getCreativeServicesById(userId: string): Promise<CreativeServicesListResponse> {
+    const response = await axios.get<CreativeServicesListResponse>(
+      `${API_BASE_URL}/creative/services/${userId}`
     );
     return response.data;
   },

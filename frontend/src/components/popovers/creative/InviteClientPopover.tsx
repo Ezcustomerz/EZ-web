@@ -102,6 +102,9 @@ export function InviteClientPopover({ open, onClose }: InviteClientPopoverProps)
       fullWidth
       fullScreen={isMobile}
       slots={{ transition: Transition }}
+      disableAutoFocus={false}
+      disableEnforceFocus={false}
+      disableRestoreFocus={false}
       sx={{
         zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
       }}

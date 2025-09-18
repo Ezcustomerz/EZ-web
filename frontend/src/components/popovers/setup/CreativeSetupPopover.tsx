@@ -325,6 +325,8 @@ export function CreativeSetupPopover({
         if (response.success) {
           successToast('All Setups Complete!', 'Welcome to EZ! Your profiles have been created.');
           onClose();
+          // Refresh user profile to get updated first_login status
+          window.location.reload(); // Force refresh to get updated profile
         } else {
           errorToast('Setup Failed', response.message);
         }
@@ -886,7 +888,7 @@ export function CreativeSetupPopover({
 
                         <Box sx={{ textAlign: 'left', mt: 'auto' }}>
                           {tier.features.slice(0, 3).map((feature, index) => (
-                            <Typography key={index} variant="body2" sx={{ 
+                            <Typography key={index} component="div" variant="body2" sx={{ 
                               mb: 0.3, 
                               display: 'flex', 
                               alignItems: 'center',
@@ -920,7 +922,7 @@ export function CreativeSetupPopover({
       <DialogActions sx={{ 
         px: isMobile ? 2 : isTablet ? 3 : 4, 
         py: isMobile ? 2 : 2, 
-        pb: isMobile ? 10 : 2, // Extra bottom padding on mobile to avoid interface elements
+        pb: isMobile ? 10 : 2, 
         justifyContent: 'space-between',
         alignItems: 'center',
         position: isMobile ? 'sticky' : 'relative',

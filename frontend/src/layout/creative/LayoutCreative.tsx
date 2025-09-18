@@ -119,9 +119,21 @@ export function LayoutCreative({
         return;
       }
       
-      // Don't fetch role-specific profiles during setup
-      if (isSetupInProgress) {
-        console.log('[LayoutCreative] Setup in progress, skipping profile fetch');
+      // Don't fetch role-specific profiles during setup or if first_login is true
+      if (isSetupInProgress || userProfile.first_login) {
+        console.log('[LayoutCreative] Setup in progress or first login, skipping profile fetch', { 
+          isSetupInProgress, 
+          first_login: userProfile.first_login,
+          userProfile: userProfile
+        });
+        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
+      // Check if user has creative role before proceeding
+      if (!userProfile.roles.includes('creative')) {
+        console.log('[LayoutCreative] User does not have creative role, using demo data');
         setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
         setProfileLoading(false);
         return;
@@ -146,14 +158,6 @@ export function LayoutCreative({
       
       console.log('[LayoutCreative] Fetching creative profile for user:', userProfile.user_id);
       console.log('[LayoutCreative] User roles:', userProfile.roles);
-      
-      // Check if user has creative role
-      if (!userProfile.roles.includes('creative')) {
-        console.log('[LayoutCreative] User does not have creative role, using demo data');
-        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
-        setProfileLoading(false);
-        return;
-      }
       
       fetchingRef.current.add(userProfile.user_id);
       setProfileLoading(true);

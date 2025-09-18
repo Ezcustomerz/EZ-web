@@ -104,9 +104,12 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
         return;
       }
       
-      // Don't fetch role-specific profiles during setup
-      if (isSetupInProgress) {
-        console.log('[LayoutAdvocate] Setup in progress, skipping profile fetch');
+      // Don't fetch role-specific profiles during setup or if first_login is true
+      if (isSetupInProgress || userProfile.first_login) {
+        console.log('[LayoutAdvocate] Setup in progress or first login, skipping profile fetch', { 
+          isSetupInProgress, 
+          first_login: userProfile.first_login 
+        });
         setAdvocateProfile(null);
         setProfileLoading(false);
         return;

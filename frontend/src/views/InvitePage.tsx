@@ -10,33 +10,49 @@ import {
   CircularProgress,
   Alert,
   Avatar,
+  Divider,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   CheckCircle,
   Error as ErrorIcon,
-  Login,
   PersonAdd,
+  Star,
+  LocationOn,
+  Work,
+  Visibility,
+  ContactPhone,
 } from '@mui/icons-material';
 import { useAuth } from '../context/auth';
 import { inviteService, type ValidateInviteResponse } from '../api/inviteService';
+import { userService, type CreativeProfile, type CreativeService, type CreativeServicesListResponse } from '../api/userService';
+import { SessionPopover } from '../components/popovers/creative/ServicePopover';
+import { ReviewPopover } from '../components/popovers/creative/ReviewPopover';
+import { ServiceCardSimple } from '../components/cards/creative/ServiceCard';
+import { errorToast } from '../components/toast/toast';
 
 export function InvitePage() {
   const { inviteToken } = useParams<{ inviteToken: string }>();
   const navigate = useNavigate();
-  const { session, userProfile, openAuth, fetchUserProfile } = useAuth();
+  const { session, openAuth } = useAuth();
+  const theme = useTheme();
   
+  // Check if viewport height is small (mobile-like behavior)
+  const isShortViewport = useMediaQuery('(max-height: 715px)');
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const [validationData, setValidationData] = useState<ValidateInviteResponse | null>(null);
   const [userFromValidation, setUserFromValidation] = useState<any>(null);
+  const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
+  const [services, setServices] = useState<CreativeService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [servicesOpen, setServicesOpen] = useState(false);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
 
-  // Ensure user profile is loaded when component mounts
-  useEffect(() => {
-    if (session && !userProfile) {
-      console.log('[InvitePage] Session exists but no userProfile, fetching...');
-      fetchUserProfile();
-    }
-  }, [session, userProfile, fetchUserProfile]);
+  // InvitePage is a public page - no need to fetch user profiles
+  // The auth context will handle user profile loading when needed
 
   useEffect(() => {
     if (inviteToken) {
@@ -49,20 +65,41 @@ export function InvitePage() {
 
   const validateInvite = async () => {
     if (!inviteToken) return;
-    
+
     setLoading(true);
     try {
       const response = await inviteService.validateInviteToken(inviteToken);
       setValidationData(response);
-      
+
       // Store user info from validation response
       if (response.user) {
         setUserFromValidation(response.user);
-        console.log('[InvitePage] User info from validation:', response.user);
       }
-      
+
       if (!response.success || !response.valid) {
         setError(response.message || 'Invalid invite link');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch full creative profile if we have the creative user ID
+      if (response.creative?.user_id) {
+        try {
+          const profile = await userService.getCreativeProfileById(response.creative.user_id);
+          setCreativeProfile(profile);
+          
+          // Fetch creative services
+          const servicesResponse: CreativeServicesListResponse = await userService.getCreativeServicesById(response.creative.user_id);
+          const activeServices = servicesResponse.services.filter(service => 
+            service.is_active && 
+            service.is_enabled && 
+            service.status === 'Public'
+          );
+          setServices(activeServices);
+        } catch (profileError) {
+          errorToast('Failed to fetch creative profile');
+          // Continue with basic info from validation
+        }
       }
     } catch (err) {
       setError('Failed to validate invite link');
@@ -92,236 +129,427 @@ export function InvitePage() {
 
   if (loading) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress size={60} sx={{ mb: 3 }} />
-            <Typography variant="h6" color="text.secondary">
-              Validating invite...
-            </Typography>
-          </Box>
+      <Box sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+      }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress size={60} sx={{ mb: 3, color: 'primary.main' }} />
+          <Typography variant="h6" color="text.secondary">
+            Loading profile...
+          </Typography>
         </Box>
-      </Container>
+      </Box>
     );
   }
 
   if (error || !validationData?.valid) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-          <Card sx={{ width: '100%', textAlign: 'center' }}>
-            <CardContent sx={{ p: 4 }}>
-              <ErrorIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
-              <Typography variant="h5" gutterBottom>
-                Invalid Invite
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                {error || 'This invite link is invalid or has expired.'}
-              </Typography>
-              <Button
-                variant="contained"
-                onClick={() => navigate('/')}
-                size="large"
-              >
-                Go to Homepage
-              </Button>
-            </CardContent>
-          </Card>
-        </Box>
-      </Container>
-    );
-  }
-
-  const creative = validationData.creative;
-
-  // Debug logging
-  console.log('[InvitePage] Render state:', {
-    session: !!session,
-    userProfile: userProfile ? {
-      user_id: userProfile.user_id,
-      roles: userProfile.roles,
-      hasClientRole: userProfile.roles?.includes('client')
-    } : null,
-    userFromValidation: userFromValidation,
-    validationData: validationData ? {
-      valid: validationData.valid,
-      creative: validationData.creative ? {
-        display_name: validationData.creative.display_name
-      } : null
-    } : null,
-    loading: loading
-  });
-
-  // Show loading if we have a session but no userProfile yet
-  if (session && !userProfile && !loading) {
-    console.log('[InvitePage] Session exists but no userProfile, showing loading...');
-    return (
-      <Container maxWidth="sm" sx={{ py: 8 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <CircularProgress size={60} sx={{ mb: 3 }} />
-            <Typography variant="h6" color="text.secondary">
-              Loading your profile...
+      <Box sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        px: 2
+      }}>
+        <Card sx={{
+          width: '100%',
+          maxWidth: 400,
+          textAlign: 'center',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          borderRadius: 3
+        }}>
+          <CardContent sx={{ p: 4 }}>
+            <ErrorIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+            <Typography variant="h5" gutterBottom>
+              Invalid Link
             </Typography>
-          </Box>
-        </Box>
-      </Container>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+              {error || 'This link is invalid or has expired.'}
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={() => navigate('/')}
+              size="large"
+              fullWidth
+            >
+              Go to Homepage
+            </Button>
+          </CardContent>
+        </Card>
+      </Box>
     );
   }
+
+
+  // Use the full creative profile if available, otherwise fall back to basic validation data
+  const creative = creativeProfile || validationData?.creative;
 
   return (
-    <Container maxWidth="sm" sx={{ py: 8 }}>
-      <Card sx={{ 
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-        borderRadius: 3,
-        overflow: 'hidden'
+    <Box sx={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      py: { xs: 2, md: 2 }
+    }}>
+      <Container maxWidth="lg" sx={{
+        px: { xs: 2, md: 3 }
       }}>
-        {/* Header */}
-        <Box
-          sx={{
-            background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-            color: 'white',
-            p: 4,
-            textAlign: 'center'
-          }}
-        >
-          <PersonAdd sx={{ fontSize: 48, mb: 2 }} />
-          <Typography variant="h4" fontWeight={700} gutterBottom>
-            You're Invited!
-          </Typography>
-          <Typography variant="body1" sx={{ opacity: 0.9 }}>
-            Join EZ and connect with creative professionals
-          </Typography>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: isMobile || isShortViewport ? 'column' : 'row',
+          gap: isMobile || isShortViewport ? 2 : 4,
+          alignItems: 'stretch',
+          height: isMobile || isShortViewport ? 'auto' : 'calc(100vh - 64px)',
+          minHeight: isMobile || isShortViewport ? 'calc(100vh - 64px)' : 'auto'
+        }}>
+          {/* Left Column - Profile Info */}
+          <Box sx={{
+            width: isMobile || isShortViewport ? '100%' : '33.333%',
+            minWidth: isMobile || isShortViewport ? 'auto' : '300px',
+            height: isMobile || isShortViewport ? 'auto' : '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            flexShrink: isMobile || isShortViewport ? 0 : 1
+          }}>
+            <Card sx={{
+              height: isMobile || isShortViewport ? 'fit-content' : '100%',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+              borderRadius: 3,
+              position: isMobile || isShortViewport ? 'relative' : 'sticky',
+              top: isMobile || isShortViewport ? 0 : 24,
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1
+            }}>
+              {/* Profile Header */}
+              <Box sx={{
+                background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                color: 'white',
+                p: 3,
+                textAlign: 'center'
+              }}>
+                <Avatar
+                  src={(creative as CreativeProfile)?.profile_banner_url || undefined}
+                  sx={{
+                    width: { xs: 80, md: 100 },
+                    height: { xs: 80, md: 100 },
+                    mx: 'auto',
+                    mb: 2,
+                    bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    fontSize: { xs: '2rem', md: '2.5rem' },
+                    border: '3px solid rgba(255, 255, 255, 0.3)'
+                  }}
+                >
+                  {creative?.display_name?.charAt(0) || 'C'}
+                </Avatar>
+                <Typography variant="h4" fontWeight={700} gutterBottom>
+                  {creative?.display_name}
+                </Typography>
+                <Typography variant="h6" sx={{ opacity: 0.9, mb: 1 }}>
+                  {creative?.title}
+                </Typography>
+
+              </Box>
+
+              <CardContent sx={{
+                p: 3,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}>
+                {/* Profile Stats */}
+                <Box sx={{ mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                    <Star sx={{ color: 'warning.main', mr: 1, fontSize: 20 }} />
+                    <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                      No ratings yet
+                    </Typography>
+                    {/* Hide View All button when showing "No ratings yet" */}
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                    <LocationOn sx={{ color: 'text.secondary', mr: 1, fontSize: 20 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {(creative as CreativeProfile)?.availability_location || 'Availability not set'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                    <Work sx={{ color: 'text.secondary', mr: 1, fontSize: 20 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {creative?.title}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <ContactPhone sx={{ color: 'text.secondary', mr: 1, fontSize: 20 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {(creative as CreativeProfile)?.primary_contact || 'Contact not set'}
+                    </Typography>
+                  </Box>
+
+                  {/* Quick Stats */}
+                  <Box sx={{
+                    p: 1,
+                    bgcolor: 'grey.50',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'grey.200'
+                  }}>
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ fontSize: '0.8rem' }}>
+                      Quick Stats
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.3 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Projects</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
+                        {(creative as CreativeProfile)?.projects_count && (creative as CreativeProfile).projects_count > 0 ? `${(creative as CreativeProfile).projects_count}+` : '0'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.3 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Experience</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
+                        {(creative as CreativeProfile)?.experience_years && (creative as CreativeProfile).experience_years > 0 ? `${(creative as CreativeProfile).experience_years}+ years` : 'Not set'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Average Response Time</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
+                        {(creative as CreativeProfile)?.average_response_hours && (creative as CreativeProfile).average_response_hours > 0 ? `${(creative as CreativeProfile).average_response_hours}h` : 'Not set'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Divider sx={{ my: 2 }} />
+
+                {/* Action Button */}
+                <Box>
+                  {userFromValidation?.has_client_role ? (
+                    <Box>
+                      <Alert severity="success" sx={{ mb: 1, textAlign: 'left', py: 0.8 }}>
+                        <CheckCircle sx={{ fontSize: 16, mr: 1, verticalAlign: 'middle' }} />
+                        {session ? "Ready to connect!" : "Account ready - let's connect!"}
+                      </Alert>
+                      <Button
+                        variant="contained"
+                        size="medium"
+                        fullWidth
+                        onClick={handleAcceptInvite}
+                        startIcon={<CheckCircle />}
+                        sx={{
+                          py: 1,
+                          fontSize: '0.9rem',
+                          fontWeight: 600,
+                          borderRadius: 2
+                        }}
+                      >
+                        {session ? 'Connect Now' : 'Sign In & Connect'}
+                      </Button>
+                    </Box>
+                  ) : (
+                    <Box>
+                      <Alert severity="info" sx={{ mb: 1, textAlign: 'left', py: 0.8 }}>
+                        Connect with {creative?.display_name} to start collaborating on EZ!
+                      </Alert>
+                      <Button
+                        variant="contained"
+                        size="medium"
+                        fullWidth
+                        onClick={handleSignUp}
+                        startIcon={<PersonAdd />}
+                        sx={{
+                          py: 1,
+                          fontSize: '0.9rem',
+                          fontWeight: 600,
+                          borderRadius: 2
+                        }}
+                      >
+                        Connect with {creative?.display_name}
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+
+          {/* Right Column - Services & Info */}
+          <Box sx={{
+            width: isMobile || isShortViewport ? '100%' : '66.667%',
+            flex: 1,
+            height: isMobile || isShortViewport ? 'auto' : '100%',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              height: isMobile || isShortViewport ? 'auto' : '100%'
+            }}>
+              {/* About Section */}
+              <Card sx={{
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                borderRadius: 3,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant="h6" fontWeight={600} gutterBottom>
+                    About {creative?.display_name}
+                  </Typography>
+                  {(creative as CreativeProfile)?.description ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, flex: 1 }}>
+                      {(creative as CreativeProfile).description}
+                    </Typography>
+                  ) : (
+                    <Box sx={{ 
+                      flex: 1, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center' 
+                    }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, fontStyle: 'italic', textAlign: 'center' }}>
+                        No description available.
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Services Section */}
+              <Card sx={{
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                borderRadius: 3,
+                flex: 2,
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                    <Typography variant="h6" fontWeight={600}>
+                      Available Services
+                    </Typography>
+                    {/* Only show View All button if there are 3+ services */}
+                    {services.length >= 3 && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<Visibility />}
+                        onClick={() => setServicesOpen(true)}
+                        sx={{
+                          fontSize: '0.8rem',
+                          py: 0.5,
+                          px: 1.5,
+                          textTransform: 'none'
+                        }}
+                      >
+                        View All
+                      </Button>
+                    )}
+                  </Box>
+                  
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    {services.length === 0 ? (
+                      <Box sx={{ 
+                        position: 'relative',
+                        height: '100%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        flex: 1
+                      }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', fontStyle: 'italic' }}>
+                          No services available yet.
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Box sx={{
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        gap: 2,
+                        flex: 1
+                      }}>
+                        {/* Show up to 2 services */}
+                        {services.slice(0, 2).map((service) => (
+                          <Box key={service.id} sx={{
+                            width: { xs: '100%', sm: '50%' },
+                            display: 'flex',
+                            flexDirection: 'column'
+                          }}>
+                            <ServiceCardSimple
+                              title={service.title}
+                              description={service.description}
+                              price={service.price}
+                              delivery={service.delivery_time}
+                              color={service.color}
+                              creative={creative?.display_name || 'Creative'}
+                            />
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+
+
+            </Box>
+          </Box>
         </Box>
+      </Container>
 
-        <CardContent sx={{ p: 4 }}>
-          {/* Creative Info */}
-          <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Avatar
-              sx={{
-                width: 80,
-                height: 80,
-                mx: 'auto',
-                mb: 2,
-                bgcolor: 'primary.main',
-                fontSize: '2rem'
-              }}
-            >
-              {creative?.display_name?.charAt(0) || 'C'}
-            </Avatar>
-            <Typography variant="h5" fontWeight={600} gutterBottom>
-              {creative?.display_name}
-            </Typography>
-            <Typography variant="body1" color="text.secondary" gutterBottom>
-              {creative?.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              wants to connect with you on EZ
-            </Typography>
-          </Box>
+      {/* Popovers */}
+      <SessionPopover
+        open={servicesOpen}
+        onClose={() => setServicesOpen(false)}
+        services={services.map(service => ({
+          id: service.id,
+          title: service.title,
+          description: service.description,
+          price: service.price,
+          delivery: service.delivery_time,
+          color: service.color,
+          creative: creative?.display_name || 'Creative'
+        }))}
+      />
 
-          {/* Action Buttons */}
-          {userFromValidation?.has_client_role ? (
-            // User has account with client role - show accept button
-            <Box sx={{ textAlign: 'center' }}>
-              <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>
-                <CheckCircle sx={{ fontSize: 20, mr: 1, verticalAlign: 'middle' }} />
-                {session ? "You're signed in and ready to connect!" : "You have an account with client access - ready to connect!"}
-              </Alert>
-              <Button
-                variant="contained"
-                size="large"
-                fullWidth
-                onClick={handleAcceptInvite}
-                startIcon={<CheckCircle />}
-                sx={{ 
-                  py: 1.5,
-                  fontSize: '1.1rem',
-                  fontWeight: 600
-                }}
-              >
-                {session ? 'Accept Invite' : 'Sign In & Accept Invite'}
-              </Button>
-            </Box>
-          ) : session && !userProfile ? (
-            // Authenticated but profile still loading
-            <Box sx={{ textAlign: 'center' }}>
-              <CircularProgress size={40} sx={{ mb: 2 }} />
-              <Typography variant="body1" color="text.secondary">
-                Loading your profile...
-              </Typography>
-            </Box>
-          ) : (userProfile?.roles?.includes('client')) ? (
-            // Authenticated with client role - show accept button
-            <Box sx={{ textAlign: 'center' }}>
-              <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>
-                <CheckCircle sx={{ fontSize: 20, mr: 1, verticalAlign: 'middle' }} />
-                You're signed in and ready to connect!
-              </Alert>
-              <Button
-                variant="contained"
-                size="large"
-                fullWidth
-                onClick={handleAcceptInvite}
-                startIcon={<CheckCircle />}
-                sx={{ 
-                  py: 1.5,
-                  fontSize: '1.1rem',
-                  fontWeight: 600
-                }}
-              >
-                Accept Invite
-              </Button>
-            </Box>
-          ) : (
-            // No account or no client role - show sign up button
-            <Box sx={{ textAlign: 'center' }}>
-              <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
-                You'll need to create an account to accept this invitation. Don't worry - it's quick and free!
-              </Alert>
-              <Button
-                variant="contained"
-                size="large"
-                fullWidth
-                onClick={handleSignUp}
-                startIcon={<Login />}
-                sx={{ 
-                  py: 1.5,
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  mb: 2
-                }}
-              >
-                Sign Up & Accept Invite
-              </Button>
-              <Typography variant="body2" color="text.secondary">
-                Already have an account? Sign in to accept the invite.
-              </Typography>
-            </Box>
-          )}
-
-          {/* Benefits */}
-          <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="h6" fontWeight={600} gutterBottom sx={{ textAlign: 'center' }}>
-              What you'll get:
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                • Direct access to {creative?.display_name}'s services
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                • Easy booking and project management
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                • Secure payments and file sharing
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                • Real-time collaboration tools
-              </Typography>
-            </Box>
-          </Box>
-        </CardContent>
-      </Card>
-    </Container>
+      <ReviewPopover
+        open={reviewsOpen}
+        onClose={() => setReviewsOpen(false)}
+        reviews={[
+          {
+            id: 1,
+            reviewerName: 'Sarah M.',
+            reviewerAvatar: null,
+            rating: 5,
+            review: 'Amazing work! Taiki delivered exactly what I needed and more. The quality was outstanding.',
+            service: 'Music Production',
+            date: '2024-01-15'
+          },
+          {
+            id: 2,
+            reviewerName: 'Mike R.',
+            reviewerAvatar: null,
+            rating: 5,
+            review: 'Professional and fast delivery. The mixing was perfect and the communication was great throughout. wow',
+            service: 'Mixing & Mastering',
+            date: '2024-01-10'
+          },
+          {
+            id: 3,
+            reviewerName: 'Alex K.',
+            reviewerAvatar: null,
+            rating: 4,
+            review: 'Great beat making skills. Very creative and responsive to feedback.',
+            service: 'Beat Making',
+            date: '2024-01-05'
+          }
+        ]}
+      />
+    </Box>
   );
 }

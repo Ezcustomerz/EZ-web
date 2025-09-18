@@ -52,21 +52,22 @@ export function PublicCreative() {
   const [search, setSearch] = useState('');
   const [visibility, setVisibility] = useState<'all' | 'Public' | 'Private' | 'Disabled'>('all');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
-  const [profileSeeAllDialogOpen, setProfileSeeAllDialogOpen] = useState(false);
 
-  // Handler to pass to ProfileTab to control dialog state
-  const handleProfileSeeAllDialogChange = (open: boolean) => {
-    setProfileSeeAllDialogOpen(open);
+  // Handler to switch to Services tab (index 0)
+  const handleSwitchToServicesTab = () => {
+    setActiveTab(0);
+    localStorage.setItem('public-active-tab', '0');
   };
 
   return (
-    <LayoutCreative selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen || profileSeeAllDialogOpen}>
-      <Box sx={{
-        px: { xs: 2, sm: 2, md: 3 },
-        pb: { xs: 2, sm: 2, md: 3 },
-        pt: { md: 2 },
-        minHeight: '100vh',
-        height: 'auto',
+    <LayoutCreative selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen}>
+      {({ creativeProfile }) => (
+        <Box sx={{
+          px: { xs: 2, sm: 2, md: 3 },
+          pb: { xs: 2, sm: 2, md: 3 },
+          pt: { md: 2 },
+          minHeight: '100vh',
+          height: 'auto',
         display: 'flex',
         flexDirection: 'column',
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -730,14 +731,14 @@ export function PublicCreative() {
               setSessionDialogOpen={setCalendarSessionDialogOpen}
             />
           )}
-          {Number(activeTab) === 2 && (
-            <ProfileTab
-              seeAllDialogOpen={profileSeeAllDialogOpen}
-              onSeeAllDialogChange={handleProfileSeeAllDialogChange}
-            />
-          )}
+          <ProfileTab
+            creativeProfile={creativeProfile}
+            isActive={Number(activeTab) === 2}
+            onSwitchToServicesTab={handleSwitchToServicesTab}
+          />
         </Paper>
       </Box>
+      )}
     </LayoutCreative>
   );
 } 

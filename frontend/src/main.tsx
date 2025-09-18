@@ -37,6 +37,7 @@ import { RoleSelectionPopover } from './components/popovers/setup/RoleSelectionP
 import { CreativeSetupPopover } from './components/popovers/setup/CreativeSetupPopover'
 import { ClientSetupPopover } from './components/popovers/setup/ClientSetupPopover'
 import { AdvocateSetupPopover } from './components/popovers/setup/AdvocateSetupPopover'
+import { SetupGate } from './components/popovers/auth/SetupGate'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { InvitePage } from './views/InvitePage'
 import { ToastProvider } from './components/toast/toast'
@@ -84,6 +85,7 @@ function AppContent() {
   return (
     <>
       <ScrollToTop />
+      <SetupGate />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/creative" element={<DashCreative />} />

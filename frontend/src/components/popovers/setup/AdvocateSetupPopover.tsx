@@ -88,6 +88,8 @@ export function AdvocateSetupPopover({
         if (response.success) {
           successToast('All Setups Complete!', 'Welcome to EZ! Your profiles have been created.');
           onClose();
+          // Refresh user profile to get updated first_login status
+          window.location.reload(); // Force refresh to get updated profile
         } else {
           errorToast('Setup Failed', response.message);
         }

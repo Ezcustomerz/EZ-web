@@ -37,8 +37,7 @@ async def generate_invite_link(request: Request):
             .eq("user_id", user_id) \
             .single() \
             .execute()
-        
-        print(f"🔍 User response: {user_response.data}")
+
         if not user_response.data:
             raise HTTPException(status_code=404, detail="User not found")
         
@@ -47,8 +46,6 @@ async def generate_invite_link(request: Request):
         if 'creative' not in user_roles:
             raise HTTPException(status_code=403, detail="Only creatives can generate invite links")
         
-        # Create invite token with creative's user_id and expiration
-        print("🔍 Creating JWT token...")
         invite_payload = {
             'creative_user_id': user_id,
             'exp': datetime.utcnow() + timedelta(days=30),  # Expires in 30 days

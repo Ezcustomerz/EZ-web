@@ -22,6 +22,18 @@ async def get_creative_profile(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to fetch creative profile: {str(e)}")
 
 
+@router.get("/profile/{user_id}")
+async def get_creative_profile_by_id(user_id: str):
+    """Get a creative profile by user ID (public endpoint for invite links)"""
+    try:
+        return await CreativeController.get_creative_profile(user_id)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch creative profile: {str(e)}")
+
+
 @router.get("/clients", response_model=CreativeClientsListResponse)
 async def get_creative_clients(request: Request):
     """Get all clients associated with the current creative"""
@@ -48,6 +60,18 @@ async def get_creative_services(request: Request):
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
+        return await CreativeController.get_creative_services(user_id)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch creative services: {str(e)}")
+
+
+@router.get("/services/{user_id}", response_model=CreativeServicesListResponse)
+async def get_creative_services_by_id(user_id: str):
+    """Get all services associated with a creative by user ID (public endpoint for invite links)"""
+    try:
         return await CreativeController.get_creative_services(user_id)
         
     except HTTPException:

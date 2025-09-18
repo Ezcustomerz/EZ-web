@@ -2,7 +2,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Button, 
 import CloseIcon from '@mui/icons-material/Close';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import type { TransitionProps } from '@mui/material/transitions';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -29,6 +29,24 @@ export interface SessionPopoverProps {
 export function SessionPopover({ open, onClose, services }: SessionPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Focus management to prevent aria-hidden accessibility issues
+  useEffect(() => {
+    if (open) {
+      // Remove focus from any element that might be focused when dialog opens
+      if (document.activeElement && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      
+      // Focus the close button after a short delay to ensure dialog is rendered
+      const timer = setTimeout(() => {
+        closeButtonRef.current?.focus();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
   return (
     <Dialog
       open={open}
@@ -38,6 +56,9 @@ export function SessionPopover({ open, onClose, services }: SessionPopoverProps)
       scroll="paper"
       fullScreen={isMobile}
       slots={{ transition: Transition }}
+      disableAutoFocus={false}
+      disableEnforceFocus={false}
+      disableRestoreFocus={false}
       sx={{
         zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
       }}
@@ -61,7 +82,14 @@ export function SessionPopover({ open, onClose, services }: SessionPopoverProps)
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1, flexShrink: 0 }}>
         All Services
-        <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>
+        <IconButton 
+          ref={closeButtonRef}
+          onClick={onClose} 
+          size="small"
+          aria-label="Close dialog"
+        >
+          <CloseIcon />
+        </IconButton>
       </DialogTitle>
       <DialogContent dividers sx={{
         p: { xs: 1, sm: 2 },

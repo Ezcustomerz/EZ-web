@@ -146,6 +146,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
+    // Don't fetch user profile if we're on the InvitePage
+    // InvitePage is a public page and doesn't need user profile data
+    if (window.location.pathname.startsWith('/invite/')) {
+      console.log('[Auth] Skipping profile fetch - on InvitePage');
+      return;
+    }
+    
     setIsLoadingProfile(true);
     setUserAuthLoading(true);
     
@@ -176,9 +183,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // User is authenticated and came from invite link - check if they have client role
         const currentRoles = profile.roles || [];
         if (currentRoles.includes('client')) {
-          // User has client role - automatically accept the invite
-          console.log('[Auth] User has client role, automatically accepting invite...');
-          handleInviteAfterSetup();
+          // User has client role - but don't automatically accept invite if setup is in progress
+          if (!isSetupInProgress) {
+            console.log('[Auth] User has client role, automatically accepting invite...');
+            handleInviteAfterSetup();
+          } else {
+            console.log('[Auth] User has client role but setup is in progress, waiting for setup completion...');
+          }
         } else {
           // User doesn't have client role - show role selection with client pre-selected
           console.log('[Auth] User needs client role for invite, showing role selection...');
@@ -252,10 +263,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const closeRoleSelection = () => {
     setRoleSelectionOpen(false);
-    // Only refresh user profile after role selection if setup is not in progress
-    if (session?.user?.id && !isSetupInProgress) {
-      fetchUserProfile(false); // false = not a fresh sign-in, just refreshing after role selection
-    }
+    // No need to refresh user profile after role selection - the profile data hasn't changed
+    // The roles are updated in the backend, but we don't need to refetch the entire profile
   };
 
   const signOut = async () => {
@@ -306,9 +315,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const response = await inviteService.acceptInviteAfterRoleSetup(pendingInviteToken);
         
         if (response.success) {
-          // Clear the invite token
+          // Clear the invite token and flags
           localStorage.removeItem('pendingInviteToken');
           localStorage.removeItem('inviteCreativeUserId');
+          localStorage.removeItem('invitePreSelectClient');
+          localStorage.removeItem('inviteNeedsClientRole');
           
           if (response.relationship_exists) {
             successToast('Already Connected', response.message);
@@ -329,6 +340,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       // No pending invite - refresh user profile to get updated data after setup completion
+      // Also clear any invite flags that might still be present
+      localStorage.removeItem('invitePreSelectClient');
+      localStorage.removeItem('inviteNeedsClientRole');
+      
       if (session?.user?.id) {
         try {
           await fetchUserProfile(false); // false = not a fresh sign-in, just refreshing after setup
@@ -372,6 +387,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       // All setups complete - clear setup in progress flag and check for pending invite
       setIsSetupInProgress(false);
+      // Refresh user profile to get updated first_login status
+      fetchUserProfile();
       handleInviteAfterSetup();
     }
   };
@@ -396,6 +413,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       // All setups complete - clear setup in progress flag and check for pending invite
       setIsSetupInProgress(false);
+      // Refresh user profile to get updated first_login status
+      fetchUserProfile();
       handleInviteAfterSetup();
     }
   };
@@ -420,6 +439,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       // All setups complete - clear setup in progress flag and check for pending invite
       setIsSetupInProgress(false);
+      // Refresh user profile to get updated first_login status
+      fetchUserProfile();
       handleInviteAfterSetup();
     }
   };

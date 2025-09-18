@@ -172,11 +172,8 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles, roleP
       const response = await userService.updateUserRoles(selectedRoles);
       
       if (response.success) {
-        // Clear invite flags after successful role selection
-        if (isInviteFlow) {
-          localStorage.removeItem('invitePreSelectClient');
-          localStorage.removeItem('inviteNeedsClientRole');
-        }
+        // Don't clear invite flags here - they should only be cleared when setup is complete
+        // The invite flags are needed to maintain the "required" highlight if user goes back to roles
         
         successToast('Welcome to EZ!', response.message);
         onClose();
