@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, ForwardRef
+from typing import Optional, List, ForwardRef, Dict, Any
 
 class CreativeSetupRequest(BaseModel):
     display_name: str
@@ -101,3 +101,32 @@ class ToggleServiceStatusResponse(BaseModel):
     success: bool
     message: str
     enabled: bool
+
+# Profile settings schemas
+class ProfileHighlightValue(BaseModel):
+    value: str
+
+class CreativeProfileSettingsRequest(BaseModel):
+    # Basic profile info
+    display_name: Optional[str] = None
+    title: Optional[str] = None
+    custom_title: Optional[str] = None
+    availability_location: Optional[str] = None
+    primary_contact: Optional[str] = None
+    secondary_contact: Optional[str] = None
+    description: Optional[str] = None
+    
+    # Profile highlights configuration
+    selected_profile_highlights: Optional[List[str]] = None
+    profile_highlight_values: Optional[Dict[str, str]] = None
+    
+    # Service display configuration
+    primary_service_id: Optional[str] = None
+    secondary_service_id: Optional[str] = None
+    
+    # Avatar settings
+    avatar_background_color: Optional[str] = None
+
+class CreativeProfileSettingsResponse(BaseModel):
+    success: bool
+    message: str

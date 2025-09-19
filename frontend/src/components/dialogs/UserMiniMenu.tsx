@@ -17,6 +17,7 @@ import {
   Login,
 } from '@mui/icons-material';
 import { RoleSwitcherPopover } from '../popovers/RoleSwitcherPopover';
+import { CreativeSettingsPopover } from '../popovers/creative/CreativeSettingsPopover';
 import { useAuth } from '../../context/auth';
 
 interface UserDropdownMenuProps {
@@ -28,7 +29,19 @@ interface UserDropdownMenuProps {
 
 export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: UserDropdownMenuProps) {
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { isAuthenticated, signOut, openAuth } = useAuth();
+
+  // Determine current role based on URL path
+  const getCurrentRole = () => {
+    const path = window.location.pathname;
+    if (path.startsWith('/creative')) return 'creative';
+    if (path.startsWith('/client')) return 'client';
+    if (path.startsWith('/advocate')) return 'advocate';
+    return 'creative'; // default
+  };
+
+  const currentRole = getCurrentRole();
 
   const menuItems = [
     { 
@@ -36,7 +49,11 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       label: 'Settings', 
       icon: Settings,
       action: () => {
-        console.log('Settings clicked');
+        if (currentRole === 'creative') {
+          setSettingsOpen(true);
+        } else {
+          console.log('Settings clicked for non-creative role');
+        }
         onClose();
       }
     },
@@ -288,6 +305,14 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       open={roleSwitcherOpen}
       onClose={() => setRoleSwitcherOpen(false)}
     />
+
+    {/* Creative Settings Popover */}
+    {currentRole === 'creative' && (
+      <CreativeSettingsPopover
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+    )}
     </>
   );
 } 

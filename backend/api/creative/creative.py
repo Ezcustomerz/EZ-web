@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException
 from services.creative.creative_service import CreativeController
-from schemas.creative import CreativeClientsListResponse, CreativeServicesListResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, ToggleServiceStatusRequest, ToggleServiceStatusResponse, UpdateServiceResponse
+from schemas.creative import CreativeClientsListResponse, CreativeServicesListResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, ToggleServiceStatusRequest, ToggleServiceStatusResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse
 
 router = APIRouter()
 
@@ -166,3 +166,20 @@ async def get_service_calendar_settings(request: Request, service_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get calendar settings: {str(e)}")
+
+
+@router.put("/profile/settings", response_model=CreativeProfileSettingsResponse)
+async def update_creative_profile_settings(request: Request, settings_request: CreativeProfileSettingsRequest):
+    """Update creative profile settings including highlights, service display, and avatar settings"""
+    try:
+        # Get user ID from JWT token
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        return await CreativeController.update_profile_settings(user_id, settings_request)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update profile settings: {str(e)}")

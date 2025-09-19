@@ -290,7 +290,7 @@ export function InvitePage() {
                     </Typography>
                   </Box>
 
-                  {/* Quick Stats */}
+                  {/* Profile Highlights */}
                   <Box sx={{
                     p: 1,
                     bgcolor: 'grey.50',
@@ -299,26 +299,29 @@ export function InvitePage() {
                     borderColor: 'grey.200'
                   }}>
                     <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ fontSize: '0.8rem' }}>
-                      Quick Stats
+                      Profile Highlights
                     </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.3 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Projects</Typography>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
-                        {(creative as CreativeProfile)?.projects_count && (creative as CreativeProfile).projects_count > 0 ? `${(creative as CreativeProfile).projects_count}+` : '0'}
+                    {(creative as CreativeProfile)?.profile_highlights && (creative as CreativeProfile).profile_highlights!.length > 0 ? (
+                      (creative as CreativeProfile).profile_highlights!.map((highlight, index) => {
+                        let value = 'Not set';
+                        
+                        // Use custom values from profile_highlight_values for all highlights
+                        const statKey = highlight.replace(/\s+/g, '').toLowerCase();
+                        value = (creative as CreativeProfile)?.profile_highlight_values?.[statKey] || 'Not set';
+                        
+                        return (
+                          <Box key={highlight} sx={{ display: 'flex', justifyContent: 'space-between', mb: index < (creative as CreativeProfile).profile_highlights!.length - 1 ? 0.3 : 0 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>{highlight}</Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>{value}</Typography>
+                          </Box>
+                        );
+                      })
+                    ) : (
+                      // Fallback to default display if no highlights are configured
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
+                        No profile highlights configured yet.
                       </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.3 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Experience</Typography>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
-                        {(creative as CreativeProfile)?.experience_years && (creative as CreativeProfile).experience_years > 0 ? `${(creative as CreativeProfile).experience_years}+ years` : 'Not set'}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Average Response Time</Typography>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
-                        {(creative as CreativeProfile)?.average_response_hours && (creative as CreativeProfile).average_response_hours > 0 ? `${(creative as CreativeProfile).average_response_hours}h` : 'Not set'}
-                      </Typography>
-                    </Box>
+                    )}
                   </Box>
                 </Box>
 
@@ -473,23 +476,32 @@ export function InvitePage() {
                         gap: 2,
                         flex: 1
                       }}>
-                        {/* Show up to 2 services */}
-                        {services.slice(0, 2).map((service) => (
-                          <Box key={service.id} sx={{
-                            width: { xs: '100%', sm: '50%' },
-                            display: 'flex',
-                            flexDirection: 'column'
-                          }}>
-                            <ServiceCardSimple
-                              title={service.title}
-                              description={service.description}
-                              price={service.price}
-                              delivery={service.delivery_time}
-                              color={service.color}
-                              creative={creative?.display_name || 'Creative'}
-                            />
-                          </Box>
-                        ))}
+                        {/* Show configured primary and secondary services */}
+                        {(() => {
+                          const primaryService = services.find(s => s.id === (creative as CreativeProfile)?.primary_service_id);
+                          const secondaryService = services.find(s => s.id === (creative as CreativeProfile)?.secondary_service_id);
+                          const servicesToShow = [primaryService, secondaryService].filter((service): service is CreativeService => service !== undefined);
+                          
+                          // If no configured services, fall back to first 2 services
+                          const displayServices = servicesToShow.length > 0 ? servicesToShow : services.slice(0, 2);
+                          
+                          return displayServices.map((service) => (
+                            <Box key={service.id} sx={{
+                              width: { xs: '100%', sm: '50%' },
+                              display: 'flex',
+                              flexDirection: 'column'
+                            }}>
+                              <ServiceCardSimple
+                                title={service.title}
+                                description={service.description}
+                                price={service.price}
+                                delivery={service.delivery_time}
+                                color={service.color}
+                                creative={creative?.display_name || 'Creative'}
+                              />
+                            </Box>
+                          ));
+                        })()}
                       </Box>
                     )}
                   </Box>

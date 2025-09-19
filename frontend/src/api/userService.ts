@@ -104,10 +104,12 @@ export interface CreativeProfile {
   storage_used_bytes: number;
   storage_limit_bytes: number;
   availability_location?: string;
-  projects_count: number;
-  experience_years: number;
-  average_response_hours: number;
   created_at: string;
+  profile_highlights?: string[];
+  profile_highlight_values?: Record<string, string>;
+  primary_service_id?: string;
+  secondary_service_id?: string;
+  avatar_background_color?: string;
 }
 
 export interface ClientProfile {
@@ -243,6 +245,26 @@ export interface ToggleServiceStatusResponse {
   enabled: boolean;
 }
 
+export interface CreativeProfileSettingsRequest {
+  display_name?: string;
+  title?: string;
+  custom_title?: string;
+  availability_location?: string;
+  primary_contact?: string;
+  secondary_contact?: string;
+  description?: string;
+  selected_profile_highlights?: string[];
+  profile_highlight_values?: Record<string, string>;
+  primary_service_id?: string;
+  secondary_service_id?: string;
+  avatar_background_color?: string;
+}
+
+export interface CreativeProfileSettingsResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface UserRoleProfiles {
   creative?: CreativeProfile;
   client?: ClientProfile;
@@ -376,6 +398,19 @@ export const userService = {
   async getCreativeServicesById(userId: string): Promise<CreativeServicesListResponse> {
     const response = await axios.get<CreativeServicesListResponse>(
       `${API_BASE_URL}/creative/services/${userId}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Update creative profile settings
+   */
+  async updateCreativeProfileSettings(settingsData: CreativeProfileSettingsRequest): Promise<CreativeProfileSettingsResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.put<CreativeProfileSettingsResponse>(
+      `${API_BASE_URL}/creative/profile/settings`,
+      settingsData,
+      { headers }
     );
     return response.data;
   },

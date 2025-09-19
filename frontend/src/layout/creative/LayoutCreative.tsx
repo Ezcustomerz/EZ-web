@@ -177,6 +177,35 @@ export function LayoutCreative({
     loadProfile();
   }, [userProfile, isSetupInProgress]);
 
+  // Listen for profile updates from settings popover
+  useEffect(() => {
+    const handleProfileUpdate = async () => {
+      console.log('[LayoutCreative] Profile update event received, refreshing profile data');
+      
+      if (!userProfile || !userProfile.roles.includes('creative')) {
+        return;
+      }
+      
+      try {
+        setProfileLoading(true);
+        const updatedProfile = await userService.getCreativeProfile();
+        setCreativeProfile(updatedProfile);
+        cacheProfileForUser(userProfile.user_id, updatedProfile);
+        console.log('[LayoutCreative] Profile data refreshed successfully');
+      } catch (error) {
+        console.error('[LayoutCreative] Failed to refresh profile data:', error);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    window.addEventListener('creativeProfileUpdated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('creativeProfileUpdated', handleProfileUpdate);
+    };
+  }, [userProfile]);
+
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
     if (!isMobile) {

@@ -16,11 +16,15 @@ import {
   ContactPhone,
   Visibility,
   Edit,
+  Share,
 } from '@mui/icons-material';
 import { SessionPopover } from '../../../components/popovers/creative/ServicePopover';
 import { ReviewPopover } from '../../../components/popovers/creative/ReviewPopover';
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
+import { InviteClientPopover } from '../../../components/popovers/creative/InviteClientPopover';
+import { CreativeSettingsPopover } from '../../../components/popovers/creative/CreativeSettingsPopover';
 import { userService, type CreativeProfile, type CreativeService, type CreativeServicesListResponse } from '../../../api/userService';
+import { useInviteClient } from '../../../hooks/useInviteClient';
 
 // Mock data for reviews
 const MOCK_REVIEWS = [
@@ -104,6 +108,9 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   const [profileError, setProfileError] = useState<string | null>(null);
   const [services, setServices] = useState<CreativeService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
+  const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Use creative profile from props (passed from LayoutCreative)
   useEffect(() => {
@@ -120,55 +127,52 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
     }
   }, [propCreativeProfile]);
 
-  // Refresh data when tab becomes active
+  // Consolidated services fetching logic
+  const fetchServices = async () => {
+    try {
+      setServicesLoading(true);
+      const response: CreativeServicesListResponse = await userService.getCreativeServices();
+      // Only show active, enabled, and public services
+      const activeServices = response.services.filter(service => 
+        service.is_active && 
+        service.is_enabled && 
+        service.status === 'Public'
+      );
+      setServices(activeServices);
+    } catch (error) {
+      console.error('Failed to fetch creative services:', error);
+      setServices([]);
+    } finally {
+      setServicesLoading(false);
+    }
+  };
+
+  // Fetch services on initial load and when tab becomes active
   useEffect(() => {
     if (isActive) {
-      // Refresh services when tab becomes active
-      const refreshServices = async () => {
-        try {
-          setServicesLoading(true);
-          const response: CreativeServicesListResponse = await userService.getCreativeServices();
-          // Only show active, enabled, and public services
-          const activeServices = response.services.filter(service => 
-            service.is_active && 
-            service.is_enabled && 
-            service.status === 'Public'
-          );
-          setServices(activeServices);
-        } catch (error) {
-          console.error('Failed to refresh creative services:', error);
-          // Don't clear services on error, keep existing ones
-        } finally {
-          setServicesLoading(false);
-        }
-      };
-
-      refreshServices();
+      fetchServices();
     }
   }, [isActive]);
 
-  // Fetch creative services
+  // Refresh services when profile is updated
   useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        setServicesLoading(true);
-        const response: CreativeServicesListResponse = await userService.getCreativeServices();
-        // Only show active, enabled, and public services
-        const activeServices = response.services.filter(service => 
-          service.is_active && 
-          service.is_enabled && 
-          service.status === 'Public'
-        );
-        setServices(activeServices);
-      } catch (error) {
-        console.error('Failed to fetch creative services:', error);
-        setServices([]);
-      } finally {
-        setServicesLoading(false);
-      }
+    if (refreshTrigger > 0) {
+      fetchServices();
+    }
+  }, [refreshTrigger]);
+
+  // Listen for profile updates from settings popover
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      // Trigger a refresh by updating the refresh trigger
+      setRefreshTrigger(prev => prev + 1);
     };
 
-    fetchServices();
+    window.addEventListener('creativeProfileUpdated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('creativeProfileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   // Note: Removed parent-controlled dialog logic that was interfering with SessionPopover
@@ -209,35 +213,39 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   return (
     <>
       <Box sx={{
-        height: { xs: '100vh', md: 'auto' },
-        minHeight: { xs: '100vh', md: '100vh' },
+        height: { xs: '100vh', md: '100vh' },
         py: { xs: 1, md: 2 },
-        overflow: { xs: 'hidden', md: 'visible' },
+        overflow: { xs: 'hidden', md: 'hidden' },
         display: isActive ? 'block' : 'none'
       }}>
         <Container maxWidth="lg" sx={{ 
           px: { xs: 1, md: 3 },
-          height: { xs: '100%', md: 'auto' }
+          height: '100%'
         }}>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: { xs: 'column', md: 'row' }, 
           gap: { xs: 1, md: 4 },
-          alignItems: { xs: 'stretch', md: 'flex-start' },
-          height: { xs: '100%', md: 'auto' },
-          overflow: { xs: 'auto', md: 'visible' },
+          alignItems: { xs: 'stretch', md: 'stretch' },
+          height: '100%',
+          overflow: { xs: 'auto', md: 'hidden' },
           pb: { xs: 20, md: 0 }
         }}>
           {/* Left Column - Profile Info */}
           <Box sx={{ 
             width: { xs: '100%', md: '33.333%' },
-            minWidth: { md: '300px' }
+            minWidth: { md: '300px' },
+            display: 'flex',
+            flexDirection: 'column'
           }}>
             <Card sx={{ 
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
               borderRadius: 3,
               position: { xs: 'relative', md: 'sticky' },
-              top: { xs: 0, md: 24 }
+              top: { xs: 0, md: 24 },
+              height: { xs: 'auto', md: '100%' },
+              display: 'flex',
+              flexDirection: 'column'
             }}>
               {/* Profile Header */}
               <Box sx={{
@@ -247,29 +255,55 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                 textAlign: 'center',
                 position: 'relative'
               }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<Edit />}
-          sx={{
-                    position: 'absolute',
-                    top: 16,
-                    right: 16,
-                    color: 'white',
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
-                    fontSize: '0.8rem',
-                    py: 0.5,
-                    px: 1.5,
-              textTransform: 'none',
-              '&:hover': {
-                      borderColor: 'rgba(255, 255, 255, 0.5)',
-                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    }
-                  }}
-                >
-                  Edit
-                </Button>
+                {/* Action Buttons */}
+                <Box sx={{ 
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  display: 'flex',
+                  gap: 1
+                }}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleInviteClient}
+                    sx={{
+                      color: 'white',
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(10px)',
+                      minWidth: 'auto',
+                      width: 40,
+                      height: 40,
+                      p: 0,
+                      '&:hover': {
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                      }
+                    }}
+                  >
+                    <Share />
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setSettingsOpen(true)}
+                    sx={{
+                      color: 'white',
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(10px)',
+                      minWidth: 'auto',
+                      width: 40,
+                      height: 40,
+                      p: 0,
+                      '&:hover': {
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                      }
+                    }}
+                  >
+                    <Edit />
+                  </Button>
+                </Box>
                 <Avatar
                   src={creativeProfile.profile_banner_url || undefined}
                   sx={{
@@ -293,7 +327,10 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
               </Box>
 
               <CardContent sx={{ 
-                p: 3
+                p: 3,
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column'
               }}>
                 {/* Profile Stats */}
                 <Box sx={{ mb: 2 }}>
@@ -323,7 +360,7 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                     </Typography>
                   </Box>
 
-                  {/* Quick Stats */}
+                  {/* Profile Highlights */}
                   <Box sx={{ 
                     p: 1, 
                     pb: 3,
@@ -333,26 +370,29 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                     borderColor: 'grey.200'
                   }}>
                     <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ fontSize: '0.8rem' }}>
-                      Quick Stats
+                      Profile Highlights
                     </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.3 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Projects</Typography>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
-                        {creativeProfile.projects_count > 0 ? `${creativeProfile.projects_count}+` : '0'}
+                    {creativeProfile.profile_highlights && creativeProfile.profile_highlights.length > 0 ? (
+                      creativeProfile.profile_highlights.map((highlight, index) => {
+                        let value = 'Not set';
+                        
+                        // Use custom values from profile_highlight_values for all highlights
+                        const statKey = highlight.replace(/\s+/g, '').toLowerCase();
+                        value = creativeProfile.profile_highlight_values?.[statKey] || 'Not set';
+                        
+                        return (
+                          <Box key={highlight} sx={{ display: 'flex', justifyContent: 'space-between', mb: index < creativeProfile.profile_highlights!.length - 1 ? 0.3 : 0 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>{highlight}</Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>{value}</Typography>
+                          </Box>
+                        );
+                      })
+                    ) : (
+                      // Fallback to default display if no highlights are configured
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
+                        No profile highlights configured yet. Use the edit button to customize your profile highlights.
                       </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.3 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Experience</Typography>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
-                        {creativeProfile.experience_years > 0 ? `${creativeProfile.experience_years}+ years` : 'Not set'}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>Average Response Time</Typography>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>
-                        {creativeProfile.average_response_hours > 0 ? `${creativeProfile.average_response_hours}h` : 'Not set'}
-                      </Typography>
-                    </Box>
+                    )}
                   </Box>
                 </Box>
 
@@ -363,38 +403,47 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
           {/* Right Column - Services & Info */}
           <Box sx={{ 
             width: { xs: '100%', md: '66.667%' },
-            flex: 1
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column'
           }}>
             <Box sx={{ 
               display: 'flex', 
               flexDirection: 'column', 
-              gap: 1
+              gap: 1,
+              height: '100%'
             }}>
               {/* About Section */}
               <Card sx={{ 
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
                 borderRadius: 3,
                 flex: 1,
-                minHeight: '200px'
+                minHeight: '200px',
+                display: 'flex',
+                flexDirection: 'column'
               }}>
                 <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" fontWeight={600} gutterBottom>
                     About {creativeProfile.display_name}
                   </Typography>
-                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
                     {creativeProfile.description ? (
-                      <Box sx={{ width: '100%' }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                      <>
+                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, flex: 1 }}>
                           {creativeProfile.description}
                         </Typography>
-                        <Typography variant="caption" color="text.disabled" sx={{ mt: 1, alignSelf: 'flex-end', display: 'block', textAlign: 'right' }}>
+                        <Typography variant="caption" color="text.disabled" sx={{ 
+                          position: 'absolute', 
+                          bottom: 0, 
+                          right: 0,
+                          fontSize: '0.7rem'
+                        }}>
                           {creativeProfile.description.length}/500 characters
                         </Typography>
-                      </Box>
+                      </>
                     ) : (
                       <Box sx={{ 
-                        position: 'relative', 
-                        height: '100%', 
+                        flex: 1,
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center' 
@@ -413,7 +462,9 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
                 borderRadius: 3,
                 flex: 2,
-                minHeight: '320px'
+                minHeight: '320px',
+                display: 'flex',
+                flexDirection: 'column'
               }}>
                 <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
@@ -577,23 +628,32 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                         gap: 2,
                         flex: 1
                       }}>
-                        {/* Show up to 2 services */}
-                        {services.slice(0, 2).map((service) => (
-                          <Box key={service.id} sx={{ 
-                            width: { xs: '100%', sm: '50%' },
-                            display: 'flex',
-                            flexDirection: 'column'
-                          }}>
-                            <ServiceCardSimple
-                              title={service.title}
-                              description={service.description}
-                              price={service.price}
-                              delivery={service.delivery_time}
-                              color={service.color}
-                              creative={creativeProfile.display_name}
-                            />
-                          </Box>
-                        ))}
+                        {/* Show configured primary and secondary services */}
+                        {(() => {
+                          const primaryService = services.find(s => s.id === creativeProfile.primary_service_id);
+                          const secondaryService = services.find(s => s.id === creativeProfile.secondary_service_id);
+                          const servicesToShow = [primaryService, secondaryService].filter((service): service is CreativeService => service !== undefined);
+                          
+                          // If no configured services, fall back to first 2 services
+                          const displayServices = servicesToShow.length > 0 ? servicesToShow : services.slice(0, 2);
+                          
+                          return displayServices.map((service) => (
+                            <Box key={service.id} sx={{ 
+                              width: { xs: '100%', sm: '50%' },
+                              display: 'flex',
+                              flexDirection: 'column'
+                            }}>
+                              <ServiceCardSimple
+                                title={service.title}
+                                description={service.description}
+                                price={service.price}
+                                delivery={service.delivery_time}
+                                color={service.color}
+                                creative={creativeProfile.display_name}
+                              />
+                            </Box>
+                          ));
+                        })()}
                       </Box>
                     )}
                   </Box>
@@ -624,6 +684,17 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
         open={reviewsOpen}
         onClose={() => setReviewsOpen(false)}
         reviews={MOCK_REVIEWS}
+      />
+
+      <InviteClientPopover
+        open={inviteClientOpen}
+        onClose={closeInviteClient}
+      />
+
+      <CreativeSettingsPopover
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onProfileUpdated={() => setRefreshTrigger(prev => prev + 1)}
       />
     </>
   );

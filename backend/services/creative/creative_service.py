@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from db.db_session import db_admin
-from schemas.creative import CreativeSetupRequest, CreativeSetupResponse, CreativeClientsListResponse, CreativeClientResponse, CreativeServicesListResponse, CreativeServiceResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, ToggleServiceStatusRequest, ToggleServiceStatusResponse, UpdateServiceResponse
+from schemas.creative import CreativeSetupRequest, CreativeSetupResponse, CreativeClientsListResponse, CreativeClientResponse, CreativeServicesListResponse, CreativeServiceResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, ToggleServiceStatusRequest, ToggleServiceStatusResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse
 from core.validation import validate_contact_field
 import re
 
@@ -531,3 +531,115 @@ class CreativeController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+
+    @staticmethod
+    async def update_profile_settings(user_id: str, settings_request: CreativeProfileSettingsRequest) -> CreativeProfileSettingsResponse:
+        """Update creative profile settings including highlights, service display, and avatar settings"""
+        try:
+            # Validate contact fields if provided
+            validation_errors = []
+            
+            if settings_request.primary_contact:
+                is_valid, field_type = validate_contact_field(settings_request.primary_contact)
+                if not is_valid:
+                    if field_type == 'invalid_email':
+                        validation_errors.append("Primary contact: Invalid email format")
+                    elif field_type == 'invalid_format':
+                        validation_errors.append("Primary contact: Must be a valid email address or phone number")
+            
+            if settings_request.secondary_contact:
+                is_valid, field_type = validate_contact_field(settings_request.secondary_contact)
+                if not is_valid:
+                    if field_type == 'invalid_email':
+                        validation_errors.append("Secondary contact: Invalid email format")
+                    elif field_type == 'invalid_format':
+                        validation_errors.append("Secondary contact: Must be a valid email address or phone number")
+            
+            # Validate avatar background color format if provided
+            if settings_request.avatar_background_color:
+                if not re.match(r'^#[0-9A-Fa-f]{6}$', settings_request.avatar_background_color):
+                    validation_errors.append("Avatar background color: Must be a valid hex color (e.g., #3B82F6)")
+            
+            # Validate service IDs if provided
+            if settings_request.primary_service_id:
+                # Check if the service exists and belongs to the user
+                service_result = db_admin.table('creative_services').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).single().execute()
+                if not service_result.data:
+                    validation_errors.append("Primary service: Service not found or doesn't belong to you")
+            
+            if settings_request.secondary_service_id:
+                # Check if the service exists and belongs to the user
+                service_result = db_admin.table('creative_services').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).single().execute()
+                if not service_result.data:
+                    validation_errors.append("Secondary service: Service not found or doesn't belong to you")
+            
+            # Check if primary and secondary services are different
+            if (settings_request.primary_service_id and settings_request.secondary_service_id and 
+                settings_request.primary_service_id == settings_request.secondary_service_id):
+                validation_errors.append("Primary and secondary services must be different")
+            
+            # If there are validation errors, return them
+            if validation_errors:
+                raise HTTPException(status_code=422, detail="; ".join(validation_errors))
+            
+            # Prepare update data - only include fields that are provided
+            update_data = {}
+
+            if settings_request.display_name is not None:
+                # Validate display name length
+                if len(settings_request.display_name) > 100:
+                    raise HTTPException(status_code=422, detail="Display name must be 100 characters or less")
+                update_data['display_name'] = settings_request.display_name
+
+            if settings_request.title is not None:
+                # If custom_title is provided, use it as the title instead of the selected title
+                if settings_request.custom_title:
+                    update_data['title'] = settings_request.custom_title
+                else:
+                    update_data['title'] = settings_request.title
+            
+            if settings_request.availability_location is not None:
+                update_data['availability_location'] = settings_request.availability_location
+            
+            if settings_request.primary_contact is not None:
+                update_data['primary_contact'] = settings_request.primary_contact
+            
+            if settings_request.secondary_contact is not None:
+                update_data['secondary_contact'] = settings_request.secondary_contact
+            
+            if settings_request.description is not None:
+                # Validate description length
+                if len(settings_request.description) > 500:
+                    raise HTTPException(status_code=422, detail="Description must be 500 characters or less")
+                update_data['description'] = settings_request.description
+            
+            if settings_request.selected_profile_highlights is not None:
+                update_data['profile_highlights'] = settings_request.selected_profile_highlights
+            
+            if settings_request.profile_highlight_values is not None:
+                update_data['profile_highlight_values'] = settings_request.profile_highlight_values
+            
+            if settings_request.primary_service_id is not None:
+                update_data['primary_service_id'] = settings_request.primary_service_id
+            
+            if settings_request.secondary_service_id is not None:
+                update_data['secondary_service_id'] = settings_request.secondary_service_id
+            
+            if settings_request.avatar_background_color is not None:
+                update_data['avatar_background_color'] = settings_request.avatar_background_color
+            
+            # Update the creative profile
+            result = db_admin.table('creatives').update(update_data).eq('user_id', user_id).execute()
+            
+            if not result.data:
+                raise HTTPException(status_code=404, detail="Creative profile not found")
+            
+            return CreativeProfileSettingsResponse(
+                success=True,
+                message="Profile settings updated successfully"
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update profile settings: {str(e)}")
