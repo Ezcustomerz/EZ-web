@@ -15,32 +15,25 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Chip,
   Card,
   CardContent,
   Divider,
   Stepper,
   Step,
   StepLabel,
-  StepContent,
   Alert,
-  FormControlLabel,
-  Switch,
   InputAdornment,
-  Tooltip,
   Popover
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import PercentIcon from '@mui/icons-material/Percent';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faLayerGroup, faGem, faTag, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faGem } from '@fortawesome/free-solid-svg-icons';
 import { userService, type CreativeService } from '../../../api/userService';
 import { errorToast, successToast } from '../../toast/toast';
 import { BundleCard } from '../../cards/creative/BundleCard';
@@ -725,7 +718,7 @@ export function BundleCreationPopover({
         minHeight: 0,
       }}>
         <Stepper activeStep={activeStep} orientation={isMobile ? 'vertical' : 'horizontal'} sx={{ mb: 3 }}>
-          {steps.map((label, index) => (
+          {steps.map((label) => (
             <Step key={label}>
               <StepLabel>{label}</StepLabel>
             </Step>
