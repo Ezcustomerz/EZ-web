@@ -8,7 +8,7 @@ import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
 
-export interface ServiceDialogProps {
+export interface BundleDialogProps {
   open: boolean;
   anchorEl: HTMLElement | null;
   onClose: () => void;
@@ -16,7 +16,7 @@ export interface ServiceDialogProps {
   onDelete?: () => void;
 }
 
-export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete }: ServiceDialogProps) {
+export function BundleDialog({ open, anchorEl, onClose, onEdit, onDelete }: BundleDialogProps) {
   return (
     <Popper
       anchorEl={anchorEl}
@@ -169,4 +169,4 @@ export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete }: Ser
       </ClickAwayListener>
     </Popper>
   );
-} 
+}

@@ -23,7 +23,8 @@ import { ReviewPopover } from '../../../components/popovers/creative/ReviewPopov
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
 import { InviteClientPopover } from '../../../components/popovers/creative/InviteClientPopover';
 import { CreativeSettingsPopover } from '../../../components/popovers/creative/CreativeSettingsPopover';
-import { userService, type CreativeProfile, type CreativeService, type CreativeServicesListResponse } from '../../../api/userService';
+import { userService, type CreativeProfile, type CreativeService, type CreativeServicesListResponse, type CreativeBundle } from '../../../api/userService';
+import { BundleCard } from '../../../components/cards/creative/BundleCard';
 import { useInviteClient } from '../../../hooks/useInviteClient';
 
 // Mock data for reviews
@@ -107,6 +108,7 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [services, setServices] = useState<CreativeService[]>([]);
+  const [bundles, setBundles] = useState<CreativeBundle[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
   const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -131,17 +133,25 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   const fetchServices = async () => {
     try {
       setServicesLoading(true);
-      const response: CreativeServicesListResponse = await userService.getCreativeServices();
-      // Only show active, enabled, and public services
+      const response = await userService.getCreativeServices();
+      
+      // Only show active and public services
       const activeServices = response.services.filter(service => 
         service.is_active && 
-        service.is_enabled && 
         service.status === 'Public'
       );
       setServices(activeServices);
+      
+      // Only show active and public bundles
+      const activeBundles = response.bundles.filter(bundle => 
+        bundle.is_active && 
+        bundle.status === 'Public'
+      );
+      setBundles(activeBundles);
     } catch (error) {
-      console.error('Failed to fetch creative services:', error);
+      console.error('Failed to fetch creative services and bundles:', error);
       setServices([]);
+      setBundles([]);
     } finally {
       setServicesLoading(false);
     }
@@ -249,7 +259,9 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
             }}>
               {/* Profile Header */}
               <Box sx={{
-                background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                background: creativeProfile.avatar_background_color 
+                  ? `linear-gradient(135deg, ${creativeProfile.avatar_background_color} 0%, ${creativeProfile.avatar_background_color}CC 100%)`
+                  : 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
                 color: 'white',
                 p: 3,
                 textAlign: 'center',
@@ -628,29 +640,59 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                         gap: 2,
                         flex: 1
                       }}>
-                        {/* Show configured primary and secondary services */}
+                        {/* Show configured primary and secondary services/bundles */}
                         {(() => {
-                          const primaryService = services.find(s => s.id === creativeProfile.primary_service_id);
-                          const secondaryService = services.find(s => s.id === creativeProfile.secondary_service_id);
-                          const servicesToShow = [primaryService, secondaryService].filter((service): service is CreativeService => service !== undefined);
+                          const primaryId = creativeProfile.primary_service_id;
+                          const secondaryId = creativeProfile.secondary_service_id;
                           
-                          // If no configured services, fall back to first 2 services
-                          const displayServices = servicesToShow.length > 0 ? servicesToShow : services.slice(0, 2);
+                          // Check if configured IDs are services or bundles
+                          const primaryService = services.find(s => s.id === primaryId);
+                          const secondaryService = services.find(s => s.id === secondaryId);
+                          const primaryBundle = bundles.find(b => b.id === primaryId);
+                          const secondaryBundle = bundles.find(b => b.id === secondaryId);
                           
-                          return displayServices.map((service) => (
-                            <Box key={service.id} sx={{ 
+                          // Create items array with the configured services/bundles
+                          const items = [];
+                          
+                          if (primaryService) {
+                            items.push({ type: 'service', data: primaryService });
+                          } else if (primaryBundle) {
+                            items.push({ type: 'bundle', data: primaryBundle });
+                          }
+                          
+                          if (secondaryService) {
+                            items.push({ type: 'service', data: secondaryService });
+                          } else if (secondaryBundle) {
+                            items.push({ type: 'bundle', data: secondaryBundle });
+                          }
+                          
+                          // If no configured items, fall back to first 2 services
+                          if (items.length === 0) {
+                            items.push(...services.slice(0, 2).map(service => ({ type: 'service', data: service })));
+                          }
+                          
+                          return items.map((item) => (
+                            <Box key={`${item.type}-${item.data.id}`} sx={{ 
                               width: { xs: '100%', sm: '50%' },
                               display: 'flex',
                               flexDirection: 'column'
                             }}>
-                              <ServiceCardSimple
-                                title={service.title}
-                                description={service.description}
-                                price={service.price}
-                                delivery={service.delivery_time}
-                                color={service.color}
-                                creative={creativeProfile.display_name}
-                              />
+                              {item.type === 'service' ? (
+                                <ServiceCardSimple
+                                  title={item.data.title}
+                                  description={item.data.description}
+                                  price={(item.data as CreativeService).price}
+                                  delivery={(item.data as CreativeService).delivery_time}
+                                  color={item.data.color}
+                                  creative={creativeProfile.display_name}
+                                />
+                              ) : (
+                                <BundleCard
+                                  bundle={item.data as CreativeBundle}
+                                  creative={creativeProfile.display_name}
+                                  showStatus={false}
+                                />
+                              )}
                             </Box>
                           ));
                         })()}
@@ -678,6 +720,7 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
           color: service.color,
           creative: creativeProfile?.display_name || 'Creative'
         }))}
+        bundles={bundles}
       />
 
       <ReviewPopover

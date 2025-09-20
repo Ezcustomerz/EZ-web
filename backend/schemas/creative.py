@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, ForwardRef, Dict, Any
+from typing import Optional, List, ForwardRef, Dict, Any, Literal
 
 class CreativeSetupRequest(BaseModel):
     display_name: str
@@ -36,7 +36,6 @@ class CreativeServiceResponse(BaseModel):
     status: str
     color: str
     is_active: bool
-    is_enabled: bool
     created_at: str
     updated_at: str
 
@@ -77,7 +76,7 @@ class CreateServiceRequest(BaseModel):
     description: str
     price: float
     delivery_time: str
-    status: str = 'Private'  # Public or Private
+    status: Literal['Public', 'Private', 'Bundle-Only'] = 'Private'
     color: str = '#3b82f6'
     calendar_settings: Optional[CalendarSettingsRequest] = None
 
@@ -94,13 +93,6 @@ class DeleteServiceResponse(BaseModel):
     success: bool
     message: str
 
-class ToggleServiceStatusRequest(BaseModel):
-    enabled: bool  # True to enable, False to disable
-
-class ToggleServiceStatusResponse(BaseModel):
-    success: bool
-    message: str
-    enabled: bool
 
 # Profile settings schemas
 class ProfileHighlightValue(BaseModel):
@@ -130,3 +122,77 @@ class CreativeProfileSettingsRequest(BaseModel):
 class CreativeProfileSettingsResponse(BaseModel):
     success: bool
     message: str
+
+class ProfilePhotoUploadResponse(BaseModel):
+    success: bool
+    message: str
+    profile_banner_url: str
+
+# Bundle schemas
+class CreateBundleRequest(BaseModel):
+    title: str
+    description: str
+    color: str = '#3b82f6'
+    status: Literal['Public', 'Private'] = 'Public'
+    pricing_option: Literal['fixed', 'discount'] = 'fixed'
+    fixed_price: Optional[float] = None
+    discount_percentage: Optional[float] = None
+    service_ids: List[str]
+
+class CreateBundleResponse(BaseModel):
+    success: bool
+    message: str
+    bundle_id: Optional[str] = None
+
+class BundleServiceResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    price: float
+    delivery_time: str
+    status: str
+    color: str
+
+class CreativeBundleResponse(BaseModel):
+    id: str
+    title: str
+    description: str
+    color: str
+    status: str
+    pricing_option: str
+    fixed_price: Optional[float] = None
+    discount_percentage: Optional[float] = None
+    total_services_price: float
+    final_price: float
+    services: List[BundleServiceResponse]
+    is_active: bool
+    created_at: str
+    updated_at: str
+
+class CreativeBundlesListResponse(BaseModel):
+    bundles: List[CreativeBundleResponse]
+    total_count: int
+
+class UpdateBundleRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    status: Optional[Literal['Public', 'Private']] = None
+    pricing_option: Optional[Literal['fixed', 'discount']] = None
+    fixed_price: Optional[float] = None
+    discount_percentage: Optional[float] = None
+    service_ids: Optional[List[str]] = None
+
+class UpdateBundleResponse(BaseModel):
+    success: bool
+    message: str
+
+class DeleteBundleResponse(BaseModel):
+    success: bool
+    message: str
+
+class PublicServicesAndBundlesResponse(BaseModel):
+    services: List[CreativeServiceResponse]
+    bundles: List[CreativeBundleResponse]
+    services_count: int
+    bundles_count: int

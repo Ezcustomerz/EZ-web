@@ -1,8 +1,11 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from db.db_session import db_admin
-from schemas.creative import CreativeSetupRequest, CreativeSetupResponse, CreativeClientsListResponse, CreativeClientResponse, CreativeServicesListResponse, CreativeServiceResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, ToggleServiceStatusRequest, ToggleServiceStatusResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse
+from schemas.creative import CreativeSetupRequest, CreativeSetupResponse, CreativeClientsListResponse, CreativeClientResponse, CreativeServicesListResponse, CreativeServiceResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse, ProfilePhotoUploadResponse, CreateBundleRequest, CreateBundleResponse, CreativeBundleResponse, CreativeBundlesListResponse, BundleServiceResponse, UpdateBundleRequest, UpdateBundleResponse, DeleteBundleResponse, PublicServicesAndBundlesResponse
 from core.validation import validate_contact_field
 import re
+import uuid
+import os
+from datetime import datetime
 
 class CreativeController:
     @staticmethod
@@ -185,7 +188,7 @@ class CreativeController:
         try:
             # Query the creative_services table for this creative user
             result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, is_enabled, created_at, updated_at'
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
             if not result.data:
@@ -202,7 +205,6 @@ class CreativeController:
                     status=service_data['status'],
                     color=service_data['color'],
                     is_active=service_data['is_active'],
-                    is_enabled=service_data.get('is_enabled', True),  # Default to True for backward compatibility
                     created_at=service_data['created_at'],
                     updated_at=service_data['updated_at']
                 )
@@ -232,8 +234,8 @@ class CreativeController:
                 raise HTTPException(status_code=422, detail="Price must be greater than 0")
             
             # Validate status
-            if service_request.status not in ['Public', 'Private']:
-                raise HTTPException(status_code=422, detail="Status must be either 'Public' or 'Private'")
+            if service_request.status not in ['Public', 'Private', 'Bundle-Only']:
+                raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
             
             # Prepare service data
             service_data = {
@@ -435,55 +437,6 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to delete service: {str(e)}")
 
     @staticmethod
-    async def toggle_service_status(user_id: str, service_id: str, toggle_request: ToggleServiceStatusRequest) -> ToggleServiceStatusResponse:
-        """Toggle service enabled/disabled status"""
-        try:
-            # First, verify the service exists and belongs to the user
-            service_result = db_admin.table('creative_services').select(
-                'id, creative_user_id, is_active, is_enabled, title'
-            ).eq('id', service_id).single().execute()
-            
-            if not service_result.data:
-                raise HTTPException(status_code=404, detail="Service not found")
-            
-            service_data = service_result.data
-            
-            # Check if the service belongs to the current user
-            if service_data['creative_user_id'] != user_id:
-                raise HTTPException(status_code=403, detail="You don't have permission to modify this service")
-            
-            # Check if service is deleted
-            if not service_data['is_active']:
-                raise HTTPException(status_code=400, detail="Cannot modify deleted service")
-            
-            # Check if service is already in the requested state
-            current_enabled = service_data.get('is_enabled', True)
-            if current_enabled == toggle_request.enabled:
-                status_word = "enabled" if toggle_request.enabled else "disabled"
-                raise HTTPException(status_code=400, detail=f"Service is already {status_word}")
-            
-            # Update the enabled status
-            result = db_admin.table('creative_services').update({
-                'is_enabled': toggle_request.enabled,
-                'updated_at': 'now()'
-            }).eq('id', service_id).execute()
-            
-            if not result.data:
-                raise HTTPException(status_code=500, detail="Failed to update service status")
-            
-            action_word = "enabled" if toggle_request.enabled else "disabled"
-            return ToggleServiceStatusResponse(
-                success=True,
-                message=f"Service '{service_data['title']}' has been {action_word}",
-                enabled=toggle_request.enabled
-            )
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to toggle service status: {str(e)}")
-
-    @staticmethod
     async def update_service(user_id: str, service_id: str, service_request: CreateServiceRequest) -> UpdateServiceResponse:
         """Update an existing service (same fields as create)."""
         try:
@@ -504,8 +457,8 @@ class CreativeController:
             if service_request.price <= 0:
                 raise HTTPException(status_code=422, detail="Price must be greater than 0")
 
-            if service_request.status not in ['Public', 'Private']:
-                raise HTTPException(status_code=422, detail="Status must be either 'Public' or 'Private'")
+            if service_request.status not in ['Public', 'Private', 'Bundle-Only']:
+                raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
 
             update_data = {
                 'title': service_request.title.strip(),
@@ -560,18 +513,54 @@ class CreativeController:
                 if not re.match(r'^#[0-9A-Fa-f]{6}$', settings_request.avatar_background_color):
                     validation_errors.append("Avatar background color: Must be a valid hex color (e.g., #3B82F6)")
             
-            # Validate service IDs if provided
+            # Validate service/bundle IDs if provided
             if settings_request.primary_service_id:
-                # Check if the service exists and belongs to the user
-                service_result = db_admin.table('creative_services').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).single().execute()
-                if not service_result.data:
-                    validation_errors.append("Primary service: Service not found or doesn't belong to you")
+                # Check if it's a service or bundle that exists and belongs to the user
+                service_exists = False
+                bundle_exists = False
+                
+                # Check services
+                try:
+                    service_result = db_admin.table('creative_services').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
+                    service_exists = service_result.data and len(service_result.data) > 0
+                except Exception as e:
+                    print(f"Service validation error: {e}")
+                    service_exists = False
+                
+                # Check bundles
+                try:
+                    bundle_result = db_admin.table('creative_bundles').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
+                    bundle_exists = bundle_result.data and len(bundle_result.data) > 0
+                except Exception as e:
+                    print(f"Bundle validation error: {e}")
+                    bundle_exists = False
+                
+                if not service_exists and not bundle_exists:
+                    validation_errors.append("Primary service: Service or bundle not found or doesn't belong to you")
             
             if settings_request.secondary_service_id:
-                # Check if the service exists and belongs to the user
-                service_result = db_admin.table('creative_services').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).single().execute()
-                if not service_result.data:
-                    validation_errors.append("Secondary service: Service not found or doesn't belong to you")
+                # Check if it's a service or bundle that exists and belongs to the user
+                service_exists = False
+                bundle_exists = False
+                
+                # Check services
+                try:
+                    service_result = db_admin.table('creative_services').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
+                    service_exists = service_result.data and len(service_result.data) > 0
+                except Exception as e:
+                    print(f"Service validation error: {e}")
+                    service_exists = False
+                
+                # Check bundles
+                try:
+                    bundle_result = db_admin.table('creative_bundles').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
+                    bundle_exists = bundle_result.data and len(bundle_result.data) > 0
+                except Exception as e:
+                    print(f"Bundle validation error: {e}")
+                    bundle_exists = False
+                
+                if not service_exists and not bundle_exists:
+                    validation_errors.append("Secondary service: Service or bundle not found or doesn't belong to you")
             
             # Check if primary and secondary services are different
             if (settings_request.primary_service_id and settings_request.secondary_service_id and 
@@ -628,11 +617,33 @@ class CreativeController:
             if settings_request.avatar_background_color is not None:
                 update_data['avatar_background_color'] = settings_request.avatar_background_color
             
-            # Update the creative profile
-            result = db_admin.table('creatives').update(update_data).eq('user_id', user_id).execute()
+            # Check if creative profile exists, if not create it
+            try:
+                existing_profile = db_admin.table('creatives').select('user_id').eq('user_id', user_id).execute()
+                profile_exists = existing_profile.data and len(existing_profile.data) > 0
+            except:
+                profile_exists = False
             
-            if not result.data:
-                raise HTTPException(status_code=404, detail="Creative profile not found")
+            if not profile_exists:
+                # Create new creative profile with the update data
+                create_data = {
+                    'user_id': user_id,
+                    **update_data
+                }
+                try:
+                    result = db_admin.table('creatives').insert(create_data).execute()
+                    if not result.data:
+                        raise HTTPException(status_code=500, detail="Failed to create creative profile")
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Failed to create creative profile: {str(e)}")
+            else:
+                # Update existing creative profile
+                try:
+                    result = db_admin.table('creatives').update(update_data).eq('user_id', user_id).execute()
+                    if not result.data:
+                        raise HTTPException(status_code=404, detail="Creative profile not found")
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Failed to update creative profile: {str(e)}")
             
             return CreativeProfileSettingsResponse(
                 success=True,
@@ -643,3 +654,577 @@ class CreativeController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to update profile settings: {str(e)}")
+
+    @staticmethod
+    async def upload_profile_photo(user_id: str, file: UploadFile) -> ProfilePhotoUploadResponse:
+        """Upload a profile photo for the creative"""
+        try:
+            # Validate file type
+            if not file.content_type or not file.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail="File must be an image")
+            
+            # Validate file size (5MB limit)
+            file_size = 0
+            content = await file.read()
+            file_size = len(content)
+            if file_size > 5 * 1024 * 1024:  # 5MB
+                raise HTTPException(status_code=400, detail="File size must be less than 5MB")
+            
+            # Get current profile to find old photo URL
+            current_profile = db_admin.table('creatives').select('profile_banner_url').eq('user_id', user_id).single().execute()
+            old_photo_url = None
+            if current_profile.data and current_profile.data.get('profile_banner_url'):
+                old_photo_url = current_profile.data['profile_banner_url']
+            
+            # Generate unique filename
+            file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+            unique_filename = f"{user_id}_{uuid.uuid4().hex}.{file_extension}"
+            
+            # Upload to Supabase storage
+            bucket_name = "profile-photos"
+            file_path = f"creatives/{unique_filename}"
+            
+            # Upload the new file
+            try:
+                upload_result = db_admin.storage.from_(bucket_name).upload(
+                    path=file_path,
+                    file=content,
+                    file_options={"content-type": file.content_type}
+                )
+            except Exception as upload_error:
+                raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(upload_error)}")
+            
+            # Get the public URL
+            public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
+            
+            # Update the creative profile with the new photo URL
+            update_result = db_admin.table('creatives').update({
+                'profile_banner_url': public_url,
+                'profile_source': 'custom'
+            }).eq('user_id', user_id).execute()
+            
+            if not update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update profile with new photo URL")
+            
+            # Delete the old profile photo if it exists and is from our storage bucket
+            if old_photo_url and 'profile-photos' in old_photo_url:
+                try:
+                    # Clean the URL - remove any query parameters or fragments
+                    clean_url = old_photo_url.split('?')[0].split('#')[0]
+                    
+                    # Extract the file path from the old URL
+                    # URL format: https://project.supabase.co/storage/v1/object/public/profile-photos/creatives/filename
+                    old_file_path = clean_url.split('/profile-photos/')[-1]
+                    
+                    if old_file_path.startswith('creatives/'):
+                        # Only delete files from our creatives folder for safety
+                        try:
+                            db_admin.storage.from_(bucket_name).remove([old_file_path])
+                        except Exception as delete_error:
+                            # Don't fail the upload if deletion fails, just log it
+                            print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+                except Exception as delete_error:
+                    # Don't fail the upload if deletion fails, just log it
+                    print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+            
+            return ProfilePhotoUploadResponse(
+                success=True,
+                message="Profile photo uploaded successfully",
+                profile_banner_url=public_url
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
+
+    @staticmethod
+    async def create_bundle(user_id: str, bundle_request: CreateBundleRequest) -> CreateBundleResponse:
+        """Create a new bundle for the creative"""
+        try:
+            # Validate that the user has a creative profile
+            creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
+            if not creative_result.data:
+                raise HTTPException(status_code=404, detail="Creative profile not found. Please complete your creative setup first.")
+            
+            # Validate that all services exist and belong to the user
+            if not bundle_request.service_ids or len(bundle_request.service_ids) < 2:
+                raise HTTPException(status_code=422, detail="Bundle must contain at least 2 services")
+            
+            # Check that all services exist and belong to the user
+            services_result = db_admin.table('creative_services').select(
+                'id, title, price, status'
+            ).eq('creative_user_id', user_id).eq('is_active', True).in_('id', bundle_request.service_ids).execute()
+            
+            if not services_result.data or len(services_result.data) != len(bundle_request.service_ids):
+                raise HTTPException(status_code=422, detail="One or more services not found or don't belong to you")
+            
+            # Validate that all services are either Public or Bundle-Only
+            for service in services_result.data:
+                if service['status'] not in ['Public', 'Bundle-Only']:
+                    raise HTTPException(status_code=422, detail=f"Service '{service['title']}' cannot be included in bundles (must be Public or Bundle-Only)")
+            
+            # Calculate total services price
+            total_services_price = sum(float(service['price']) for service in services_result.data)
+            
+            # Calculate final price based on pricing option
+            if bundle_request.pricing_option == 'fixed':
+                if bundle_request.fixed_price is None or bundle_request.fixed_price <= 0:
+                    raise HTTPException(status_code=422, detail="Fixed price must be greater than 0")
+                final_price = bundle_request.fixed_price
+            else:  # discount
+                if bundle_request.discount_percentage is None or bundle_request.discount_percentage < 0 or bundle_request.discount_percentage > 100:
+                    raise HTTPException(status_code=422, detail="Discount percentage must be between 0 and 100")
+                discount_amount = total_services_price * (bundle_request.discount_percentage / 100)
+                final_price = total_services_price - discount_amount
+            
+            # Prepare bundle data
+            bundle_data = {
+                'creative_user_id': user_id,
+                'title': bundle_request.title.strip(),
+                'description': bundle_request.description.strip(),
+                'color': bundle_request.color,
+                'status': bundle_request.status,
+                'pricing_option': bundle_request.pricing_option,
+                'fixed_price': bundle_request.fixed_price,
+                'discount_percentage': bundle_request.discount_percentage,
+                'is_active': True
+            }
+            
+            # Insert the bundle
+            bundle_result = db_admin.table('creative_bundles').insert(bundle_data).execute()
+            
+            if not bundle_result.data:
+                raise HTTPException(status_code=500, detail="Failed to create bundle")
+            
+            bundle_id = bundle_result.data[0]['id']
+            
+            # Insert bundle-service relationships
+            bundle_services_data = [
+                {'bundle_id': bundle_id, 'service_id': service_id}
+                for service_id in bundle_request.service_ids
+            ]
+            
+            bundle_services_result = db_admin.table('bundle_services').insert(bundle_services_data).execute()
+            
+            if not bundle_services_result.data:
+                # If bundle services insertion fails, clean up the bundle
+                db_admin.table('creative_bundles').delete().eq('id', bundle_id).execute()
+                raise HTTPException(status_code=500, detail="Failed to associate services with bundle")
+            
+            return CreateBundleResponse(
+                success=True,
+                message="Bundle created successfully",
+                bundle_id=bundle_id
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create bundle: {str(e)}")
+
+    @staticmethod
+    async def get_creative_bundles(user_id: str) -> CreativeBundlesListResponse:
+        """Get all bundles associated with the creative"""
+        try:
+            # Query the creative_bundles table for this creative user
+            bundles_result = db_admin.table('creative_bundles').select(
+                'id, title, description, color, status, pricing_option, fixed_price, discount_percentage, is_active, created_at, updated_at'
+            ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
+            
+            if not bundles_result.data:
+                return CreativeBundlesListResponse(bundles=[], total_count=0)
+            
+            bundles = []
+            for bundle_data in bundles_result.data:
+                # Get services for this bundle
+                bundle_services_result = db_admin.table('bundle_services').select(
+                    'service_id'
+                ).eq('bundle_id', bundle_data['id']).execute()
+                
+                service_ids = [bs['service_id'] for bs in bundle_services_result.data] if bundle_services_result.data else []
+                
+                # Get service details
+                services_result = db_admin.table('creative_services').select(
+                    'id, title, description, price, delivery_time, status, color'
+                ).in_('id', service_ids).execute()
+                
+                services = []
+                total_services_price = 0
+                for service_data in services_result.data:
+                    service = BundleServiceResponse(
+                        id=service_data['id'],
+                        title=service_data['title'],
+                        description=service_data['description'],
+                        price=float(service_data['price']),
+                        delivery_time=service_data['delivery_time'],
+                        status=service_data['status'],
+                        color=service_data['color']
+                    )
+                    services.append(service)
+                    total_services_price += service.price
+                
+                # Calculate final price
+                if bundle_data['pricing_option'] == 'fixed':
+                    final_price = float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else total_services_price
+                else:  # discount
+                    discount_percentage = float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else 0
+                    discount_amount = total_services_price * (discount_percentage / 100)
+                    final_price = total_services_price - discount_amount
+                
+                bundle = CreativeBundleResponse(
+                    id=bundle_data['id'],
+                    title=bundle_data['title'],
+                    description=bundle_data['description'],
+                    color=bundle_data['color'],
+                    status=bundle_data['status'],
+                    pricing_option=bundle_data['pricing_option'],
+                    fixed_price=float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else None,
+                    discount_percentage=float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else None,
+                    total_services_price=total_services_price,
+                    final_price=final_price,
+                    services=services,
+                    is_active=bundle_data['is_active'],
+                    created_at=bundle_data['created_at'],
+                    updated_at=bundle_data['updated_at']
+                )
+                bundles.append(bundle)
+            
+            return CreativeBundlesListResponse(
+                bundles=bundles,
+                total_count=len(bundles)
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch creative bundles: {str(e)}")
+
+    @staticmethod
+    async def get_creative_services_and_bundles(user_id: str) -> PublicServicesAndBundlesResponse:
+        """Get all services and bundles associated with the creative"""
+        try:
+            # Get services
+            services_result = db_admin.table('creative_services').select(
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at'
+            ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
+            
+            services = []
+            if services_result.data:
+                for service_data in services_result.data:
+                    service = CreativeServiceResponse(
+                        id=service_data['id'],
+                        title=service_data['title'],
+                        description=service_data['description'],
+                        price=float(service_data['price']),
+                        delivery_time=service_data['delivery_time'],
+                        status=service_data['status'],
+                        color=service_data['color'],
+                        is_active=service_data['is_active'],
+                        created_at=service_data['created_at'],
+                        updated_at=service_data['updated_at']
+                    )
+                    services.append(service)
+            
+            # Get bundles
+            bundles_result = db_admin.table('creative_bundles').select(
+                'id, title, description, color, status, pricing_option, fixed_price, discount_percentage, is_active, created_at, updated_at'
+            ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
+            
+            bundles = []
+            if bundles_result.data:
+                for bundle_data in bundles_result.data:
+                    # Get services for this bundle
+                    bundle_services_result = db_admin.table('bundle_services').select(
+                        'service_id'
+                    ).eq('bundle_id', bundle_data['id']).execute()
+                    
+                    service_ids = [bs['service_id'] for bs in bundle_services_result.data] if bundle_services_result.data else []
+                    
+                    # Get service details
+                    services_result = db_admin.table('creative_services').select(
+                        'id, title, description, price, delivery_time, status, color'
+                    ).in_('id', service_ids).execute()
+                    
+                    bundle_services = []
+                    total_services_price = 0
+                    for service_data in services_result.data:
+                        service = BundleServiceResponse(
+                            id=service_data['id'],
+                            title=service_data['title'],
+                            description=service_data['description'],
+                            price=float(service_data['price']),
+                            delivery_time=service_data['delivery_time'],
+                            status=service_data['status'],
+                            color=service_data['color']
+                        )
+                        bundle_services.append(service)
+                        total_services_price += service.price
+                    
+                    # Calculate final price
+                    if bundle_data['pricing_option'] == 'fixed':
+                        final_price = float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else total_services_price
+                    else:  # discount
+                        discount_percentage = float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else 0
+                        discount_amount = total_services_price * (discount_percentage / 100)
+                        final_price = total_services_price - discount_amount
+                    
+                    bundle = CreativeBundleResponse(
+                        id=bundle_data['id'],
+                        title=bundle_data['title'],
+                        description=bundle_data['description'],
+                        color=bundle_data['color'],
+                        status=bundle_data['status'],
+                        pricing_option=bundle_data['pricing_option'],
+                        fixed_price=float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else None,
+                        discount_percentage=float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else None,
+                        total_services_price=total_services_price,
+                        final_price=final_price,
+                        services=bundle_services,
+                        is_active=bundle_data['is_active'],
+                        created_at=bundle_data['created_at'],
+                        updated_at=bundle_data['updated_at']
+                    )
+                    bundles.append(bundle)
+            
+            return PublicServicesAndBundlesResponse(
+                services=services,
+                bundles=bundles,
+                services_count=len(services),
+                bundles_count=len(bundles)
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch creative services and bundles: {str(e)}")
+
+    @staticmethod
+    async def update_bundle(user_id: str, bundle_id: str, bundle_request: UpdateBundleRequest) -> UpdateBundleResponse:
+        """Update an existing bundle"""
+        try:
+            # Verify the bundle exists and belongs to the user
+            bundle_result = db_admin.table('creative_bundles').select(
+                'id, creative_user_id, is_active'
+            ).eq('id', bundle_id).single().execute()
+
+            if not bundle_result.data:
+                raise HTTPException(status_code=404, detail="Bundle not found")
+
+            if bundle_result.data['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to edit this bundle")
+
+            if not bundle_result.data['is_active']:
+                raise HTTPException(status_code=400, detail="Cannot edit a deleted bundle")
+
+            # Prepare update data - only include fields that are provided
+            update_data = {}
+
+            if bundle_request.title is not None:
+                update_data['title'] = bundle_request.title.strip()
+
+            if bundle_request.description is not None:
+                update_data['description'] = bundle_request.description.strip()
+
+            if bundle_request.color is not None:
+                update_data['color'] = bundle_request.color
+
+            if bundle_request.status is not None:
+                update_data['status'] = bundle_request.status
+
+            if bundle_request.pricing_option is not None:
+                update_data['pricing_option'] = bundle_request.pricing_option
+
+            if bundle_request.fixed_price is not None:
+                update_data['fixed_price'] = bundle_request.fixed_price
+
+            if bundle_request.discount_percentage is not None:
+                update_data['discount_percentage'] = bundle_request.discount_percentage
+
+            # If service_ids are provided, validate and update them
+            if bundle_request.service_ids is not None:
+                if len(bundle_request.service_ids) < 2:
+                    raise HTTPException(status_code=422, detail="Bundle must contain at least 2 services")
+
+                # Check that all services exist and belong to the user
+                services_result = db_admin.table('creative_services').select(
+                    'id, title, price, status'
+                ).eq('creative_user_id', user_id).eq('is_active', True).in_('id', bundle_request.service_ids).execute()
+
+                if not services_result.data or len(services_result.data) != len(bundle_request.service_ids):
+                    raise HTTPException(status_code=422, detail="One or more services not found or don't belong to you")
+
+                # Validate that all services are either Public or Bundle-Only
+                for service in services_result.data:
+                    if service['status'] not in ['Public', 'Bundle-Only']:
+                        raise HTTPException(status_code=422, detail=f"Service '{service['title']}' cannot be included in bundles (must be Public or Bundle-Only)")
+
+            # Update the bundle
+            if update_data:
+                update_data['updated_at'] = 'now()'
+                result = db_admin.table('creative_bundles').update(update_data).eq('id', bundle_id).execute()
+                if not result.data:
+                    raise HTTPException(status_code=500, detail="Failed to update bundle")
+
+            # Update bundle-service relationships if service_ids are provided
+            if bundle_request.service_ids is not None:
+                # Delete existing bundle-service relationships
+                db_admin.table('bundle_services').delete().eq('bundle_id', bundle_id).execute()
+
+                # Insert new bundle-service relationships
+                bundle_services_data = [
+                    {'bundle_id': bundle_id, 'service_id': service_id}
+                    for service_id in bundle_request.service_ids
+                ]
+
+                bundle_services_result = db_admin.table('bundle_services').insert(bundle_services_data).execute()
+
+                if not bundle_services_result.data:
+                    raise HTTPException(status_code=500, detail="Failed to update bundle services")
+
+            return UpdateBundleResponse(success=True, message="Bundle updated successfully")
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update bundle: {str(e)}")
+
+    @staticmethod
+    async def delete_bundle(user_id: str, bundle_id: str) -> DeleteBundleResponse:
+        """Soft delete a bundle by setting is_active to False"""
+        try:
+            # First, verify the bundle exists and belongs to the user
+            bundle_result = db_admin.table('creative_bundles').select(
+                'id, creative_user_id, is_active, title'
+            ).eq('id', bundle_id).single().execute()
+            
+            if not bundle_result.data:
+                raise HTTPException(status_code=404, detail="Bundle not found")
+            
+            bundle_data = bundle_result.data
+            
+            # Check if the bundle belongs to the current user
+            if bundle_data['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to delete this bundle")
+            
+            # Check if bundle is already deleted
+            if not bundle_data['is_active']:
+                raise HTTPException(status_code=400, detail="Bundle is already deleted")
+            
+            # Soft delete by setting is_active to False and updating timestamp
+            result = db_admin.table('creative_bundles').update({
+                'is_active': False,
+                'updated_at': 'now()'
+            }).eq('id', bundle_id).execute()
+            
+            if not result.data:
+                raise HTTPException(status_code=500, detail="Failed to delete bundle")
+            
+            return DeleteBundleResponse(
+                success=True,
+                message=f"Bundle '{bundle_data['title']}' has been deleted successfully"
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete bundle: {str(e)}")
+
+    @staticmethod
+    async def get_public_creative_services_and_bundles(user_id: str) -> dict:
+        """Get all public services and bundles for a creative (for public viewing)"""
+        try:
+            # Get public services
+            services_result = db_admin.table('creative_services').select(
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at'
+            ).eq('creative_user_id', user_id).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
+            
+            services = []
+            if services_result.data:
+                for service_data in services_result.data:
+                    service = CreativeServiceResponse(
+                        id=service_data['id'],
+                        title=service_data['title'],
+                        description=service_data['description'],
+                        price=float(service_data['price']),
+                        delivery_time=service_data['delivery_time'],
+                        status=service_data['status'],
+                        color=service_data['color'],
+                        is_active=service_data['is_active'],
+                        created_at=service_data['created_at'],
+                        updated_at=service_data['updated_at']
+                    )
+                    services.append(service)
+            
+            # Get public bundles
+            bundles_result = db_admin.table('creative_bundles').select(
+                'id, title, description, color, status, pricing_option, fixed_price, discount_percentage, is_active, created_at, updated_at'
+            ).eq('creative_user_id', user_id).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
+            
+            bundles = []
+            if bundles_result.data:
+                for bundle_data in bundles_result.data:
+                    # Get services for this bundle
+                    bundle_services_result = db_admin.table('bundle_services').select(
+                        'service_id'
+                    ).eq('bundle_id', bundle_data['id']).execute()
+                    
+                    service_ids = [bs['service_id'] for bs in bundle_services_result.data] if bundle_services_result.data else []
+                    
+                    # Get service details
+                    services_result = db_admin.table('creative_services').select(
+                        'id, title, description, price, delivery_time, status, color'
+                    ).in_('id', service_ids).execute()
+                    
+                    bundle_services = []
+                    total_services_price = 0
+                    for service_data in services_result.data:
+                        service = BundleServiceResponse(
+                            id=service_data['id'],
+                            title=service_data['title'],
+                            description=service_data['description'],
+                            price=float(service_data['price']),
+                            delivery_time=service_data['delivery_time'],
+                            status=service_data['status'],
+                            color=service_data['color']
+                        )
+                        bundle_services.append(service)
+                        total_services_price += service.price
+                    
+                    # Calculate final price
+                    if bundle_data['pricing_option'] == 'fixed':
+                        final_price = float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else total_services_price
+                    else:  # discount
+                        discount_percentage = float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else 0
+                        discount_amount = total_services_price * (discount_percentage / 100)
+                        final_price = total_services_price - discount_amount
+                    
+                    bundle = CreativeBundleResponse(
+                        id=bundle_data['id'],
+                        title=bundle_data['title'],
+                        description=bundle_data['description'],
+                        color=bundle_data['color'],
+                        status=bundle_data['status'],
+                        pricing_option=bundle_data['pricing_option'],
+                        fixed_price=float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else None,
+                        discount_percentage=float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else None,
+                        total_services_price=total_services_price,
+                        final_price=final_price,
+                        services=bundle_services,
+                        is_active=bundle_data['is_active'],
+                        created_at=bundle_data['created_at'],
+                        updated_at=bundle_data['updated_at']
+                    )
+                    bundles.append(bundle)
+            
+            return {
+                'services': services,
+                'bundles': bundles,
+                'services_count': len(services),
+                'bundles_count': len(bundles)
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch public services and bundles: {str(e)}")

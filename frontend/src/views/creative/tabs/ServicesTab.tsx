@@ -1,29 +1,41 @@
 import { Box, Card, Tooltip } from '@mui/material';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { ServiceCard } from '../../../components/cards/creative/ServiceCard';
-import { userService, type CreativeService } from '../../../api/userService';
+import { userService, type CreativeService, type CreativeProfile, type CreativeBundle } from '../../../api/userService';
+import { BundleCard } from '../../../components/cards/creative/BundleCard';
+
 import { useAuth } from '../../../context/auth';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { ServiceCreationPopover } from '../../../components/popovers/creative/ServiceCreationPopover';
 import { ServiceFormPopover } from '../../../components/popovers/creative/ServiceFormPopover';
+import { BundleCreationPopover } from '../../../components/popovers/creative/BundleCreationPopover';
 import { ConfirmDeleteDialog } from '../../../components/dialogs/ConfirmDeleteDialog';
 
 export interface ServicesTabProps {
   search: string;
   sortBy: 'title' | 'price' | 'delivery';
   sortOrder: 'asc' | 'desc';
-  visibility: 'all' | 'Public' | 'Private' | 'Disabled';
+  visibility: 'all' | 'Public' | 'Private' | 'Bundle-Only';
+  creativeProfile?: CreativeProfile | null;
 }
 
-export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesTabProps) {
+export function ServicesTab({ search, sortBy, sortOrder, visibility, creativeProfile }: ServicesTabProps) {
   const { isAuthenticated, userProfile } = useAuth();
   const [services, setServices] = useState<CreativeService[]>([]);
+  const [bundles, setBundles] = useState<CreativeBundle[]>([]);
   const [serviceCreationOpen, setServiceCreationOpen] = useState(false);
   const [serviceFormOpen, setServiceFormOpen] = useState(false);
+  const [bundleCreationOpen, setBundleCreationOpen] = useState(false);
   const [editingService, setEditingService] = useState<CreativeService | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<CreativeService | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Bundle editing and deletion state
+  const [editingBundle, setEditingBundle] = useState<CreativeBundle | null>(null);
+  const [bundleDeleteDialogOpen, setBundleDeleteDialogOpen] = useState(false);
+  const [bundleToDelete, setBundleToDelete] = useState<CreativeBundle | null>(null);
+  const [isDeletingBundle, setIsDeletingBundle] = useState(false);
   const hasFetchedRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
 
@@ -49,10 +61,12 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
         lastUserIdRef.current = currentUserId;
         const response = await userService.getCreativeServices();
         setServices(response.services);
+        setBundles(response.bundles);
       } catch (error) {
-        console.error('Failed to fetch services:', error);
-        errorToast('Failed to load services');
+        console.error('Failed to fetch services and bundles:', error);
+        errorToast('Failed to load services and bundles');
         setServices([]);
+        setBundles([]);
         hasFetchedRef.current = false;
       }
     };
@@ -60,7 +74,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
     fetchServices();
   }, [isAuthenticated, userProfile]);
 
-  // Function to refresh services list
+  // Function to refresh services and bundles list
   const refreshServices = async () => {
     if (!isAuthenticated || !userProfile?.roles?.includes('creative')) {
       return;
@@ -69,9 +83,10 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
     try {
       const response = await userService.getCreativeServices();
       setServices(response.services);
+      setBundles(response.bundles);
     } catch (error) {
-      console.error('Failed to refresh services:', error);
-      errorToast('Failed to refresh services');
+      console.error('Failed to refresh services and bundles:', error);
+      errorToast('Failed to refresh services and bundles');
     }
   };
 
@@ -85,6 +100,18 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
   const handleDeleteService = (service: CreativeService) => {
     setServiceToDelete(service);
     setDeleteDialogOpen(true);
+  };
+
+  // Handle edit bundle
+  const handleEditBundle = (bundle: CreativeBundle) => {
+    setEditingBundle(bundle);
+    setBundleCreationOpen(true);
+  };
+
+  // Handle delete bundle
+  const handleDeleteBundle = (bundle: CreativeBundle) => {
+    setBundleToDelete(bundle);
+    setBundleDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -118,61 +145,84 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
     }
   };
 
-  // Handle disable/enable service
-  const handleToggleService = async (service: CreativeService) => {
+  const handleConfirmBundleDelete = async () => {
+    if (!bundleToDelete) return;
+
     try {
-      const newEnabledState = !service.is_enabled;
-      const response = await userService.toggleServiceStatus(service.id, newEnabledState);
+      setIsDeletingBundle(true);
+      const response = await userService.deleteBundle(bundleToDelete.id);
       
       if (response.success) {
         successToast(response.message);
-        await refreshServices(); // Refresh the services list
+        await refreshServices(); // Refresh the services and bundles list
+        setBundleDeleteDialogOpen(false);
+        setBundleToDelete(null);
       } else {
-        errorToast(response.message || 'Failed to update service status');
+        errorToast(response.message || 'Failed to delete bundle');
       }
     } catch (error: any) {
-      console.error('Failed to toggle service status:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to update service status. Please try again.';
+      console.error('Failed to delete bundle:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to delete bundle. Please try again.';
       errorToast(errorMessage);
+    } finally {
+      setIsDeletingBundle(false);
     }
   };
 
+  const handleCancelBundleDelete = () => {
+    if (!isDeletingBundle) {
+      setBundleDeleteDialogOpen(false);
+      setBundleToDelete(null);
+    }
+  };
+
+
   const animationKey = sortBy + '-' + sortOrder + '-' + visibility + '-' + search;
-  const sortedServices = useMemo(() => {
-    const filtered = services.filter(s =>
+  const sortedItems = useMemo(() => {
+    // Filter services
+    const filteredServices = services.filter(s =>
       ((visibility === 'all') ||
-       (visibility === 'Disabled' && !s.is_enabled) ||
-       (visibility !== 'Disabled' && s.status === visibility)) &&
+       (s.status === visibility)) &&
       (s.title.toLowerCase().includes(search.toLowerCase()) ||
         s.description.toLowerCase().includes(search.toLowerCase()))
     );
-    return [...filtered].sort((a, b) => {
-      // When showing all, group by: Public -> Private -> Disabled
-      if (visibility === 'all') {
-        const groupA = a.is_enabled ? (a.status === 'Public' ? 0 : 1) : 2;
-        const groupB = b.is_enabled ? (b.status === 'Public' ? 0 : 1) : 2;
-        if (groupA !== groupB) return groupA - groupB;
-      }
-      // When showing Public or Private only, put disabled last within the group
-      if (visibility === 'Public' || visibility === 'Private') {
-        const groupA = a.is_enabled ? 0 : 1;
-        const groupB = b.is_enabled ? 0 : 1;
-        if (groupA !== groupB) return groupA - groupB;
-      }
+
+    // Filter bundles (only show if visibility is 'all' or 'Public')
+    const filteredBundles = bundles.filter(b =>
+      ((visibility === 'all') || (visibility === 'Public')) &&
+      (b.title.toLowerCase().includes(search.toLowerCase()) ||
+        b.description.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    // Combine services and bundles into a unified list
+    const allItems = [
+      ...filteredServices.map(s => ({ type: 'service' as const, data: s })),
+      ...filteredBundles.map(b => ({ type: 'bundle' as const, data: b }))
+    ];
+
+    return [...allItems].sort((a, b) => {
+      // Apply the sort by criteria directly
       let cmp = 0;
-      if (sortBy === 'title') cmp = a.title.localeCompare(b.title);
-      if (sortBy === 'price') cmp = a.price - b.price;
+      if (sortBy === 'title') cmp = a.data.title.localeCompare(b.data.title);
+      if (sortBy === 'price') {
+        const priceA = a.type === 'service' ? a.data.price : a.data.final_price;
+        const priceB = b.type === 'service' ? b.data.price : b.data.final_price;
+        cmp = priceA - priceB;
+      }
       if (sortBy === 'delivery') {
+        const deliveryA = a.type === 'service' ? a.data.delivery_time : 'Varies by service';
+        const deliveryB = b.type === 'service' ? b.data.delivery_time : 'Varies by service';
         const parseDays = (str: string) => {
+          if (str === 'Varies by service') return 999; // Put bundles at the end
           const match = str.match(/(\d+)/g);
           if (!match) return 0;
           return Math.min(...match.map(Number));
         };
-        cmp = parseDays(a.delivery_time) - parseDays(b.delivery_time);
+        cmp = parseDays(deliveryA) - parseDays(deliveryB);
       }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [services, search, sortBy, sortOrder, visibility]);
+  }, [services, bundles, search, sortBy, sortOrder, visibility]);
 
   return (
     <Box sx={{
@@ -442,27 +492,35 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
             </Card>
           </Tooltip>
         </Box>
-        {/* Service Cards */}
-        {sortedServices.map((service, idx) => (
+        {/* Service and Bundle Cards */}
+        {sortedItems.map((item, idx) => (
           <Box
-            key={service.id + '-' + animationKey}
+            key={`${item.type}-${item.data.id}-${animationKey}`}
             sx={{
               animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${(idx + 1) * 0.07}s both`,
             }}
           >
-            <ServiceCard
-              title={service.title}
-              description={service.description}
-              price={service.price}
-              delivery={service.delivery_time}
-              status={service.status}
-              creative={userProfile?.name || 'Unknown Creative'}
-              onEdit={() => handleEditService(service)}
-              onDelete={() => handleDeleteService(service)}
-              onDisable={() => handleToggleService(service)}
-              color={service.color}
-              isEnabled={service.is_enabled}
-            />
+            {item.type === 'service' ? (
+              <ServiceCard
+                title={item.data.title}
+                description={item.data.description}
+                price={item.data.price}
+                delivery={item.data.delivery_time}
+                status={item.data.status}
+                creative={creativeProfile?.display_name || userProfile?.name || 'Unknown Creative'}
+                onEdit={() => handleEditService(item.data)}
+                onDelete={() => handleDeleteService(item.data)}
+                color={item.data.color}
+              />
+            ) : (
+              <BundleCard
+                bundle={item.data}
+                creative={creativeProfile?.display_name || userProfile?.name || 'Unknown Creative'}
+                showMenu={true}
+                onEdit={() => handleEditBundle(item.data)}
+                onDelete={() => handleDeleteBundle(item.data)}
+              />
+            )}
           </Box>
         ))}
       </Box>
@@ -476,9 +534,8 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
           setServiceFormOpen(true);
         }}
         onCreateBundle={() => {
-          // TODO: Navigate to bundle creation form
-          console.log('Create bundle clicked');
           setServiceCreationOpen(false);
+          setBundleCreationOpen(true);
         }}
       />
 
@@ -518,6 +575,37 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
         itemName={serviceToDelete?.title}
         description="This will remove the service from your profile. You can always create a new service later."
         isDeleting={isDeleting}
+      />
+
+      {/* Bundle Delete Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={bundleDeleteDialogOpen}
+        onClose={handleCancelBundleDelete}
+        onConfirm={handleConfirmBundleDelete}
+        title="Delete Bundle"
+        itemName={bundleToDelete?.title}
+        description="This will remove the bundle from your profile. You can always create a new bundle later."
+        isDeleting={isDeletingBundle}
+      />
+
+      {/* Bundle Creation Popover */}
+      <BundleCreationPopover
+        open={bundleCreationOpen}
+        onClose={() => {
+          setBundleCreationOpen(false);
+          setEditingBundle(null);
+        }}
+        onBack={() => {
+          setBundleCreationOpen(false);
+          setEditingBundle(null);
+          setServiceCreationOpen(true);
+        }}
+        onBundleCreated={(bundle) => {
+          console.log('Bundle created/updated:', bundle);
+          refreshServices();
+          setEditingBundle(null);
+        }}
+        editingBundle={editingBundle}
       />
     </Box>
   );
