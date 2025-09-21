@@ -422,19 +422,18 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
             <Box sx={{ 
               display: 'flex', 
               flexDirection: 'column', 
-              gap: 1,
-              height: '100%'
+              gap: 1
+              
             }}>
               {/* About Section */}
               <Card sx={{ 
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
                 borderRadius: 3,
-                flex: 1,
-                minHeight: '200px',
                 display: 'flex',
+                minHeight: '155px',
                 flexDirection: 'column'
               }}>
-                <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" fontWeight={600} gutterBottom>
                     About {creativeProfile.display_name}
                   </Typography>
@@ -473,12 +472,10 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
               <Card sx={{ 
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
                 borderRadius: 3,
-                flex: 2,
-                minHeight: '320px',
                 display: 'flex',
                 flexDirection: 'column'
               }}>
-                <CardContent sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
                     <Typography variant="h6" fontWeight={600}>
                       Available Services
@@ -502,20 +499,18 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                     )}
                   </Box>
                   
-                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                     {servicesLoading ? (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
                         <CircularProgress size={40} />
                       </Box>
                     ) : services.length === 0 ? (
                       <Box sx={{ 
-                        position: 'relative',
-                        height: '100%', 
                         display: 'flex', 
                         flexDirection: 'column',
                         alignItems: 'center', 
                         justifyContent: 'center',
-                        flex: 1,
+                        py: 4,
                         gap: 2
                       }}>
                         <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', fontStyle: 'italic' }}>
@@ -638,7 +633,7 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                         display: 'flex', 
                         flexDirection: { xs: 'column', sm: 'row' }, 
                         gap: 2,
-                        flex: 1
+                        pb: 2
                       }}>
                         {/* Show configured primary and secondary services/bundles */}
                         {(() => {

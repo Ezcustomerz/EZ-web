@@ -155,16 +155,29 @@ export function BundleCreationPopover({
     if (open) {
       fetchServices();
     }
-  }, [open]);
+  }, [open, formData.status]);
 
   const fetchServices = async () => {
     try {
       setLoading(true);
       const response = await userService.getCreativeServices();
-      // Filter for active services that are either Public or Bundle-Only (available for bundles)
-      setServices(response.services.filter(service => 
-        service.is_active && (service.status === 'Public' || service.status === 'Bundle-Only')
-      ));
+      // Filter for active services that are available for bundles
+      // Include private services only if the bundle is private
+      setServices(response.services.filter(service => {
+        if (!service.is_active) return false;
+        
+        // Always include Public and Bundle-Only services
+        if (service.status === 'Public' || service.status === 'Bundle-Only') {
+          return true;
+        }
+        
+        // Include Private services only if the bundle is private
+        if (service.status === 'Private' && formData.status === 'Private') {
+          return true;
+        }
+        
+        return false;
+      }));
     } catch (error) {
       console.error('Failed to fetch services:', error);
       errorToast('Failed to load services');
@@ -335,7 +348,18 @@ export function BundleCreationPopover({
         return (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Alert severity="info" sx={{ mb: 2 }}>
-              Select at least 2 services to create a bundle. Only <strong>Public</strong> and <strong>Bundle-Only</strong> services can be included in bundles.
+              <Typography variant="body2">
+                Select at least 2 services to create a bundle. 
+                {formData.status === 'Private' ? (
+                  <>
+                    <strong>Public</strong>, <strong>Private</strong>, and <strong>Bundle-Only</strong> services can be included in private bundles.
+                  </>
+                ) : (
+                  <>
+                    Only <strong>Public</strong> and <strong>Bundle-Only</strong> services can be included in public bundles.
+                  </>
+                )}
+              </Typography>
             </Alert>
             
             {loading ? (

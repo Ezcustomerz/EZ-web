@@ -6,6 +6,7 @@ import {
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { ClientTable, mockClients } from '../../components/tables/ClientTable';
 import { InviteClientPopover } from '../../components/popovers/creative/InviteClientPopover';
+import { ClientDetailPopover } from '../../components/popovers/creative/ClientDetailPopover';
 import { useInviteClient } from '../../hooks/useInviteClient';
 import { userService, type CreativeClient } from '../../api/userService';
 import { useAuth } from '../../context/auth';
@@ -18,6 +19,8 @@ export function ClientCreative() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
+  const [selectedClient, setSelectedClient] = useState<CreativeClient | null>(null);
+  const [clientDetailOpen, setClientDetailOpen] = useState(false);
   
   // Ref to prevent duplicate API calls (especially in React StrictMode)
   const fetchingRef = useRef(false);
@@ -65,6 +68,16 @@ export function ClientCreative() {
   };
   const handleStatusFilterChange = (value: 'all' | 'active' | 'inactive') => {
     setStatusFilter(value);
+  };
+
+  const handleClientClick = (client: CreativeClient) => {
+    setSelectedClient(client);
+    setClientDetailOpen(true);
+  };
+
+  const handleCloseClientDetail = () => {
+    setClientDetailOpen(false);
+    setSelectedClient(null);
   };
 
   return (
@@ -139,6 +152,7 @@ export function ClientCreative() {
           statusFilter={statusFilter}
           onStatusFilterChange={handleStatusFilterChange}
           onInviteClient={handleInviteClient}
+          onClientClick={handleClientClick}
           loading={loading}
         />
 
@@ -146,6 +160,13 @@ export function ClientCreative() {
         <InviteClientPopover
           open={inviteClientOpen}
           onClose={closeInviteClient}
+        />
+
+        {/* Client Detail Popover */}
+        <ClientDetailPopover
+          open={clientDetailOpen}
+          onClose={handleCloseClientDetail}
+          client={selectedClient}
         />
       </Box>
     </LayoutCreative>

@@ -11,7 +11,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Divider,
   useTheme,
   useMediaQuery,
   TextField,
@@ -960,10 +959,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
         {/* Blue header section - only extends to sidebar width */}
         <Box
           sx={{
-            width: { xs: '100%', md: 280 },
+            width: { xs: 0, md: 280 },
             background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
             color: 'white',
-            display: 'flex',
+            display: { xs: 'none', md: 'flex' },
             alignItems: 'center',
             justifyContent: 'space-between',
             px: 3,
@@ -991,18 +990,17 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
         </Box>
         
         {/* Right section for desktop - part of content area with title, subtitle, and close button */}
-        {!isMobile && (
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              px: 3,
-              py: 2,
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)',
-            }}
-          >
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            px: 3,
+            py: 2,
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
             {/* Title and Subtitle */}
             <Box sx={{ flex: 1, pt: 1 }}>
               <Typography variant="h5" fontWeight={600} gutterBottom>
@@ -1047,30 +1045,21 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
               </IconButton>
             </Box>
           </Box>
-        )}
       </DialogTitle>
 
       <DialogContent sx={{ p: 0, display: 'flex', height: '100%' }}>
         {/* Sidebar Navigation */}
         <Box
           sx={{
-            width: { xs: '100%', md: 280 },
+            width: { xs: 0, md: 280 },
             minWidth: { md: 280 },
             borderRight: { md: '1px solid rgba(0, 0, 0, 0.1)' },
             background: { md: 'rgba(255, 255, 255, 0.8)' },
             backdropFilter: { md: 'blur(10px)' },
-            display: 'flex',
+            display: { xs: 'none', md: 'flex' },
             flexDirection: 'column',
           }}
         >
-          {/* Mobile: Show section selector */}
-          {isMobile && (
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.1)' }}>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Settings Sections
-              </Typography>
-            </Box>
-          )}
 
           <List sx={{ flex: 1, py: 1 }}>
             {settingsSections.map((section) => {
@@ -1127,20 +1116,6 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
             })}
           </List>
 
-          {/* Mobile: Show current section info */}
-          {isMobile && (
-            <>
-              <Divider />
-              <Box sx={{ p: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Current Section
-                </Typography>
-                <Typography variant="body2" fontWeight={500}>
-                  {settingsSections.find(s => s.id === selectedSection)?.label}
-                </Typography>
-              </Box>
-            </>
-          )}
         </Box>
 
         {/* Main Content Area */}
