@@ -1,4 +1,4 @@
-import { Box, Typography, Chip, useTheme } from '@mui/material';
+import { Box, Typography, Chip, useTheme, Button } from '@mui/material';
 import { WarningAmberOutlined, ErrorOutline } from '@mui/icons-material';
 import type { ActivityItem } from '../../types/activity';
 
@@ -14,6 +14,10 @@ interface ActivityNotificationProps {
   status?: string;
   statusText?: string;
   onClick?: () => void;
+
+  onActionClick?: () => void; // Function handle card button
+  actionLabel?: string;       //SMC
+
   index?: number;
 }
 
@@ -28,6 +32,8 @@ export function ActivityNotificationCard({
   isNew,
   status,
   onClick,
+  onActionClick,
+  actionLabel,
   index = 0,
 }: ActivityNotificationProps) {
   const theme = useTheme();
@@ -190,6 +196,22 @@ export function ActivityNotificationCard({
             >
               {normalized.date}
             </Typography>
+
+            {onActionClick && (
+              <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                size="small"
+                variant="contained"
+                color="secondary"
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent card onClick
+                  onActionClick();
+                }}
+              >
+                {actionLabel || 'Go to Activity'}
+              </Button>
+            </Box>
+          )}
           </Box>
         </Box>
         <Typography
