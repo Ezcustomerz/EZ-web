@@ -20,10 +20,12 @@ import {
 } from '@mui/icons-material';
 import { SessionPopover } from '../../../components/popovers/creative/ServicePopover';
 import { ReviewPopover } from '../../../components/popovers/creative/ReviewPopover';
+import { ServicesDetailPopover } from '../../../components/popovers/ServicesDetailPopover';
+import { BundleDetailPopover } from '../../../components/popovers/BundleDetailPopover';
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
 import { InviteClientPopover } from '../../../components/popovers/creative/InviteClientPopover';
 import { CreativeSettingsPopover } from '../../../components/popovers/creative/CreativeSettingsPopover';
-import { userService, type CreativeProfile, type CreativeService, type CreativeServicesListResponse, type CreativeBundle } from '../../../api/userService';
+import { userService, type CreativeProfile, type CreativeService, type CreativeBundle } from '../../../api/userService';
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
 import { useInviteClient } from '../../../hooks/useInviteClient';
 
@@ -103,6 +105,40 @@ export interface ProfileTabProps {
 
 export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = true, onSwitchToServicesTab }: ProfileTabProps = {}) {
   const [servicesOpen, setServicesOpen] = useState(false);
+
+  const handleServiceClick = (service: CreativeService) => {
+    // Add creative profile information to the service object
+    const serviceWithCreative = {
+      ...service,
+      creative_display_name: creativeProfile?.display_name,
+      creative_title: creativeProfile?.title,
+      creative_avatar_url: creativeProfile?.profile_banner_url
+    };
+    setSelectedService(serviceWithCreative as any);
+    setServiceDetailOpen(true);
+  };
+
+  const handleBundleClick = (bundle: CreativeBundle) => {
+    // Add creative profile information to the bundle object
+    const bundleWithCreative = {
+      ...bundle,
+      creative_display_name: creativeProfile?.display_name,
+      creative_title: creativeProfile?.title,
+      creative_avatar_url: creativeProfile?.profile_banner_url
+    };
+    setSelectedBundle(bundleWithCreative as any);
+    setBundleDetailOpen(true);
+  };
+
+  const handleServiceDetailClose = () => {
+    setServiceDetailOpen(false);
+    setSelectedService(null);
+  };
+
+  const handleBundleDetailClose = () => {
+    setBundleDetailOpen(false);
+    setSelectedBundle(null);
+  };
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -113,6 +149,10 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<CreativeService | null>(null);
+  const [bundleDetailOpen, setBundleDetailOpen] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState<CreativeBundle | null>(null);
 
   // Use creative profile from props (passed from LayoutCreative)
   useEffect(() => {
@@ -680,12 +720,14 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                                   delivery={(item.data as CreativeService).delivery_time}
                                   color={item.data.color}
                                   creative={creativeProfile.display_name}
+                                  onBook={() => handleServiceClick(item.data as CreativeService)}
                                 />
                               ) : (
                                 <BundleCard
                                   bundle={item.data as CreativeBundle}
                                   creative={creativeProfile.display_name}
                                   showStatus={false}
+                                  onClick={() => handleBundleClick(item.data as CreativeBundle)}
                                 />
                               )}
                             </Box>
@@ -733,6 +775,22 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onProfileUpdated={() => setRefreshTrigger(prev => prev + 1)}
+      />
+
+      {/* Service Detail Popover */}
+      <ServicesDetailPopover
+        open={serviceDetailOpen}
+        onClose={handleServiceDetailClose}
+        service={selectedService}
+        context="profile-tab"
+      />
+
+      {/* Bundle Detail Popover */}
+      <BundleDetailPopover
+        open={bundleDetailOpen}
+        onClose={handleBundleDetailClose}
+        bundle={selectedBundle}
+        context="profile-tab"
       />
     </>
   );

@@ -30,6 +30,8 @@ import { userService, type CreativeProfile, type CreativeService, type CreativeB
 
 import { SessionPopover } from '../components/popovers/creative/ServicePopover';
 import { ReviewPopover } from '../components/popovers/creative/ReviewPopover';
+import { ServicesDetailPopover } from '../components/popovers/ServicesDetailPopover';
+import { BundleDetailPopover } from '../components/popovers/BundleDetailPopover';
 import { ServiceCardSimple } from '../components/cards/creative/ServiceCard';
 import { BundleCard } from '../components/cards/creative/BundleCard';
 import { errorToast } from '../components/toast/toast';
@@ -53,6 +55,10 @@ export function InvitePage() {
   const [error, setError] = useState<string>('');
   const [servicesOpen, setServicesOpen] = useState(false);
   const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<CreativeService | null>(null);
+  const [bundleDetailOpen, setBundleDetailOpen] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState<CreativeBundle | null>(null);
 
   // InvitePage is a public page - no need to fetch user profiles
   // The auth context will handle user profile loading when needed
@@ -123,6 +129,40 @@ export function InvitePage() {
       localStorage.setItem('invitePreSelectClient', 'true');
     }
     openAuth();
+  };
+
+  const handleServiceClick = (service: CreativeService) => {
+    // Add creative profile information to the service object
+    const serviceWithCreative = {
+      ...service,
+      creative_display_name: creative?.display_name,
+      creative_title: creative?.title,
+      creative_avatar_url: (creative as CreativeProfile)?.profile_banner_url
+    };
+    setSelectedService(serviceWithCreative as any);
+    setServiceDetailOpen(true);
+  };
+
+  const handleBundleClick = (bundle: CreativeBundle) => {
+    // Add creative profile information to the bundle object
+    const bundleWithCreative = {
+      ...bundle,
+      creative_display_name: creative?.display_name,
+      creative_title: creative?.title,
+      creative_avatar_url: (creative as CreativeProfile)?.profile_banner_url
+    };
+    setSelectedBundle(bundleWithCreative as any);
+    setBundleDetailOpen(true);
+  };
+
+  const handleServiceDetailClose = () => {
+    setServiceDetailOpen(false);
+    setSelectedService(null);
+  };
+
+  const handleBundleDetailClose = () => {
+    setBundleDetailOpen(false);
+    setSelectedBundle(null);
   };
 
 
@@ -522,12 +562,14 @@ export function InvitePage() {
                                   delivery={(item.data as CreativeService).delivery_time}
                                   color={item.data.color}
                                   creative={creative?.display_name || 'Creative'}
+                                  onBook={() => handleServiceClick(item.data as CreativeService)}
                                 />
                               ) : (
                                 <BundleCard
                                   bundle={item.data as CreativeBundle}
                                   creative={creative?.display_name || 'Creative'}
                                   showStatus={false}
+                                  onClick={() => handleBundleClick(item.data as CreativeBundle)}
                                 />
                               )}
                             </Box>
@@ -593,6 +635,22 @@ export function InvitePage() {
             date: '2024-01-05'
           }
         ]}
+      />
+
+      {/* Service Detail Popover */}
+      <ServicesDetailPopover
+        open={serviceDetailOpen}
+        onClose={handleServiceDetailClose}
+        service={selectedService}
+        context="invite-page"
+      />
+
+      {/* Bundle Detail Popover */}
+      <BundleDetailPopover
+        open={bundleDetailOpen}
+        onClose={handleBundleDetailClose}
+        bundle={selectedBundle}
+        context="invite-page"
       />
     </Box>
   );

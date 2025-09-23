@@ -226,7 +226,7 @@ async def accept_invite(invite_token: str, request: Request):
         relationship_data = {
             "creative_user_id": creative_user_id,
             "client_user_id": client_user_id,
-            "status": "active",
+            "status": "inactive",
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat()
         }
@@ -315,7 +315,7 @@ async def accept_invite_after_role_setup(invite_token: str, request: Request):
         relationship_data = {
             "creative_user_id": creative_user_id,
             "client_user_id": client_user_id,
-            "status": "active",
+            "status": "inactive",
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat()
         }

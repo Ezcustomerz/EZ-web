@@ -97,6 +97,23 @@ async def create_service(request: Request, service_request: CreateServiceRequest
         raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
 
 
+@router.post("/services/with-photos", response_model=CreateServiceResponse)
+async def create_service_with_photos(request: Request):
+    """Create a new service with photos in a single request"""
+    try:
+        # Get user ID from JWT token
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        return await CreativeController.create_service_with_photos(user_id, request)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+
+
 @router.delete("/services/{service_id}", response_model=DeleteServiceResponse)
 async def delete_service(request: Request, service_id: str):
     """Soft delete a service for the current creative"""
@@ -112,6 +129,8 @@ async def delete_service(request: Request, service_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete service: {str(e)}")
+
+
 
 
 @router.put("/services/{service_id}", response_model=UpdateServiceResponse)

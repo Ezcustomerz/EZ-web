@@ -158,6 +158,25 @@ export interface CreativeClientsListResponse {
   total_count: number;
 }
 
+export interface ClientCreative {
+  id: string;
+  name: string;
+  avatar: string | null;
+  specialty: string;
+  email: string;
+  rating: number;
+  reviewCount: number;
+  servicesCount: number;
+  isOnline: boolean;
+  color: string;
+  status: string;
+}
+
+export interface ClientCreativesListResponse {
+  creatives: ClientCreative[];
+  total_count: number;
+}
+
 export interface CreativeService {
   id: string;
   title: string;
@@ -169,6 +188,7 @@ export interface CreativeService {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  photos?: ServicePhoto[];
 }
 
 export interface CreativeServicesListResponse {
@@ -208,6 +228,14 @@ export interface CalendarSettings {
   weekly_schedule: WeeklySchedule[];
 }
 
+export interface ServicePhoto {
+  photo_url: string;
+  photo_filename?: string;
+  photo_size_bytes?: number;
+  is_primary: boolean;
+  display_order: number;
+}
+
 export interface CreateServiceRequest {
   title: string;
   description: string;
@@ -216,6 +244,7 @@ export interface CreateServiceRequest {
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   calendar_settings?: CalendarSettings;
+  photos?: ServicePhoto[];
 }
 
 export interface CreateServiceResponse {
@@ -547,6 +576,45 @@ export const userService = {
     return response.data;
   },
 
+  async createServiceWithPhotos(serviceData: CreateServiceRequest, photos: File[], onProgress?: (progress: number) => void): Promise<CreateServiceResponse> {
+    const { data } = await supabase.auth.getSession();
+    const jwtToken = data.session?.access_token;
+    
+    const formData = new FormData();
+    
+    // Add service data
+    formData.append('title', serviceData.title);
+    formData.append('description', serviceData.description);
+    formData.append('price', serviceData.price.toString());
+    formData.append('delivery_time', serviceData.delivery_time);
+    formData.append('status', serviceData.status);
+    formData.append('color', serviceData.color);
+    
+    // Add photos
+    photos.forEach((photo) => {
+      formData.append('photos', photo);
+    });
+    
+    const response = await axios.post<CreateServiceResponse>(
+      `${API_BASE_URL}/creative/services/with-photos`,
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000, // 60 second timeout for photo uploads
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgress(progress);
+          }
+        }
+      }
+    );
+    return response.data;
+  },
+
   async updateService(serviceId: string, serviceData: CreateServiceRequest): Promise<UpdateServiceResponse> {
     const headers = await getAuthHeaders();
     const response = await axios.put<UpdateServiceResponse>(
@@ -589,6 +657,42 @@ export const userService = {
   },
 
   /**
+   * Upload service photo to Supabase Storage
+   */
+  async uploadServicePhoto(file: File, serviceId?: string): Promise<{ url: string; filename: string; size: number }> {
+    const { supabase } = await import('../config/supabase');
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const fileExtension = file.name.split('.').pop() || 'jpg';
+    const filename = `service-photos/${serviceId || 'temp'}/${timestamp}-${randomString}.${fileExtension}`;
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('creative-assets')
+      .upload(filename, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) {
+      throw new Error(`Failed to upload photo: ${error.message}`);
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('creative-assets')
+      .getPublicUrl(filename);
+    
+    return {
+      url: urlData.publicUrl,
+      filename: file.name,
+      size: file.size
+    };
+  },
+
+  /**
    * Create a new bundle
    */
   async createBundle(bundleData: CreateBundleRequest): Promise<CreateBundleResponse> {
@@ -625,4 +729,29 @@ export const userService = {
     );
     return response.data;
   },
+
+  /**
+   * Get all creatives connected to the current client
+   */
+  async getClientCreatives(): Promise<ClientCreativesListResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<ClientCreativesListResponse>(
+      `${API_BASE_URL}/client/creatives`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all services from creatives connected to the current client
+   */
+  async getClientConnectedServices(): Promise<{services: any[], total_count: number}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<{services: any[], total_count: number}>(
+      `${API_BASE_URL}/client/connected-services`,
+      { headers }
+    );
+    return response.data;
+  },
+
 };

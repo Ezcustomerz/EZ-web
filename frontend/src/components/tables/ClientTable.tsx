@@ -359,7 +359,7 @@ export function ClientTable({
         return {
           label: 'active',
           sx: {
-            backgroundColor: '#2563eb',
+            backgroundColor: '#22c55e',
             color: 'white',
             fontSize: '0.75rem',
             fontWeight: 500,
@@ -372,7 +372,7 @@ export function ClientTable({
         return {
           label: 'inactive',
           sx: {
-            backgroundColor: '#22c55e',
+            backgroundColor: '#2563eb',
             color: 'white',
             fontSize: '0.75rem',
             fontWeight: 500,

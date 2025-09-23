@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from db.db_session import db_admin
-from schemas.client import ClientSetupRequest, ClientSetupResponse
+from schemas.client import ClientSetupRequest, ClientSetupResponse, ClientCreativesListResponse, ClientCreativeResponse
 from core.validation import validate_email
 
 class ClientController:
@@ -77,3 +77,239 @@ class ClientController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to fetch client profile: {str(e)}")
+
+    @staticmethod
+    async def get_client_creatives(user_id: str) -> ClientCreativesListResponse:
+        """Get all creatives connected to this client - simplified approach"""
+        try:
+            # Get creative user IDs first
+            relationships_result = db_admin.table('creative_client_relationships').select(
+                'id, status, total_spent, projects_count, creative_user_id'
+            ).eq('client_user_id', user_id).order('updated_at', desc=True).execute()
+            
+            if not relationships_result.data:
+                return ClientCreativesListResponse(creatives=[], total_count=0)
+            
+            creative_user_ids = [rel['creative_user_id'] for rel in relationships_result.data]
+            
+            # Batch fetch all creative and user data to avoid N+1 queries
+            creatives_result = db_admin.table('creatives').select(
+                'display_name, title, user_id, avatar_background_color'
+            ).in_('user_id', creative_user_ids).execute()
+            
+            users_result = db_admin.table('users').select(
+                'name, email, profile_picture_url, user_id'
+            ).in_('user_id', creative_user_ids).execute()
+            
+            # Create lookup maps
+            creative_data_map = {c['user_id']: c for c in creatives_result.data}
+            user_data_map = {u['user_id']: u for u in users_result.data}
+            
+            # Get service counts for each creative
+            services_count_map = {}
+            for creative_user_id in creative_user_ids:
+                try:
+                    # Try using count parameter instead of counting data length
+                    service_count_result = db_admin.table('creative_services').select(
+                        'id', count='exact'
+                    ).eq('creative_user_id', creative_user_id).eq('is_active', True).execute()
+                    
+                    # Use the count from the result
+                    count = service_count_result.count if hasattr(service_count_result, 'count') else 0
+                    services_count_map[creative_user_id] = count
+                    print(f"🔍 Creative {creative_user_id} has {count} services (using count)")
+                except Exception as e:
+                    print(f"Error getting service count for creative {creative_user_id}: {e}")
+                    # Fallback to counting data length
+                    try:
+                        service_count_result = db_admin.table('creative_services').select(
+                            'id'
+                        ).eq('creative_user_id', creative_user_id).eq('is_active', True).execute()
+                        count = len(service_count_result.data) if service_count_result.data else 0
+                        services_count_map[creative_user_id] = count
+                        print(f"🔍 Creative {creative_user_id} has {count} services (fallback)")
+                    except Exception as e2:
+                        print(f"Fallback also failed for creative {creative_user_id}: {e2}")
+                        services_count_map[creative_user_id] = 0
+            
+            creatives = []
+            for relationship in relationships_result.data:
+                creative_user_id = relationship['creative_user_id']
+                
+                creative_data = creative_data_map.get(creative_user_id)
+                user_data = user_data_map.get(creative_user_id)
+                
+                if not creative_data or not user_data:
+                    continue  # Skip if creative or user data not found
+                
+                # Use display_name if available, otherwise use name
+                creative_name = creative_data.get('display_name') or user_data.get('name', 'Unknown Creative')
+                
+                # Get creative's specialty (title)
+                specialty = creative_data.get('title', 'Music Producer')
+                
+                # Get email
+                email = user_data.get('email', '')
+                
+                # Get profile picture
+                avatar = user_data.get('profile_picture_url')
+                
+                # Get creative's configured color
+                color = creative_data.get('avatar_background_color', '#3B82F6')
+                
+                # Get service count
+                servicesCount = services_count_map.get(creative_user_id, 0)
+                print(f"🔍 Final service count for {creative_name} ({creative_user_id}): {servicesCount}")
+                
+                # For now, use default values for rating, reviewCount, isOnline
+                rating = 4.5  # Default rating - no reviews system yet
+                reviewCount = 0  # Could be calculated from reviews table when implemented
+                isOnline = False  # Could be determined by last activity when implemented
+                
+                creative = ClientCreativeResponse(
+                    id=relationship['id'],
+                    name=creative_name,
+                    avatar=avatar,
+                    specialty=specialty,
+                    email=email,
+                    rating=rating,
+                    reviewCount=reviewCount,
+                    servicesCount=servicesCount,
+                    isOnline=isOnline,
+                    color=color,
+                    status=relationship.get('status', 'inactive')
+                )
+                creatives.append(creative)
+            
+            return ClientCreativesListResponse(creatives=creatives, total_count=len(creatives))
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch client creatives: {str(e)}")
+
+    @staticmethod
+    async def get_connected_services(user_id: str) -> dict:
+        """Get all services from creatives connected to this client - optimized with single query"""
+        try:
+            # Single optimized query with JOIN to get services, creative names, and photos
+            # This replaces multiple individual queries with one efficient query
+            services_result = db_admin.rpc('get_client_connected_services_with_photos', {
+                'client_user_id': user_id
+            }).execute()
+            
+            if not services_result.data:
+                return {"services": [], "total_count": 0}
+            
+            # Process the results
+            services = []
+            for service_data in services_result.data:
+                service = {
+                    'id': service_data['id'],
+                    'title': service_data['title'],
+                    'description': service_data['description'],
+                    'price': float(service_data['price']),
+                    'delivery_time': service_data['delivery_time'],
+                    'status': service_data['status'],
+                    'color': service_data['color'],
+                    'is_active': service_data['is_active'],
+                    'created_at': service_data['created_at'],
+                    'updated_at': service_data['updated_at'],
+                    'creative_user_id': service_data['creative_user_id'],
+                    'creative_name': service_data['creative_name'] or 'Unknown Creative',
+                    'photos': service_data['photos'] if service_data['photos'] else []
+                }
+                services.append(service)
+            
+            return {"services": services, "total_count": len(services)}
+            
+        except Exception as e:
+            # Fallback to the original method if RPC fails
+            try:
+                return await ClientController._get_connected_services_fallback(user_id)
+            except Exception as fallback_error:
+                raise HTTPException(status_code=500, detail=f"Failed to fetch connected services: {str(fallback_error)}")
+
+    @staticmethod
+    async def _get_connected_services_fallback(user_id: str) -> dict:
+        """Fallback method using optimized batch queries"""
+        try:
+            # Get creative user IDs
+            relationships_result = db_admin.table('creative_client_relationships').select(
+                'creative_user_id'
+            ).eq('client_user_id', user_id).execute()
+            
+            if not relationships_result.data:
+                return {"services": [], "total_count": 0}
+            
+            creative_user_ids = [rel['creative_user_id'] for rel in relationships_result.data]
+            
+            # Get all services from these creatives
+            services_result = db_admin.table('creative_services').select(
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id'
+            ).in_('creative_user_id', creative_user_ids).eq('is_active', True).order('created_at', desc=True).execute()
+            
+            if not services_result.data:
+                return {"services": [], "total_count": 0}
+            
+            # Batch fetch creative names to avoid N+1 queries
+            creatives_result = db_admin.table('creatives').select(
+                'user_id, display_name'
+            ).in_('user_id', creative_user_ids).execute()
+            
+            users_result = db_admin.table('users').select(
+                'user_id, name'
+            ).in_('user_id', creative_user_ids).execute()
+            
+            # Create lookup maps
+            creative_names = {c['user_id']: c.get('display_name') for c in creatives_result.data}
+            user_names = {u['user_id']: u.get('name') for u in users_result.data}
+            
+            # Get photos for all services
+            service_ids = [service['id'] for service in services_result.data]
+            photos_result = db_admin.table('service_photos').select(
+                'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+            ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
+            
+            # Group photos by service_id
+            photos_by_service = {}
+            if photos_result.data:
+                for photo in photos_result.data:
+                    service_id = photo['service_id']
+                    if service_id not in photos_by_service:
+                        photos_by_service[service_id] = []
+                    photos_by_service[service_id].append({
+                        'photo_url': photo['photo_url'],
+                        'photo_filename': photo['photo_filename'],
+                        'photo_size_bytes': photo['photo_size_bytes'],
+                        'is_primary': photo['is_primary'],
+                        'display_order': photo['display_order']
+                    })
+            
+            # Process services
+            services = []
+            for service_data in services_result.data:
+                creative_user_id = service_data['creative_user_id']
+                creative_name = creative_names.get(creative_user_id) or user_names.get(creative_user_id) or 'Unknown Creative'
+                
+                service = {
+                    'id': service_data['id'],
+                    'title': service_data['title'],
+                    'description': service_data['description'],
+                    'price': float(service_data['price']),
+                    'delivery_time': service_data['delivery_time'],
+                    'status': service_data['status'],
+                    'color': service_data['color'],
+                    'is_active': service_data['is_active'],
+                    'created_at': service_data['created_at'],
+                    'updated_at': service_data['updated_at'],
+                    'creative_user_id': creative_user_id,
+                    'creative_name': creative_name,
+                    'photos': photos_by_service.get(service_data['id'], [])
+                }
+                services.append(service)
+            
+            return {"services": services, "total_count": len(services)}
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch connected services: {str(e)}")

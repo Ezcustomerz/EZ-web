@@ -39,6 +39,7 @@ interface BundleCardProps {
   showMenu?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
+  onClick?: () => void;
 }
 
 const statusHelp = {
@@ -46,11 +47,14 @@ const statusHelp = {
   Private: 'Only visible to you. Not shown on your public profile.',
 };
 
-export function BundleCard({ bundle, creative, showStatus = true, showMenu = false, onEdit, onDelete }: BundleCardProps) {
+export function BundleCard({ bundle, creative, showStatus = true, showMenu = false, onEdit, onDelete, onClick }: BundleCardProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    setAnchorEl(event.currentTarget);
+  };
   const handleMenuClose = () => setAnchorEl(null);
 
 
@@ -65,6 +69,7 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
 
   return (
     <Card
+      onClick={onClick}
       sx={{
         height: '100%',
         minHeight: { xs: 135, sm: 170 },

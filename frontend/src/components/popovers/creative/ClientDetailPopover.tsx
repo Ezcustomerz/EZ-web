@@ -61,7 +61,7 @@ export function ClientDetailPopover({ open, onClose, client }: ClientDetailPopov
         return {
           label: 'Active',
           sx: {
-            backgroundColor: '#2563eb',
+            backgroundColor: '#22c55e',
             color: 'white',
             fontSize: '0.75rem',
             fontWeight: 500,
@@ -74,7 +74,7 @@ export function ClientDetailPopover({ open, onClose, client }: ClientDetailPopov
         return {
           label: 'Inactive',
           sx: {
-            backgroundColor: '#22c55e',
+            backgroundColor: '#2563eb',
             color: 'white',
             fontSize: '0.75rem',
             fontWeight: 500,

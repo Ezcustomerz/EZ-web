@@ -9,6 +9,8 @@ import { errorToast, successToast } from '../../../components/toast/toast';
 import { ServiceCreationPopover } from '../../../components/popovers/creative/ServiceCreationPopover';
 import { ServiceFormPopover } from '../../../components/popovers/creative/ServiceFormPopover';
 import { BundleCreationPopover } from '../../../components/popovers/creative/BundleCreationPopover';
+import { ServicesDetailPopover } from '../../../components/popovers/ServicesDetailPopover';
+import { BundleDetailPopover } from '../../../components/popovers/BundleDetailPopover';
 import { ConfirmDeleteDialog } from '../../../components/dialogs/ConfirmDeleteDialog';
 
 export interface ServicesTabProps {
@@ -36,6 +38,15 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   const [bundleDeleteDialogOpen, setBundleDeleteDialogOpen] = useState(false);
   const [bundleToDelete, setBundleToDelete] = useState<CreativeBundle | null>(null);
   const [isDeletingBundle, setIsDeletingBundle] = useState(false);
+  
+  // Service detail popover state
+  const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<CreativeService | null>(null);
+  
+  // Bundle detail popover state
+  const [bundleDetailOpen, setBundleDetailOpen] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState<CreativeBundle | null>(null);
+  
   const hasFetchedRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
 
@@ -112,6 +123,40 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   const handleDeleteBundle = (bundle: CreativeBundle) => {
     setBundleToDelete(bundle);
     setBundleDeleteDialogOpen(true);
+  };
+
+  const handleServiceClick = (service: CreativeService) => {
+    // Add creative profile information to the service object
+    const serviceWithCreative = {
+      ...service,
+      creative_display_name: creativeProfile?.display_name || userProfile?.name,
+      creative_title: creativeProfile?.title,
+      creative_avatar_url: creativeProfile?.profile_banner_url
+    };
+    setSelectedService(serviceWithCreative as any);
+    setServiceDetailOpen(true);
+  };
+
+  const handleBundleClick = (bundle: CreativeBundle) => {
+    // Add creative profile information to the bundle object
+    const bundleWithCreative = {
+      ...bundle,
+      creative_display_name: creativeProfile?.display_name || userProfile?.name,
+      creative_title: creativeProfile?.title,
+      creative_avatar_url: creativeProfile?.profile_banner_url
+    };
+    setSelectedBundle(bundleWithCreative as any);
+    setBundleDetailOpen(true);
+  };
+
+  const handleServiceDetailClose = () => {
+    setServiceDetailOpen(false);
+    setSelectedService(null);
+  };
+
+  const handleBundleDetailClose = () => {
+    setBundleDetailOpen(false);
+    setSelectedBundle(null);
   };
 
   const handleConfirmDelete = async () => {
@@ -237,7 +282,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           display: 'grid',
           gap: { xs: 1, sm: 1.7 },
           px: 2,
-          pb: 1.1,
+          pb: 6, // Increased bottom padding to accommodate hover effects (scale + translateY)
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
@@ -511,6 +556,8 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
                 onEdit={() => handleEditService(item.data)}
                 onDelete={() => handleDeleteService(item.data)}
                 color={item.data.color}
+                showMenu={true}
+                onClick={() => handleServiceClick(item.data)}
               />
             ) : (
               <BundleCard
@@ -519,6 +566,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
                 showMenu={true}
                 onEdit={() => handleEditBundle(item.data)}
                 onDelete={() => handleDeleteBundle(item.data)}
+                onClick={() => handleBundleClick(item.data)}
               />
             )}
           </Box>
@@ -542,9 +590,13 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
       {/* Service Form Popover */}
       <ServiceFormPopover
         open={serviceFormOpen}
-        onClose={() => setServiceFormOpen(false)}
+        onClose={() => {
+          setServiceFormOpen(false);
+          setEditingService(null); // Clear editing state when closing
+        }}
         onBack={() => {
           setServiceFormOpen(false);
+          setEditingService(null); // Clear editing state when going back
           setServiceCreationOpen(true);
         }}
         onSubmit={async () => {
@@ -606,6 +658,22 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           setEditingBundle(null);
         }}
         editingBundle={editingBundle}
+      />
+
+      {/* Service Detail Popover */}
+      <ServicesDetailPopover
+        open={serviceDetailOpen}
+        onClose={handleServiceDetailClose}
+        service={selectedService}
+        context="services-tab"
+      />
+
+      {/* Bundle Detail Popover */}
+      <BundleDetailPopover
+        open={bundleDetailOpen}
+        onClose={handleBundleDetailClose}
+        bundle={selectedBundle}
+        context="services-tab"
       />
     </Box>
   );

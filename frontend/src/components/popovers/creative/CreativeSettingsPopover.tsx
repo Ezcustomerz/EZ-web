@@ -44,6 +44,7 @@ import {
 import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { errorToast } from '../../../components/toast/toast';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
@@ -295,6 +296,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Check if file type is allowed
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        errorToast('Only PNG and JPEG files are allowed');
+        return;
+      }
       handleInputChange('profilePhoto', file);
     }
   };
@@ -398,6 +405,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
     }
   };
 
+
   const renderSectionContent = () => {
     switch (selectedSection) {
       case 'account':
@@ -426,7 +434,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                     </Avatar>
                     <Box>
                       <input
-                        accept="image/*"
+                        accept="image/png,image/jpeg,image/jpg"
                         style={{ display: 'none' }}
                         id="profile-photo-upload"
                         type="file"
@@ -917,7 +925,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
       case 'preferences':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
-            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Preferences content will be added here in the future */}
+              <Typography variant="body2" color="text.secondary">
+                Preferences settings will be available here in a future update.
+              </Typography>
+            </Box>
           </Box>
         );
       case 'billing':

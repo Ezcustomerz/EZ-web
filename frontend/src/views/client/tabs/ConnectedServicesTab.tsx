@@ -1,27 +1,35 @@
-import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
 import { MusicNote, Search, FilterList } from '@mui/icons-material';
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
-import { useState, useMemo } from 'react';
+import { ServicesDetailPopover } from '../../../components/popovers/ServicesDetailPopover';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown, faUser, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { userService } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
+import { errorToast } from '../../../components/toast/toast';
 
 interface Service {
   id: string;
   title: string;
   description: string;
   price: number;
-  delivery: string;
-  creative: string;
-  rating: number;
-  reviewCount: number;
+  delivery_time: string;
+  creative_name: string;
   color: string;
+  status: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  creative_user_id: string;
+  photos?: Array<{
+    photo_url: string;
+    photo_filename?: string;
+    photo_size_bytes?: number;
+    is_primary: boolean;
+    display_order: number;
+  }>;
 }
-
-// Mock data for connected services
-const mockConnectedServices: Service[] = [
-  
-  
-];
 
 const sortOptions = [
   { value: 'title', label: 'Name' },
@@ -32,7 +40,12 @@ const sortOptions = [
 export function ConnectedServicesTab() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { isAuthenticated } = useAuth();
 
+  // Data state
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   // Search/filter/sort state
   const [sortBy, setSortBy] = useState<'title' | 'price' | 'delivery'>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -40,22 +53,86 @@ export function ConnectedServicesTab() {
   const [producerFilter, setCreativeFilter] = useState<string>('all');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
+  // Service detail popover state
+  const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+
+  const fetchingRef = useRef(false);
+  const lastAuthStateRef = useRef<boolean | null>(null);
+  const cacheRef = useRef<{ data: Service[], timestamp: number } | null>(null);
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  // Fetch services when component mounts and user is authenticated
+  useEffect(() => {
+    const fetchServices = async () => {
+      // Prevent duplicate calls if already fetching or auth state hasn't changed
+      if (fetchingRef.current || lastAuthStateRef.current === isAuthenticated) {
+        return;
+      }
+
+      fetchingRef.current = true;
+      lastAuthStateRef.current = isAuthenticated;
+
+      if (!isAuthenticated) {
+        // In demo mode (not authenticated), use empty array
+        setServices([]);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      // Check cache first
+      if (cacheRef.current && (Date.now() - cacheRef.current.timestamp) < CACHE_DURATION) {
+        console.log('Using cached connected services data');
+        setServices(cacheRef.current.data);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await userService.getClientConnectedServices();
+        console.log('Connected services data:', response.services);
+        
+        // Cache the response
+        cacheRef.current = {
+          data: response.services,
+          timestamp: Date.now()
+        };
+        
+        setServices(response.services);
+      } catch (error) {
+        console.error('Failed to fetch connected services:', error);
+        // Show error toast
+        errorToast('Failed to load connected services. Please try again.');
+        // Fallback to empty array
+        setServices([]);
+      } finally {
+        setLoading(false);
+        fetchingRef.current = false;
+      }
+    };
+
+    fetchServices();
+  }, [isAuthenticated]);
+
   // Get unique creatives for filter
   const uniqueCreatives = useMemo(() => {
-    const creatives = [...new Set(mockConnectedServices.map(service => service.creative))];
+    const creatives = [...new Set(services.map(service => service.creative_name))];
     return creatives.sort();
-  }, []);
+  }, [services]);
 
   // Animation key that changes on every filter/search
   const animationKey = sortBy + '-' + sortOrder + '-' + producerFilter + '-' + search;
 
   // Filter and sort services
   const filteredAndSortedServices = useMemo(() => {
-    const filtered = mockConnectedServices.filter(service =>
-      (producerFilter === 'all' || service.creative === producerFilter) &&
+    const filtered = services.filter(service =>
+      (producerFilter === 'all' || service.creative_name === producerFilter) &&
       (service.title.toLowerCase().includes(search.toLowerCase()) ||
         service.description.toLowerCase().includes(search.toLowerCase()) ||
-        service.creative.toLowerCase().includes(search.toLowerCase()))
+        service.creative_name.toLowerCase().includes(search.toLowerCase()))
     );
 
     return [...filtered].sort((a, b) => {
@@ -68,21 +145,55 @@ export function ConnectedServicesTab() {
           if (!match) return 0;
           return Math.min(...match.map(Number));
         };
-        cmp = parseDays(a.delivery) - parseDays(b.delivery);
+        cmp = parseDays(a.delivery_time) - parseDays(b.delivery_time);
       }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [search, sortBy, sortOrder, producerFilter]);
+  }, [services, search, sortBy, sortOrder, producerFilter]);
 
   const handleServiceClick = (serviceId: string) => {
-    console.log('Service clicked:', serviceId);
-    // TODO: Navigate to service booking page
+    const service = services.find(s => s.id === serviceId);
+    if (service) {
+      // Add creative profile information to the service object
+      const serviceWithCreative = {
+        ...service,
+        creative_display_name: service.creative_name,
+        creative_title: 'Creative Professional', // Default title for connected services
+        creative_avatar_url: undefined // No avatar URL available for connected services
+      };
+      setSelectedService(serviceWithCreative as any);
+      setServiceDetailOpen(true);
+    }
   };
+
+  const handleServiceDetailClose = () => {
+    setServiceDetailOpen(false);
+    setSelectedService(null);
+  };
+
+  const handleBookService = () => {
+    console.log('Booking service:', selectedService?.id);
+    // TODO: Implement booking logic
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100%',
+        minHeight: '300px',
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
         <Box sx={{
           height: '100vh',
-          overflow: 'hidden',
+          overflow: 'auto', // Changed from 'hidden' to 'auto' to allow scrolling and hover effects
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
@@ -525,17 +636,17 @@ export function ConnectedServicesTab() {
           gap: { xs: 1.5, sm: 2 },
           px: { xs: 1, sm: 2 },
           pt: 2,
-          pb: 1,
+          pb: 4, // Increased bottom padding to accommodate hover effects
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, 1fr)',
             md: 'repeat(3, 1fr)',
-            lg: 'repeat(4, 1fr)',
+            lg: 'repeat(3, 1fr)',
           },
           alignItems: 'stretch',
           minHeight: 0,
           width: '100%',
-          overflow: 'hidden',
+          overflow: 'visible', 
           '@keyframes fadeInCard': {
             '0%': {
               opacity: 0,
@@ -552,21 +663,31 @@ export function ConnectedServicesTab() {
               key={service.id + '-' + animationKey}
               sx={{
                 animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${index * 0.1}s both`,
+                pb: 1,
               }}
             >
               <ServiceCardSimple
                 title={service.title}
                 description={service.description}
                 price={service.price}
-                delivery={service.delivery}
+                delivery={service.delivery_time}
                 color={service.color}
-                creative={service.creative}
+                creative={service.creative_name}
                 onBook={() => handleServiceClick(service.id)}
               />
             </Box>
           ))}
         </Box>
       )}
+
+      {/* Service Detail Popover */}
+      <ServicesDetailPopover
+        open={serviceDetailOpen}
+        onClose={handleServiceDetailClose}
+        service={selectedService}
+        context="client-connected"
+        onBook={handleBookService}
+      />
     </Box>
   );
-} 
+}

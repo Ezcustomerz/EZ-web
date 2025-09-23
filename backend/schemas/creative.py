@@ -38,6 +38,7 @@ class CreativeServiceResponse(BaseModel):
     is_active: bool
     created_at: str
     updated_at: str
+    photos: Optional[List["ServicePhotoRequest"]] = []
 
 class CreativeServicesListResponse(BaseModel):
     services: List[CreativeServiceResponse]
@@ -71,6 +72,13 @@ class CalendarSettingsRequest(BaseModel):
     buffer_time_unit: str = 'minutes'  # 'minutes' or 'hours'
     weekly_schedule: List[WeeklyScheduleRequest] = []
 
+class ServicePhotoRequest(BaseModel):
+    photo_url: str
+    photo_filename: Optional[str] = None
+    photo_size_bytes: Optional[int] = None
+    is_primary: bool = False
+    display_order: int = 0
+
 class CreateServiceRequest(BaseModel):
     title: str
     description: str
@@ -79,6 +87,7 @@ class CreateServiceRequest(BaseModel):
     status: Literal['Public', 'Private', 'Bundle-Only'] = 'Private'
     color: str = '#3b82f6'
     calendar_settings: Optional[CalendarSettingsRequest] = None
+    photos: Optional[List[ServicePhotoRequest]] = None
 
 class CreateServiceResponse(BaseModel):
     success: bool
@@ -152,6 +161,7 @@ class BundleServiceResponse(BaseModel):
     delivery_time: str
     status: str
     color: str
+    photos: Optional[List["ServicePhotoRequest"]] = []
 
 class CreativeBundleResponse(BaseModel):
     id: str
