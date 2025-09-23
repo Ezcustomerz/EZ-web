@@ -20,9 +20,9 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/auth';
 import { userService, type UserRoleProfiles } from '../../api/userService';
-import { CreativeSetupPopover } from './CreativeSetupPopover';
-import { ClientSetupPopover } from './ClientSetupPopover';
-import { AdvocateSetupPopover } from './AdvocateSetupPopover';
+import { CreativeSetupPopover } from './setup/CreativeSetupPopover';
+import { ClientSetupPopover } from './setup/ClientSetupPopover';
+import { AdvocateSetupPopover } from './setup/AdvocateSetupPopover';
 import { errorToast } from '../toast/toast';
 
 interface RoleData {
@@ -54,15 +54,15 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
   const [clientSetupOpen, setClientSetupOpen] = useState(false);
   const [advocateSetupOpen, setAdvocateSetupOpen] = useState(false);
 
-  // Fetch role profiles when popover opens (only for authenticated users)
+  // Fetch role profiles when popover opens (only for authenticated users and not during setup)
   useEffect(() => {
-    if (open && userProfile && isAuthenticated) {
+    if (open && userProfile && isAuthenticated && !roleSelectionOpen) {
       fetchRoleProfiles();
     } else if (!isAuthenticated) {
       // Clear role profiles when user is not authenticated (demo mode)
       setRoleProfiles(null);
     }
-  }, [open, userProfile, isAuthenticated]);
+  }, [open, userProfile, isAuthenticated, roleSelectionOpen]);
 
   const fetchRoleProfiles = async () => {
     // Don't fetch role profiles for unauthenticated users (demo mode)
@@ -165,7 +165,6 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
   const roles = getRolesData();
 
   const handleSwitchRole = (roleId: string) => {
-    console.log(`Switching to role: ${roleId}`);
     
     // Clear all profile caches to ensure fresh data is fetched
     const keys = Object.keys(localStorage);
@@ -213,7 +212,6 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
   };
 
   const handleAddRole = (roleId: string) => {
-    console.log(`Adding role: ${roleId}`);
     
     // If user is not logged in (demo mode), just navigate to the role
     if (!userProfile) {
@@ -243,8 +241,9 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
     setClientSetupOpen(false);
     setAdvocateSetupOpen(false);
     
-    // Refresh data to show the newly created profile
-    if (userProfile) {
+    // Only refresh data if this is not part of the initial setup flow
+    // During initial setup, the auth context will handle the final refresh
+    if (userProfile && !roleSelectionOpen) {
       try {
         // Refresh role profiles
         await fetchRoleProfiles();
@@ -425,6 +424,9 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
         fullScreen={isMobile}
         disableAutoFocus
         disableEnforceFocus
+        sx={{
+          zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+        }}
         PaperProps={{
           sx: {
             borderRadius: isMobile ? 0 : 3,

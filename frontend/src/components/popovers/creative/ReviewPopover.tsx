@@ -1,7 +1,7 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Button, Box, Typography, Chip, Divider, FormControl, Select, MenuItem, useTheme, useMediaQuery, Slide } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import type { Review } from '../../views/creative/tabs/ProfileTab';
-import { ReviewCard } from '../cards/creative/ReviewCard';
+import type { Review } from '../../../views/creative/tabs/ProfileTab';
+import { ReviewCard } from '../../cards/creative/ReviewCard';
 import { useState } from 'react';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
@@ -40,6 +40,9 @@ export function ReviewPopover({ open, onClose, reviews }: ReviewPopoverProps) {
       scroll="paper"
       fullScreen={isMobile}
       slots={{ transition: Transition }}
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
       slotProps={{
         paper: {
           sx: {

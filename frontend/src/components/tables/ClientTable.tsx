@@ -20,6 +20,7 @@ import {
   Tooltip,
   Stack,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
@@ -56,7 +57,9 @@ interface ClientTableProps {
   statusFilter: 'all' | 'active' | 'inactive';
   onStatusFilterChange: (value: 'all' | 'active' | 'inactive') => void;
   onInviteClient: () => void;
+  onClientClick?: (client: Client) => void;
   itemsPerPage?: number;
+  loading?: boolean;
 }
 
 export const mockClients: Client[] = [
@@ -277,6 +280,8 @@ export function ClientTable({
   statusFilter,
   onStatusFilterChange,
   onInviteClient,
+  onClientClick,
+  loading = false,
 }: ClientTableProps) {
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
@@ -354,7 +359,7 @@ export function ClientTable({
         return {
           label: 'active',
           sx: {
-            backgroundColor: '#2563eb',
+            backgroundColor: '#22c55e',
             color: 'white',
             fontSize: '0.75rem',
             fontWeight: 500,
@@ -367,7 +372,7 @@ export function ClientTable({
         return {
           label: 'inactive',
           sx: {
-            backgroundColor: '#22c55e',
+            backgroundColor: '#2563eb',
             color: 'white',
             fontSize: '0.75rem',
             fontWeight: 500,
@@ -695,7 +700,18 @@ export function ClientTable({
           pt: 2,
         }}
       >
-        {totalItems === 0 ? (
+        {loading ? (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              py: 8,
+            }}
+          >
+            <CircularProgress size={40} />
+          </Box>
+        ) : totalItems === 0 ? (
           <Box
             sx={{
               width: '100%',
@@ -720,6 +736,7 @@ export function ClientTable({
               elevation={1}
               tabIndex={0}
               aria-label={`Client ${client.name}, status ${client.status}, contact ${client.contact}, total spent ${formatCurrency(client.totalSpent)}, ${client.projects} projects`}
+              onClick={() => onClientClick?.(client)}
               sx={{
                 borderRadius: 2,
                 p: 2,
@@ -905,7 +922,31 @@ export function ClientTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {totalItems === 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  sx={{
+                    border: 0,
+                    p: 0,
+                    height: '100%',
+                    verticalAlign: 'middle',
+                    textAlign: 'center',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      py: 8,
+                    }}
+                  >
+                    <CircularProgress size={40} />
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : totalItems === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
@@ -942,7 +983,7 @@ export function ClientTable({
               filteredAndSortedClients.map((client) => (
                 <TableRow
                   key={client.id}
-                  onClick={() => console.log('Client clicked:', client.name, client)}
+                  onClick={() => onClientClick?.(client)}
                   sx={{
                     cursor: 'pointer',
                     '&:hover': {

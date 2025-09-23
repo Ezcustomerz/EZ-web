@@ -1,141 +1,92 @@
-import { Box, Typography } from '@mui/material';
+import { useState, useEffect, useRef } from 'react';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import { People } from '@mui/icons-material';
 import { CreativeCard } from '../../../components/cards/client/CreativeCard';
-
-interface Creative {
-  id: string;
-  name: string;
-  avatar: string | null;
-  specialty: string;
-  email: string;
-  rating: number;
-  reviewCount: number;
-  servicesCount: number;
-  isOnline: boolean;
-  color: string;
-}
-
-// Mock data for connected creatives
-const mockConnectedCreatives: Creative[] = [
-    {
-        id: 'creative-1',
-        name: 'Creative 1',
-        avatar: null,
-        specialty: 'Creative 1',
-        email: 'producer1@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    {
-        id: 'creative-2',
-        name: 'Creative 2',
-        avatar: null,
-        specialty: 'Creative 2',
-        email: 'producer2@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    {
-        id: 'creative-3',
-        name: 'Creative 3',
-        avatar: null,
-        specialty: 'Creative 3',
-        email: 'producer3@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    {
-        id: 'creative-4',
-        name: 'Creative 4',
-        avatar: null,
-        specialty: 'Creative 4',
-        email: 'producer4@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    {
-        id: 'creative-5',
-        name: 'Creative 5',
-        avatar: null,
-        specialty: 'Creative 5',
-        email: 'producer5@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    {
-        id: 'creative-6',
-        name: 'Creative 6',
-        avatar: null,
-        specialty: 'Creative 6',
-        email: 'producer6@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    {
-        id: 'creative-7',
-        name: 'Creative 7',
-        avatar: null,
-        specialty: 'Creative 7',
-        email: 'producer7@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    {
-        id: 'creative-8',
-        name: 'Creative 8',
-        avatar: null,
-        specialty: 'Creative 8',
-        email: 'producer8@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    {
-        id: 'creative-9',
-        name: 'Creative 9',
-        avatar: null,
-        specialty: 'Creative 9',
-        email: 'producer9@example.com',
-        rating: 4.5,
-        reviewCount: 100,
-        servicesCount: 10,
-        isOnline: true,
-        color: '#E0E7FF'
-    },
-    
-
-];
+import { userService, type ClientCreative } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
 
 export function ConnectedCreativesTab() {
+  const { isAuthenticated } = useAuth();
+  const [creatives, setCreatives] = useState<ClientCreative[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const fetchingRef = useRef(false);
+  const lastAuthStateRef = useRef<boolean | null>(null);
+  const cacheRef = useRef<{ data: ClientCreative[], timestamp: number } | null>(null);
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  // Fetch creatives when component mounts and user is authenticated
+  useEffect(() => {
+    const fetchCreatives = async () => {
+      // Prevent duplicate calls if already fetching or auth state hasn't changed
+      if (fetchingRef.current || lastAuthStateRef.current === isAuthenticated) {
+        return;
+      }
+
+      fetchingRef.current = true;
+      lastAuthStateRef.current = isAuthenticated;
+
+      if (!isAuthenticated) {
+        // In demo mode (not authenticated), use empty array
+        setCreatives([]);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      // Check cache first
+      if (cacheRef.current && (Date.now() - cacheRef.current.timestamp) < CACHE_DURATION) {
+        console.log('Using cached connected creatives data');
+        setCreatives(cacheRef.current.data);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await userService.getClientCreatives();
+        console.log('Connected creatives data:', response.creatives);
+        
+        // Cache the response
+        cacheRef.current = {
+          data: response.creatives,
+          timestamp: Date.now()
+        };
+        
+        setCreatives(response.creatives);
+      } catch (error) {
+        console.error('Failed to fetch creatives:', error);
+        // Fallback to empty array
+        setCreatives([]);
+      } finally {
+        setLoading(false);
+        fetchingRef.current = false;
+      }
+    };
+
+    fetchCreatives();
+  }, [isAuthenticated]);
 
   const handleCreativeClick = (producerId: string) => {
     // Navigate to the creative's profile page
     // You can adjust the route structure as needed
     console.log(producerId);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100%',
+        minHeight: '300px',
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{
@@ -145,7 +96,7 @@ export function ConnectedCreativesTab() {
       overflowY: { xs: 'auto', sm: 'auto', md: 'auto' },
       minHeight: 0,
     }}>
-      {mockConnectedCreatives.length === 0 ? (
+      {creatives.length === 0 ? (
         <Box sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -169,19 +120,20 @@ export function ConnectedCreativesTab() {
           gap: { xs: 1.5, sm: 2 },
           px: { xs: 1, sm: 2 },
           pt: 2,
-          pb: 1,
+          pb: 8, // Increased bottom padding to accommodate hover effects (scale + translateY)
           gridTemplateColumns: {
             xs: '1fr',
-            sm: 'repeat(auto-fit, minmax(280px, 1fr))',
-            md: 'repeat(auto-fit, minmax(300px, 1fr))',
-            lg: 'repeat(auto-fit, minmax(320px, 1fr))',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+            lg: 'repeat(3, 1fr)',
+            xl: 'repeat(3, 1fr)',
           },
           alignItems: 'stretch',
           minHeight: 0,
           width: '100%',
           overflow: 'hidden',
         }}>
-          {mockConnectedCreatives.map((creative, index) => (
+          {creatives.map((creative, index) => (
             <CreativeCard
               key={creative.id}
               creative={creative}

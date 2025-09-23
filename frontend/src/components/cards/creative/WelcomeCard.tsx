@@ -29,14 +29,14 @@ export function WelcomeCard({ userName = "Demo User", userRole = "Music Creative
 
   const statsCards: StatsCard[] = [
     {
-      title: 'Active Clients',
+      title: 'Clients',
       value: '0',
       icon: PeopleOutlined,
       color: theme.palette.success.main,
       bgColor: `${theme.palette.success.main}1A`,
     },
     {
-      title: 'Monthly Activity',
+      title: 'Monthly Amount',
       value: '$0',
       icon: AttachMoneyOutlined,
       color: theme.palette.info.main,

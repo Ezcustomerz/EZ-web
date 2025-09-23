@@ -9,6 +9,10 @@ import {
 } from '@mui/icons-material';
 import { ActivityNotificationCard } from '../ActivityNotificationCard';
 import type { ActivityItem } from '../../../types/activity';
+//smc
+import { useNavigate } from 'react-router-dom';
+
+
 
 interface ActivityFeedCardProps {
   items?: ActivityItem[];
@@ -17,6 +21,8 @@ interface ActivityFeedCardProps {
 export function ActivityFeedCard({ items }: ActivityFeedCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const navigate = useNavigate(); //smc
 
   const testNotifications: ActivityItem[] = items ?? [
     {
@@ -143,6 +149,16 @@ export function ActivityFeedCard({ items }: ActivityFeedCardProps) {
             key={`${item.label}-${index}`}
             item={item}
             index={index}
+            //smc
+            onClick={() => {
+              // Customize behavior per notification type
+              if (item.label === 'New Booking') {
+                navigate('/creative/activity'); // Navigate to activity page
+              } else if (item.label === 'Payment Received') {
+                navigate('/creative/payments'); // 
+              }
+              // We can add more cases in the future
+            }}
           />
         ))}
       </Box>

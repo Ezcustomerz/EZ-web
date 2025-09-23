@@ -1,27 +1,73 @@
-import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
 import { MusicNote, Search, FilterList } from '@mui/icons-material';
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
-import { useState, useMemo } from 'react';
+import { BundleCard } from '../../../components/cards/creative/BundleCard';
+import { ServicesDetailPopover } from '../../../components/popovers/ServicesDetailPopover';
+import { BundleDetailPopover } from '../../../components/popovers/BundleDetailPopover';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown, faUser, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { userService } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
+import { errorToast } from '../../../components/toast/toast';
 
 interface Service {
   id: string;
   title: string;
   description: string;
   price: number;
-  delivery: string;
-  creative: string;
-  rating: number;
-  reviewCount: number;
+  delivery_time: string;
+  creative_name: string;
   color: string;
+  status: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  creative_user_id: string;
+  photos?: Array<{
+    photo_url: string;
+    photo_filename?: string;
+    photo_size_bytes?: number;
+    is_primary: boolean;
+    display_order: number;
+  }>;
 }
 
-// Mock data for connected services
-const mockConnectedServices: Service[] = [
-  
-  
-];
+interface Bundle {
+  id: string;
+  title: string;
+  description: string;
+  color: string;
+  status: string;
+  pricing_option: string;
+  fixed_price?: number;
+  discount_percentage?: number;
+  total_services_price: number;
+  final_price: number;
+  services: Array<{
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    delivery_time: string;
+    status: string;
+    color: string;
+    photos?: Array<{
+      photo_url: string;
+      photo_filename?: string;
+      photo_size_bytes?: number;
+      is_primary: boolean;
+      display_order: number;
+    }>;
+  }>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  creative_name?: string;
+  creative_display_name?: string;
+  creative_title?: string;
+  creative_avatar_url?: string;
+}
 
 const sortOptions = [
   { value: 'title', label: 'Name' },
@@ -32,7 +78,13 @@ const sortOptions = [
 export function ConnectedServicesTab() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { isAuthenticated } = useAuth();
 
+  // Data state
+  const [services, setServices] = useState<Service[]>([]);
+  const [bundles, setBundles] = useState<Bundle[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   // Search/filter/sort state
   const [sortBy, setSortBy] = useState<'title' | 'price' | 'delivery'>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -40,49 +92,215 @@ export function ConnectedServicesTab() {
   const [producerFilter, setCreativeFilter] = useState<string>('all');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
+  // Service detail popover state
+  const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  
+  // Bundle detail popover state
+  const [bundleDetailOpen, setBundleDetailOpen] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
+
+  const fetchingRef = useRef(false);
+  const lastAuthStateRef = useRef<boolean | null>(null);
+  const cacheRef = useRef<{ data: Service[], timestamp: number } | null>(null);
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  // Fetch services when component mounts and user is authenticated
+  useEffect(() => {
+    const fetchServices = async () => {
+      // Prevent duplicate calls if already fetching or auth state hasn't changed
+      if (fetchingRef.current || lastAuthStateRef.current === isAuthenticated) {
+        return;
+      }
+
+      fetchingRef.current = true;
+      lastAuthStateRef.current = isAuthenticated;
+
+      if (!isAuthenticated) {
+        // In demo mode (not authenticated), use empty array
+        setServices([]);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      // Check cache first
+      if (cacheRef.current && (Date.now() - cacheRef.current.timestamp) < CACHE_DURATION) {
+        console.log('Using cached connected services data');
+        setServices(cacheRef.current.data);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await userService.getClientConnectedServicesAndBundles();
+        
+        console.log('Connected services data:', response.services);
+        console.log('Connected bundles data:', response.bundles);
+        
+        // Cache the response
+        cacheRef.current = {
+          data: response.services,
+          timestamp: Date.now()
+        };
+        
+        setServices(response.services);
+        setBundles(response.bundles);
+      } catch (error) {
+        console.error('Failed to fetch connected services and bundles:', error);
+        // Show error toast
+        errorToast('Failed to load connected services. Please try again.');
+        // Fallback to empty array
+        setServices([]);
+        setBundles([]);
+      } finally {
+        setLoading(false);
+        fetchingRef.current = false;
+      }
+    };
+
+    fetchServices();
+  }, [isAuthenticated]);
+
   // Get unique creatives for filter
   const uniqueCreatives = useMemo(() => {
-    const creatives = [...new Set(mockConnectedServices.map(service => service.creative))];
+    const serviceCreatives = services.map(service => service.creative_name);
+    const bundleCreatives = bundles.map(bundle => bundle.creative_name || 'Creative');
+    const allCreatives = [...serviceCreatives, ...bundleCreatives];
+    const creatives = [...new Set(allCreatives)];
     return creatives.sort();
-  }, []);
+  }, [services, bundles]);
 
   // Animation key that changes on every filter/search
   const animationKey = sortBy + '-' + sortOrder + '-' + producerFilter + '-' + search;
 
-  // Filter and sort services
-  const filteredAndSortedServices = useMemo(() => {
-    const filtered = mockConnectedServices.filter(service =>
-      (producerFilter === 'all' || service.creative === producerFilter) &&
+  // Filter and sort services and bundles
+  const filteredAndSortedItems = useMemo(() => {
+    // Filter services
+    const filteredServices = services.filter(service =>
+      (producerFilter === 'all' || service.creative_name === producerFilter) &&
       (service.title.toLowerCase().includes(search.toLowerCase()) ||
         service.description.toLowerCase().includes(search.toLowerCase()) ||
-        service.creative.toLowerCase().includes(search.toLowerCase()))
+        service.creative_name.toLowerCase().includes(search.toLowerCase()))
     );
 
-    return [...filtered].sort((a, b) => {
+    // Filter bundles
+    const filteredBundles = bundles.filter(bundle =>
+      (producerFilter === 'all' || bundle.creative_name === producerFilter) &&
+      (bundle.title.toLowerCase().includes(search.toLowerCase()) ||
+        bundle.description.toLowerCase().includes(search.toLowerCase()) ||
+        (bundle.creative_name || 'Creative').toLowerCase().includes(search.toLowerCase()))
+    );
+
+    // Combine and sort
+    const allItems = [
+      ...filteredServices.map(item => ({ ...item, type: 'service' as const })),
+      ...filteredBundles.map(item => ({ ...item, type: 'bundle' as const }))
+    ];
+
+    return [...allItems].sort((a, b) => {
       let cmp = 0;
       if (sortBy === 'title') cmp = a.title.localeCompare(b.title);
-      if (sortBy === 'price') cmp = a.price - b.price;
+      if (sortBy === 'price') {
+        const aPrice = a.type === 'service' ? a.price : a.final_price;
+        const bPrice = b.type === 'service' ? b.price : b.final_price;
+        cmp = aPrice - bPrice;
+      }
       if (sortBy === 'delivery') {
-        const parseDays = (str: string) => {
-          const match = str.match(/(\d+)/g);
-          if (!match) return 0;
-          return Math.min(...match.map(Number));
-        };
-        cmp = parseDays(a.delivery) - parseDays(b.delivery);
+        if (a.type === 'service' && b.type === 'service') {
+          const parseDays = (str: string) => {
+            const match = str.match(/(\d+)/g);
+            if (!match) return 0;
+            return Math.min(...match.map(Number));
+          };
+          cmp = parseDays(a.delivery_time) - parseDays(b.delivery_time);
+        } else {
+          // For bundles, use average delivery time of services
+          const aDelivery = a.type === 'service' ? 
+            (() => {
+              const match = a.delivery_time.match(/(\d+)/g);
+              return match ? Math.min(...match.map(Number)) : 0;
+            })() : 
+            a.services.reduce((sum, s) => {
+              const match = s.delivery_time.match(/(\d+)/g);
+              return sum + (match ? Math.min(...match.map(Number)) : 0);
+            }, 0) / a.services.length;
+          
+          const bDelivery = b.type === 'service' ? 
+            (() => {
+              const match = b.delivery_time.match(/(\d+)/g);
+              return match ? Math.min(...match.map(Number)) : 0;
+            })() : 
+            b.services.reduce((sum, s) => {
+              const match = s.delivery_time.match(/(\d+)/g);
+              return sum + (match ? Math.min(...match.map(Number)) : 0);
+            }, 0) / b.services.length;
+          
+          cmp = aDelivery - bDelivery;
+        }
       }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [search, sortBy, sortOrder, producerFilter]);
+  }, [services, bundles, search, sortBy, sortOrder, producerFilter]);
 
   const handleServiceClick = (serviceId: string) => {
-    console.log('Service clicked:', serviceId);
-    // TODO: Navigate to service booking page
+    const service = services.find(s => s.id === serviceId);
+    if (service) {
+      // Add creative profile information to the service object
+      const serviceWithCreative = {
+        ...service,
+        creative_display_name: service.creative_name,
+        creative_title: 'Creative Professional', // Default title for connected services
+        creative_avatar_url: undefined // No avatar URL available for connected services
+      };
+      setSelectedService(serviceWithCreative as any);
+      setServiceDetailOpen(true);
+    }
   };
+
+  const handleBundleClick = (bundleId: string) => {
+    const bundle = bundles.find(b => b.id === bundleId);
+    if (bundle) {
+      setSelectedBundle(bundle);
+      setBundleDetailOpen(true);
+    }
+  };
+
+  const handleServiceDetailClose = () => {
+    setServiceDetailOpen(false);
+    setSelectedService(null);
+  };
+
+  const handleBundleDetailClose = () => {
+    setBundleDetailOpen(false);
+    setSelectedBundle(null);
+  };
+
+  const handleBookService = () => {
+    console.log('Booking service:', selectedService?.id);
+    // TODO: Implement booking logic
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100%',
+        minHeight: '300px',
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
         <Box sx={{
           height: '100vh',
-          overflow: 'hidden',
+          overflow: 'auto', // Changed from 'hidden' to 'auto' to allow scrolling and hover effects
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
@@ -500,7 +718,7 @@ export function ConnectedServicesTab() {
         </DialogActions>
       </Dialog>
 
-      {filteredAndSortedServices.length === 0 ? (
+      {filteredAndSortedItems.length === 0 ? (
         <Box sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -525,17 +743,17 @@ export function ConnectedServicesTab() {
           gap: { xs: 1.5, sm: 2 },
           px: { xs: 1, sm: 2 },
           pt: 2,
-          pb: 1,
+          pb: 4, // Increased bottom padding to accommodate hover effects
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, 1fr)',
             md: 'repeat(3, 1fr)',
-            lg: 'repeat(4, 1fr)',
+            lg: 'repeat(3, 1fr)',
           },
           alignItems: 'stretch',
           minHeight: 0,
           width: '100%',
-          overflow: 'hidden',
+          overflow: 'visible', 
           '@keyframes fadeInCard': {
             '0%': {
               opacity: 0,
@@ -547,26 +765,55 @@ export function ConnectedServicesTab() {
             },
           },
         }}>
-          {filteredAndSortedServices.map((service, index) => (
+          {filteredAndSortedItems.map((item, index) => (
             <Box
-              key={service.id + '-' + animationKey}
+              key={item.id + '-' + animationKey}
               sx={{
                 animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${index * 0.1}s both`,
+                pb: 1,
               }}
             >
-              <ServiceCardSimple
-                title={service.title}
-                description={service.description}
-                price={service.price}
-                delivery={service.delivery}
-                color={service.color}
-                creative={service.creative}
-                onBook={() => handleServiceClick(service.id)}
-              />
+              {item.type === 'service' ? (
+                <ServiceCardSimple
+                  title={item.title}
+                  description={item.description}
+                  price={item.price}
+                  delivery={item.delivery_time}
+                  color={item.color}
+                  creative={item.creative_name}
+                  onBook={() => handleServiceClick(item.id)}
+                />
+              ) : (
+                <BundleCard
+                  bundle={item}
+                  creative={item.creative_name || 'Creative'}
+                  showStatus={false}
+                  showMenu={false}
+                  onClick={() => handleBundleClick(item.id)}
+                />
+              )}
             </Box>
           ))}
         </Box>
       )}
+
+      {/* Service Detail Popover */}
+      <ServicesDetailPopover
+        open={serviceDetailOpen}
+        onClose={handleServiceDetailClose}
+        service={selectedService}
+        context="client-connected"
+        onBook={handleBookService}
+      />
+
+      {/* Bundle Detail Popover */}
+      <BundleDetailPopover
+        open={bundleDetailOpen}
+        onClose={handleBundleDetailClose}
+        bundle={selectedBundle}
+        context="client-connected"
+        onBook={() => console.log('Booking bundle:', selectedBundle?.id)}
+      />
     </Box>
   );
-} 
+}

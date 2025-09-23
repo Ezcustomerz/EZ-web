@@ -31,12 +31,15 @@ const defaultThemeConfig: ColorConfig = {
 import './config/supabase'
 import { ScrollToTop } from './utils/ScrollToTop.tsx'
 import { AuthProvider, useAuth } from './context/auth'
-import { AuthPopover } from './components/popovers/AuthPopover'
-import { RoleSelectionPopover } from './components/popovers/RoleSelectionPopover'
-import { CreativeSetupPopover } from './components/popovers/CreativeSetupPopover'
-import { ClientSetupPopover } from './components/popovers/ClientSetupPopover'
-import { AdvocateSetupPopover } from './components/popovers/AdvocateSetupPopover'
+import { userService, type UserRoleProfiles } from './api/userService'
+import { AuthPopover } from './components/popovers/auth/AuthPopover'
+import { RoleSelectionPopover } from './components/popovers/setup/RoleSelectionPopover'
+import { CreativeSetupPopover } from './components/popovers/setup/CreativeSetupPopover'
+import { ClientSetupPopover } from './components/popovers/setup/ClientSetupPopover'
+import { AdvocateSetupPopover } from './components/popovers/setup/AdvocateSetupPopover'
+import { SetupGate } from './components/popovers/auth/SetupGate'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
+import { InvitePage } from './views/InvitePage'
 import { ToastProvider } from './components/toast/toast'
 import { LoadingProvider } from './context/loading'
 
@@ -53,15 +56,36 @@ function AppContent() {
     closeClientSetup,
     advocateSetupOpen,
     closeAdvocateSetup,
-    openAdvocateSetup,
     backToRoleSelection,
     isFirstSetup,
     originalSelectedRoles
   } = useAuth();
+  
+  const [roleProfiles, setRoleProfiles] = useState<UserRoleProfiles | null>(null);
+
+  // Fetch role profiles when role selection popover opens
+  useEffect(() => {
+    const fetchRoleProfiles = async () => {
+      if (roleSelectionOpen && userProfile) {
+        try {
+          const profiles = await userService.getUserRoleProfiles();
+          setRoleProfiles(profiles);
+        } catch (error) {
+          console.error('Failed to fetch role profiles for role selection:', error);
+          setRoleProfiles(null);
+        }
+      } else {
+        setRoleProfiles(null);
+      }
+    };
+
+    fetchRoleProfiles();
+  }, [roleSelectionOpen, userProfile]);
 
   return (
     <>
       <ScrollToTop />
+      <SetupGate />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/creative" element={<DashCreative />} />
@@ -72,6 +96,7 @@ function AppContent() {
         <Route path="/client/book" element={<ClientBook />} />
         <Route path="/client/orders" element={<ClientOrders />} />
         <Route path="/advocate" element={<DashAdvocate />} />
+        <Route path="/invite/:inviteToken" element={<InvitePage />} />
       </Routes>
       <AuthPopover 
         open={authOpen} 
@@ -84,6 +109,7 @@ function AppContent() {
         onClose={closeRoleSelection}
         userName={userProfile?.name}
         userRoles={originalSelectedRoles.length > 0 ? originalSelectedRoles : undefined}
+        roleProfiles={roleProfiles}
       />
             <CreativeSetupPopover 
         open={producerSetupOpen} 

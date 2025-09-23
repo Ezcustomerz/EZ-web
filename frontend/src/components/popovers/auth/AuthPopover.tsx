@@ -15,10 +15,10 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 // Use the full-color Google "G" mark instead of monochrome icon
-import { supabase } from '../../config/supabase';
+import { supabase } from '../../../config/supabase';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl, faEye } from '@fortawesome/free-solid-svg-icons';
-import { errorToast } from '../toast/toast';
+import { errorToast } from '../../../components/toast/toast';
 
 export interface AuthPopoverProps {
   open: boolean;
@@ -103,6 +103,9 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
       onClose={onClose}
       maxWidth={false}
       fullWidth={false}
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
       PaperProps={{
         sx: {
           width: { xs: '92vw', sm: 420 },

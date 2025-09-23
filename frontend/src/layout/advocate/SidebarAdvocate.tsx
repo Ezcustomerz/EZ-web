@@ -36,7 +36,7 @@ interface SidebarAdvocateProps {
 
 export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false }: SidebarAdvocateProps) {
   const theme = useTheme();
-  const { userProfile } = useAuth();
+  const { userProfile, isSetupInProgress } = useAuth();
   const { setProfileLoading } = useLoading();
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
@@ -103,6 +103,17 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
         return;
       }
       
+      // Don't fetch role-specific profiles during setup or if first_login is true
+      if (isSetupInProgress || userProfile.first_login) {
+        console.log('[SidebarAdvocate] Setup in progress or first login, skipping profile fetch', { 
+          isSetupInProgress, 
+          first_login: userProfile.first_login 
+        });
+        setAdvocateProfile(advocateUserData as unknown as AdvocateProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
       // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
         console.log('[SidebarAdvocate] Profile already fetched for user, restoring from cache');
@@ -147,7 +158,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
       }
     };
     loadProfile();
-  }, [userProfile]);
+  }, [userProfile, isSetupInProgress]);
 
   function handleUserPanelClick(event: React.MouseEvent<HTMLElement>) {
     setUserMenuAnchor(event.currentTarget);
@@ -339,7 +350,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                   }}
                 >
                   <Avatar 
-                    src={advocateProfile?.profile_banner_url}
+                    src={advocateProfile?.profile_banner_url || userProfile?.profile_picture_url || undefined}
                     sx={{
                       width: 36,
                       height: 36,
@@ -350,7 +361,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                       transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
                     }}
                   >
-                    {!advocateProfile?.profile_banner_url && (
+                    {!(advocateProfile?.profile_banner_url || userProfile?.profile_picture_url) && (
                       <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
                     )}
                   </Avatar>
@@ -409,7 +420,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                   <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                     <Box sx={{ position: 'relative', mr: 2 }}>
                       <Avatar 
-                        src={advocateProfile?.profile_banner_url}
+                        src={advocateProfile?.profile_banner_url || userProfile?.profile_picture_url || undefined}
                         sx={{
                           width: 52,
                           height: 52,
@@ -419,7 +430,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                           transition: 'all 0.2s ease-in-out',
                         }}
                       >
-                        {!advocateProfile?.profile_banner_url && (
+                        {!(advocateProfile?.profile_banner_url || userProfile?.profile_picture_url) && (
                           <PersonOutlined sx={{ color: 'white', fontSize: '26px' }} />
                         )}
                       </Avatar>

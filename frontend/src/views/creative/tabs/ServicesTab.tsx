@@ -1,140 +1,273 @@
 import { Box, Card, Tooltip } from '@mui/material';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { ServiceCard } from '../../../components/cards/creative/ServiceCard';
+import { userService, type CreativeService, type CreativeProfile, type CreativeBundle } from '../../../api/userService';
+import { BundleCard } from '../../../components/cards/creative/BundleCard';
 
-const mockServices: any[] = [
-  {
-    id: 'service-1',
-    title: 'Mixing',
-    description: 'Professional mixing for your tracks',
-    price: 200,
-    delivery: '3 days',
-    status: 'Public',
-    color: '#F3E8FF',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-2',
-    title: 'Mastering',
-    description: 'High-quality mastering for release',
-    price: 150,
-    delivery: '2 days',
-    status: 'Private',
-    color: '#E0F2FE',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-3',
-    title: 'Vocal Tuning',
-    description: 'Pitch correction and tuning for vocals',
-    price: 100,
-    delivery: '1 day',
-    status: 'Public',
-    color: '#FEF9C3',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-4',
-    title: 'Full Production',
-    description: 'From songwriting to final mix',
-    price: 1000,
-    delivery: '10 days',
-    status: 'Public',
-    color: '#FEE2E2',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-5',
-    title: 'Beat Making',
-    description: 'Custom beats for any genre',
-    price: 300,
-    delivery: '4 days',
-    status: 'Private',
-    color: '#DCFCE7',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-6',
-    title: 'Session Guitar',
-    description: 'Professional guitar tracks for your song',
-    price: 120,
-    delivery: '2 days',
-    status: 'Public',
-    color: '#E0E7FF',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-7',
-    title: 'Drum Programming',
-    description: 'Realistic drum programming for your track',
-    price: 180,
-    delivery: '3 days',
-    status: 'Public',
-    color: '#FFE4E6',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-8',
-    title: 'Arrangement',
-    description: 'Song arrangement and structure advice',
-    price: 80,
-    delivery: '2 days',
-    status: 'Private',
-    color: '#F1F5F9',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-9',
-    title: 'Vocal Recording',
-    description: 'Studio vocal recording session',
-    price: 250,
-    delivery: '1 day',
-    status: 'Public',
-    color: '#FDE68A',
-    creative: 'Demo User',
-  },
-  {
-    id: 'service-10',
-    title: 'Piano Session',
-    description: 'Professional piano tracks for your project',
-    price: 140,
-    delivery: '2 days',
-    status: 'Public',
-    color: '#C7D2FE',
-    creative: 'Demo User',
-  },
-];
+import { useAuth } from '../../../context/auth';
+import { errorToast, successToast } from '../../../components/toast/toast';
+import { ServiceCreationPopover } from '../../../components/popovers/creative/ServiceCreationPopover';
+import { ServiceFormPopover } from '../../../components/popovers/creative/ServiceFormPopover';
+import { BundleCreationPopover } from '../../../components/popovers/creative/BundleCreationPopover';
+import { ServicesDetailPopover } from '../../../components/popovers/ServicesDetailPopover';
+import { BundleDetailPopover } from '../../../components/popovers/BundleDetailPopover';
+import { ConfirmDeleteDialog } from '../../../components/dialogs/ConfirmDeleteDialog';
 
 export interface ServicesTabProps {
   search: string;
   sortBy: 'title' | 'price' | 'delivery';
   sortOrder: 'asc' | 'desc';
-  visibility: 'all' | 'Public' | 'Private';
+  visibility: 'all' | 'Public' | 'Private' | 'Bundle-Only';
+  creativeProfile?: CreativeProfile | null;
 }
 
-export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesTabProps) {
+export function ServicesTab({ search, sortBy, sortOrder, visibility, creativeProfile }: ServicesTabProps) {
+  const { isAuthenticated, userProfile } = useAuth();
+  const [services, setServices] = useState<CreativeService[]>([]);
+  const [bundles, setBundles] = useState<CreativeBundle[]>([]);
+  const [serviceCreationOpen, setServiceCreationOpen] = useState(false);
+  const [serviceFormOpen, setServiceFormOpen] = useState(false);
+  const [bundleCreationOpen, setBundleCreationOpen] = useState(false);
+  const [editingService, setEditingService] = useState<CreativeService | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [serviceToDelete, setServiceToDelete] = useState<CreativeService | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Bundle editing and deletion state
+  const [editingBundle, setEditingBundle] = useState<CreativeBundle | null>(null);
+  const [bundleDeleteDialogOpen, setBundleDeleteDialogOpen] = useState(false);
+  const [bundleToDelete, setBundleToDelete] = useState<CreativeBundle | null>(null);
+  const [isDeletingBundle, setIsDeletingBundle] = useState(false);
+  
+  // Service detail popover state
+  const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<CreativeService | null>(null);
+  
+  // Bundle detail popover state
+  const [bundleDetailOpen, setBundleDetailOpen] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState<CreativeBundle | null>(null);
+  
+  const hasFetchedRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
+
+  // Fetch services when component mounts or when authenticated
+  useEffect(() => {
+    const fetchServices = async () => {
+      if (!isAuthenticated || !userProfile?.roles.includes('creative')) {
+        setServices([]);
+        hasFetchedRef.current = false;
+        lastUserIdRef.current = null;
+        return;
+      }
+
+      const currentUserId = userProfile.user_id;
+      
+      // Prevent duplicate calls for the same user
+      if (hasFetchedRef.current && lastUserIdRef.current === currentUserId) {
+        return;
+      }
+
+      try {
+        hasFetchedRef.current = true;
+        lastUserIdRef.current = currentUserId;
+        const response = await userService.getCreativeServices();
+        setServices(response.services);
+        setBundles(response.bundles);
+      } catch (error) {
+        console.error('Failed to fetch services and bundles:', error);
+        errorToast('Failed to load services and bundles');
+        setServices([]);
+        setBundles([]);
+        hasFetchedRef.current = false;
+      }
+    };
+
+    fetchServices();
+  }, [isAuthenticated, userProfile]);
+
+  // Function to refresh services and bundles list
+  const refreshServices = async () => {
+    if (!isAuthenticated || !userProfile?.roles?.includes('creative')) {
+      return;
+    }
+
+    try {
+      const response = await userService.getCreativeServices();
+      setServices(response.services);
+      setBundles(response.bundles);
+    } catch (error) {
+      console.error('Failed to refresh services and bundles:', error);
+      errorToast('Failed to refresh services and bundles');
+    }
+  };
+
+  // Handle edit service
+  const handleEditService = (service: CreativeService) => {
+    setEditingService(service);
+    setServiceFormOpen(true);
+  };
+
+  // Handle delete service
+  const handleDeleteService = (service: CreativeService) => {
+    setServiceToDelete(service);
+    setDeleteDialogOpen(true);
+  };
+
+  // Handle edit bundle
+  const handleEditBundle = (bundle: CreativeBundle) => {
+    setEditingBundle(bundle);
+    setBundleCreationOpen(true);
+  };
+
+  // Handle delete bundle
+  const handleDeleteBundle = (bundle: CreativeBundle) => {
+    setBundleToDelete(bundle);
+    setBundleDeleteDialogOpen(true);
+  };
+
+  const handleServiceClick = (service: CreativeService) => {
+    // Add creative profile information to the service object
+    const serviceWithCreative = {
+      ...service,
+      creative_display_name: creativeProfile?.display_name || userProfile?.name,
+      creative_title: creativeProfile?.title,
+      creative_avatar_url: creativeProfile?.profile_banner_url
+    };
+    setSelectedService(serviceWithCreative as any);
+    setServiceDetailOpen(true);
+  };
+
+  const handleBundleClick = (bundle: CreativeBundle) => {
+    // Add creative profile information to the bundle object
+    const bundleWithCreative = {
+      ...bundle,
+      creative_display_name: creativeProfile?.display_name || userProfile?.name,
+      creative_title: creativeProfile?.title,
+      creative_avatar_url: creativeProfile?.profile_banner_url
+    };
+    setSelectedBundle(bundleWithCreative as any);
+    setBundleDetailOpen(true);
+  };
+
+  const handleServiceDetailClose = () => {
+    setServiceDetailOpen(false);
+    setSelectedService(null);
+  };
+
+  const handleBundleDetailClose = () => {
+    setBundleDetailOpen(false);
+    setSelectedBundle(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!serviceToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      const response = await userService.deleteService(serviceToDelete.id);
+      
+      if (response.success) {
+        successToast(response.message);
+        await refreshServices(); // Refresh the services list
+        setDeleteDialogOpen(false);
+        setServiceToDelete(null);
+      } else {
+        errorToast(response.message || 'Failed to delete service');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete service:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to delete service. Please try again.';
+      errorToast(errorMessage);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    if (!isDeleting) {
+      setDeleteDialogOpen(false);
+      setServiceToDelete(null);
+    }
+  };
+
+  const handleConfirmBundleDelete = async () => {
+    if (!bundleToDelete) return;
+
+    try {
+      setIsDeletingBundle(true);
+      const response = await userService.deleteBundle(bundleToDelete.id);
+      
+      if (response.success) {
+        successToast(response.message);
+        await refreshServices(); // Refresh the services and bundles list
+        setBundleDeleteDialogOpen(false);
+        setBundleToDelete(null);
+      } else {
+        errorToast(response.message || 'Failed to delete bundle');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete bundle:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to delete bundle. Please try again.';
+      errorToast(errorMessage);
+    } finally {
+      setIsDeletingBundle(false);
+    }
+  };
+
+  const handleCancelBundleDelete = () => {
+    if (!isDeletingBundle) {
+      setBundleDeleteDialogOpen(false);
+      setBundleToDelete(null);
+    }
+  };
+
+
   const animationKey = sortBy + '-' + sortOrder + '-' + visibility + '-' + search;
-  const sortedServices = useMemo(() => {
-    const filtered = mockServices.filter(s =>
-      (visibility === 'all' || s.status === visibility) &&
+  const sortedItems = useMemo(() => {
+    // Filter services
+    const filteredServices = services.filter(s =>
+      ((visibility === 'all') ||
+       (s.status === visibility)) &&
       (s.title.toLowerCase().includes(search.toLowerCase()) ||
         s.description.toLowerCase().includes(search.toLowerCase()))
     );
-    return [...filtered].sort((a, b) => {
+
+    // Filter bundles (only show if visibility is 'all' or 'Public')
+    const filteredBundles = bundles.filter(b =>
+      ((visibility === 'all') || (visibility === 'Public')) &&
+      (b.title.toLowerCase().includes(search.toLowerCase()) ||
+        b.description.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    // Combine services and bundles into a unified list
+    const allItems = [
+      ...filteredServices.map(s => ({ type: 'service' as const, data: s })),
+      ...filteredBundles.map(b => ({ type: 'bundle' as const, data: b }))
+    ];
+
+    return [...allItems].sort((a, b) => {
+      // Apply the sort by criteria directly
       let cmp = 0;
-      if (sortBy === 'title') cmp = a.title.localeCompare(b.title);
-      if (sortBy === 'price') cmp = a.price - b.price;
+      if (sortBy === 'title') cmp = a.data.title.localeCompare(b.data.title);
+      if (sortBy === 'price') {
+        const priceA = a.type === 'service' ? a.data.price : a.data.final_price;
+        const priceB = b.type === 'service' ? b.data.price : b.data.final_price;
+        cmp = priceA - priceB;
+      }
       if (sortBy === 'delivery') {
+        const deliveryA = a.type === 'service' ? a.data.delivery_time : 'Varies by service';
+        const deliveryB = b.type === 'service' ? b.data.delivery_time : 'Varies by service';
         const parseDays = (str: string) => {
+          if (str === 'Varies by service') return 999; // Put bundles at the end
           const match = str.match(/(\d+)/g);
           if (!match) return 0;
           return Math.min(...match.map(Number));
         };
-        cmp = parseDays(a.delivery) - parseDays(b.delivery);
+        cmp = parseDays(deliveryA) - parseDays(deliveryB);
       }
       return sortOrder === 'asc' ? cmp : -cmp;
     });
-  }, [search, sortBy, sortOrder, visibility]);
+  }, [services, bundles, search, sortBy, sortOrder, visibility]);
 
   return (
     <Box sx={{
@@ -149,7 +282,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
           display: 'grid',
           gap: { xs: 1, sm: 1.7 },
           px: 2,
-          pb: 1.1,
+          pb: 6, // Increased bottom padding to accommodate hover effects (scale + translateY)
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
@@ -175,7 +308,12 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
               tabIndex={0}
               role="button"
               aria-label="Build Your Setlist"
-              onClick={() => {/* TODO: trigger service creation flow */ }}
+              onClick={() => {
+                // Only show popover if user is authenticated and has creative role
+                if (isAuthenticated && userProfile?.roles.includes('creative')) {
+                  setServiceCreationOpen(true);
+                }
+              }}
               sx={{
                 position: 'relative',
                 height: '100%',
@@ -399,27 +537,144 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility }: ServicesT
             </Card>
           </Tooltip>
         </Box>
-        {/* Service Cards */}
-        {sortedServices.map((service, idx) => (
+        {/* Service and Bundle Cards */}
+        {sortedItems.map((item, idx) => (
           <Box
-            key={service.id + '-' + animationKey}
+            key={`${item.type}-${item.data.id}-${animationKey}`}
             sx={{
               animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${(idx + 1) * 0.07}s both`,
             }}
           >
-            <ServiceCard
-              title={service.title}
-              description={service.description}
-              price={service.price}
-              delivery={service.delivery}
-              status={service.status}
-              creative={service.creative}
-              onEdit={() => {/* TODO: trigger edit flow */}}
-              color={service.color}
-            />
+            {item.type === 'service' ? (
+              <ServiceCard
+                title={item.data.title}
+                description={item.data.description}
+                price={item.data.price}
+                delivery={item.data.delivery_time}
+                status={item.data.status}
+                creative={creativeProfile?.display_name || userProfile?.name || 'Unknown Creative'}
+                onEdit={() => handleEditService(item.data)}
+                onDelete={() => handleDeleteService(item.data)}
+                color={item.data.color}
+                showMenu={true}
+                onClick={() => handleServiceClick(item.data)}
+              />
+            ) : (
+              <BundleCard
+                bundle={item.data}
+                creative={creativeProfile?.display_name || userProfile?.name || 'Unknown Creative'}
+                showMenu={true}
+                onEdit={() => handleEditBundle(item.data)}
+                onDelete={() => handleDeleteBundle(item.data)}
+                onClick={() => handleBundleClick(item.data)}
+              />
+            )}
           </Box>
         ))}
       </Box>
+
+      {/* Service Creation Popover */}
+      <ServiceCreationPopover
+        open={serviceCreationOpen}
+        onClose={() => setServiceCreationOpen(false)}
+        onCreateService={() => {
+          setServiceCreationOpen(false);
+          setServiceFormOpen(true);
+        }}
+        onCreateBundle={() => {
+          setServiceCreationOpen(false);
+          setBundleCreationOpen(true);
+        }}
+      />
+
+      {/* Service Form Popover */}
+      <ServiceFormPopover
+        open={serviceFormOpen}
+        onClose={() => {
+          setServiceFormOpen(false);
+          setEditingService(null); // Clear editing state when closing
+        }}
+        onBack={() => {
+          setServiceFormOpen(false);
+          setEditingService(null); // Clear editing state when going back
+          setServiceCreationOpen(true);
+        }}
+        onSubmit={async () => {
+          // Service creation is handled in ServiceFormPopover
+          // This callback is called after successful creation
+          await refreshServices();
+          setServiceFormOpen(false);
+          setEditingService(null);
+        }}
+        mode={editingService ? 'edit' : 'create'}
+        initialService={editingService ? {
+          id: editingService.id,
+          title: editingService.title,
+          description: editingService.description,
+          price: editingService.price,
+          delivery_time: editingService.delivery_time,
+          status: editingService.status,
+          color: editingService.color,
+        } : null}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        title="Delete Service"
+        itemName={serviceToDelete?.title}
+        description="This will remove the service from your profile. You can always create a new service later."
+        isDeleting={isDeleting}
+      />
+
+      {/* Bundle Delete Confirmation Dialog */}
+      <ConfirmDeleteDialog
+        open={bundleDeleteDialogOpen}
+        onClose={handleCancelBundleDelete}
+        onConfirm={handleConfirmBundleDelete}
+        title="Delete Bundle"
+        itemName={bundleToDelete?.title}
+        description="This will remove the bundle from your profile. You can always create a new bundle later."
+        isDeleting={isDeletingBundle}
+      />
+
+      {/* Bundle Creation Popover */}
+      <BundleCreationPopover
+        open={bundleCreationOpen}
+        onClose={() => {
+          setBundleCreationOpen(false);
+          setEditingBundle(null);
+        }}
+        onBack={() => {
+          setBundleCreationOpen(false);
+          setEditingBundle(null);
+          setServiceCreationOpen(true);
+        }}
+        onBundleCreated={(bundle) => {
+          console.log('Bundle created/updated:', bundle);
+          refreshServices();
+          setEditingBundle(null);
+        }}
+        editingBundle={editingBundle}
+      />
+
+      {/* Service Detail Popover */}
+      <ServicesDetailPopover
+        open={serviceDetailOpen}
+        onClose={handleServiceDetailClose}
+        service={selectedService}
+        context="services-tab"
+      />
+
+      {/* Bundle Detail Popover */}
+      <BundleDetailPopover
+        open={bundleDetailOpen}
+        onClose={handleBundleDetailClose}
+        bundle={selectedBundle}
+        context="services-tab"
+      />
     </Box>
   );
 } 

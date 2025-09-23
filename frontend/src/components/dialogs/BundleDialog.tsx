@@ -8,7 +8,7 @@ import Paper from '@mui/material/Paper';
 import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
 
-export interface ServiceDialogProps {
+export interface BundleDialogProps {
   open: boolean;
   anchorEl: HTMLElement | null;
   onClose: () => void;
@@ -16,7 +16,7 @@ export interface ServiceDialogProps {
   onDelete?: () => void;
 }
 
-export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete }: ServiceDialogProps) {
+export function BundleDialog({ open, anchorEl, onClose, onEdit, onDelete }: BundleDialogProps) {
   return (
     <Popper
       anchorEl={anchorEl}
@@ -68,11 +68,7 @@ export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete }: Ser
             }}
           >
             <MenuItem
-              onClick={(event) => { 
-                event.stopPropagation(); 
-                onClose(); 
-                onEdit && onEdit(); 
-              }}
+              onClick={() => { onClose(); onEdit && onEdit(); }}
               role="menuitem"
               sx={{
                 py: 1,
@@ -120,11 +116,7 @@ export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete }: Ser
               <ListItemText primary="Edit" sx={{ '& .MuiListItemText-primary': { fontSize: '0.9rem', fontWeight: 500, color: '#241E1A' } }} />
             </MenuItem>
             <MenuItem
-              onClick={(event) => { 
-                event.stopPropagation(); 
-                onClose(); 
-                onDelete && onDelete(); 
-              }}
+              onClick={() => { onClose(); onDelete && onDelete(); }}
               role="menuitem"
               sx={{
                 py: 1,
@@ -177,4 +169,4 @@ export function ServiceDialog({ open, anchorEl, onClose, onEdit, onDelete }: Ser
       </ClickAwayListener>
     </Popper>
   );
-} 
+}

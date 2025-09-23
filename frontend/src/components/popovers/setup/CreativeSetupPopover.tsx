@@ -26,9 +26,9 @@ import {
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 
-import { errorToast, successToast } from '../toast/toast';
-import { userService } from '../../api/userService';
-import { useAuth } from '../../context/auth';
+import { errorToast, successToast } from '../../toast/toast';
+import { userService } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
 
 export interface CreativeSetupPopoverProps {
   open: boolean;
@@ -196,7 +196,7 @@ export function CreativeSetupPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const [isLoading, setIsLoading] = useState(false);
-  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
+  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -325,6 +325,8 @@ export function CreativeSetupPopover({
         if (response.success) {
           successToast('All Setups Complete!', 'Welcome to EZ! Your profiles have been created.');
           onClose();
+          // Refresh user profile to get updated first_login status
+          window.location.reload(); // Force refresh to get updated profile
         } else {
           errorToast('Setup Failed', response.message);
         }
@@ -352,9 +354,9 @@ export function CreativeSetupPopover({
       maxWidth={false}
       disableEscapeKeyDown={true}
       sx={{
-        zIndex: isMobile ? 9999 : 1300,
+        zIndex: isMobile ? 10000 : 1300,
         '& .MuiDialog-paper': {
-          zIndex: isMobile ? 9999 : 1300,
+          zIndex: isMobile ? 10000 : 1300,
         }
       }}
       PaperProps={{
@@ -369,7 +371,7 @@ export function CreativeSetupPopover({
             position: 'fixed',
             top: 0,
             left: 0,
-            zIndex: 9999,
+            zIndex: 10000,
           } : isTablet ? {
             width: '95vw',
             maxWidth: '95vw',
@@ -403,7 +405,7 @@ export function CreativeSetupPopover({
           sx: {
             backgroundColor: isMobile ? 'rgba(0,0,0,0.32)' : 'rgba(10, 10, 20, 0.45)',
             backdropFilter: isMobile ? 'none' : 'blur(2px)',
-            zIndex: isMobile ? 9998 : 1299,
+            zIndex: isMobile ? 9999 : 1299,
           }
         }
       }}
@@ -577,6 +579,13 @@ export function CreativeSetupPopover({
                     sx={{ width: '100%' }}
                     clearOnEscape
                     openOnFocus
+                    slotProps={{
+                      popper: {
+                        sx: {
+                          zIndex: isMobile ? 10001 : 1301, // Higher than dialog z-index
+                        }
+                      }
+                    }}
                   />
                 </Box>
               </Box>
@@ -879,7 +888,7 @@ export function CreativeSetupPopover({
 
                         <Box sx={{ textAlign: 'left', mt: 'auto' }}>
                           {tier.features.slice(0, 3).map((feature, index) => (
-                            <Typography key={index} variant="body2" sx={{ 
+                            <Typography key={index} component="div" variant="body2" sx={{ 
                               mb: 0.3, 
                               display: 'flex', 
                               alignItems: 'center',
@@ -912,9 +921,16 @@ export function CreativeSetupPopover({
 
       <DialogActions sx={{ 
         px: isMobile ? 2 : isTablet ? 3 : 4, 
-        py: isMobile ? 1 : 2, 
+        py: isMobile ? 2 : 2, 
+        pb: isMobile ? 10 : 2, 
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        position: isMobile ? 'sticky' : 'relative',
+        bottom: isMobile ? 0 : 'auto',
+        backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.98)' : 'transparent',
+        backdropFilter: isMobile ? 'blur(8px)' : 'none',
+        borderTop: isMobile ? '1px solid rgba(0, 0, 0, 0.08)' : 'none',
+        zIndex: isMobile ? 1000 : 'auto',
       }}>
         {/* Back Button */}
         <Button

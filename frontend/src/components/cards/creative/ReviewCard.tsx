@@ -7,11 +7,8 @@ export function ReviewCard({ review }: { review: Review }) {
   return (
     <Card
       sx={{
-        height: '100%',
-        minHeight: { xs: 135, sm: 170 },
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
         borderRadius: 1.5,
         boxShadow: '0px 1.5px 6px rgba(59,130,246,0.05)',
         p: { xs: 1.2, sm: 1.6 },
@@ -24,7 +21,7 @@ export function ReviewCard({ review }: { review: Review }) {
         },
       }}
     >
-      <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <CardContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Reviewer Info */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
           <Avatar
@@ -108,12 +105,7 @@ export function ReviewCard({ review }: { review: Review }) {
             color: theme.palette.text.primary,
             lineHeight: 1.4,
             fontSize: '0.8rem',
-            display: '-webkit-box',
-            WebkitLineClamp: { xs: 4, sm: 3 },
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            flexGrow: 1,
+            mt: 1,
           }}
         >
           {review.review}

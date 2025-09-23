@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../../config/supabase';
+import { supabase } from '../../../config/supabase';
 import { AuthPopover } from './AuthPopover';
 
 // Shows AuthPopover only if URL contains ?auth=1 and user has no session.

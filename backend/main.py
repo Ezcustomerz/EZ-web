@@ -7,6 +7,7 @@ from api.advocate import advocate_router
 from api.client import client_router
 from api.creative import creative_router
 from api.user import user_router
+from api import invite
 from core.limiter import limiter
 from api import auth
 from core.verify import jwt_auth_middleware
@@ -32,6 +33,7 @@ app.include_router(user_router.router)
 app.include_router(creative_router.router)
 app.include_router(client_router.router)
 app.include_router(advocate_router.router)
+app.include_router(invite.router)
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

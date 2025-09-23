@@ -7,7 +7,7 @@ import demoCreativeData from '../../../demoData/creativeUserData.json';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
-import { IntentAuthGate } from '../../components/popovers/IntentAuthGate';
+import { IntentAuthGate } from '../../components/popovers/auth/IntentAuthGate';
 import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 
@@ -25,7 +25,7 @@ export function LayoutCreative({
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
-  const { userProfile } = useAuth();
+  const { userProfile, isSetupInProgress } = useAuth();
   const { setProfileLoading, isAnyLoading } = useLoading();
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const fetchingRef = useRef<Set<string>>(new Set());
@@ -119,6 +119,26 @@ export function LayoutCreative({
         return;
       }
       
+      // Don't fetch role-specific profiles during setup or if first_login is true
+      if (isSetupInProgress || userProfile.first_login) {
+        console.log('[LayoutCreative] Setup in progress or first login, skipping profile fetch', { 
+          isSetupInProgress, 
+          first_login: userProfile.first_login,
+          userProfile: userProfile
+        });
+        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
+      // Check if user has creative role before proceeding
+      if (!userProfile.roles.includes('creative')) {
+        console.log('[LayoutCreative] User does not have creative role, using demo data');
+        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
       // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
         console.log('[LayoutCreative] Profile already fetched for user, restoring from cache');
@@ -139,14 +159,6 @@ export function LayoutCreative({
       console.log('[LayoutCreative] Fetching creative profile for user:', userProfile.user_id);
       console.log('[LayoutCreative] User roles:', userProfile.roles);
       
-      // Check if user has creative role
-      if (!userProfile.roles.includes('creative')) {
-        console.log('[LayoutCreative] User does not have creative role, using demo data');
-        setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
-        setProfileLoading(false);
-        return;
-      }
-      
       fetchingRef.current.add(userProfile.user_id);
       setProfileLoading(true);
       try {
@@ -163,6 +175,35 @@ export function LayoutCreative({
       }
     };
     loadProfile();
+  }, [userProfile, isSetupInProgress]);
+
+  // Listen for profile updates from settings popover
+  useEffect(() => {
+    const handleProfileUpdate = async () => {
+      console.log('[LayoutCreative] Profile update event received, refreshing profile data');
+      
+      if (!userProfile || !userProfile.roles.includes('creative')) {
+        return;
+      }
+      
+      try {
+        setProfileLoading(true);
+        const updatedProfile = await userService.getCreativeProfile();
+        setCreativeProfile(updatedProfile);
+        cacheProfileForUser(userProfile.user_id, updatedProfile);
+        console.log('[LayoutCreative] Profile data refreshed successfully');
+      } catch (error) {
+        console.error('[LayoutCreative] Failed to refresh profile data:', error);
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    window.addEventListener('creativeProfileUpdated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('creativeProfileUpdated', handleProfileUpdate);
+    };
   }, [userProfile]);
 
   // Save sidebar state to localStorage for desktop (after initialization)

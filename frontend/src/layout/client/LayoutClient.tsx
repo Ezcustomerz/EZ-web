@@ -24,7 +24,7 @@ export function LayoutClient({
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
-  const { userProfile } = useAuth();
+  const { userProfile, isSetupInProgress } = useAuth();
   const { setProfileLoading, isAnyLoading } = useLoading();
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const fetchingRef = useRef<Set<string>>(new Set());
@@ -117,6 +117,17 @@ export function LayoutClient({
         return;
       }
       
+      // Don't fetch role-specific profiles during setup or if first_login is true
+      if (isSetupInProgress || userProfile.first_login) {
+        console.log('[LayoutClient] Setup in progress or first login, skipping profile fetch', { 
+          isSetupInProgress, 
+          first_login: userProfile.first_login 
+        });
+        setClientProfile(demoClientData as unknown as ClientProfile);
+        setProfileLoading(false);
+        return;
+      }
+      
       // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
         console.log('[LayoutClient] Profile already fetched for user, restoring from cache');
@@ -161,7 +172,7 @@ export function LayoutClient({
       }
     };
     loadProfile();
-  }, [userProfile]);
+  }, [userProfile, isSetupInProgress]);
 
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
@@ -405,25 +416,38 @@ export function LayoutClient({
             minHeight: 0,
           }}
         >
-          {isAnyLoading ? (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                flexGrow: 1,
-                minHeight: '50vh',
-              }}
-            >
-              <RecordSpinner />
-            </Box>
-          ) : (
-            typeof children === 'function' 
-              ? children({ isSidebarOpen, isMobile, clientProfile })
-              : children
-          )}
+          {typeof children === 'function' 
+            ? children({ isSidebarOpen, isMobile, clientProfile })
+            : children
+          }
         </Box>
       </Box>
+
+      {/* Unified Loading Overlay */}
+      {isAnyLoading && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          <RecordSpinner 
+            size={140} 
+            speed="normal" 
+            variant="scratch" 
+            ariaLabel="Loading application" 
+          />
+        </Box>
+      )}
     </Box>
   );
 } 

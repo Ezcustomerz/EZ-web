@@ -30,7 +30,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { InviteClientButton } from '../../components/buttons/CassetteButton';
 import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
-import { InviteClientPopover } from '../../components/popovers/InviteClientPopover';
+import { InviteClientPopover } from '../../components/popovers/creative/InviteClientPopover';
 import { useAuth } from '../../context/auth';
 import { useInviteClient } from '../../hooks/useInviteClient';
 import { type CreativeProfile } from '../../api/userService';
@@ -340,7 +340,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                    transition: 'all 0.2s ease-in-out',
                    transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
                  }}
-                   src={userProfile?.profile_picture_url || session?.user?.user_metadata?.avatar_url || undefined}
+                   src={creativeProfile?.profile_banner_url || userProfile?.profile_picture_url || session?.user?.user_metadata?.avatar_url || undefined}
                    alt={creativeProfile?.display_name || userProfile?.name || 'User'}
                  >
                    <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
@@ -401,7 +401,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                        border: '2px solid rgba(255, 255, 255, 0.3)',
                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                      }}
-                       src={userProfile?.profile_picture_url || session?.user?.user_metadata?.avatar_url || undefined}
+                       src={creativeProfile?.profile_banner_url || userProfile?.profile_picture_url || session?.user?.user_metadata?.avatar_url || undefined}
                        alt={creativeProfile?.display_name || userProfile?.name || 'User'}
                      >
                        <PersonOutlined sx={{ color: 'white', fontSize: '24px' }} />

@@ -9,8 +9,8 @@ import { Fade, Stack } from '@mui/material';
 import { orange, grey } from '@mui/material/colors';
 import { Fab, Menu as MuiMenu, MenuItem as MuiMenuItem } from '@mui/material';
 import { HeadsetMic, MoreVert } from '@mui/icons-material';
-import { CalendarDaySessionListPopover } from '../../../components/popovers/CalendarDaySessionListPopover';
-import { CalendarSessionDetailPopover } from '../../../components/popovers/CalendarSessionDetailPopover';
+import { CalendarDaySessionListPopover } from '../../../components/popovers/creative/CalendarDaySessionListPopover';
+import { CalendarSessionDetailPopover } from '../../../components/popovers/creative/CalendarSessionDetailPopover';
 import { CalendarDayCard } from '../../../components/cards/creative/CalendarDayCard';
 
 interface Session {

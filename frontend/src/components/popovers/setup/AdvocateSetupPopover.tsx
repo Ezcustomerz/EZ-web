@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -13,20 +13,13 @@ import {
   Slide,
   Card,
   CardContent,
-  Chip,
 } from '@mui/material';
-import {
-  Support,
-  Star,
-  TrendingUp,
-  Diamond,
-} from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 
-import { errorToast, successToast } from '../toast/toast';
-import { userService } from '../../api/userService';
-import { useAuth } from '../../context/auth';
+import { errorToast, successToast } from '../../../components/toast/toast';
+import { userService } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
 
 export interface AdvocateSetupPopoverProps {
   open: boolean;
@@ -49,8 +42,6 @@ const Transition = React.forwardRef(function Transition(
 export function AdvocateSetupPopover({ 
   open, 
   onClose, 
-  userName = '', 
-  userEmail = '',
   onBack,
   isFirstSetup = false,
   onComplete
@@ -59,7 +50,7 @@ export function AdvocateSetupPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   const [isLoading, setIsLoading] = useState(false);
-  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups, originalSelectedRoles } = useAuth();
+  const { backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -97,6 +88,8 @@ export function AdvocateSetupPopover({
         if (response.success) {
           successToast('All Setups Complete!', 'Welcome to EZ! Your profiles have been created.');
           onClose();
+          // Refresh user profile to get updated first_login status
+          window.location.reload(); // Force refresh to get updated profile
         } else {
           errorToast('Setup Failed', response.message);
         }
@@ -123,9 +116,9 @@ export function AdvocateSetupPopover({
       maxWidth={false}
       disableEscapeKeyDown={true}
       sx={{
-        zIndex: isMobile ? 9999 : 1300,
+        zIndex: isMobile ? 10000 : 1300,
         '& .MuiDialog-paper': {
-          zIndex: isMobile ? 9999 : 1300,
+          zIndex: isMobile ? 10000 : 1300,
         }
       }}
       PaperProps={{
@@ -140,7 +133,7 @@ export function AdvocateSetupPopover({
             position: 'fixed',
             top: 0,
             left: 0,
-            zIndex: 9999,
+            zIndex: 10000,
           } : isTablet ? {
             width: '95vw',
             maxWidth: '95vw',
@@ -174,7 +167,7 @@ export function AdvocateSetupPopover({
           sx: {
             backgroundColor: isMobile ? 'rgba(0,0,0,0.32)' : 'rgba(10, 10, 20, 0.45)',
             backdropFilter: isMobile ? 'none' : 'blur(2px)',
-            zIndex: isMobile ? 9998 : 1299,
+            zIndex: isMobile ? 9999 : 1299,
           }
         }
       }}
@@ -325,9 +318,16 @@ export function AdvocateSetupPopover({
 
       <DialogActions sx={{ 
         px: isMobile ? 2 : isTablet ? 3 : 4, 
-        py: isMobile ? 1 : 2, 
+        py: isMobile ? 2 : 2, 
+        pb: isMobile ? 10 : 2, // Extra bottom padding on mobile to avoid interface elements
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        position: isMobile ? 'sticky' : 'relative',
+        bottom: isMobile ? 0 : 'auto',
+        backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.98)' : 'transparent',
+        backdropFilter: isMobile ? 'blur(8px)' : 'none',
+        borderTop: isMobile ? '1px solid rgba(0, 0, 0, 0.08)' : 'none',
+        zIndex: isMobile ? 1000 : 'auto',
       }}>
         {/* Back Button */}
         <Button

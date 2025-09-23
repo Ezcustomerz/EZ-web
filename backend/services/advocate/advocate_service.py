@@ -8,7 +8,7 @@ class AdvocateController:
         """Set up advocate profile in the advocates table with hardcoded demo values"""
         try:
             # Get user profile data including name, profile_picture_url, and avatar_source
-            user_result = db_admin.table('users').select('roles, name, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
+            user_result = db_admin.table('users').select('roles, name, email, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
@@ -23,12 +23,43 @@ class AdvocateController:
                 if not update_result.data:
                     raise HTTPException(status_code=500, detail="Failed to update user roles")
             
-            # Create advocate profile with hardcoded demo data and user profile data
+            # Fallbacks: fetch auth user metadata if DB row missing fields
+            fallback_name = None
+            fallback_avatar_url = None
+            fallback_email = None
+            try:
+                auth_user = db_admin.auth.admin.get_user_by_id(user_id)
+                if getattr(auth_user, 'user', None):
+                    metadata = getattr(auth_user.user, 'user_metadata', {}) or {}
+                    fallback_name = metadata.get('full_name') or metadata.get('name') or getattr(auth_user.user, 'user_metadata', {}).get('full_name')
+                    fallback_avatar_url = metadata.get('avatar_url') or getattr(auth_user.user, 'avatar_url', None)
+                    fallback_email = getattr(auth_user.user, 'email', None)
+            except Exception:
+                # Ignore admin fetch failures; continue with DB-only data
+                pass
+
+            # Compute display name and banner url with safe fallbacks
+            display_name = user_data.get('name') or fallback_name
+            if not display_name:
+                email_any = user_data.get('email') or fallback_email
+                if email_any:
+                    display_name = email_any.split('@')[0]
+            if not display_name:
+                display_name = 'User'
+
+            profile_banner_url = user_data.get('profile_picture_url') or fallback_avatar_url
+            if not profile_banner_url:
+                seed = display_name or user_id
+                profile_banner_url = f"https://api.dicebear.com/7.x/initials/svg?seed={seed}"
+
+            profile_source = user_data.get('avatar_source') or 'google'
+
+            # Create advocate profile with computed data and defaults
             advocate_data = {
                 'user_id': user_id,
-                'display_name': user_data.get('name'),  # Use name from users table
-                'profile_banner_url': user_data.get('profile_picture_url'),  # Use profile picture as banner
-                'profile_source': user_data.get('avatar_source', 'google'),  # Use avatar source from users table
+                'display_name': display_name,
+                'profile_banner_url': profile_banner_url,
+                'profile_source': profile_source,
                 'tier': 'silver',  # Default tier
                 'fp_affiliate_id': f'demo_affiliate_{user_id[:8]}',  # Demo affiliate ID
                 'fp_referral_code': f'DEMO{user_id[:6].upper()}',  # Demo referral code

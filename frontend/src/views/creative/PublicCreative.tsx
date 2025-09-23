@@ -50,23 +50,24 @@ export function PublicCreative() {
   const [sortBy, setSortBy] = useState<'title' | 'price' | 'delivery'>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
-  const [visibility, setVisibility] = useState<'all' | 'Public' | 'Private'>('all');
+  const [visibility, setVisibility] = useState<'all' | 'Public' | 'Private' | 'Bundle-Only'>('all');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
-  const [profileSeeAllDialogOpen, setProfileSeeAllDialogOpen] = useState(false);
 
-  // Handler to pass to ProfileTab to control dialog state
-  const handleProfileSeeAllDialogChange = (open: boolean) => {
-    setProfileSeeAllDialogOpen(open);
+  // Handler to switch to Services tab (index 0)
+  const handleSwitchToServicesTab = () => {
+    setActiveTab(0);
+    localStorage.setItem('public-active-tab', '0');
   };
 
   return (
-    <LayoutCreative selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen || profileSeeAllDialogOpen}>
-      <Box sx={{
-        px: { xs: 2, sm: 2, md: 3 },
-        pb: { xs: 2, sm: 2, md: 3 },
-        pt: { md: 2 },
-        minHeight: '100vh',
-        height: 'auto',
+    <LayoutCreative selectedNavItem="public" hideMenuButton={calendarDayDialogOpen || calendarSessionDialogOpen}>
+      {({ creativeProfile }) => (
+        <Box sx={{
+          px: { xs: 2, sm: 2, md: 3 },
+          pb: { xs: 2, sm: 2, md: 3 },
+          pt: { md: 2 },
+          minHeight: '100vh',
+          height: 'auto',
         display: 'flex',
         flexDirection: 'column',
         animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -349,13 +350,13 @@ export function PublicCreative() {
                 ) : (
                   <>
                     {/* Visibility Filter */}
-                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                    <FormControl size="small" sx={{ minWidth: 150 }}>
                       <InputLabel id="visibility-label">Visibility</InputLabel>
                       <Select
                         labelId="visibility-label"
                         value={visibility}
                         label="Visibility"
-                        onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private')}
+                        onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private' | 'Bundle-Only')}
                         renderValue={() => {
                           let icon = faLayerGroup;
                           let label = 'All';
@@ -365,6 +366,9 @@ export function PublicCreative() {
                           } else if (visibility === 'Private') {
                             icon = faLock;
                             label = 'Private';
+                          } else if (visibility === 'Bundle-Only') {
+                            icon = faLayerGroup;
+                            label = 'Bundle-Only';
                           }
                           return (
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -432,6 +436,10 @@ export function PublicCreative() {
                         <MenuItem value="Private" disableRipple>
                           <FontAwesomeIcon icon={faLock} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
                           <Box sx={{ flex: 1, fontWeight: visibility === 'Private' ? 600 : 400 }}>Private</Box>
+                        </MenuItem>
+                        <MenuItem value="Bundle-Only" disableRipple>
+                          <FontAwesomeIcon icon={faLayerGroup} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
+                          <Box sx={{ flex: 1, fontWeight: visibility === 'Bundle-Only' ? 600 : 400 }}>Bundle-Only</Box>
                         </MenuItem>
                       </Select>
                     </FormControl>
@@ -537,7 +545,7 @@ export function PublicCreative() {
                         labelId="modal-visibility-label"
                         value={visibility}
                         label="Visibility"
-                        onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private')}
+                        onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private' | 'Bundle-Only')}
                         renderValue={() => {
                           let icon = faLayerGroup;
                           let label = 'All';
@@ -547,6 +555,9 @@ export function PublicCreative() {
                           } else if (visibility === 'Private') {
                             icon = faLock;
                             label = 'Private';
+                          } else if (visibility === 'Bundle-Only') {
+                            icon = faLayerGroup;
+                            label = 'Bundle-Only';
                           }
                           return (
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -614,6 +625,10 @@ export function PublicCreative() {
                         <MenuItem value="Private" disableRipple>
                           <FontAwesomeIcon icon={faLock} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
                           <Box sx={{ flex: 1, fontWeight: visibility === 'Private' ? 600 : 400 }}>Private</Box>
+                        </MenuItem>
+                        <MenuItem value="Bundle-Only" disableRipple>
+                          <FontAwesomeIcon icon={faLayerGroup} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
+                          <Box sx={{ flex: 1, fontWeight: visibility === 'Bundle-Only' ? 600 : 400 }}>Bundle-Only</Box>
                         </MenuItem>
                       </Select>
                     </FormControl>
@@ -713,6 +728,7 @@ export function PublicCreative() {
               sortBy={sortBy}
               sortOrder={sortOrder}
               visibility={visibility}
+              creativeProfile={creativeProfile}
             />
           )}
           {Number(activeTab) === 1 && (
@@ -723,14 +739,14 @@ export function PublicCreative() {
               setSessionDialogOpen={setCalendarSessionDialogOpen}
             />
           )}
-          {Number(activeTab) === 2 && (
-            <ProfileTab
-              seeAllDialogOpen={profileSeeAllDialogOpen}
-              onSeeAllDialogChange={handleProfileSeeAllDialogChange}
-            />
-          )}
+          <ProfileTab
+            creativeProfile={creativeProfile}
+            isActive={Number(activeTab) === 2}
+            onSwitchToServicesTab={handleSwitchToServicesTab}
+          />
         </Paper>
       </Box>
+      )}
     </LayoutCreative>
   );
 } 
