@@ -743,12 +743,12 @@ export const userService = {
   },
 
   /**
-   * Get all services from creatives connected to the current client
+   * Get all services and bundles from creatives connected to the current client
    */
-  async getClientConnectedServices(): Promise<{services: any[], total_count: number}> {
+  async getClientConnectedServicesAndBundles(): Promise<{services: any[], bundles: any[], total_count: number}> {
     const headers = await getAuthHeaders();
-    const response = await axios.get<{services: any[], total_count: number}>(
-      `${API_BASE_URL}/client/connected-services`,
+    const response = await axios.get<{services: any[], bundles: any[], total_count: number}>(
+      `${API_BASE_URL}/client/services`,
       { headers }
     );
     return response.data;

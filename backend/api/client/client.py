@@ -36,18 +36,18 @@ async def get_client_creatives(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch client creatives: {str(e)}")
 
-@router.get("/connected-services", response_model=dict)
-async def get_connected_services(request: Request):
-    """Get all services from creatives connected to the current client"""
+@router.get("/services", response_model=dict)
+async def get_connected_services_and_bundles(request: Request):
+    """Get all services and bundles from creatives connected to the current client"""
     try:
         # Get user ID from JWT token
         user_id = request.state.user.get('sub')
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
-        return await ClientController.get_connected_services(user_id)
+        return await ClientController.get_connected_services_and_bundles(user_id)
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch connected services: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch connected services and bundles: {str(e)}")

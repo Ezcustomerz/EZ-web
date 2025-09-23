@@ -404,7 +404,13 @@ export function BundleDetailPopover({
         </DialogContent>
 
         {context === 'client-connected' && onBook && (
-          <DialogActions sx={{ p: 3, pt: 0 }}>
+          <DialogActions sx={{ 
+            p: 3, 
+            pt: 2, 
+            pb: 1, 
+            display: 'flex', 
+            justifyContent: 'center' 
+          }}>
             <Button
               onClick={onBook}
               variant="contained"
@@ -413,7 +419,7 @@ export function BundleDetailPopover({
               sx={{
                 borderRadius: 2,
                 px: 4,
-                py: 1.5,
+                py: 2,
                 fontWeight: 600,
                 textTransform: 'none',
               }}

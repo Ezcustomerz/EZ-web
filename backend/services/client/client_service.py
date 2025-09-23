@@ -313,3 +313,194 @@ class ClientController:
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to fetch connected services: {str(e)}")
+
+    @staticmethod
+    async def get_connected_services_and_bundles(user_id: str) -> dict:
+        """Get all services and bundles from creatives connected to this client"""
+        try:
+            # Get creative user IDs that this client is connected to
+            relationships_result = db_admin.table('creative_client_relationships').select(
+                'creative_user_id'
+            ).eq('client_user_id', user_id).execute()
+            
+            if not relationships_result.data:
+                return {"services": [], "bundles": [], "total_count": 0}
+            
+            creative_user_ids = [rel['creative_user_id'] for rel in relationships_result.data]
+            
+            # Get all services from these creatives
+            services_result = db_admin.table('creative_services').select(
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id'
+            ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
+            
+            # Get all bundles from these creatives
+            bundles_result = db_admin.table('creative_bundles').select(
+                'id, title, description, color, status, pricing_option, fixed_price, discount_percentage, is_active, created_at, updated_at, creative_user_id'
+            ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
+            
+            if not services_result.data and not bundles_result.data:
+                return {"services": [], "bundles": [], "total_count": 0}
+            
+            # Get creative details for both services and bundles
+            all_creative_user_ids = list(set([
+                *[service['creative_user_id'] for service in services_result.data or []],
+                *[bundle['creative_user_id'] for bundle in bundles_result.data or []]
+            ]))
+            
+            creatives_result = db_admin.table('creatives').select(
+                'user_id, display_name, title, profile_banner_url'
+            ).in_('user_id', all_creative_user_ids).execute()
+            
+            # Create creative lookup map
+            creatives_map = {c['user_id']: c for c in creatives_result.data}
+            
+            # Get user details for these creatives
+            users_result = db_admin.table('users').select(
+                'user_id, name'
+            ).in_('user_id', all_creative_user_ids).execute()
+            
+            # Create user lookup map
+            users_map = {u['user_id']: u for u in users_result.data}
+            
+            # Process services
+            services = []
+            if services_result.data:
+                # Get all service IDs for photo fetching
+                service_ids = [service['id'] for service in services_result.data]
+                
+                # Fetch photos for all services
+                photos_result = db_admin.table('service_photos').select(
+                    'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+                ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
+                
+                # Group photos by service_id
+                photos_by_service = {}
+                if photos_result.data:
+                    for photo in photos_result.data:
+                        service_id = photo['service_id']
+                        if service_id not in photos_by_service:
+                            photos_by_service[service_id] = []
+                        photos_by_service[service_id].append({
+                            'photo_url': photo['photo_url'],
+                            'photo_filename': photo['photo_filename'],
+                            'photo_size_bytes': photo['photo_size_bytes'],
+                            'is_primary': photo['is_primary'],
+                            'display_order': photo['display_order']
+                        })
+                
+                for service_data in services_result.data:
+                    creative_user_id = service_data['creative_user_id']
+                    creative_data = creatives_map.get(creative_user_id, {})
+                    user_data = users_map.get(creative_user_id, {})
+                    
+                    service = {
+                        'id': service_data['id'],
+                        'title': service_data['title'],
+                        'description': service_data['description'],
+                        'price': float(service_data['price']),
+                        'delivery_time': service_data['delivery_time'],
+                        'status': service_data['status'],
+                        'color': service_data['color'],
+                        'is_active': service_data['is_active'],
+                        'created_at': service_data['created_at'],
+                        'updated_at': service_data['updated_at'],
+                        'creative_user_id': creative_user_id,
+                        'creative_name': user_data.get('name', 'Creative'),
+                        'creative_display_name': creative_data.get('display_name'),
+                        'creative_title': creative_data.get('title'),
+                        'creative_avatar_url': creative_data.get('profile_banner_url'),
+                        'photos': photos_by_service.get(service_data['id'], [])
+                    }
+                    services.append(service)
+            
+            # Process bundles
+            bundles = []
+            if bundles_result.data:
+                for bundle_data in bundles_result.data:
+                    creative_user_id = bundle_data['creative_user_id']
+                    creative_data = creatives_map.get(creative_user_id, {})
+                    user_data = users_map.get(creative_user_id, {})
+                    
+                    # Get services for this bundle
+                    bundle_services_result = db_admin.table('bundle_services').select(
+                        'service_id'
+                    ).eq('bundle_id', bundle_data['id']).execute()
+                    
+                    service_ids = [bs['service_id'] for bs in bundle_services_result.data] if bundle_services_result.data else []
+                    
+                    # Get service details
+                    bundle_services_data = db_admin.table('creative_services').select(
+                        'id, title, description, price, delivery_time, status, color'
+                    ).in_('id', service_ids).execute()
+                    
+                    # Fetch photos for bundle services
+                    bundle_photos_result = db_admin.table('service_photos').select(
+                        'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+                    ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
+                    
+                    # Group photos by service_id
+                    bundle_photos_by_service = {}
+                    if bundle_photos_result.data:
+                        for photo in bundle_photos_result.data:
+                            service_id = photo['service_id']
+                            if service_id not in bundle_photos_by_service:
+                                bundle_photos_by_service[service_id] = []
+                            bundle_photos_by_service[service_id].append({
+                                'photo_url': photo['photo_url'],
+                                'photo_filename': photo['photo_filename'],
+                                'photo_size_bytes': photo['photo_size_bytes'],
+                                'is_primary': photo['is_primary'],
+                                'display_order': photo['display_order']
+                            })
+                    
+                    bundle_services = []
+                    total_services_price = 0
+                    for service_data in bundle_services_data.data:
+                        service_photos = bundle_photos_by_service.get(service_data['id'], [])
+                        service = {
+                            'id': service_data['id'],
+                            'title': service_data['title'],
+                            'description': service_data['description'],
+                            'price': float(service_data['price']),
+                            'delivery_time': service_data['delivery_time'],
+                            'status': service_data['status'],
+                            'color': service_data['color'],
+                            'photos': service_photos
+                        }
+                        bundle_services.append(service)
+                        total_services_price += service['price']
+                    
+                    # Calculate final price
+                    if bundle_data['pricing_option'] == 'fixed':
+                        final_price = float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else total_services_price
+                    else:  # discount
+                        discount_percentage = float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else 0
+                        discount_amount = total_services_price * (discount_percentage / 100)
+                        final_price = total_services_price - discount_amount
+                    
+                    bundle = {
+                        'id': bundle_data['id'],
+                        'title': bundle_data['title'],
+                        'description': bundle_data['description'],
+                        'color': bundle_data['color'],
+                        'status': bundle_data['status'],
+                        'pricing_option': bundle_data['pricing_option'],
+                        'fixed_price': float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else None,
+                        'discount_percentage': float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else None,
+                        'total_services_price': total_services_price,
+                        'final_price': final_price,
+                        'services': bundle_services,
+                        'is_active': bundle_data['is_active'],
+                        'created_at': bundle_data['created_at'],
+                        'updated_at': bundle_data['updated_at'],
+                        'creative_name': user_data.get('name', 'Creative'),
+                        'creative_display_name': creative_data.get('display_name'),
+                        'creative_title': creative_data.get('title'),
+                        'creative_avatar_url': creative_data.get('profile_banner_url')
+                    }
+                    bundles.append(bundle)
+            
+            return {"services": services, "bundles": bundles, "total_count": len(services) + len(bundles)}
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch connected services and bundles: {str(e)}")
