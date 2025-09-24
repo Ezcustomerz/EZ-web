@@ -1,50 +1,110 @@
-import { Box, Typography } from '@mui/material';
+import { useState, useEffect, useRef } from 'react';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import { People } from '@mui/icons-material';
 import { CreativeCard } from '../../../components/cards/client/CreativeCard';
+import { userService, type ClientCreative } from '../../../api/userService';
+import { useAuth } from '../../../context/auth';
 
-interface Creative {
-  id: string;
-  name: string;
-  avatar: string | null;
-  specialty: string;
-  email: string;
-  rating: number;
-  reviewCount: number;
-  servicesCount: number;
-  isOnline: boolean;
-  color: string;
-}
+export function ConnectedCreativesTab() {
+  const { isAuthenticated } = useAuth();
+  const [creatives, setCreatives] = useState<ClientCreative[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const fetchingRef = useRef(false);
+  const lastAuthStateRef = useRef<boolean | null>(null);
+  const cacheRef = useRef<{ data: ClientCreative[], timestamp: number } | null>(null);
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Example: Replace with real data fetching logic later
-const mockConnectedCreatives: Creative[] = [];
+  // Fetch creatives when component mounts and user is authenticated
+  useEffect(() => {
+    const fetchCreatives = async () => {
+      // Prevent duplicate calls if already fetching or auth state hasn't changed
+      if (fetchingRef.current || lastAuthStateRef.current === isAuthenticated) {
+        return;
+      }
+
+      fetchingRef.current = true;
+      lastAuthStateRef.current = isAuthenticated;
+
+      if (!isAuthenticated) {
+        // In demo mode (not authenticated), use empty array
+        setCreatives([]);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      // Check cache first
+      if (cacheRef.current && (Date.now() - cacheRef.current.timestamp) < CACHE_DURATION) {
+        console.log('Using cached connected creatives data');
+        setCreatives(cacheRef.current.data);
+        setLoading(false);
+        fetchingRef.current = false;
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const response = await userService.getClientCreatives();
+        console.log('Connected creatives data:', response.creatives);
+        
+        // Cache the response
+        cacheRef.current = {
+          data: response.creatives,
+          timestamp: Date.now()
+        };
+        
+        setCreatives(response.creatives);
+      } catch (error) {
+        console.error('Failed to fetch creatives:', error);
+        // Fallback to empty array
+        setCreatives([]);
+      } finally {
+        setLoading(false);
+        fetchingRef.current = false;
+      }
+    };
+
+    fetchCreatives();
+  }, [isAuthenticated]);
 
 export default function ConnectedCreativesTab() {
   const handleCreativeClick = (producerId: string) => {
     console.log(producerId);
   };
 
+  if (loading) {
+    return (
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100%',
+        minHeight: '300px',
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
-    <Box
-      sx={{
-        width: '100%',
-        flexGrow: 1,
-        py: 2,
-        overflowY: { xs: 'auto', sm: 'auto', md: 'auto' },
-        minHeight: 0,
-      }}
-    >
-      {mockConnectedCreatives.length === 0 ? (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            textAlign: 'center',
-            color: 'secondary.main',
-          }}
-        >
+    <Box sx={{
+      width: '100%',
+      flexGrow: 1,
+      py: 2,
+      overflowY: { xs: 'auto', sm: 'auto', md: 'auto' },
+      minHeight: 0,
+    }}>
+      {creatives.length === 0 ? (
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          textAlign: 'center',
+          color: 'secondary.main',
+        }}>
           <People sx={{ fontSize: 64, mb: 2, opacity: 0.4, color: 'secondary.main' }} />
           <Typography variant="h6" sx={{ mb: 1, color: 'secondary.main' }}>
             No Connected Creatives
@@ -54,26 +114,25 @@ export default function ConnectedCreativesTab() {
           </Typography>
         </Box>
       ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gap: { xs: 1.5, sm: 2 },
-            px: { xs: 1, sm: 2 },
-            pt: 2,
-            pb: 1,
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(auto-fit, minmax(280px, 1fr))',
-              md: 'repeat(auto-fit, minmax(300px, 1fr))',
-              lg: 'repeat(auto-fit, minmax(320px, 1fr))',
-            },
-            alignItems: 'stretch',
-            minHeight: 0,
-            width: '100%',
-            overflow: 'hidden',
-          }}
-        >
-          {mockConnectedCreatives.map((creative, index) => (
+        <Box sx={{
+          display: 'grid',
+          gap: { xs: 1.5, sm: 2 },
+          px: { xs: 1, sm: 2 },
+          pt: 2,
+          pb: 8, // Increased bottom padding to accommodate hover effects (scale + translateY)
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+            lg: 'repeat(3, 1fr)',
+            xl: 'repeat(3, 1fr)',
+          },
+          alignItems: 'stretch',
+          minHeight: 0,
+          width: '100%',
+          overflow: 'hidden',
+        }}>
+          {creatives.map((creative, index) => (
             <CreativeCard
               key={creative.id}
               creative={creative}

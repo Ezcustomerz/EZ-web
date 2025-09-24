@@ -26,10 +26,14 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../context/auth';
 import { inviteService, type ValidateInviteResponse } from '../api/inviteService';
-import { userService, type CreativeProfile, type CreativeService, type CreativeServicesListResponse } from '../api/userService';
+import { userService, type CreativeProfile, type CreativeService, type CreativeBundle, type PublicServicesAndBundlesResponse } from '../api/userService';
+
 import { SessionPopover } from '../components/popovers/creative/ServicePopover';
 import { ReviewPopover } from '../components/popovers/creative/ReviewPopover';
+import { ServicesDetailPopover } from '../components/popovers/ServicesDetailPopover';
+import { BundleDetailPopover } from '../components/popovers/BundleDetailPopover';
 import { ServiceCardSimple } from '../components/cards/creative/ServiceCard';
+import { BundleCard } from '../components/cards/creative/BundleCard';
 import { errorToast } from '../components/toast/toast';
 
 export function InvitePage() {
@@ -46,10 +50,15 @@ export function InvitePage() {
   const [userFromValidation, setUserFromValidation] = useState<any>(null);
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const [services, setServices] = useState<CreativeService[]>([]);
+  const [bundles, setBundles] = useState<CreativeBundle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [servicesOpen, setServicesOpen] = useState(false);
   const [reviewsOpen, setReviewsOpen] = useState(false);
+  const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<CreativeService | null>(null);
+  const [bundleDetailOpen, setBundleDetailOpen] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState<CreativeBundle | null>(null);
 
   // InvitePage is a public page - no need to fetch user profiles
   // The auth context will handle user profile loading when needed
@@ -88,14 +97,10 @@ export function InvitePage() {
           const profile = await userService.getCreativeProfileById(response.creative.user_id);
           setCreativeProfile(profile);
           
-          // Fetch creative services
-          const servicesResponse: CreativeServicesListResponse = await userService.getCreativeServicesById(response.creative.user_id);
-          const activeServices = servicesResponse.services.filter(service => 
-            service.is_active && 
-            service.is_enabled && 
-            service.status === 'Public'
-          );
-          setServices(activeServices);
+          // Fetch creative services and bundles
+          const servicesResponse: PublicServicesAndBundlesResponse = await userService.getCreativeServicesById(response.creative.user_id);
+          setServices(servicesResponse.services);
+          setBundles(servicesResponse.bundles);
         } catch (profileError) {
           errorToast('Failed to fetch creative profile');
           // Continue with basic info from validation
@@ -124,6 +129,40 @@ export function InvitePage() {
       localStorage.setItem('invitePreSelectClient', 'true');
     }
     openAuth();
+  };
+
+  const handleServiceClick = (service: CreativeService) => {
+    // Add creative profile information to the service object
+    const serviceWithCreative = {
+      ...service,
+      creative_display_name: creative?.display_name,
+      creative_title: creative?.title,
+      creative_avatar_url: (creative as CreativeProfile)?.profile_banner_url
+    };
+    setSelectedService(serviceWithCreative as any);
+    setServiceDetailOpen(true);
+  };
+
+  const handleBundleClick = (bundle: CreativeBundle) => {
+    // Add creative profile information to the bundle object
+    const bundleWithCreative = {
+      ...bundle,
+      creative_display_name: creative?.display_name,
+      creative_title: creative?.title,
+      creative_avatar_url: (creative as CreativeProfile)?.profile_banner_url
+    };
+    setSelectedBundle(bundleWithCreative as any);
+    setBundleDetailOpen(true);
+  };
+
+  const handleServiceDetailClose = () => {
+    setServiceDetailOpen(false);
+    setSelectedService(null);
+  };
+
+  const handleBundleDetailClose = () => {
+    setBundleDetailOpen(false);
+    setSelectedBundle(null);
   };
 
 
@@ -227,7 +266,9 @@ export function InvitePage() {
             }}>
               {/* Profile Header */}
               <Box sx={{
-                background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                background: (creative as CreativeProfile)?.avatar_background_color 
+                  ? `linear-gradient(135deg, ${(creative as CreativeProfile).avatar_background_color} 0%, ${(creative as CreativeProfile).avatar_background_color}CC 100%)`
+                  : 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
                 color: 'white',
                 p: 3,
                 textAlign: 'center'
@@ -476,29 +517,61 @@ export function InvitePage() {
                         gap: 2,
                         flex: 1
                       }}>
-                        {/* Show configured primary and secondary services */}
+                        {/* Show configured primary and secondary services, plus first bundle if available */}
                         {(() => {
-                          const primaryService = services.find(s => s.id === (creative as CreativeProfile)?.primary_service_id);
-                          const secondaryService = services.find(s => s.id === (creative as CreativeProfile)?.secondary_service_id);
-                          const servicesToShow = [primaryService, secondaryService].filter((service): service is CreativeService => service !== undefined);
+                          const primaryId = (creative as CreativeProfile)?.primary_service_id;
+                          const secondaryId = (creative as CreativeProfile)?.secondary_service_id;
                           
-                          // If no configured services, fall back to first 2 services
-                          const displayServices = servicesToShow.length > 0 ? servicesToShow : services.slice(0, 2);
+                          // Check if configured IDs are services or bundles
+                          const primaryService = services.find(s => s.id === primaryId);
+                          const secondaryService = services.find(s => s.id === secondaryId);
+                          const primaryBundle = bundles.find(b => b.id === primaryId);
+                          const secondaryBundle = bundles.find(b => b.id === secondaryId);
                           
-                          return displayServices.map((service) => (
-                            <Box key={service.id} sx={{
+                          // Create items array with the configured services/bundles
+                          const items = [];
+                          
+                          if (primaryService) {
+                            items.push({ type: 'service', data: primaryService });
+                          } else if (primaryBundle) {
+                            items.push({ type: 'bundle', data: primaryBundle });
+                          }
+                          
+                          if (secondaryService) {
+                            items.push({ type: 'service', data: secondaryService });
+                          } else if (secondaryBundle) {
+                            items.push({ type: 'bundle', data: secondaryBundle });
+                          }
+                          
+                          // If no configured items, fall back to first 2 services
+                          if (items.length === 0) {
+                            items.push(...services.slice(0, 2).map(service => ({ type: 'service', data: service })));
+                          }
+                          
+                          return items.map((item) => (
+                            <Box key={`${item.type}-${item.data.id}`} sx={{
                               width: { xs: '100%', sm: '50%' },
                               display: 'flex',
                               flexDirection: 'column'
                             }}>
-                              <ServiceCardSimple
-                                title={service.title}
-                                description={service.description}
-                                price={service.price}
-                                delivery={service.delivery_time}
-                                color={service.color}
-                                creative={creative?.display_name || 'Creative'}
-                              />
+                              {item.type === 'service' ? (
+                                <ServiceCardSimple
+                                  title={item.data.title}
+                                  description={item.data.description}
+                                  price={(item.data as CreativeService).price}
+                                  delivery={(item.data as CreativeService).delivery_time}
+                                  color={item.data.color}
+                                  creative={creative?.display_name || 'Creative'}
+                                  onBook={() => handleServiceClick(item.data as CreativeService)}
+                                />
+                              ) : (
+                                <BundleCard
+                                  bundle={item.data as CreativeBundle}
+                                  creative={creative?.display_name || 'Creative'}
+                                  showStatus={false}
+                                  onClick={() => handleBundleClick(item.data as CreativeBundle)}
+                                />
+                              )}
                             </Box>
                           ));
                         })()}
@@ -527,6 +600,7 @@ export function InvitePage() {
           color: service.color,
           creative: creative?.display_name || 'Creative'
         }))}
+        bundles={bundles}
       />
 
       <ReviewPopover
@@ -561,6 +635,22 @@ export function InvitePage() {
             date: '2024-01-05'
           }
         ]}
+      />
+
+      {/* Service Detail Popover */}
+      <ServicesDetailPopover
+        open={serviceDetailOpen}
+        onClose={handleServiceDetailClose}
+        service={selectedService}
+        context="invite-page"
+      />
+
+      {/* Bundle Detail Popover */}
+      <BundleDetailPopover
+        open={bundleDetailOpen}
+        onClose={handleBundleDetailClose}
+        bundle={selectedBundle}
+        context="invite-page"
       />
     </Box>
   );

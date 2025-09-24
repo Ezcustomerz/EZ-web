@@ -158,18 +158,37 @@ export interface CreativeClientsListResponse {
   total_count: number;
 }
 
+export interface ClientCreative {
+  id: string;
+  name: string;
+  avatar: string | null;
+  specialty: string;
+  email: string;
+  rating: number;
+  reviewCount: number;
+  servicesCount: number;
+  isOnline: boolean;
+  color: string;
+  status: string;
+}
+
+export interface ClientCreativesListResponse {
+  creatives: ClientCreative[];
+  total_count: number;
+}
+
 export interface CreativeService {
   id: string;
   title: string;
   description: string;
   price: number;
   delivery_time: string;
-  status: 'Public' | 'Private';
+  status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   is_active: boolean;
-  is_enabled: boolean;
   created_at: string;
   updated_at: string;
+  photos?: ServicePhoto[];
 }
 
 export interface CreativeServicesListResponse {
@@ -209,14 +228,23 @@ export interface CalendarSettings {
   weekly_schedule: WeeklySchedule[];
 }
 
+export interface ServicePhoto {
+  photo_url: string;
+  photo_filename?: string;
+  photo_size_bytes?: number;
+  is_primary: boolean;
+  display_order: number;
+}
+
 export interface CreateServiceRequest {
   title: string;
   description: string;
   price: number;
   delivery_time: string;
-  status: 'Public' | 'Private';
+  status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   calendar_settings?: CalendarSettings;
+  photos?: ServicePhoto[];
 }
 
 export interface CreateServiceResponse {
@@ -235,15 +263,6 @@ export interface DeleteServiceResponse {
   message: string;
 }
 
-export interface ToggleServiceStatusRequest {
-  enabled: boolean;
-}
-
-export interface ToggleServiceStatusResponse {
-  success: boolean;
-  message: string;
-  enabled: boolean;
-}
 
 export interface CreativeProfileSettingsRequest {
   display_name?: string;
@@ -263,6 +282,90 @@ export interface CreativeProfileSettingsRequest {
 export interface CreativeProfileSettingsResponse {
   success: boolean;
   message: string;
+}
+
+export interface ProfilePhotoUploadResponse {
+  success: boolean;
+  message: string;
+  profile_banner_url: string;
+}
+
+// Bundle interfaces
+export interface CreateBundleRequest {
+  title: string;
+  description: string;
+  color: string;
+  status: 'Public' | 'Private';
+  pricing_option: 'fixed' | 'discount';
+  fixed_price?: number;
+  discount_percentage?: number;
+  service_ids: string[];
+}
+
+export interface CreateBundleResponse {
+  success: boolean;
+  message: string;
+  bundle_id?: string;
+}
+
+export interface UpdateBundleRequest {
+  title?: string;
+  description?: string;
+  color?: string;
+  status?: 'Public' | 'Private';
+  pricing_option?: 'fixed' | 'discount';
+  fixed_price?: number;
+  discount_percentage?: number;
+  service_ids?: string[];
+}
+
+export interface UpdateBundleResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface BundleService {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  delivery_time: string;
+  status: string;
+  color: string;
+}
+
+export interface CreativeBundle {
+  id: string;
+  title: string;
+  description: string;
+  color: string;
+  status: string;
+  pricing_option: string;
+  fixed_price?: number;
+  discount_percentage?: number;
+  total_services_price: number;
+  final_price: number;
+  services: BundleService[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreativeBundlesListResponse {
+  bundles: CreativeBundle[];
+  total_count: number;
+}
+
+export interface DeleteBundleResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface PublicServicesAndBundlesResponse {
+  services: CreativeService[];
+  bundles: CreativeBundle[];
+  services_count: number;
+  bundles_count: number;
 }
 
 export interface UserRoleProfiles {
@@ -393,10 +496,10 @@ export const userService = {
   },
 
   /**
-   * Get creative services by user ID (for public viewing)
+   * Get creative services and bundles by user ID (for public viewing)
    */
-  async getCreativeServicesById(userId: string): Promise<CreativeServicesListResponse> {
-    const response = await axios.get<CreativeServicesListResponse>(
+  async getCreativeServicesById(userId: string): Promise<PublicServicesAndBundlesResponse> {
+    const response = await axios.get<PublicServicesAndBundlesResponse>(
       `${API_BASE_URL}/creative/services/${userId}`
     );
     return response.data;
@@ -454,9 +557,9 @@ export const userService = {
   /**
    * Get all services associated with the current creative
    */
-  async getCreativeServices(): Promise<CreativeServicesListResponse> {
+  async getCreativeServices(): Promise<PublicServicesAndBundlesResponse> {
     const headers = await getAuthHeaders();
-    const response = await axios.get<CreativeServicesListResponse>(
+    const response = await axios.get<PublicServicesAndBundlesResponse>(
       `${API_BASE_URL}/creative/services`,
       { headers }
     );
@@ -469,6 +572,45 @@ export const userService = {
       `${API_BASE_URL}/creative/services`,
       serviceData,
       { headers }
+    );
+    return response.data;
+  },
+
+  async createServiceWithPhotos(serviceData: CreateServiceRequest, photos: File[], onProgress?: (progress: number) => void): Promise<CreateServiceResponse> {
+    const { data } = await supabase.auth.getSession();
+    const jwtToken = data.session?.access_token;
+    
+    const formData = new FormData();
+    
+    // Add service data
+    formData.append('title', serviceData.title);
+    formData.append('description', serviceData.description);
+    formData.append('price', serviceData.price.toString());
+    formData.append('delivery_time', serviceData.delivery_time);
+    formData.append('status', serviceData.status);
+    formData.append('color', serviceData.color);
+    
+    // Add photos
+    photos.forEach((photo) => {
+      formData.append('photos', photo);
+    });
+    
+    const response = await axios.post<CreateServiceResponse>(
+      `${API_BASE_URL}/creative/services/with-photos`,
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${jwtToken}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 60000, // 60 second timeout for photo uploads
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgress(progress);
+          }
+        }
+      }
     );
     return response.data;
   },
@@ -492,13 +634,124 @@ export const userService = {
     return response.data;
   },
 
-  async toggleServiceStatus(serviceId: string, enabled: boolean): Promise<ToggleServiceStatusResponse> {
+
+  /**
+   * Upload profile photo for creative
+   */
+  async uploadCreativeProfilePhoto(file: File): Promise<ProfilePhotoUploadResponse> {
     const headers = await getAuthHeaders();
-    const response = await axios.patch<ToggleServiceStatusResponse>(
-      `${API_BASE_URL}/creative/services/${serviceId}/status`,
-      { enabled },
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await axios.post<ProfilePhotoUploadResponse>(
+      `${API_BASE_URL}/creative/profile/upload-photo`,
+      formData,
+      { 
+        headers: {
+          ...headers,
+          'Content-Type': 'multipart/form-data',
+        }
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Upload service photo to Supabase Storage
+   */
+  async uploadServicePhoto(file: File, serviceId?: string): Promise<{ url: string; filename: string; size: number }> {
+    const { supabase } = await import('../config/supabase');
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const fileExtension = file.name.split('.').pop() || 'jpg';
+    const filename = `service-photos/${serviceId || 'temp'}/${timestamp}-${randomString}.${fileExtension}`;
+    
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('creative-assets')
+      .upload(filename, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) {
+      throw new Error(`Failed to upload photo: ${error.message}`);
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('creative-assets')
+      .getPublicUrl(filename);
+    
+    return {
+      url: urlData.publicUrl,
+      filename: file.name,
+      size: file.size
+    };
+  },
+
+  /**
+   * Create a new bundle
+   */
+  async createBundle(bundleData: CreateBundleRequest): Promise<CreateBundleResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<CreateBundleResponse>(
+      `${API_BASE_URL}/creative/bundles`,
+      bundleData,
       { headers }
     );
     return response.data;
   },
+
+  /**
+   * Update a bundle
+   */
+  async updateBundle(bundleId: string, bundleData: UpdateBundleRequest): Promise<UpdateBundleResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.put<UpdateBundleResponse>(
+      `${API_BASE_URL}/creative/bundles/${bundleId}`,
+      bundleData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Delete a bundle
+   */
+  async deleteBundle(bundleId: string): Promise<DeleteBundleResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.delete<DeleteBundleResponse>(
+      `${API_BASE_URL}/creative/bundles/${bundleId}`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all creatives connected to the current client
+   */
+  async getClientCreatives(): Promise<ClientCreativesListResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<ClientCreativesListResponse>(
+      `${API_BASE_URL}/client/creatives`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all services and bundles from creatives connected to the current client
+   */
+  async getClientConnectedServicesAndBundles(): Promise<{services: any[], bundles: any[], total_count: number}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<{services: any[], bundles: any[], total_count: number}>(
+      `${API_BASE_URL}/client/services`,
+      { headers }
+    );
+    return response.data;
+  },
+
 };

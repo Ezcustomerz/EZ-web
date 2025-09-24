@@ -11,7 +11,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Divider,
   useTheme,
   useMediaQuery,
   TextField,
@@ -40,8 +39,12 @@ import {
   Description,
   TrendingUp,
   Visibility,
+  Check,
 } from '@mui/icons-material';
-import { userService, type CreativeProfile, type CreativeService, type CreativeServicesListResponse, type CreativeProfileSettingsRequest } from '../../../api/userService';
+import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { errorToast } from '../../../components/toast/toast';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
@@ -172,6 +175,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   // Data state
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const [services, setServices] = useState<CreativeService[]>([]);
+  const [bundles, setBundles] = useState<CreativeBundle[]>([]);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -249,14 +253,19 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
       const profile = await userService.getCreativeProfile();
       setCreativeProfile(profile);
       
-      // Fetch services
-      const servicesResponse: CreativeServicesListResponse = await userService.getCreativeServices();
-      const publicServices = servicesResponse.services.filter((service: CreativeService) => 
+      // Fetch services and bundles from unified endpoint
+      const response = await userService.getCreativeServices();
+      const publicServices = response.services.filter((service: CreativeService) => 
         service.is_active && 
-        service.is_enabled && 
         service.status === 'Public'
       );
       setServices(publicServices);
+      
+      const publicBundles = response.bundles.filter((bundle: CreativeBundle) => 
+        bundle.is_active && 
+        bundle.status === 'Public'
+      );
+      setBundles(publicBundles);
     } catch (error) {
       console.error('Failed to fetch creative data:', error);
     }
@@ -287,6 +296,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Check if file type is allowed
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        errorToast('Only PNG and JPEG files are allowed');
+        return;
+      }
       handleInputChange('profilePhoto', file);
     }
   };
@@ -315,7 +330,13 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   };
 
   const getAvailableServices = (excludeService?: string) => {
-    return services.filter(service => service.id !== excludeService);
+    // Combine services and bundles into a unified list
+    const allItems = [
+      ...services.map(service => ({ ...service, type: 'service' as const })),
+      ...bundles.map(bundle => ({ ...bundle, type: 'bundle' as const }))
+    ];
+    
+    return allItems.filter(item => item.id !== excludeService);
   };
 
   const resetFormToOriginal = () => {
@@ -331,6 +352,17 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   const handleSaveChanges = async () => {
     try {
       setSaving(true);
+      
+      // Upload profile photo if a new one was selected
+      if (formData.profilePhoto) {
+        try {
+          const uploadResponse = await userService.uploadCreativeProfilePhoto(formData.profilePhoto);
+          console.log('Profile photo uploaded:', uploadResponse);
+        } catch (uploadError) {
+          console.error('Failed to upload profile photo:', uploadError);
+          // Continue with other settings even if photo upload fails
+        }
+      }
       
       // Prepare the settings request
       const settingsRequest: CreativeProfileSettingsRequest = {
@@ -373,6 +405,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
     }
   };
 
+
   const renderSectionContent = () => {
     switch (selectedSection) {
       case 'account':
@@ -401,7 +434,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                     </Avatar>
                     <Box>
                       <input
-                        accept="image/*"
+                        accept="image/png,image/jpeg,image/jpg"
                         style={{ display: 'none' }}
                         id="profile-photo-upload"
                         type="file"
@@ -453,31 +486,100 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                       Avatar Background Color
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map((color) => (
-                      <Box
-                        key={color}
-                        onClick={() => handleColorSelect(color)}
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: '50%',
-                          backgroundColor: color,
-                          border: '2px solid',
-                          borderColor: color === formData.avatarBgColor ? 'primary.main' : 'transparent',
-                          cursor: 'pointer',
-                          '&:hover': {
-                            transform: 'scale(1.1)',
-                          },
+                  
+                  {/* Current Selection Preview */}
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
+                      Preview
+                    </Typography>
+                    <Box sx={{
+                      background: `linear-gradient(135deg, ${formData.avatarBgColor} 0%, ${formData.avatarBgColor}CC 100%)`,
+                      color: 'white',
+                      p: 2,
+                      borderRadius: 2,
+                      textAlign: 'center',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}>
+                      <Avatar
+                        src={formData.profilePhoto ? URL.createObjectURL(formData.profilePhoto) : creativeProfile?.profile_banner_url}
+                        sx={{ 
+                          width: 60, 
+                          height: 60,
+                          mx: 'auto',
+                          mb: 1,
+                          bgcolor: 'rgba(255, 255, 255, 0.2)',
+                          border: '2px solid rgba(255, 255, 255, 0.3)'
                         }}
-                      />
-                    ))}
+                      >
+                        {creativeProfile?.display_name?.charAt(0) || 'C'}
+                      </Avatar>
+                      <Typography variant="subtitle1" fontWeight={600} sx={{ opacity: 0.9 }}>
+                        {creativeProfile?.display_name || 'Your Name'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.8, fontFamily: 'monospace', mt: 1 }}>
+                        {formData.avatarBgColor.toUpperCase()}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map((color) => {
+                      const isSelected = color === formData.avatarBgColor;
+                      return (
+                        <Box
+                          key={color}
+                          onClick={() => handleColorSelect(color)}
+                          sx={{
+                            position: 'relative',
+                            width: 48,
+                            height: 48,
+                            borderRadius: '50%',
+                            backgroundColor: color,
+                            border: '3px solid',
+                            borderColor: isSelected ? 'primary.main' : 'transparent',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              transform: 'scale(1.1)',
+                              borderColor: isSelected ? 'primary.main' : 'grey.400',
+                              boxShadow: isSelected ? '0 0 0 2px rgba(25, 118, 210, 0.2)' : '0 2px 8px rgba(0,0,0,0.15)',
+                            },
+                            ...(isSelected && {
+                              boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
+                            })
+                          }}
+                        >
+                          {isSelected && (
+                            <Check 
+                              sx={{ 
+                                color: 'white', 
+                                fontSize: 24,
+                                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))'
+                              }} 
+                            />
+                          )}
+                        </Box>
+                      );
+                    })}
                     <Button
                       variant="outlined"
                       size="small"
                       onClick={(e) => {
                         setColorPickerAnchor(e.currentTarget);
                         setColorPickerOpen(true);
+                      }}
+                      sx={{ 
+                        minWidth: 80,
+                        borderColor: formData.avatarBgColor && !['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].includes(formData.avatarBgColor) 
+                          ? formData.avatarBgColor 
+                          : undefined,
+                        borderWidth: formData.avatarBgColor && !['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].includes(formData.avatarBgColor) 
+                          ? 2 
+                          : 1,
                       }}
                     >
                       Custom
@@ -730,7 +832,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                     </Typography>
                   </Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Choose which 2 services to display on your profile and invite page:
+                    Choose which 2 services or bundles to display on your profile and invite page:
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
                     <FormControl fullWidth size="small">
@@ -740,9 +842,22 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                         value={formData.primaryService}
                         onChange={(e) => handleInputChange('primaryService', e.target.value)}
                       >
-                        {getAvailableServices(formData.secondaryService).map((service) => (
-                          <MenuItem key={service.id} value={service.id}>
-                            {service.title}
+                        {getAvailableServices(formData.secondaryService).map((item) => (
+                          <MenuItem key={item.id} value={item.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <FontAwesomeIcon 
+                                icon={item.type === 'service' ? faGem : faLayerGroup} 
+                                style={{ fontSize: '14px', color: item.color }} 
+                              />
+                              <Typography variant="body2">
+                                {item.title}
+                              </Typography>
+                              {item.type === 'bundle' && (
+                                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                  (Bundle)
+                                </Typography>
+                              )}
+                            </Box>
                           </MenuItem>
                         ))}
                       </Select>
@@ -754,9 +869,22 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                         value={formData.secondaryService}
                         onChange={(e) => handleInputChange('secondaryService', e.target.value)}
                       >
-                        {getAvailableServices(formData.primaryService).map((service) => (
-                          <MenuItem key={service.id} value={service.id}>
-                            {service.title}
+                        {getAvailableServices(formData.primaryService).map((item) => (
+                          <MenuItem key={item.id} value={item.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <FontAwesomeIcon 
+                                icon={item.type === 'service' ? faGem : faLayerGroup} 
+                                style={{ fontSize: '14px', color: item.color }} 
+                              />
+                              <Typography variant="body2">
+                                {item.title}
+                              </Typography>
+                              {item.type === 'bundle' && (
+                                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                  (Bundle)
+                                </Typography>
+                              )}
+                            </Box>
                           </MenuItem>
                         ))}
                       </Select>
@@ -797,17 +925,18 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
       case 'preferences':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              Preference settings will be implemented here.
-            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Preferences content will be added here in the future */}
+              <Typography variant="body2" color="text.secondary">
+                Preferences settings will be available here in a future update.
+              </Typography>
+            </Box>
           </Box>
         );
       case 'billing':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              Billing management features will be implemented here.
-            </Typography>
+      
           </Box>
         );
       default:
@@ -843,10 +972,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
         {/* Blue header section - only extends to sidebar width */}
         <Box
           sx={{
-            width: { xs: '100%', md: 280 },
+            width: { xs: 0, md: 280 },
             background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
             color: 'white',
-            display: 'flex',
+            display: { xs: 'none', md: 'flex' },
             alignItems: 'center',
             justifyContent: 'space-between',
             px: 3,
@@ -855,7 +984,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
           }}
         >
           <Typography variant="h5" fontWeight={600}>
-            Settings
+            Creative Settings
           </Typography>
           {/* Close button for mobile - inside blue area */}
           {isMobile && (
@@ -874,18 +1003,17 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
         </Box>
         
         {/* Right section for desktop - part of content area with title, subtitle, and close button */}
-        {!isMobile && (
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              px: 3,
-              py: 2,
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)',
-            }}
-          >
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            px: 3,
+            py: 2,
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
             {/* Title and Subtitle */}
             <Box sx={{ flex: 1, pt: 1 }}>
               <Typography variant="h5" fontWeight={600} gutterBottom>
@@ -930,30 +1058,21 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
               </IconButton>
             </Box>
           </Box>
-        )}
       </DialogTitle>
 
       <DialogContent sx={{ p: 0, display: 'flex', height: '100%' }}>
         {/* Sidebar Navigation */}
         <Box
           sx={{
-            width: { xs: '100%', md: 280 },
+            width: { xs: 0, md: 280 },
             minWidth: { md: 280 },
             borderRight: { md: '1px solid rgba(0, 0, 0, 0.1)' },
             background: { md: 'rgba(255, 255, 255, 0.8)' },
             backdropFilter: { md: 'blur(10px)' },
-            display: 'flex',
+            display: { xs: 'none', md: 'flex' },
             flexDirection: 'column',
           }}
         >
-          {/* Mobile: Show section selector */}
-          {isMobile && (
-            <Box sx={{ p: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.1)' }}>
-              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Settings Sections
-              </Typography>
-            </Box>
-          )}
 
           <List sx={{ flex: 1, py: 1 }}>
             {settingsSections.map((section) => {
@@ -1010,20 +1129,6 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
             })}
           </List>
 
-          {/* Mobile: Show current section info */}
-          {isMobile && (
-            <>
-              <Divider />
-              <Box sx={{ p: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Current Section
-                </Typography>
-                <Typography variant="body2" fontWeight={500}>
-                  {settingsSections.find(s => s.id === selectedSection)?.label}
-                </Typography>
-              </Box>
-            </>
-          )}
         </Box>
 
         {/* Main Content Area */}

@@ -9,7 +9,7 @@ import { Menu, ListItemIcon, ListItemText, Grow } from '@mui/material';
 import { MusicNote, CalendarMonth, AccountCircle } from '@mui/icons-material';
 import { useMediaQuery } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUp, faArrowDown, faGlobe, faLock, faLayerGroup, faBan } from '@fortawesome/free-solid-svg-icons';
+import { faArrowUp, faArrowDown, faGlobe, faLock, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 
 const tabLabels = [
   { label: 'Services', icon: <Build sx={{ fontSize: 18, mr: 1 }} /> },
@@ -50,7 +50,7 @@ export function PublicCreative() {
   const [sortBy, setSortBy] = useState<'title' | 'price' | 'delivery'>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [search, setSearch] = useState('');
-  const [visibility, setVisibility] = useState<'all' | 'Public' | 'Private' | 'Disabled'>('all');
+  const [visibility, setVisibility] = useState<'all' | 'Public' | 'Private' | 'Bundle-Only'>('all');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   // Handler to switch to Services tab (index 0)
@@ -356,7 +356,7 @@ export function PublicCreative() {
                         labelId="visibility-label"
                         value={visibility}
                         label="Visibility"
-                        onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private' | 'Disabled')}
+                        onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private' | 'Bundle-Only')}
                         renderValue={() => {
                           let icon = faLayerGroup;
                           let label = 'All';
@@ -366,9 +366,9 @@ export function PublicCreative() {
                           } else if (visibility === 'Private') {
                             icon = faLock;
                             label = 'Private';
-                          } else if (visibility === 'Disabled') {
-                            icon = faBan;
-                            label = 'Disabled';
+                          } else if (visibility === 'Bundle-Only') {
+                            icon = faLayerGroup;
+                            label = 'Bundle-Only';
                           }
                           return (
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -437,9 +437,9 @@ export function PublicCreative() {
                           <FontAwesomeIcon icon={faLock} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
                           <Box sx={{ flex: 1, fontWeight: visibility === 'Private' ? 600 : 400 }}>Private</Box>
                         </MenuItem>
-                        <MenuItem value="Disabled" disableRipple>
-                          <FontAwesomeIcon icon={faBan} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
-                          <Box sx={{ flex: 1, fontWeight: visibility === 'Disabled' ? 600 : 400 }}>Disabled only</Box>
+                        <MenuItem value="Bundle-Only" disableRipple>
+                          <FontAwesomeIcon icon={faLayerGroup} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
+                          <Box sx={{ flex: 1, fontWeight: visibility === 'Bundle-Only' ? 600 : 400 }}>Bundle-Only</Box>
                         </MenuItem>
                       </Select>
                     </FormControl>
@@ -545,7 +545,7 @@ export function PublicCreative() {
                         labelId="modal-visibility-label"
                         value={visibility}
                         label="Visibility"
-                        onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private' | 'Disabled')}
+                        onChange={e => setVisibility(e.target.value as 'all' | 'Public' | 'Private' | 'Bundle-Only')}
                         renderValue={() => {
                           let icon = faLayerGroup;
                           let label = 'All';
@@ -555,6 +555,9 @@ export function PublicCreative() {
                           } else if (visibility === 'Private') {
                             icon = faLock;
                             label = 'Private';
+                          } else if (visibility === 'Bundle-Only') {
+                            icon = faLayerGroup;
+                            label = 'Bundle-Only';
                           }
                           return (
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -622,6 +625,10 @@ export function PublicCreative() {
                         <MenuItem value="Private" disableRipple>
                           <FontAwesomeIcon icon={faLock} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
                           <Box sx={{ flex: 1, fontWeight: visibility === 'Private' ? 600 : 400 }}>Private</Box>
+                        </MenuItem>
+                        <MenuItem value="Bundle-Only" disableRipple>
+                          <FontAwesomeIcon icon={faLayerGroup} className="dropdown-icon" style={{ marginRight: 12, fontSize: 16 }} />
+                          <Box sx={{ flex: 1, fontWeight: visibility === 'Bundle-Only' ? 600 : 400 }}>Bundle-Only</Box>
                         </MenuItem>
                       </Select>
                     </FormControl>
@@ -721,6 +728,7 @@ export function PublicCreative() {
               sortBy={sortBy}
               sortOrder={sortOrder}
               visibility={visibility}
+              creativeProfile={creativeProfile}
             />
           )}
           {Number(activeTab) === 1 && (

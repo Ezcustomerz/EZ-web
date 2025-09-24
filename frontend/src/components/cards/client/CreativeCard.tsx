@@ -42,7 +42,7 @@ export function CreativeCard({ creative, index, onClick }: CreativeCardProps) {
           cursor: 'pointer',
           p: 0,
           overflow: 'hidden',
-          background: 'linear-gradient(145deg, #ffffff 0%, #f8f9ff 100%)',
+          background: 'linear-gradient(145deg, #f5f6ff 0%, #eef0ff 100%)',
           border: '1px solid rgba(122, 95, 255, 0.08)',
           transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
           '&:hover': {
@@ -76,6 +76,9 @@ export function CreativeCard({ creative, index, onClick }: CreativeCardProps) {
           {/* Avatar and Name */}
           <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2.5 }}>
             <Avatar
+              src={creative.avatar || undefined}
+              alt={`${creative.name} avatar`}
+              imgProps={{ referrerPolicy: 'no-referrer' }}
               sx={{
                 width: 52,
                 height: 52,
@@ -144,37 +147,53 @@ export function CreativeCard({ creative, index, onClick }: CreativeCardProps) {
           }}>
             {/* Rating */}
             <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <Box sx={{
-                display: 'flex',
-                alignItems: 'center',
-                backgroundColor: 'rgba(255, 215, 0, 0.12)',
-                borderRadius: 1.5,
-                px: 1.2,
-                py: 0.6,
-                mr: 1,
-              }}>
-                <Star sx={{ fontSize: 16, color: '#FFD700', mr: 0.5 }} />
+              {creative.reviewCount > 0 ? (
+                <>
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(255, 215, 0, 0.12)',
+                    borderRadius: 1.5,
+                    px: 1.2,
+                    py: 0.6,
+                    mr: 1,
+                  }}>
+                    <Star sx={{ fontSize: 16, color: '#FFD700', mr: 0.5 }} />
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontSize: '0.85rem',
+                        fontWeight: 700,
+                        color: 'text.primary',
+                      }}
+                    >
+                      {creative.rating}
+                    </Typography>
+                  </Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.7rem',
+                      color: 'text.secondary',
+                      fontWeight: 500,
+                    }}
+                  >
+                    ({creative.reviewCount})
+                  </Typography>
+                </>
+              ) : (
                 <Typography
-                  variant="body2"
+                  variant="caption"
                   sx={{
-                    fontSize: '0.85rem',
-                    fontWeight: 700,
-                    color: 'text.primary',
+                    fontSize: '0.7rem',
+                    color: 'text.secondary',
+                    fontWeight: 500,
+                    fontStyle: 'italic',
                   }}
                 >
-                  {creative.rating}
+                  No ratings
                 </Typography>
-              </Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontSize: '0.7rem',
-                  color: 'text.secondary',
-                  fontWeight: 500,
-                }}
-              >
-                ({creative.reviewCount})
-              </Typography>
+              )}
             </Box>
 
             {/* Services Count */}

@@ -350,7 +350,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                   }}
                 >
                   <Avatar 
-                    src={advocateProfile?.profile_banner_url}
+                    src={advocateProfile?.profile_banner_url || userProfile?.profile_picture_url || undefined}
                     sx={{
                       width: 36,
                       height: 36,
@@ -361,7 +361,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                       transform: isUserPanelHovered ? 'scale(1.05)' : 'scale(1)',
                     }}
                   >
-                    {!advocateProfile?.profile_banner_url && (
+                    {!(advocateProfile?.profile_banner_url || userProfile?.profile_picture_url) && (
                       <PersonOutlined sx={{ color: 'white', fontSize: '18px' }} />
                     )}
                   </Avatar>
@@ -420,7 +420,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                   <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                     <Box sx={{ position: 'relative', mr: 2 }}>
                       <Avatar 
-                        src={advocateProfile?.profile_banner_url}
+                        src={advocateProfile?.profile_banner_url || userProfile?.profile_picture_url || undefined}
                         sx={{
                           width: 52,
                           height: 52,
@@ -430,7 +430,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
                           transition: 'all 0.2s ease-in-out',
                         }}
                       >
-                        {!advocateProfile?.profile_banner_url && (
+                        {!(advocateProfile?.profile_banner_url || userProfile?.profile_picture_url) && (
                           <PersonOutlined sx={{ color: 'white', fontSize: '26px' }} />
                         )}
                       </Avatar>

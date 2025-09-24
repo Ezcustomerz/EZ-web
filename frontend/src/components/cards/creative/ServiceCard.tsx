@@ -1,13 +1,14 @@
-import { Card, CardContent, Box, Typography, IconButton, Tooltip, useTheme, Button } from '@mui/material';
+import { Card, CardContent, Box, Typography, IconButton, Tooltip, useTheme } from '@mui/material';
 import { MoreVert } from '@mui/icons-material';
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGlobe, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faGlobe, faLock, faLayerGroup, faGem } from '@fortawesome/free-solid-svg-icons';
 import { ServiceDialog } from '../../dialogs/ServiceDialog';
 
 const statusHelp = {
   Public: 'Visible to everyone on your public profile.',
   Private: 'Only visible to you. Not shown on your public profile.',
+  'Bundle-Only': 'Only available as part of bundles. Not shown as a standalone service.',
 };
 
 export interface ServiceCardProps {
@@ -15,23 +16,27 @@ export interface ServiceCardProps {
   description: string;
   price: number;
   delivery: string;
-  status: 'Public' | 'Private';
+  status: 'Public' | 'Private' | 'Bundle-Only';
   creative: string;
   onEdit?: () => void;
   onDelete?: () => void;
-  onDisable?: () => void;
   color: string;
-  isEnabled?: boolean;
+  showMenu?: boolean;
+  onClick?: () => void;
 }
 
-export function ServiceCard({ title, description, price, delivery, status, creative, onEdit, onDelete, onDisable, color, isEnabled = true }: ServiceCardProps) {
+export function ServiceCard({ title, description, price, delivery, status, creative, onEdit, onDelete, color, showMenu = true, onClick }: ServiceCardProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation(); // Prevent card click from firing
+    setAnchorEl(event.currentTarget);
+  };
   const handleMenuClose = () => setAnchorEl(null);
   return (
     <Card
+      onClick={onClick}
       sx={{
         height: '100%',
         minHeight: { xs: 135, sm: 170 },
@@ -39,25 +44,28 @@ export function ServiceCard({ title, description, price, delivery, status, creat
         flexDirection: 'column',
         justifyContent: 'space-between',
         borderRadius: 1,
-        boxShadow: isEnabled ? '0px 1.5px 6px rgba(59,130,246,0.05)' : '0px 1px 3px rgba(0,0,0,0.08)',
+        boxShadow: '0px 1.5px 6px rgba(59,130,246,0.05)',
         p: { xs: 1.2, sm: 1.6 },
         transition: 'box-shadow 0.18s, transform 0.18s, opacity 0.2s',
         cursor: 'pointer',
         backgroundColor: theme.palette.background.paper,
         '&:hover': {
-          boxShadow: isEnabled ? `0 4px 16px ${color}` : '0px 2px 8px rgba(0,0,0,0.12)',
-          transform: isEnabled ? 'scale(1.025) translateY(-2px)' : 'scale(1.01) translateY(-1px)',
+          boxShadow: `0 4px 16px ${color}`,
+          transform: 'scale(1.025) translateY(-2px)',
         },
       }}
     >
       <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Top row: Title + More menu */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Box sx={{ mb: 1, opacity: isEnabled ? 1 : 0.6, filter: isEnabled ? 'none' : 'grayscale(40%)' }}>
-            <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary' }}>
-              {title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.85rem', fontWeight: 500 }}>
+          <Box sx={{ mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <FontAwesomeIcon icon={faGem} style={{ fontSize: '14px', color: color || theme.palette.primary.main }} />
+              <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary' }}>
+                {title}
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
               by {creative}
             </Typography>
             <Box
@@ -70,34 +78,36 @@ export function ServiceCard({ title, description, price, delivery, status, creat
               }}
             />
           </Box>
-            <IconButton
-              size="small"
-              sx={{
-                color: 'primary.main',
-                backgroundColor: '#ffffff',
-                border: '2px solid',
-                borderColor: 'primary.main',
-                boxShadow: '0 3px 12px rgba(59,130,246,0.25)',
-                transition: 'box-shadow 0.2s, transform 0.2s, background-color 0.2s',
-                '&:hover, &:focus': {
-                  backgroundColor: '#eef5ff',
-                  boxShadow: '0 6px 18px rgba(59,130,246,0.35)',
-                  transform: 'scale(1.06)'
-                }
-              }}
-              onClick={handleMenuOpen}
-            >
-            <MoreVert fontSize="small" />
-            </IconButton>
-          <ServiceDialog
-            open={open}
-            anchorEl={anchorEl}
-            onClose={handleMenuClose}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onDisable={onDisable}
-            isEnabled={isEnabled}
-          />
+            {showMenu && (
+              <IconButton
+                size="small"
+                sx={{
+                  color: 'primary.main',
+                  backgroundColor: '#ffffff',
+                  border: '2px solid',
+                  borderColor: 'primary.main',
+                  boxShadow: '0 3px 12px rgba(59,130,246,0.25)',
+                  transition: 'box-shadow 0.2s, transform 0.2s, background-color 0.2s',
+                  '&:hover, &:focus': {
+                    backgroundColor: '#eef5ff',
+                    boxShadow: '0 6px 18px rgba(59,130,246,0.35)',
+                    transform: 'scale(1.06)'
+                  }
+                }}
+                onClick={handleMenuOpen}
+              >
+              <MoreVert fontSize="small" />
+              </IconButton>
+            )}
+          {showMenu && (
+            <ServiceDialog
+              open={open}
+              anchorEl={anchorEl}
+              onClose={handleMenuClose}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          )}
         </Box>
         {/* Description */}
         <Typography
@@ -111,8 +121,6 @@ export function ServiceCard({ title, description, price, delivery, status, creat
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            opacity: isEnabled ? 1 : 0.6,
-            filter: isEnabled ? 'none' : 'grayscale(40%)',
           }}
         >
           {description}
@@ -127,8 +135,6 @@ export function ServiceCard({ title, description, price, delivery, status, creat
             gap: { xs: 1, sm: 0 },
             mt: 'auto',
             pt: 1,
-            opacity: isEnabled ? 1 : 0.6,
-            filter: isEnabled ? 'none' : 'grayscale(40%)',
           }}
         >
           <Typography fontWeight={700} color="primary" fontSize="1rem" sx={{ mb: { xs: 0.5, sm: 0 } }}>
@@ -175,7 +181,7 @@ export function ServiceCard({ title, description, price, delivery, status, creat
                 aria-label={status}
               >
                 <FontAwesomeIcon
-                  icon={status === 'Public' ? faGlobe : faLock}
+                  icon={status === 'Public' ? faGlobe : status === 'Bundle-Only' ? faLayerGroup : faLock}
                   style={{ fontSize: 14, marginRight: 7, color: 'inherit', opacity: 0.92 }}
                 />
                 {status}
@@ -206,6 +212,7 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
   const theme = useTheme();
   return (
     <Card
+      onClick={onBook}
       sx={{
         height: '100%',
         minHeight: { xs: 135, sm: 170 },
@@ -227,10 +234,13 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
       <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Title + Creative */}
         <Box sx={{ mb: 0.5 }}>
-          <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, color: 'text.primary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.85rem', fontWeight: 500 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <FontAwesomeIcon icon={faGem} style={{ fontSize: '14px', color: color || theme.palette.primary.main }} />
+            <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, color: 'text.primary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {title}
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', fontWeight: 500 }}>
             by {creative}
           </Typography>
         </Box>
@@ -259,130 +269,14 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
         >
           {description}
         </Typography>
-        {/* Price, Delivery, and Book Button Row */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-          <Box>
+        {/* Price and Delivery Row */}
+        <Box sx={{ mt: 2 }}>
           <Typography fontWeight={700} color="primary" fontSize="1rem">
             ${price}
           </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             {delivery} delivery
           </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            sx={{
-              px: 2,
-              py: 0.5,
-              minWidth: 0,
-              fontSize: '0.95rem',
-              borderRadius: 2,
-              fontWeight: 600,
-              textTransform: 'none',
-              boxShadow: 'none',
-              position: 'relative',
-              overflow: 'hidden',
-              '@keyframes sparkle': {
-                '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
-                '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-              },
-              '@keyframes sparkle2': {
-                '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
-                '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-              },
-              '@keyframes sparkle3': {
-                '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
-                '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-              },
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: '20%',
-                left: '15%',
-                width: 4,
-                height: 4,
-                background: 'rgba(255,255,255,0.92)',
-                boxShadow: '0 0 6px 2px rgba(255,255,255,0.35)',
-                borderRadius: '50%',
-                transform: 'scale(0)',
-                opacity: 0,
-                transition: 'all 0.2s ease-in-out',
-              },
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: '70%',
-                right: '20%',
-                width: 3,
-                height: 3,
-                background: 'rgba(255,255,255,0.92)',
-                boxShadow: '0 0 6px 2px rgba(255,255,255,0.35)',
-                borderRadius: '50%',
-                transform: 'scale(0)',
-                opacity: 0,
-                transition: 'all 0.2s ease-in-out',
-              },
-              '&:hover, &:focus': {
-                backgroundColor: 'primary.dark',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 8px 25px 0 rgba(59, 130, 246, 0.5)',
-                '&::before': {
-                  animation: 'sparkle 0.8s ease-in-out',
-                },
-                '&::after': {
-                  animation: 'sparkle2 0.8s ease-in-out 0.1s',
-                },
-                '& .spark-element': {
-                  '&:nth-of-type(1)': {
-                    animation: 'sparkle3 0.8s ease-in-out 0.2s',
-                  },
-                  '&:nth-of-type(2)': {
-                    animation: 'sparkle 0.8s ease-in-out 0.3s',
-                  },
-                },
-              },
-            }}
-            onClick={onBook || (() => console.log(`Book clicked for ${title}`))}
-          >
-            <Box
-              className="spark-element"
-              sx={{
-                position: 'absolute',
-                top: '10%',
-                right: '10%',
-                width: 2,
-                height: 2,
-                background: 'rgba(255,255,255,0.92)',
-                boxShadow: '0 0 6px 2px rgba(255,255,255,0.35)',
-                borderRadius: '50%',
-                transform: 'scale(0)',
-                opacity: 0,
-                transition: 'all 0.2s ease-in-out',
-              }}
-            />
-            <Box
-              className="spark-element"
-              sx={{
-                position: 'absolute',
-                bottom: '15%',
-                left: '25%',
-                width: 2,
-                height: 2,
-                background: 'rgba(255,255,255,0.92)',
-                boxShadow: '0 0 6px 2px rgba(255,255,255,0.35)',
-                borderRadius: '50%',
-                transform: 'scale(0)',
-                opacity: 0,
-                transition: 'all 0.2s ease-in-out',
-              }}
-            />
-            Book
-          </Button>
         </Box>
       </CardContent>
     </Card>

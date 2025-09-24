@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, UploadFile, File
 from services.creative.creative_service import CreativeController
-from schemas.creative import CreativeClientsListResponse, CreativeServicesListResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, ToggleServiceStatusRequest, ToggleServiceStatusResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse
+from schemas.creative import CreativeClientsListResponse, CreativeServicesListResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse, ProfilePhotoUploadResponse, CreateBundleRequest, CreateBundleResponse, CreativeBundlesListResponse, UpdateBundleRequest, UpdateBundleResponse, DeleteBundleResponse, PublicServicesAndBundlesResponse
 
 router = APIRouter()
 
@@ -51,33 +51,33 @@ async def get_creative_clients(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to fetch creative clients: {str(e)}")
 
 
-@router.get("/services", response_model=CreativeServicesListResponse)
-async def get_creative_services(request: Request):
-    """Get all services associated with the current creative"""
+@router.get("/services", response_model=PublicServicesAndBundlesResponse)
+async def get_creative_services_and_bundles(request: Request):
+    """Get all services and bundles associated with the current creative"""
     try:
         # Get user ID from JWT token
         user_id = request.state.user.get('sub')
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
-        return await CreativeController.get_creative_services(user_id)
+        return await CreativeController.get_creative_services_and_bundles(user_id)
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative services: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch creative services and bundles: {str(e)}")
 
 
-@router.get("/services/{user_id}", response_model=CreativeServicesListResponse)
+@router.get("/services/{user_id}", response_model=PublicServicesAndBundlesResponse)
 async def get_creative_services_by_id(user_id: str):
-    """Get all services associated with a creative by user ID (public endpoint for invite links)"""
+    """Get all public services and bundles associated with a creative by user ID (public endpoint for invite links)"""
     try:
-        return await CreativeController.get_creative_services(user_id)
+        return await CreativeController.get_public_creative_services_and_bundles(user_id)
         
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative services: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch creative services and bundles: {str(e)}")
 
 
 @router.post("/services", response_model=CreateServiceResponse)
@@ -90,6 +90,23 @@ async def create_service(request: Request, service_request: CreateServiceRequest
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
         return await CreativeController.create_service(user_id, service_request)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+
+
+@router.post("/services/with-photos", response_model=CreateServiceResponse)
+async def create_service_with_photos(request: Request):
+    """Create a new service with photos in a single request"""
+    try:
+        # Get user ID from JWT token
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        return await CreativeController.create_service_with_photos(user_id, request)
         
     except HTTPException:
         raise
@@ -114,21 +131,6 @@ async def delete_service(request: Request, service_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete service: {str(e)}")
 
 
-@router.patch("/services/{service_id}/status", response_model=ToggleServiceStatusResponse)
-async def toggle_service_status(request: Request, service_id: str, toggle_request: ToggleServiceStatusRequest):
-    """Toggle service enabled/disabled status for the current creative"""
-    try:
-        # Get user ID from JWT token
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
-        
-        return await CreativeController.toggle_service_status(user_id, service_id, toggle_request)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to toggle service status: {str(e)}")
 
 
 @router.put("/services/{service_id}", response_model=UpdateServiceResponse)
@@ -183,3 +185,73 @@ async def update_creative_profile_settings(request: Request, settings_request: C
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update profile settings: {str(e)}")
+
+
+@router.post("/profile/upload-photo", response_model=ProfilePhotoUploadResponse)
+async def upload_profile_photo(request: Request, file: UploadFile = File(...)):
+    """Upload a profile photo for the creative"""
+    try:
+        # Get user ID from JWT token
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        return await CreativeController.upload_profile_photo(user_id, file)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
+
+
+# Bundle endpoints
+@router.post("/bundles", response_model=CreateBundleResponse)
+async def create_bundle(request: Request, bundle_request: CreateBundleRequest):
+    """Create a new bundle for the current creative"""
+    try:
+        # Get user ID from JWT token
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        return await CreativeController.create_bundle(user_id, bundle_request)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create bundle: {str(e)}")
+
+
+
+
+@router.put("/bundles/{bundle_id}", response_model=UpdateBundleResponse)
+async def update_bundle(request: Request, bundle_id: str, bundle_request: UpdateBundleRequest):
+    """Update a bundle by ID"""
+    try:
+        # Get user ID from JWT token
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        return await CreativeController.update_bundle(user_id, bundle_id, bundle_request)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update bundle: {str(e)}")
+
+@router.delete("/bundles/{bundle_id}", response_model=DeleteBundleResponse)
+async def delete_bundle(request: Request, bundle_id: str):
+    """Delete a bundle by ID"""
+    try:
+        # Get user ID from JWT token
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        return await CreativeController.delete_bundle(user_id, bundle_id)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete bundle: {str(e)}")

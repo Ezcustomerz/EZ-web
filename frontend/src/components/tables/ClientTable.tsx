@@ -57,6 +57,7 @@ interface ClientTableProps {
   statusFilter: 'all' | 'active' | 'inactive';
   onStatusFilterChange: (value: 'all' | 'active' | 'inactive') => void;
   onInviteClient: () => void;
+  onClientClick?: (client: Client) => void;
   itemsPerPage?: number;
   loading?: boolean;
 }
@@ -279,6 +280,7 @@ export function ClientTable({
   statusFilter,
   onStatusFilterChange,
   onInviteClient,
+  onClientClick,
   loading = false,
 }: ClientTableProps) {
   const [sortField, setSortField] = useState<SortField | null>(null);
@@ -357,7 +359,7 @@ export function ClientTable({
         return {
           label: 'active',
           sx: {
-            backgroundColor: '#2563eb',
+            backgroundColor: '#22c55e',
             color: 'white',
             fontSize: '0.75rem',
             fontWeight: 500,
@@ -370,7 +372,7 @@ export function ClientTable({
         return {
           label: 'inactive',
           sx: {
-            backgroundColor: '#22c55e',
+            backgroundColor: '#2563eb',
             color: 'white',
             fontSize: '0.75rem',
             fontWeight: 500,
@@ -734,6 +736,7 @@ export function ClientTable({
               elevation={1}
               tabIndex={0}
               aria-label={`Client ${client.name}, status ${client.status}, contact ${client.contact}, total spent ${formatCurrency(client.totalSpent)}, ${client.projects} projects`}
+              onClick={() => onClientClick?.(client)}
               sx={{
                 borderRadius: 2,
                 p: 2,
@@ -980,7 +983,7 @@ export function ClientTable({
               filteredAndSortedClients.map((client) => (
                 <TableRow
                   key={client.id}
-                  onClick={() => console.log('Client clicked:', client.name, client)}
+                  onClick={() => onClientClick?.(client)}
                   sx={{
                     cursor: 'pointer',
                     '&:hover': {
