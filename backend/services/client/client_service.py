@@ -94,7 +94,7 @@ class ClientController:
             
             # Batch fetch all creative and user data to avoid N+1 queries
             creatives_result = db_admin.table('creatives').select(
-                'display_name, title, user_id, avatar_background_color, profile_banner_url'
+                'display_name, title, user_id, avatar_background_color, profile_banner_url, primary_contact'
             ).in_('user_id', creative_user_ids).execute()
             
             users_result = db_admin.table('users').select(
@@ -148,8 +148,8 @@ class ClientController:
                 # Get creative's specialty (title)
                 specialty = creative_data.get('title', 'Music Producer')
                 
-                # Get email
-                email = user_data.get('email', '')
+                # Get email from creative's primary_contact (fallback to user email if not set)
+                email = creative_data.get('primary_contact') or user_data.get('email', '')
                 
                 # Get profile picture from creative's profile_banner_url (not user's profile_picture_url)
                 avatar = creative_data.get('profile_banner_url')
