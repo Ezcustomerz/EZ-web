@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl, faChevronDown, faBars, faTimes, faMusic, faUsers, faHandshake } from '@fortawesome/free-solid-svg-icons';
 import { AnimatedButton } from '../../components/buttons/MusicButton';
+import { useRoleRedirect } from '../../utils/roleRedirect';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: theme.palette.secondary.main,    
@@ -205,6 +206,7 @@ const StyledMenuItem = styled(MenuItem)(({ theme }) => ({
 export function Header() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { getRedirectUrl } = useRoleRedirect();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [featuresAnchorEl, setFeaturesAnchorEl] = useState<null | HTMLElement>(null);
@@ -336,7 +338,7 @@ export function Header() {
               <AnimatedButton 
               text="Dashboard"
               buttonVariant="header"
-              onClick={() => navigate('/creative?auth=1')}
+              onClick={() => navigate(`${getRedirectUrl()}?auth=1`)}
               sx={{ 
                 fontSize: { xs: '13px', sm: '14px' }, 
                 padding: { xs: '5px 12px', sm: '6px 16px' },
@@ -492,7 +494,7 @@ export function Header() {
               <AnimatedButton 
                 text="Dashboard"
                 buttonVariant="header"
-                onClick={() => navigate('/creative?auth=1')}
+                onClick={() => navigate(`${getRedirectUrl()}?auth=1`)}
                 onMouseEnter={() => {
                   if (featuresOpen) {
                     handleCloseMenu();

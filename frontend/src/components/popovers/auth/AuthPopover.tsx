@@ -71,9 +71,15 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
     setIsLoading(true);
     // Set flag to show toast after successful sign in
     localStorage.setItem('justSignedIn', 'true');
+    // Set flag to indicate we need role-based redirection after login
+    localStorage.setItem('needsRoleRedirect', 'true');
+    // Clear any previous redirect flags
+    sessionStorage.removeItem('authCallbackRedirected');
     
     try {
-      const redirectTo = `${window.location.origin}/creative`;
+      // For OAuth, we can't determine the role before login, so we redirect to a generic handler
+      // The auth context will handle the actual role-based redirection after login
+      const redirectTo = `${window.location.origin}/auth-callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -87,12 +93,14 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
         console.error('Google sign-in failed:', error.message);
         errorToast('Sign In Failed', `Unable to sign in with Google: ${error.message}`);
         localStorage.removeItem('justSignedIn'); // Clear flag on error
+        localStorage.removeItem('needsRoleRedirect'); // Clear flag on error
         setIsLoading(false);
       }
     } catch (err) {
       console.error('Unexpected sign-in error:', err);
       errorToast('Unexpected Error', 'An unexpected error occurred during sign in');
       localStorage.removeItem('justSignedIn'); // Clear flag on error
+      localStorage.removeItem('needsRoleRedirect'); // Clear flag on error
       setIsLoading(false);
     }
   }
