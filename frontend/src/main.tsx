@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import {LandingPage} from './views/web/LandingPage.tsx'
+import { ContactUs } from './views/web/ContactUs.tsx'
 import { DashCreative } from './views/creative/DashCreative.tsx'
 import { ClientCreative } from './views/creative/ClientCreative.tsx'
 import { ActivityCreative } from './views/creative/ActivityCreative.tsx'
@@ -134,6 +135,7 @@ function AppContent() {
         <Route path="/invite/:inviteToken" element={<InvitePage />} />
         <Route path="/auth-callback" element={<AuthCallback />} />
         <Route path="/no-access" element={<NoAccess />} />
+        <Route path="/contact" element={<ContactUs />} />
       </Routes>
       <AuthPopover 
         open={authOpen} 

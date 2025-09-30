@@ -305,8 +305,13 @@ export function Header() {
           display: 'flex', 
           alignItems: 'center', 
           gap: { xs: 0.75, sm: 1, md: 1.5, lg: 2 },
-          minWidth: 'max-content'
-        }}>
+          minWidth: 'max-content',
+          cursor: 'pointer'
+        }}
+          onClick={() => navigate('/')}
+          role="button"
+          aria-label="Go to home"
+        >
           <FontAwesomeIcon 
             icon={faRecordVinyl} 
             style={{ 
@@ -370,7 +375,7 @@ export function Header() {
             }}
           >
             <NavButton 
-              onClick={() => console.log('Contact clicked')}
+              onClick={() => navigate('/contact')}
               onMouseEnter={() => {
                 if (featuresOpen) {
                   handleCloseMenu();
@@ -535,7 +540,7 @@ export function Header() {
             <List sx={{ py: 0 }}>
               <ListItemButton 
                 onClick={() => {
-                  console.log('Contact clicked');
+                  navigate('/contact');
                   closeMobileMenu();
                 }}
                 sx={{ 

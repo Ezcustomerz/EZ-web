@@ -75,7 +75,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       label: 'Contact Us', 
       icon: ChatBubbleOutline,
       action: () => {
-        console.log('Contact Us clicked');
+        window.location.href = '/contact';
         onClose();
       }
     },
