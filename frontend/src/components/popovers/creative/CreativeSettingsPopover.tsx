@@ -25,6 +25,7 @@ import {
   Avatar,
   Autocomplete,
   Popover,
+  Divider,
 } from '@mui/material';
 import {
   Close,
@@ -40,11 +41,13 @@ import {
   TrendingUp,
   Visibility,
   Check,
+  AccountCircle,
 } from '@mui/icons-material';
 import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast } from '../../../components/toast/toast';
+import { useAuth } from '../../../context/auth';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
@@ -52,7 +55,7 @@ interface CreativeSettingsPopoverProps {
   onProfileUpdated?: () => void; // Callback to refresh parent components
 }
 
-type SettingsSection = 'account' | 'preferences' | 'billing';
+type SettingsSection = 'account' | 'billing' | 'userAccount';
 
 const CREATIVE_TITLES = [
   'Other', // Move to top for easy access
@@ -170,6 +173,7 @@ const PROFILE_HIGHLIGHTS_OPTIONS = [
 export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: CreativeSettingsPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { isAuthenticated } = useAuth();
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
   
   // Data state
@@ -215,13 +219,14 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark'>('light');
   
   // Fetch creative profile and services when popover opens
   useEffect(() => {
-    if (open) {
+    if (open && isAuthenticated) {
       fetchData();
     }
-  }, [open]);
+  }, [open, isAuthenticated]);
   
   // Update form data when creative profile loads
   useEffect(() => {
@@ -249,6 +254,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   
   const fetchData = async () => {
     try {
+      // Only fetch data if user is authenticated
+      if (!isAuthenticated) {
+        console.log('User not authenticated, skipping data fetch');
+        return;
+      }
+
       // Fetch creative profile
       const profile = await userService.getCreativeProfile();
       setCreativeProfile(profile);
@@ -274,18 +285,21 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   const settingsSections = [
     {
       id: 'account' as SettingsSection,
-      label: 'Account',
+      label: 'Creative Account',
       icon: Person,
     },
     {
-      id: 'preferences' as SettingsSection,
-      label: 'Preferences',
-      icon: Settings,
-    },
-    {
       id: 'billing' as SettingsSection,
-      label: 'Billing',
+      label: 'Creative Billing',
       icon: CreditCard,
+    },
+  ];
+
+  const accountSections = [
+    {
+      id: 'userAccount' as SettingsSection,
+      label: 'User Account',
+      icon: AccountCircle,
     },
   ];
 
@@ -831,6 +845,39 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                       Services Display Configuration
                     </Typography>
                   </Box>
+                  
+                  {(() => {
+                    const allServices = getAvailableServices();
+                    const hasEnoughServices = allServices.length >= 2;
+                    
+                    if (!hasEnoughServices) {
+                      return (
+                        <Box sx={{ 
+                          p: 3, 
+                          textAlign: 'center', 
+                          bgcolor: 'grey.50', 
+                          borderRadius: 2,
+                          border: '1px dashed',
+                          borderColor: 'grey.300'
+                        }}>
+                          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                            {allServices.length === 0 ? 'No Services Available' : 'Insufficient Services'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            {allServices.length === 0 
+                              ? 'You need to create at least 2 services or bundles to configure your profile display.'
+                              : `You have ${allServices.length} service${allServices.length === 1 ? '' : 's'} available, but need at least 2 to configure your profile display.`
+                            }
+                          </Typography>
+                          <Typography variant="body2" color="primary" fontWeight={500}>
+                            Create more services or bundles in your creative dashboard to continue.
+                          </Typography>
+                        </Box>
+                      );
+                    }
+                    
+                    return (
+                      <>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Choose which 2 services or bundles to display on your profile and invite page:
                   </Typography>
@@ -890,6 +937,190 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                       </Select>
                     </FormControl>
                   </Box>
+                      </>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* Delete Account Section */}
+              <Card variant="outlined" sx={{ borderColor: 'error.light' }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Typography variant="h6" fontWeight={600} color="error">
+                      Delete Creative Role
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
+                    ⚠️ <strong>Warning:</strong> Role deletion is permanent and irreversible. 
+                    All your data related to the creative role, including services, reviews, and profile information,
+                    will be permanently removed. This action cannot be undone.
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Delete Creative Role
+                  </Button>
+                </CardContent>
+              </Card>
+
+            </Box>
+          </Box>
+        );
+      case 'billing':
+        return (
+          <Box sx={{ px: 3, pb: 3 }}>
+      
+          </Box>
+        );
+      case 'userAccount':
+        return (
+          <Box sx={{ px: 3, pb: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Theme Preferences */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Settings color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Theme Preferences
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    Choose your preferred theme for the application interface.
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                    {/* Light Theme Option */}
+                    <Card 
+                      variant="outlined" 
+                      onClick={() => setSelectedTheme('light')}
+                      sx={{ 
+                        flex: 1, 
+                        cursor: 'pointer',
+                        border: '2px solid',
+                        borderColor: selectedTheme === 'light' ? 'primary.main' : 'grey.300',
+                        opacity: selectedTheme === 'light' ? 1 : 0.6,
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          opacity: 1,
+                          borderColor: selectedTheme === 'light' ? 'primary.main' : 'primary.light',
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                          <Box sx={{ 
+                            width: 12, 
+                            height: 12, 
+                            borderRadius: '50%', 
+                            bgcolor: selectedTheme === 'light' ? 'primary.main' : 'grey.100',
+                            border: '1px solid',
+                            borderColor: selectedTheme === 'light' ? 'primary.main' : 'grey.300'
+                          }} />
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            Light Theme
+                          </Typography>
+                          {selectedTheme === 'light' && (
+                            <Check sx={{ ml: 'auto', color: 'primary.main', fontSize: 16 }} />
+                          )}
+                        </Box>
+                        <Box sx={{ 
+                          bgcolor: 'grey.50', 
+                          p: 2, 
+                          borderRadius: 1, 
+                          border: '1px solid',
+                          borderColor: 'grey.200'
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'grey.300' }} />
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'grey.300' }} />
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'grey.300' }} />
+                          </Box>
+                          <Box sx={{ 
+                            height: 8, 
+                            bgcolor: 'grey.200', 
+                            borderRadius: 0.5, 
+                            mb: 1 
+                          }} />
+                          <Box sx={{ 
+                            height: 6, 
+                            bgcolor: 'grey.200', 
+                            borderRadius: 0.5, 
+                            width: '60%' 
+                          }} />
+                        </Box>
+                      </CardContent>
+                    </Card>
+
+                    {/* Dark Theme Option */}
+                    <Card 
+                      variant="outlined" 
+                      onClick={() => setSelectedTheme('dark')}
+                      sx={{ 
+                        flex: 1, 
+                        cursor: 'pointer',
+                        border: '2px solid',
+                        borderColor: selectedTheme === 'dark' ? 'primary.main' : 'grey.300',
+                        opacity: selectedTheme === 'dark' ? 1 : 0.6,
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          opacity: 1,
+                          borderColor: selectedTheme === 'dark' ? 'primary.main' : 'primary.light',
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                          <Box sx={{ 
+                            width: 12, 
+                            height: 12, 
+                            borderRadius: '50%', 
+                            bgcolor: selectedTheme === 'dark' ? 'primary.main' : 'grey.800',
+                            border: '1px solid',
+                            borderColor: selectedTheme === 'dark' ? 'primary.main' : 'grey.600'
+                          }} />
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            Dark Theme
+                          </Typography>
+                          {selectedTheme === 'dark' && (
+                            <Check sx={{ ml: 'auto', color: 'primary.main', fontSize: 16 }} />
+                          )}
+                        </Box>
+                        <Box sx={{ 
+                          bgcolor: 'grey.900', 
+                          p: 2, 
+                          borderRadius: 1, 
+                          border: '1px solid',
+                          borderColor: 'grey.700'
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'grey.600' }} />
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'grey.600' }} />
+                            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'grey.600' }} />
+                          </Box>
+                          <Box sx={{ 
+                            height: 8, 
+                            bgcolor: 'grey.700', 
+                            borderRadius: 0.5, 
+                            mb: 1 
+                          }} />
+                          <Box sx={{ 
+                            height: 6, 
+                            bgcolor: 'grey.700', 
+                            borderRadius: 0.5, 
+                            width: '60%' 
+                          }} />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Box>
+
                 </CardContent>
               </Card>
 
@@ -903,40 +1134,40 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                   </Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
                     ⚠️ <strong>Warning:</strong> Account deletion is permanent and irreversible. 
-                    All your data, services, reviews, and profile information will be permanently removed. 
-                    This action cannot be undone.
+                    All your data, including user account, creative roles, services, reviews, and profile information,
+                    will be permanently removed. This action cannot be undone.
                   </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: 1.5 }}>
+                    Before deleting your account, make sure to:
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 2, mb: 3 }}>
+                    <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Download any important data you want to keep
+                    </Typography>
+                    <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Cancel any active subscriptions
+                    </Typography>
+                    <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Notify any clients about your account closure
+                    </Typography>
+                  </Box>
                   <Button
                     variant="outlined"
                     color="error"
+                    disabled
                     sx={{
                       textTransform: 'none',
                       fontWeight: 500,
                     }}
                   >
-                    Delete Account
+                    Delete Account Permanently
                   </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    Account deletion will be available in a future update.
+                  </Typography>
                 </CardContent>
               </Card>
-
             </Box>
-          </Box>
-        );
-      case 'preferences':
-        return (
-          <Box sx={{ px: 3, pb: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {/* Preferences content will be added here in the future */}
-              <Typography variant="body2" color="text.secondary">
-                Preferences settings will be available here in a future update.
-              </Typography>
-            </Box>
-          </Box>
-        );
-      case 'billing':
-        return (
-          <Box sx={{ px: 3, pb: 3 }}>
-      
           </Box>
         );
       default:
@@ -1017,12 +1248,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
             {/* Title and Subtitle */}
             <Box sx={{ flex: 1, pt: 1 }}>
               <Typography variant="h5" fontWeight={600} gutterBottom>
-                {settingsSections.find(s => s.id === selectedSection)?.label}
+                {[...settingsSections, ...accountSections].find(s => s.id === selectedSection)?.label}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {selectedSection === 'account' && 'Manage your account information and profile settings.'}
-                {selectedSection === 'preferences' && 'Customize your app experience and interface.'}
                 {selectedSection === 'billing' && 'Manage your subscription and payment information.'}
+                {selectedSection === 'userAccount' && 'Manage your user account settings and security preferences.'}
               </Typography>
             </Box>
             
@@ -1074,6 +1305,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
           }}
         >
 
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            {/* Creative Role Settings */}
           <List sx={{ flex: 1, py: 1 }}>
             {settingsSections.map((section) => {
               const IconComponent = section.icon;
@@ -1128,6 +1361,66 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
               );
             })}
           </List>
+
+            {/* Separator */}
+            <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.1)' }} />
+
+            {/* Account-Specific Settings - Pushed to bottom */}
+            <List sx={{ py: 1 }}>
+              {accountSections.map((section) => {
+                const IconComponent = section.icon;
+                const isSelected = selectedSection === section.id;
+
+                return (
+                  <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                    <ListItemButton
+                      onClick={() => setSelectedSection(section.id)}
+                      selected={isSelected}
+                      sx={{
+                        borderRadius: 2,
+                        py: 1.5,
+                        px: 2,
+                        transition: 'all 0.2s ease-in-out',
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          color: theme.palette.primary.main,
+                          '&:hover': {
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                          },
+                          '& .MuiListItemIcon-root': {
+                            color: theme.palette.primary.main,
+                          },
+                        },
+                        '&:hover': {
+                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          transform: 'translateX(4px)',
+                        },
+                      }}
+                    >
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 40,
+                          color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                          transition: 'color 0.2s ease-in-out',
+                        }}
+                      >
+                        <IconComponent />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={section.label}
+                        sx={{
+                          '& .MuiListItemText-primary': {
+                            fontWeight: isSelected ? 600 : 500,
+                            fontSize: '0.95rem',
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+          </Box>
 
         </Box>
 

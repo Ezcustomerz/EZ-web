@@ -423,8 +423,8 @@ class CreativeController:
     async def _save_service_photos(service_id: str, photos):
         """Save service photos for a service"""
         try:
-            # First, delete existing photos for this service
-            db_admin.table('service_photos').delete().eq('service_id', service_id).execute()
+            # First, delete existing photos from both storage and database
+            await CreativeController._delete_service_photos(service_id)
             
             # Insert new photos
             if photos:
@@ -449,8 +449,8 @@ class CreativeController:
     async def _save_service_photos_from_files(service_id: str, photo_files):
         """Save service photos from uploaded files with parallel processing"""
         try:
-            # First, delete existing photos for this service
-            db_admin.table('service_photos').delete().eq('service_id', service_id).execute()
+            # First, delete existing photos from both storage and database
+            await CreativeController._delete_service_photos(service_id)
             
             # Upload photos to Supabase Storage and save metadata
             if photo_files:
@@ -529,37 +529,100 @@ class CreativeController:
     async def _delete_service_photos(service_id: str):
         """Delete all photos associated with a service from storage and database"""
         try:
-            # Get all photos for this service
+            # Get all photos for this service BEFORE deleting from database
             photos_result = db_admin.table('service_photos').select('photo_url, photo_filename').eq('service_id', service_id).execute()
             
+            print(f"Found {len(photos_result.data) if photos_result.data else 0} photos to delete for service {service_id}")
+            
             if photos_result.data:
-                # Delete photos from Supabase Storage
-                from supabase import create_client, Client
-                import os
                 import re
                 
-                supabase_url = os.getenv("SUPABASE_URL")
-                supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                # Use the existing db_admin client for storage operations
+                # Extract file paths from URLs and delete from storage
+                files_to_delete = []
                 
-                if supabase_url and supabase_key:
-                    supabase: Client = create_client(supabase_url, supabase_key)
+                for photo in photos_result.data:
+                    photo_url = photo['photo_url']
+                    print(f"Processing photo URL: {photo_url}")
+                    if photo_url:
+                        # Extract the file path from the URL
+                        # URL format: https://project.supabase.co/storage/v1/object/public/creative-assets/path/to/file
+                        match = re.search(r'/storage/v1/object/public/creative-assets/(.+)', photo_url)
+                        if match:
+                            file_path = match.group(1)
+                            # Clean the file path - remove any query parameters
+                            file_path = file_path.split('?')[0]
+                            print(f"Extracted file path: {file_path}")
+                            files_to_delete.append(file_path)
+                        else:
+                            print(f"Could not extract file path from URL: {photo_url}")
+                            # Try alternative URL patterns
+                            # Check if it's a different URL format
+                            alt_match = re.search(r'/storage/v1/object/public/([^/]+)/(.+)', photo_url)
+                            if alt_match:
+                                bucket_name = alt_match.group(1)
+                                file_path = alt_match.group(2)
+                                print(f"Alternative pattern - bucket: {bucket_name}, file path: {file_path}")
+                                files_to_delete.append(file_path)
+                
+                # Delete all files at once if we have any
+                if files_to_delete:
+                    print(f"Attempting to delete {len(files_to_delete)} files from storage: {files_to_delete}")
                     
-                    # Extract file paths from URLs and delete from storage
-                    for photo in photos_result.data:
-                        photo_url = photo['photo_url']
-                        if photo_url:
-                            # Extract the file path from the URL
-                            # URL format: https://project.supabase.co/storage/v1/object/public/creative-assets/path/to/file
-                            match = re.search(r'/storage/v1/object/public/creative-assets/(.+)', photo_url)
-                            if match:
-                                file_path = match.group(1)
-                                try:
-                                    supabase.storage.from_("creative-assets").remove([file_path])
-                                except Exception as e:
-                                    print(f"Failed to delete photo from storage: {file_path}, error: {str(e)}")
+                    # First, let's try to list files in the bucket to see what's there
+                    try:
+                        list_result = db_admin.storage.from_("creative-assets").list()
+                        print(f"Files in bucket before deletion: {list_result}")
+                    except Exception as e:
+                        print(f"Failed to list files in bucket: {e}")
+                    
+                    try:
+                        # Try to delete files from storage
+                        result = db_admin.storage.from_("creative-assets").remove(files_to_delete)
+                        print(f"Storage deletion result: {result}")
+                        print(f"Storage deletion result type: {type(result)}")
+                        print(f"Storage deletion result dir: {dir(result)}")
+                        
+                        # Check if the deletion was successful
+                        if hasattr(result, 'data') and result.data:
+                            print(f"Successfully deleted files: {result.data}")
+                        else:
+                            print(f"Deletion may have failed - no data returned: {result}")
+                            
+                        # Check for errors in the response
+                        if hasattr(result, 'error') and result.error:
+                            print(f"Storage deletion error: {result.error}")
+                        
+                        # Try to get more information about the result
+                        if hasattr(result, '__dict__'):
+                            print(f"Result attributes: {result.__dict__}")
+                        
+                        # List files again to see if they were actually deleted
+                        try:
+                            list_result_after = db_admin.storage.from_("creative-assets").list()
+                            print(f"Files in bucket after deletion: {list_result_after}")
+                        except Exception as e:
+                            print(f"Failed to list files after deletion: {e}")
+                            
+                    except Exception as e:
+                        print(f"Failed to delete photos from storage: {files_to_delete}, error: {str(e)}")
+                        print(f"Error type: {type(e)}")
+                        # Try to get more details about the error
+                        if hasattr(e, 'response'):
+                            print(f"Error response: {e.response}")
+                        if hasattr(e, 'details'):
+                            print(f"Error details: {e.details}")
+                        if hasattr(e, 'message'):
+                            print(f"Error message: {e.message}")
+                        if hasattr(e, 'args'):
+                            print(f"Error args: {e.args}")
+                else:
+                    print("No files to delete from storage")
                 
-                # Delete photo records from database
+                # Delete photo records from database AFTER storage cleanup
+                print(f"Deleting photo records from database for service {service_id}")
                 db_admin.table('service_photos').delete().eq('service_id', service_id).execute()
+                print(f"Successfully deleted photo records from database")
             
         except Exception as e:
             print(f"Failed to delete service photos for service {service_id}: {str(e)}")
@@ -704,6 +767,59 @@ class CreativeController:
             # Handle photos if provided
             if service_request.photos:
                 await CreativeController._save_service_photos(service_id, service_request.photos)
+
+            return UpdateServiceResponse(success=True, message="Service updated successfully")
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+
+    @staticmethod
+    async def update_service_with_photos(user_id: str, service_id: str, service_data: dict, photo_files) -> UpdateServiceResponse:
+        """Update an existing service with new photos"""
+        try:
+            # Verify the service exists and belongs to the user
+            service_result = db_admin.table('creative_services').select(
+                'id, creative_user_id, is_active'
+            ).eq('id', service_id).single().execute()
+
+            if not service_result.data:
+                raise HTTPException(status_code=404, detail="Service not found")
+
+            if service_result.data['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to edit this service")
+
+            if not service_result.data['is_active']:
+                raise HTTPException(status_code=400, detail="Cannot edit a deleted service")
+
+            if service_data['price'] <= 0:
+                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+
+            if service_data['status'] not in ['Public', 'Private', 'Bundle-Only']:
+                raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
+
+            # Update service data
+            update_data = {
+                'title': service_data['title'].strip(),
+                'description': service_data['description'].strip(),
+                'price': service_data['price'],
+                'delivery_time': service_data['delivery_time'],
+                'status': service_data['status'],
+                'color': service_data['color'],
+                'updated_at': 'now()'
+            }
+
+            result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
+            if not result.data:
+                raise HTTPException(status_code=500, detail="Failed to update service")
+
+            # Always delete existing photos first, then handle new photos if provided
+            await CreativeController._delete_service_photos(service_id)
+            
+            # Handle new photos if provided
+            if photo_files:
+                await CreativeController._save_service_photos_from_files(service_id, photo_files)
 
             return UpdateServiceResponse(success=True, message="Service updated successfully")
 

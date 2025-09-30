@@ -28,6 +28,7 @@ import { CreativeSettingsPopover } from '../../../components/popovers/creative/C
 import { userService, type CreativeProfile, type CreativeService, type CreativeBundle } from '../../../api/userService';
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
 import { useInviteClient } from '../../../hooks/useInviteClient';
+import { useAuth } from '../../../context/auth';
 
 // Mock data for reviews
 const MOCK_REVIEWS = [
@@ -104,6 +105,7 @@ export interface ProfileTabProps {
 }
 
 export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = true, onSwitchToServicesTab }: ProfileTabProps = {}) {
+  const { isAuthenticated, openAuth } = useAuth();
   const [servicesOpen, setServicesOpen] = useState(false);
 
   const handleServiceClick = (service: CreativeService) => {
@@ -139,6 +141,14 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
     setBundleDetailOpen(false);
     setSelectedBundle(null);
   };
+
+  const handleEditClick = () => {
+    if (isAuthenticated) {
+      setSettingsOpen(true);
+    } else {
+      openAuth();
+    }
+  };
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -173,6 +183,16 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   const fetchServices = async () => {
     try {
       setServicesLoading(true);
+      
+      // Only fetch services if user is authenticated
+      if (!isAuthenticated) {
+        console.log('User not authenticated, skipping services fetch');
+        setServices([]);
+        setBundles([]);
+        setServicesLoading(false);
+        return;
+      }
+      
       const response = await userService.getCreativeServices();
       
       // Only show active and public services
@@ -200,9 +220,16 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   // Fetch services on initial load and when tab becomes active
   useEffect(() => {
     if (isActive) {
-      fetchServices();
+      if (isAuthenticated) {
+        fetchServices();
+      } else {
+        // If not authenticated, set loading to false and empty arrays
+        setServicesLoading(false);
+        setServices([]);
+        setBundles([]);
+      }
     }
-  }, [isActive]);
+  }, [isActive, isAuthenticated]);
 
   // Refresh services when profile is updated
   useEffect(() => {
@@ -270,7 +297,7 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
       }}>
         <Container maxWidth="lg" sx={{ 
           px: { xs: 1, md: 3 },
-          height: '100%'
+          minHeight: 265
         }}>
         <Box sx={{ 
           display: 'flex', 
@@ -337,7 +364,7 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                   </Button>
                   <Button
                     variant="outlined"
-                    onClick={() => setSettingsOpen(true)}
+                    onClick={handleEditClick}
                     sx={{
                       color: 'white',
                       borderColor: 'rgba(255, 255, 255, 0.3)',
@@ -550,8 +577,9 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                         flexDirection: 'column',
                         alignItems: 'center', 
                         justifyContent: 'center',
-                        py: 4,
-                        gap: 2
+                        py: 8,
+                        gap: 2,
+                        minHeight: 265
                       }}>
                         <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', fontStyle: 'italic' }}>
                           No services available yet. Add services to showcase your offerings to clients.
@@ -673,7 +701,8 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                         display: 'flex', 
                         flexDirection: { xs: 'column', sm: 'row' }, 
                         gap: 2,
-                        pb: 2
+                        pb: 2,
+                        minHeight: 265
                       }}>
                         {/* Show configured primary and secondary services/bundles */}
                         {(() => {

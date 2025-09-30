@@ -149,6 +149,41 @@ async def update_service(request: Request, service_id: str, service_request: Cre
         raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
 
 
+@router.put("/services/{service_id}/photos", response_model=UpdateServiceResponse)
+async def update_service_with_photos(request: Request, service_id: str):
+    """Update service photos with file uploads"""
+    try:
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+
+        # Get the form data
+        form = await request.form()
+        
+        # Extract service data
+        service_data = {
+            'title': form.get('title'),
+            'description': form.get('description'),
+            'price': float(form.get('price', 0)),
+            'delivery_time': form.get('delivery_time'),
+            'status': form.get('status'),
+            'color': form.get('color')
+        }
+        
+        # Get photo files
+        photo_files = []
+        for key, value in form.items():
+            if key.startswith('photo_') and hasattr(value, 'file'):
+                photo_files.append(value)
+        
+        return await CreativeController.update_service_with_photos(user_id, service_id, service_data, photo_files)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update service photos: {str(e)}")
+
+
 @router.get("/services/{service_id}/calendar")
 async def get_service_calendar_settings(request: Request, service_id: str):
     """Get calendar settings for a specific service"""
