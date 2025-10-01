@@ -177,6 +177,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   const [services, setServices] = useState<CreativeService[]>([]);
   const [bundles, setBundles] = useState<CreativeBundle[]>([]);
   
+  //For mobile sidebard is minimized - SMC
+  const [collapsed, setCollapsed] = useState(false);
+  const toggleCollapsed = () => setCollapsed(prev => !prev);
+
   // Form state
   const [formData, setFormData] = useState({
     displayName: '',
@@ -603,6 +607,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                   </Popover>
                 </CardContent>
               </Card>
+
 
               {/* Basic Information Row */}
               <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
@@ -1050,15 +1055,17 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
         )}
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0, display: 'flex', height: '100%' }}>
+      <DialogContent sx={{ p: 0, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, height: '100%' }}> 
+         
         {/* Sidebar Navigation */}
         <Box
           sx={{
-            width: { xs: '100%', md: 280 },
-            minWidth: { md: 280 },
-            borderRight: { md: '1px solid rgba(0, 0, 0, 0.1)' },
-            background: { md: 'rgba(255, 255, 255, 0.8)' },
-            backdropFilter: { md: 'blur(10px)' },
+            width: { xs: '100%', md: collapsed ? 60 : 280 }, // 60px when collapsed
+            minWidth: { md: collapsed ? 60 : 280 },
+            transition: 'width 0.3s ease', // smooth animation
+            borderRight: { xs: 'none', md: '1px solid rgba(0, 0, 0, 0.1)' },
+            background: { xs: 'transparent', md: 'rgba(255, 255, 255, 0.8)' },
+            backdropFilter: { xs: 'none', md: 'blur(10px)' },
             display: 'flex',
             flexDirection: 'column',
           }}

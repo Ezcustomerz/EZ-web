@@ -777,7 +777,7 @@ export function ClientTable({
           flex: '1 1 0',
           height: totalItems === 0 ? 'auto' : undefined,
           minHeight: totalItems === 0 ? 'auto' : 0,
-          overflowY: totalItems === 0 ? 'visible' : 'auto',
+          overflowY: totalItems === 0 ? 'hidden' : 'auto', //SMC - changed to hidden
           WebkitOverflowScrolling: 'touch',
           display: { xs: 'none', md: 'block' },
         }}
