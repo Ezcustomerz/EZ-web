@@ -3,6 +3,7 @@ from db.db_session import db_admin
 from model.user import UserProfile, UpdateRolesRequest, UpdateRolesResponse, CreativeSetupRequest, CreativeSetupResponse, ClientSetupRequest, ClientSetupResponse, AdvocateSetupResponse, SetupStatusResponse, BatchSetupRequest, BatchSetupResponse
 from typing import List
 import re
+from core.limiter import limiter
 
 router = APIRouter(
     prefix="/users",
@@ -54,6 +55,7 @@ def validate_contact_field(contact: str) -> tuple[bool, str]:
     return False, 'invalid_format'
 
 @router.get("/profile", response_model=UserProfile)
+@limiter.limit("2 per second")
 async def get_user_profile(request: Request):
     """Get the current user's profile from the database"""
     try:
@@ -76,6 +78,7 @@ async def get_user_profile(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to fetch user profile: {str(e)}")
 
 @router.post("/update-roles", response_model=UpdateRolesResponse)
+@limiter.limit("2 per second")
 async def update_user_roles(request: Request, role_request: UpdateRolesRequest):
     """Update user roles and set first_login to false"""
     try:
@@ -137,6 +140,7 @@ async def update_user_roles(request: Request, role_request: UpdateRolesRequest):
         raise HTTPException(status_code=500, detail=f"Failed to update user roles: {str(e)}")
 
 @router.post("/creative-setup", response_model=CreativeSetupResponse)
+@limiter.limit("2 per second")
 async def setup_producer_profile(request: Request, setup_request: CreativeSetupRequest):
     """Set up creative profile in the creatives table"""
     try:
@@ -224,6 +228,7 @@ async def setup_producer_profile(request: Request, setup_request: CreativeSetupR
         raise HTTPException(status_code=500, detail=f"Failed to set up creative profile: {str(e)}")
 
 @router.post("/client-setup", response_model=ClientSetupResponse)
+@limiter.limit("2 per second")
 async def setup_client_profile(request: Request, setup_request: ClientSetupRequest):
     """Set up client profile in the clients table"""
     try:
@@ -276,6 +281,7 @@ async def setup_client_profile(request: Request, setup_request: ClientSetupReque
         raise HTTPException(status_code=500, detail=f"Failed to set up client profile: {str(e)}")
 
 @router.post("/advocate-setup", response_model=AdvocateSetupResponse)
+@limiter.limit("2 per second")
 async def setup_advocate_profile(request: Request):
     """Set up advocate profile and copy display/avatar from user with fallbacks"""
     try:
@@ -347,6 +353,7 @@ async def setup_advocate_profile(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to set up advocate profile: {str(e)}")
 
 @router.get("/setup-status", response_model=SetupStatusResponse)
+@limiter.limit("2 per second")
 async def get_setup_status(request: Request):
     """Check which role setups are incomplete for the current user"""
     try:
@@ -403,6 +410,7 @@ async def get_setup_status(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to check setup status: {str(e)}")
 
 @router.post("/batch-setup", response_model=BatchSetupResponse)
+@limiter.limit("2 per second")
 async def batch_setup_profiles(request: Request, setup_request: BatchSetupRequest):
     """Create all profile data at once after all setups are completed"""
     try:

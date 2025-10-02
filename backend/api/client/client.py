@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Request, HTTPException
 from services.client.client_service import ClientController
 from schemas.client import ClientCreativesListResponse
+from core.limiter import limiter
 
 router = APIRouter()
 
 @router.get("/profile")
+@limiter.limit("2 per second")
 async def get_client_profile(request: Request):
     """Get the current user's client profile"""
     try:
@@ -21,6 +23,7 @@ async def get_client_profile(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to fetch client profile: {str(e)}")
 
 @router.get("/creatives", response_model=ClientCreativesListResponse)
+@limiter.limit("2 per second")
 async def get_client_creatives(request: Request):
     """Get all creatives connected to the current client"""
     try:
@@ -37,6 +40,7 @@ async def get_client_creatives(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to fetch client creatives: {str(e)}")
 
 @router.get("/services", response_model=dict)
+@limiter.limit("2 per second")
 async def get_connected_services_and_bundles(request: Request):
     """Get all services and bundles from creatives connected to the current client"""
     try:
