@@ -1,15 +1,17 @@
 import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
 import { useState } from 'react';
-import { TaskAlt, HourglassEmpty, History } from '@mui/icons-material';
-import { CompletedServicesTab } from './tabs/ServiceRetrievalTab';
+import { TaskAlt, HourglassEmpty, History, CheckCircle } from '@mui/icons-material';
+import { AllServicesTab } from './tabs/AllOrdersTab';
 import { InProgressTab } from './tabs/InProgressTab';
+import { ReadyTab } from './tabs/ReadyTab';
 import { PastServicesTab } from './tabs/PastServicesTab';
 
 const tabLabels = [
-  { label: 'Downloads', icon: <TaskAlt sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'In Progress', icon: <HourglassEmpty sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'Past Services', icon: <History sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'All Orders', icon: <TaskAlt sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Active', icon: <HourglassEmpty sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Ready', icon: <CheckCircle sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'History', icon: <History sx={{ fontSize: 18, mr: 1 }} /> },
 ];
 
 export function ClientOrders() {
@@ -303,9 +305,11 @@ export function ClientOrders() {
             }}
           >
             {activeTab === 0 ? (
-              <CompletedServicesTab />
+              <AllServicesTab />
             ) : activeTab === 1 ? (
               <InProgressTab />
+            ) : activeTab === 2 ? (
+              <ReadyTab />
             ) : (
               <PastServicesTab />
             )}
