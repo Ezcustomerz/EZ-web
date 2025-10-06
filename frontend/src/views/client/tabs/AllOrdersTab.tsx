@@ -293,6 +293,64 @@ export function AllServicesTab() {
     setDateFilter(event.target.value);
   };
 
+  // Filter logic
+  const getFilteredOrders = () => {
+    return dummyOrders.filter(order => {
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch = 
+          order.serviceName.toLowerCase().includes(query) ||
+          order.creativeName.toLowerCase().includes(query) ||
+          order.description.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+
+      // Status filter
+      if (statusFilter !== 'all' && order.status !== statusFilter) {
+        return false;
+      }
+
+      // Creative filter
+      if (creativeFilter !== 'all') {
+        const creative = dummyConnectedCreatives.find(c => c.id === creativeFilter);
+        if (creative && order.creativeName !== creative.name) {
+          return false;
+        }
+      }
+
+      // Date filter (based on order date)
+      if (dateFilter !== 'all') {
+        const orderDate = new Date(order.orderDate);
+        const now = new Date();
+        const diffTime = now.getTime() - orderDate.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+        switch (dateFilter) {
+          case 'week':
+            if (diffDays > 7) return false;
+            break;
+          case 'month':
+            if (diffDays > 30) return false;
+            break;
+          case '3months':
+            if (diffDays > 90) return false;
+            break;
+          case '6months':
+            if (diffDays > 180) return false;
+            break;
+          case 'year':
+            if (diffDays > 365) return false;
+            break;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  const filteredOrders = getFilteredOrders();
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'placed':
@@ -790,63 +848,6 @@ export function AllServicesTab() {
         </FormControl>
       </Box>
 
-      {/* Active Filters Display */}
-      {(statusFilter !== 'all' || creativeFilter !== 'all' || dateFilter !== 'all' || searchQuery) && (
-        <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mr: 1 }}>
-            Active filters:
-          </Typography>
-          {searchQuery && (
-            <Chip
-              label={`Search: "${searchQuery}"`}
-              size="small"
-              onDelete={() => setSearchQuery('')}
-              sx={{ borderRadius: 1.5 }}
-            />
-          )}
-          {statusFilter !== 'all' && (
-            <Chip
-              label={`Status: ${statusFilter.replace('-', ' ')}`}
-              size="small"
-              onDelete={() => setStatusFilter('all')}
-              sx={{ 
-                borderRadius: 1.5,
-                bgcolor: getStatusColor(statusFilter),
-                color: 'white',
-                '& .MuiChip-deleteIcon': {
-                  color: 'rgba(255,255,255,0.7)',
-                  '&:hover': {
-                    color: 'white',
-                  }
-                }
-              }}
-            />
-          )}
-          {creativeFilter !== 'all' && (
-            <Chip
-              label={`Creative: ${dummyConnectedCreatives.find(c => c.id === creativeFilter)?.name}`}
-              size="small"
-              onDelete={() => setCreativeFilter('all')}
-              sx={{ borderRadius: 1.5 }}
-            />
-          )}
-          {dateFilter !== 'all' && (
-            <Chip
-              label={`Period: ${
-                dateFilter === 'week' ? 'Past Week' :
-                dateFilter === 'month' ? 'Past Month' :
-                dateFilter === '3months' ? 'Past 3 Months' :
-                dateFilter === '6months' ? 'Past 6 Months' :
-                dateFilter === 'year' ? 'Past Year' : dateFilter
-              }`}
-              size="small"
-              onDelete={() => setDateFilter('all')}
-              sx={{ borderRadius: 1.5 }}
-            />
-          )}
-        </Box>
-      )}
-
       {/* Orders Content Area */}
       <Box sx={{ 
         width: '100%',
@@ -873,7 +874,25 @@ export function AllServicesTab() {
           },
         },
       }}>
-        {dummyOrders.map((order) => (
+        {filteredOrders.length === 0 ? (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            py: 8,
+            gap: 2
+          }}>
+            <Search sx={{ fontSize: 64, color: 'text.disabled', opacity: 0.3 }} />
+            <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+              No orders found
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+              Try adjusting your filters or search query
+            </Typography>
+          </Box>
+        ) : (
+          filteredOrders.map((order) => (
           <Card 
             key={order.id}
             sx={{ 
@@ -1677,7 +1696,8 @@ export function AllServicesTab() {
               </Box>
             </CardContent>
           </Card>
-        ))}
+          ))
+        )}
       </Box>
     </Box>
   );
