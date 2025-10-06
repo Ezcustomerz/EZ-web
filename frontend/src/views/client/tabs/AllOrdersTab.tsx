@@ -1,4 +1,3 @@
-// Updated: Card content should be fully visible now
 import { 
   Box, 
   Typography, 
@@ -8,17 +7,20 @@ import {
   InputLabel, 
   Select, 
   MenuItem, 
-  Chip,
   useTheme,
-  Card,
-  CardContent,
-  Avatar,
-  Divider,
-  Button
+  Button,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
-import { Search, FilterList, DateRange, CalendarToday, AttachMoney, Payment as PaymentIcon, CheckCircle, Folder, InsertDriveFile, Download as DownloadIcon, Replay, Cancel } from '@mui/icons-material';
+import { Search, FilterList, DateRange, ShoppingBag } from '@mui/icons-material';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { PlacedOrderCard } from '../../../components/cards/client/PlacedOrderCard';
+import { PaymentApprovalOrderCard } from '../../../components/cards/client/PaymentApprovalOrderCard';
+import { InProgressOrderCard } from '../../../components/cards/client/InProgressOrderCard';
+import { LockedOrderCard } from '../../../components/cards/client/LockedOrderCard';
+import { DownloadOrderCard } from '../../../components/cards/client/DownloadOrderCard';
+import { CompletedOrderCard } from '../../../components/cards/client/CompletedOrderCard';
+import { CanceledOrderCard } from '../../../components/cards/client/CanceledOrderCard';
 
 // Dummy data for connected creatives
 const dummyConnectedCreatives = [
@@ -275,6 +277,7 @@ const dummyOrders = [
 
 export function AllServicesTab() {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [creativeFilter, setCreativeFilter] = useState<string>('all');
@@ -370,44 +373,6 @@ export function AllServicesTab() {
       default:
         return theme.palette.primary.main;
     }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'placed':
-        return 'Service Placed';
-      case 'payment-approval':
-        return 'Payment Approval';
-      case 'in-progress':
-        return 'In Progress';
-      case 'download':
-        return 'Ready to Download';
-      case 'completed':
-        return 'Completed';
-      case 'canceled':
-        return 'Canceled';
-      case 'locked':
-        return 'Locked';
-      default:
-        return status;
-    }
-  };
-
-  const getDescriptionColor = (status: string) => {
-    if (status === 'payment-approval') {
-      return '#00bcd4';
-    } else if (status === 'in-progress') {
-      return '#2196f3';
-    } else if (status === 'locked') {
-      return '#9c27b0';
-    } else if (status === 'download') {
-      return '#0097a7';
-    } else if (status === 'completed') {
-      return '#4caf50';
-    } else if (status === 'canceled') {
-      return '#f44336';
-    }
-    return '#ff9800';
   };
 
   return (
@@ -887,818 +852,111 @@ export function AllServicesTab() {
             <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 500 }}>
               No orders found
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+            <Typography variant="body2" sx={{ color: 'text.disabled', mb: 1 }}>
               Try adjusting your filters or search query
             </Typography>
+            <Button
+              variant="contained"
+              startIcon={<ShoppingBag />}
+              onClick={() => navigate('/client/book')}
+              sx={{
+                mt: 2,
+                backgroundColor: 'primary.main',
+                color: 'white',
+                borderRadius: 2,
+                px: 3,
+                py: 1.5,
+                fontWeight: 600,
+                textTransform: 'none',
+                fontSize: '0.95rem',
+                boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.39)',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 20px 0 rgba(59, 130, 246, 0.5)',
+                },
+                transition: 'all 0.2s ease',
+              }}
+            >
+              Browse Services
+            </Button>
           </Box>
         ) : (
-          filteredOrders.map((order) => (
-          <Card 
-            key={order.id}
-            sx={{ 
-              borderRadius: 2,
-              transition: 'all 0.2s ease',
-              border: '2px solid',
-              borderColor: order.status === 'payment-approval' 
-                ? 'rgba(0, 188, 212, 0.3)' 
-                : order.status === 'placed'
-                ? 'rgba(255, 152, 0, 0.3)'
-                : order.status === 'in-progress'
-                ? 'rgba(33, 150, 243, 0.3)'
-                : order.status === 'locked'
-                ? 'rgba(156, 39, 176, 0.3)'
-                : order.status === 'download'
-                ? 'rgba(0, 151, 167, 0.3)'
-                : order.status === 'completed'
-                ? 'rgba(76, 175, 80, 0.3)'
-                : order.status === 'canceled'
-                ? 'rgba(244, 67, 54, 0.3)'
-                : 'divider',
-              overflow: 'visible',
-              minHeight: 'fit-content',
-              height: 'auto',
-              backgroundColor: order.status === 'payment-approval'
-                ? theme.palette.mode === 'dark' 
-                  ? 'rgba(0, 188, 212, 0.05)' 
-                  : 'rgba(0, 188, 212, 0.02)'
-                : order.status === 'placed'
-                ? theme.palette.mode === 'dark'
-                  ? 'rgba(255, 152, 0, 0.05)'
-                  : 'rgba(255, 152, 0, 0.02)'
-                : order.status === 'in-progress'
-                ? theme.palette.mode === 'dark'
-                  ? 'rgba(33, 150, 243, 0.05)'
-                  : 'rgba(33, 150, 243, 0.02)'
-                : order.status === 'locked'
-                ? theme.palette.mode === 'dark'
-                  ? 'rgba(156, 39, 176, 0.05)'
-                  : 'rgba(156, 39, 176, 0.02)'
-                : order.status === 'download'
-                ? theme.palette.mode === 'dark'
-                  ? 'rgba(0, 151, 167, 0.05)'
-                  : 'rgba(0, 151, 167, 0.02)'
-                : order.status === 'completed'
-                ? theme.palette.mode === 'dark'
-                  ? 'rgba(76, 175, 80, 0.05)'
-                  : 'rgba(76, 175, 80, 0.02)'
-                : order.status === 'canceled'
-                ? theme.palette.mode === 'dark'
-                  ? 'rgba(244, 67, 54, 0.05)'
-                  : 'rgba(244, 67, 54, 0.02)'
-                : 'transparent',
-              '&:hover': {
-                boxShadow: order.status === 'payment-approval'
-                  ? theme.palette.mode === 'dark' 
-                    ? '0 4px 20px rgba(0, 188, 212, 0.3)' 
-                    : '0 4px 20px rgba(0, 188, 212, 0.2)'
-                  : order.status === 'placed'
-                  ? theme.palette.mode === 'dark'
-                    ? '0 4px 20px rgba(255, 152, 0, 0.3)'
-                    : '0 4px 20px rgba(255, 152, 0, 0.2)'
-                  : order.status === 'in-progress'
-                  ? theme.palette.mode === 'dark'
-                    ? '0 4px 20px rgba(33, 150, 243, 0.3)'
-                    : '0 4px 20px rgba(33, 150, 243, 0.2)'
-                  : order.status === 'locked'
-                  ? theme.palette.mode === 'dark'
-                    ? '0 4px 20px rgba(156, 39, 176, 0.3)'
-                    : '0 4px 20px rgba(156, 39, 176, 0.2)'
-                  : order.status === 'download'
-                  ? theme.palette.mode === 'dark'
-                    ? '0 4px 20px rgba(0, 151, 167, 0.3)'
-                    : '0 4px 20px rgba(0, 151, 167, 0.2)'
-                  : order.status === 'completed'
-                  ? theme.palette.mode === 'dark'
-                    ? '0 4px 20px rgba(76, 175, 80, 0.3)'
-                    : '0 4px 20px rgba(76, 175, 80, 0.2)'
-                  : order.status === 'canceled'
-                  ? theme.palette.mode === 'dark'
-                    ? '0 4px 20px rgba(244, 67, 54, 0.3)'
-                    : '0 4px 20px rgba(244, 67, 54, 0.2)'
-                  : theme.palette.mode === 'dark' 
-                    ? '0 2px 12px rgba(0,0,0,0.3)' 
-                    : '0 2px 12px rgba(0,0,0,0.08)',
-                borderColor: order.status === 'payment-approval'
-                  ? '#00bcd4'
-                  : order.status === 'placed'
-                  ? '#ff9800'
-                  : order.status === 'in-progress'
-                  ? '#2196f3'
-                  : order.status === 'locked'
-                  ? '#9c27b0'
-                  : order.status === 'download'
-                  ? '#0097a7'
-                  : order.status === 'completed'
-                  ? '#4caf50'
-                  : order.status === 'canceled'
-                  ? '#f44336'
-                  : theme.palette.primary.main,
-                transform: 'translateY(-2px)',
-              }
-            }}
-          >
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, overflow: 'visible', display: 'flex', flexDirection: 'column' }}>
-              {/* Header Section with Avatar */}
-              <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
-                {/* Avatar */}
-                <Avatar 
-                  sx={{ 
-                    width: 48, 
-                    height: 48,
-                    bgcolor: theme.palette.primary.main,
-                    fontSize: '1.2rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  {order.creativeName.charAt(0)}
-                </Avatar>
+          filteredOrders.map((order) => {
+            const commonProps = {
+              key: order.id,
+              id: order.id,
+              serviceName: order.serviceName,
+              creativeName: order.creativeName,
+              orderDate: order.orderDate,
+              description: order.description,
+              price: order.price,
+            };
 
-                {/* Service Info */}
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25, flexWrap: 'wrap' }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
-                      {order.serviceName}
-                    </Typography>
-                    {/* Status Description - Inline with Service Name */}
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        color: getDescriptionColor(order.status),
-                        fontStyle: 'italic',
-                        fontSize: '0.7rem',
-                      }}
-                    >
-                      • {order.description}
-                    </Typography>
-                  </Box>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                    by {order.creativeName}
-                  </Typography>
-                </Box>
-                
-                {/* Status Chip */}
-                <Chip
-                  label={getStatusLabel(order.status)}
-                  size="small"
-                  sx={{
-                    bgcolor: getStatusColor(order.status),
-                    color: 'white',
-                    fontWeight: 600,
-                    fontSize: '0.7rem',
-                    height: 24,
-                    alignSelf: 'flex-start',
-                  }}
-                />
-              </Box>
-
-              <Divider sx={{ mb: 1.5 }} />
-
-              {/* Details Grid */}
-              <Box sx={{ 
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 2,
-                mb: 0.5,
-                alignItems: 'flex-end',
-              }}>
-                {/* Ordered Service Date */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                    Ordered On
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <DateRange sx={{ fontSize: 16, color: 'primary.main' }} />
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {new Date(order.orderDate).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* Approved Date (Optional - for in-progress, locked, download but not completed) */}
-                {order.approvedDate && order.status !== 'completed' && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      Approved On
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <DateRange sx={{ fontSize: 16, color: '#4caf50' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {new Date(order.approvedDate).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-
-                {/* Calendar Date (Optional - not shown for completed or canceled) */}
-                {order.calendarDate && order.status !== 'completed' && order.status !== 'canceled' && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      Booking Set For
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <CalendarToday sx={{ fontSize: 16, color: 'primary.main' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {new Date(order.calendarDate).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })} at {new Date(order.calendarDate).toLocaleTimeString('en-US', { 
-                          hour: 'numeric', 
-                          minute: '2-digit',
-                          hour12: true
-                        })}
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-
-                {/* Completed Date (for locked/download/completed status) */}
-                {order.completedDate && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      Completed On
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <CheckCircle sx={{ fontSize: 16, color: '#4caf50' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {new Date(order.completedDate).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-
-                {/* Canceled Date (for canceled status) */}
-                {order.status === 'canceled' && (order as any).canceledDate && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      Canceled On
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Cancel sx={{ fontSize: 16, color: '#f44336' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {new Date((order as any).canceledDate).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-
-                {/* File Count (for locked/download status) */}
-                {order.fileCount && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      Files
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Folder sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {order.fileCount} files
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-
-                {/* File Size (for locked/download status) */}
-                {order.fileSize && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      Size
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <InsertDriveFile sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {order.fileSize}
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
-
-                {/* Files Button (for completed status with files) */}
-                {order.status === 'completed' && order.fileCount && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      Deliverables
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      startIcon={<Folder sx={{ fontSize: 16 }} />}
-                      size="small"
-                      sx={{
-                        borderColor: '#4caf50',
-                        color: '#4caf50',
-                        borderRadius: 2,
-                        px: 2,
-                        height: '32px',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        fontSize: '0.8rem',
-                        '&:hover': {
-                          borderColor: '#4caf50',
-                          backgroundColor: 'rgba(76, 175, 80, 0.08)',
-                        }
-                      }}
-                    >
-                      View Files
-                    </Button>
-                  </Box>
-                )}
-
-                {/* Spacer */}
-                <Box sx={{ flex: 1 }} />
-
-                {/* Price, Pay Button, or Download Button */}
-                {order.status === 'payment-approval' || order.status === 'locked' || order.status === 'download' ? (
-                  <Box sx={{ position: 'relative' }}>
-                    <Button
-                      variant="contained"
-                      startIcon={order.status === 'download' ? <DownloadIcon sx={{ fontSize: 18 }} /> : <PaymentIcon sx={{ fontSize: 18 }} />}
-                      size="small"
-                      sx={{
-                        backgroundColor: 'primary.main',
-                        color: 'white',
-                        borderRadius: 2,
-                        px: 3,
-                        height: '40px',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        fontSize: '0.9rem',
-                        position: 'relative',
-                        overflow: 'visible',
-                        boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.39)',
-                        transition: 'all 0.2s ease-in-out',
-                        minWidth: 'auto',
-                        zIndex: 1,
-                        '@keyframes sparkle': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '@keyframes sparkle2': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '@keyframes sparkle3': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '@keyframes sparkle4': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '55%': { transform: 'scale(1) rotate(200deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '@keyframes sparkle5': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '45%': { transform: 'scale(1) rotate(160deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          top: '15%',
-                          left: '20%',
-                          width: 5,
-                          height: 5,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          transition: 'all 0.2s ease-in-out',
-                          zIndex: 10,
-                        },
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          top: '70%',
-                          left: '75%',
-                          width: 4,
-                          height: 4,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          transition: 'all 0.2s ease-in-out',
-                          zIndex: 10,
-                        },
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 6px 20px 0 rgba(59, 130, 246, 0.5)',
-                          '&::before': {
-                            animation: 'sparkle 0.5s ease-in-out infinite',
-                          },
-                          '&::after': {
-                            animation: 'sparkle2 0.5s ease-in-out infinite 0.1s',
-                          },
-                          '& .sparkle-3': {
-                            animation: 'sparkle3 0.5s ease-in-out infinite 0.2s',
-                          },
-                          '& .sparkle-4': {
-                            animation: 'sparkle4 0.5s ease-in-out infinite 0.15s',
-                          },
-                          '& .sparkle-5': {
-                            animation: 'sparkle5 0.5s ease-in-out infinite 0.25s',
-                          },
-                        },
-                      }}
-                    >
-                      <Box
-                        className="sparkle-3"
-                        sx={{
-                          position: 'absolute',
-                          top: '30%',
-                          right: '25%',
-                          width: 4,
-                          height: 4,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          zIndex: 10,
-                          pointerEvents: 'none',
-                        }}
-                      />
-                      <Box
-                        className="sparkle-4"
-                        sx={{
-                          position: 'absolute',
-                          top: '60%',
-                          left: '35%',
-                          width: 5,
-                          height: 5,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          zIndex: 10,
-                          pointerEvents: 'none',
-                        }}
-                      />
-                      <Box
-                        className="sparkle-5"
-                        sx={{
-                          position: 'absolute',
-                          top: '40%',
-                          left: '80%',
-                          width: 4,
-                          height: 4,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          zIndex: 10,
-                          pointerEvents: 'none',
-                        }}
-                      /                    >
-                      {order.status === 'download' 
-                        ? 'Download Files' 
-                        : order.status === 'locked' 
-                        ? `Unlock Files - $${order.price.toFixed(2)}` 
-                        : `Pay $${order.price.toFixed(2)}`}
-                    </Button>
-                  </Box>
-                ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, alignItems: 'flex-end' }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      Price
-      </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                      <AttachMoney sx={{ fontSize: 18, color: theme.palette.primary.main }} />
-                      <Typography variant="body1" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
-                        {order.price.toFixed(2)}
-      </Typography>
-        </Box>
-                  </Box>
-                )}
-
-                {/* Book Service Button (for canceled status) */}
-                {order.status === 'canceled' && (
-                  <Box sx={{ 
-                    position: 'relative',
-                    '&:hover .sparkle-3': {
-                      animation: 'sparkle3 0.6s ease-out 0.15s',
-                    },
-                    '&:hover .sparkle-4': {
-                      animation: 'sparkle4 0.6s ease-out 0.2s',
-                    },
-                    '&:hover .sparkle-5': {
-                      animation: 'sparkle5 0.6s ease-out 0.25s',
-                    },
-                    '@keyframes sparkle3': {
-                      '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                      '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
-                      '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                    },
-                    '@keyframes sparkle4': {
-                      '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                      '55%': { transform: 'scale(1) rotate(200deg)', opacity: 1 },
-                      '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                    },
-                    '@keyframes sparkle5': {
-                      '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                      '45%': { transform: 'scale(1) rotate(160deg)', opacity: 1 },
-                      '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                    },
-                  }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<Replay sx={{ fontSize: 18 }} />}
-                      size="small"
-                      sx={{
-                        backgroundColor: 'primary.main',
-                        color: 'white',
-                        borderRadius: 2,
-                        px: 2.5,
-                        height: '36px',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        fontSize: '0.85rem',
-                        position: 'relative',
-                        overflow: 'visible',
-                        boxShadow: '0 2px 8px 0 rgba(59, 130, 246, 0.3)',
-                        transition: 'all 0.2s ease-in-out',
-                        zIndex: 1,
-                        '@keyframes sparkle': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '@keyframes sparkle2': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          top: '15%',
-                          left: '20%',
-                          width: 5,
-                          height: 5,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          transition: 'all 0.2s ease-in-out',
-                          zIndex: 10,
-                        },
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          top: '70%',
-                          left: '75%',
-                          width: 4,
-                          height: 4,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          transition: 'all 0.2s ease-in-out',
-                          zIndex: 10,
-                        },
-                        '&:hover': {
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.4)',
-                          '&::before': {
-                            animation: 'sparkle 0.6s ease-out',
-                          },
-                          '&::after': {
-                            animation: 'sparkle2 0.6s ease-out 0.1s',
-                          },
-                        }
-                      }}
-                    >
-                      Book Service
-                    </Button>
-                    {/* Additional sparkles */}
-                    <Box
-                      className="sparkle-3"
-                      sx={{
-                        position: 'absolute',
-                        top: '40%',
-                        right: '25%',
-                        width: 4,
-                        height: 4,
-                        background: 'radial-gradient(circle, white, transparent)',
-                        borderRadius: '50%',
-                        transform: 'scale(0)',
-                        opacity: 0,
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    />
-                    <Box
-                      className="sparkle-4"
-                      sx={{
-                        position: 'absolute',
-                        top: '20%',
-                        left: '35%',
-                        width: 5,
-                        height: 5,
-                        background: 'radial-gradient(circle, white, transparent)',
-                        borderRadius: '50%',
-                        transform: 'scale(0)',
-                        opacity: 0,
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    />
-                    <Box
-                      className="sparkle-5"
-                      sx={{
-                        position: 'absolute',
-                        top: '75%',
-                        left: '80%',
-                        width: 4,
-                        height: 4,
-                        background: 'radial-gradient(circle, white, transparent)',
-                        borderRadius: '50%',
-                        transform: 'scale(0)',
-                        opacity: 0,
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    />
-                  </Box>
-                )}
-
-                {/* Book Again Button (for completed status) */}
-                {order.status === 'completed' && (
-                  <Box sx={{ 
-                    position: 'relative',
-                    '&:hover .sparkle-3': {
-                      animation: 'sparkle3 0.6s ease-out 0.15s',
-                    },
-                    '&:hover .sparkle-4': {
-                      animation: 'sparkle4 0.6s ease-out 0.2s',
-                    },
-                    '&:hover .sparkle-5': {
-                      animation: 'sparkle5 0.6s ease-out 0.25s',
-                    },
-                    '@keyframes sparkle3': {
-                      '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                      '40%': { transform: 'scale(1) rotate(120deg)', opacity: 1 },
-                      '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                    },
-                    '@keyframes sparkle4': {
-                      '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                      '55%': { transform: 'scale(1) rotate(200deg)', opacity: 1 },
-                      '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                    },
-                    '@keyframes sparkle5': {
-                      '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                      '45%': { transform: 'scale(1) rotate(160deg)', opacity: 1 },
-                      '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                    },
-                  }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<Replay sx={{ fontSize: 18 }} />}
-                      size="small"
-                      sx={{
-                        backgroundColor: 'primary.main',
-                        color: 'white',
-                        borderRadius: 2,
-                        px: 2.5,
-                        height: '36px',
-                        fontWeight: 600,
-                        textTransform: 'none',
-                        fontSize: '0.85rem',
-                        position: 'relative',
-                        overflow: 'visible',
-                        boxShadow: '0 2px 8px 0 rgba(59, 130, 246, 0.3)',
-                        transition: 'all 0.2s ease-in-out',
-                        zIndex: 1,
-                        '@keyframes sparkle': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '@keyframes sparkle2': {
-                          '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                          '60%': { transform: 'scale(1) rotate(240deg)', opacity: 1 },
-                          '100%': { transform: 'scale(0) rotate(360deg)', opacity: 0 },
-                        },
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          top: '15%',
-                          left: '20%',
-                          width: 5,
-                          height: 5,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          transition: 'all 0.2s ease-in-out',
-                          zIndex: 10,
-                        },
-                        '&::after': {
-                          content: '""',
-                          position: 'absolute',
-                          top: '70%',
-                          left: '75%',
-                          width: 4,
-                          height: 4,
-                          background: 'radial-gradient(circle, white, transparent)',
-                          borderRadius: '50%',
-                          transform: 'scale(0)',
-                          opacity: 0,
-                          transition: 'all 0.2s ease-in-out',
-                          zIndex: 10,
-                        },
-                        '&:hover': {
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 4px 12px 0 rgba(59, 130, 246, 0.4)',
-                          '&::before': {
-                            animation: 'sparkle 0.6s ease-out',
-                          },
-                          '&::after': {
-                            animation: 'sparkle2 0.6s ease-out 0.1s',
-                          },
-                        }
-                      }}
-                    >
-                      Book Again
-                    </Button>
-                    {/* Additional sparkles */}
-                    <Box
-                      className="sparkle-3"
-                      sx={{
-                        position: 'absolute',
-                        top: '40%',
-                        right: '25%',
-                        width: 4,
-                        height: 4,
-                        background: 'radial-gradient(circle, white, transparent)',
-                        borderRadius: '50%',
-                        transform: 'scale(0)',
-                        opacity: 0,
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    />
-                    <Box
-                      className="sparkle-4"
-                      sx={{
-                        position: 'absolute',
-                        top: '20%',
-                        left: '35%',
-                        width: 5,
-                        height: 5,
-                        background: 'radial-gradient(circle, white, transparent)',
-                        borderRadius: '50%',
-                        transform: 'scale(0)',
-                        opacity: 0,
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    />
-                    <Box
-                      className="sparkle-5"
-                      sx={{
-                        position: 'absolute',
-                        top: '75%',
-                        left: '80%',
-                        width: 4,
-                        height: 4,
-                        background: 'radial-gradient(circle, white, transparent)',
-                        borderRadius: '50%',
-                        transform: 'scale(0)',
-                        opacity: 0,
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    />
-                  </Box>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-          ))
+            switch (order.status) {
+              case 'placed':
+                return <PlacedOrderCard {...commonProps} calendarDate={order.calendarDate} />;
+              
+              case 'payment-approval':
+                return <PaymentApprovalOrderCard {...commonProps} calendarDate={order.calendarDate} />;
+              
+              case 'in-progress':
+                return (
+                  <InProgressOrderCard
+                    {...commonProps}
+                    approvedDate={order.approvedDate}
+                    calendarDate={order.calendarDate}
+                  />
+                );
+              
+              case 'locked':
+                return (
+                  <LockedOrderCard
+                    {...commonProps}
+                    approvedDate={order.approvedDate}
+                    completedDate={order.completedDate}
+                    calendarDate={order.calendarDate}
+                    fileCount={order.fileCount}
+                    fileSize={order.fileSize}
+                  />
+                );
+              
+              case 'download':
+                return (
+                  <DownloadOrderCard
+                    {...commonProps}
+                    approvedDate={order.approvedDate}
+                    completedDate={order.completedDate}
+                    calendarDate={order.calendarDate}
+                    fileCount={order.fileCount}
+                    fileSize={order.fileSize}
+                  />
+                );
+              
+              case 'completed':
+                return (
+                  <CompletedOrderCard
+                    {...commonProps}
+                    approvedDate={order.approvedDate}
+                    completedDate={order.completedDate}
+                    calendarDate={order.calendarDate}
+                    fileCount={order.fileCount}
+                  />
+                );
+              
+              case 'canceled':
+                return (
+                  <CanceledOrderCard
+                    {...commonProps}
+                    canceledDate={(order as any).canceledDate}
+                  />
+                );
+              
+              default:
+                return null;
+            }
+          })
         )}
       </Box>
     </Box>
   );
-} 
+}
