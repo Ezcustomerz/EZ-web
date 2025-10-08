@@ -92,42 +92,42 @@ export function ContactUs() {
   );
 }
 
- {/* 
-          CONTACT FORM BACKEND ROADMAP:
+/* 
+  CONTACT FORM BACKEND ROADMAP:
 
-          1. Create API Route:
-             - POST /api/contact
-             - Receives: { name: string, email: string, message: string }
+  1. Create API Route:
+     - POST /api/contact
+     - Receives: { name: string, email: string, message: string }
 
-          2. Validate Input:
-             - Ensure 'name' is not empty
-             - Ensure 'email' has valid format
-             - Ensure 'message' is not empty and has reasonable max length (e.g., 1000 chars)
+  2. Validate Input:
+     - Ensure 'name' is not empty
+     - Ensure 'email' has valid format
+     - Ensure 'message' is not empty and has reasonable max length (e.g., 1000 chars)
 
-          3. Optional: Spam/Rate Protection
-             - Add CAPTCHA (Google reCAPTCHA)
-             - Basic rate limiting per IP or user
+  3. Optional: Spam/Rate Protection
+     - Add CAPTCHA (Google reCAPTCHA)
+     - Basic rate limiting per IP or user
 
-          4. Send Email:
-             - Use NodeMailer, SendGrid, or Mailgun
-             - Include name, email, message in email body
-             - Optional: add timestamp, user IP for context
+  4. Send Email:
+     - Use NodeMailer, SendGrid, or Mailgun
+     - Include name, email, message in email body
+     - Optional: add timestamp, user IP for context
 
-          5. Handle Response:
-             - Success: return JSON { success: true }
-             - Failure: return JSON { success: false, error: "message" }
+  5. Handle Response:
+     - Success: return JSON { success: true }
+     - Failure: return JSON { success: false, error: "message" }
 
-          6. Optional: Store Submissions in Database
-             - Store fields: name, email, message, timestamp
-             - Useful for auditing or follow-up
+  6. Optional: Store Submissions in Database
+     - Store fields: name, email, message, timestamp
+     - Useful for auditing or follow-up
 
-          7. Security:
-             - Validate requests (CORS)
-             - Keep SMTP credentials safe
-             - Avoid open-relay issues
+  7. Security:
+     - Validate requests (CORS)
+     - Keep SMTP credentials safe
+     - Avoid open-relay issues
 
-          8. Frontend Integration:
-             - Form submits via fetch/Axios to /api/contact
-             - Display success/error messages
-             - Optional: clear form on success
-        */}
+  8. Frontend Integration:
+     - Form submits via fetch/Axios to /api/contact
+     - Display success/error messages
+     - Optional: clear form on success
+*/

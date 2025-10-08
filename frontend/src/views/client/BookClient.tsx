@@ -145,7 +145,9 @@ export function ClientBook() {
                 }}
               >
                 {tabLabels[activeTab].icon}
-                <span style={{ fontWeight: 700, fontSize: '1.05rem', marginRight: 6 }}>{tabLabels[activeTab].label}</span>
+                <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.05rem', mr: 0.75, display: 'inline' }}>
+                  {tabLabels[activeTab].label}
+                </Typography>
                 <MusicNote sx={{ fontSize: 18, transform: 'rotate(-25deg)', ml: 0.5, color: '#7A5FFF', transition: 'transform 0.2s', }} />
                 {/* Down arrow for dropdown indication */}
                 <Box component="span" sx={{ ml: 1, display: 'flex', alignItems: 'center', transition: 'transform 0.2s', transform: Boolean(anchorEl) ? 'rotate(180deg)' : 'rotate(0deg)' }}>

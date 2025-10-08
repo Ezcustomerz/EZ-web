@@ -5,7 +5,6 @@ import { Box, Card, CardContent, keyframes } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarDays, faDollarSign, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { LayoutWeb } from '../../layout/web/LayoutWeb';
-import { useTheme } from '@mui/material/styles';
 import { AnimatedButton } from '../../components/buttons/MusicButton';
 import { useRoleRedirect } from '../../utils/roleRedirect';
 
@@ -53,7 +52,7 @@ const fadeIn = keyframes`
 `;
 
 export function LandingPage() {
-  const theme = useTheme();
+  // const theme = useTheme(); // Commented out - unused variable
   const navigate = useNavigate();
   const { getRedirectUrl } = useRoleRedirect();
   const [isLoaded, setIsLoaded] = useState(false);
