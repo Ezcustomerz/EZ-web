@@ -252,6 +252,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       }
+
+      // Note: Role-based redirection after login is now handled by AuthCallback component
+      // This prevents race conditions and duplicate redirections
     } catch (err) {
       console.error('Unexpected error fetching user profile:', err);
       errorToast('Profile Error', 'Failed to load user profile');
@@ -308,6 +311,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const redirectToAppropriateRole = () => {
+    // Get the user's roles from the original selection or current profile
+    const userRoles = originalSelectedRoles.length > 0 ? originalSelectedRoles : (userProfile?.roles || []);
+    
+    // Priority order for redirection: creative -> client -> advocate
+    if (userRoles.includes('creative')) {
+      navigate('/creative');
+    } else if (userRoles.includes('client')) {
+      navigate('/client');
+    } else if (userRoles.includes('advocate')) {
+      navigate('/advocate');
+    } else {
+      // Fallback to home if no roles found
+      navigate('/');
+    }
+  };
+
   const handleInviteAfterSetup = async () => {
     const pendingInviteToken = localStorage.getItem('pendingInviteToken');
     if (pendingInviteToken) {
@@ -347,9 +367,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user?.id) {
         try {
           await fetchUserProfile(false); // false = not a fresh sign-in, just refreshing after setup
+          // After profile refresh, redirect to appropriate role page
+          setTimeout(() => {
+            redirectToAppropriateRole();
+          }, 1000); // Small delay to ensure profile is updated
         } catch (err) {
           console.error('Error refreshing profile after setup:', err);
+          // Even if profile refresh fails, try to redirect based on original roles
+          redirectToAppropriateRole();
         }
+      } else {
+        // No session, redirect to appropriate role page
+        redirectToAppropriateRole();
       }
     }
   };

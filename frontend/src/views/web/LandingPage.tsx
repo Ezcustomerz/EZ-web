@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCalendarDays, faDollarSign, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { LayoutWeb } from '../../layout/web/LayoutWeb';
 import { AnimatedButton } from '../../components/buttons/MusicButton';
+import { useRoleRedirect } from '../../utils/roleRedirect';
 
 // Animation keyframes
 const slideInLeft = keyframes`
@@ -53,6 +54,7 @@ const fadeIn = keyframes`
 export function LandingPage() {
   // const theme = useTheme(); // Commented out - unused variable
   const navigate = useNavigate();
+  const { getRedirectUrl } = useRoleRedirect();
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -126,7 +128,7 @@ export function LandingPage() {
                 text="Get Started For Free"
                 buttonVariant="landing"
                 size="large"
-                onClick={() => navigate('/creative?auth=1')}
+                onClick={() => navigate(`${getRedirectUrl()}?auth=1`)}
               />
             </Box>
           </Box>

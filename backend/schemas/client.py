@@ -23,6 +23,12 @@ class ClientCreativeResponse(BaseModel):
     isOnline: bool
     color: str
     status: str
+    description: Optional[str] = None
+    primary_contact: Optional[str] = None
+    secondary_contact: Optional[str] = None
+    availability_location: Optional[str] = None
+    profile_highlights: Optional[List[str]] = None
+    profile_highlight_values: Optional[dict] = None
 
 class ClientCreativesListResponse(BaseModel):
     creatives: List[ClientCreativeResponse]

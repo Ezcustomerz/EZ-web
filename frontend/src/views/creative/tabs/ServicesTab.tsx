@@ -22,7 +22,7 @@ export interface ServicesTabProps {
 }
 
 export function ServicesTab({ search, sortBy, sortOrder, visibility, creativeProfile }: ServicesTabProps) {
-  const { isAuthenticated, userProfile } = useAuth();
+  const { isAuthenticated, userProfile, openAuth } = useAuth();
   const [services, setServices] = useState<CreativeService[]>([]);
   const [bundles, setBundles] = useState<CreativeBundle[]>([]);
   const [serviceCreationOpen, setServiceCreationOpen] = useState(false);
@@ -312,6 +312,8 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
                 // Only show popover if user is authenticated and has creative role
                 if (isAuthenticated && userProfile?.roles.includes('creative')) {
                   setServiceCreationOpen(true);
+                } else if (!isAuthenticated) {
+                  openAuth();
                 }
               }}
               sx={{
@@ -615,6 +617,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           delivery_time: editingService.delivery_time,
           status: editingService.status,
           color: editingService.color,
+          photos: editingService.photos || [],
         } : null}
       />
 

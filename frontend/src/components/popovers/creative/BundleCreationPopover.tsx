@@ -37,6 +37,7 @@ import { faGem } from '@fortawesome/free-solid-svg-icons';
 import { userService, type CreativeService } from '../../../api/userService';
 import { errorToast, successToast } from '../../toast/toast';
 import { BundleCard } from '../../cards/creative/BundleCard';
+import { useAuth } from '../../../context/auth';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -87,6 +88,7 @@ export function BundleCreationPopover({
 }: BundleCreationPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { isAuthenticated } = useAuth();
   
   const [activeStep, setActiveStep] = useState(0);
   const [services, setServices] = useState<CreativeService[]>([]);
@@ -152,14 +154,22 @@ export function BundleCreationPopover({
 
   // Fetch available services
   useEffect(() => {
-    if (open) {
+    if (open && isAuthenticated) {
       fetchServices();
     }
-  }, [open, formData.status]);
+  }, [open, formData.status, isAuthenticated]);
 
   const fetchServices = async () => {
     try {
       setLoading(true);
+      
+      // Only fetch services if user is authenticated
+      if (!isAuthenticated) {
+        console.log('User not authenticated, skipping services fetch');
+        setServices([]);
+        return;
+      }
+      
       const response = await userService.getCreativeServices();
       // Filter for active services that are available for bundles
       // Include private services only if the bundle is private

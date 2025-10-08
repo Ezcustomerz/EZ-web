@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import {LandingPage} from './views/web/LandingPage.tsx'
+import { ContactUs } from './views/web/ContactUs.tsx'
 import { DashCreative } from './views/creative/DashCreative.tsx'
 import { ClientCreative } from './views/creative/ClientCreative.tsx'
 import { ActivityCreative } from './views/creative/ActivityCreative.tsx'
@@ -38,8 +39,11 @@ import { CreativeSetupPopover } from './components/popovers/setup/CreativeSetupP
 import { ClientSetupPopover } from './components/popovers/setup/ClientSetupPopover'
 import { AdvocateSetupPopover } from './components/popovers/setup/AdvocateSetupPopover'
 import { SetupGate } from './components/popovers/auth/SetupGate'
+import { RoleGuard } from './components/guards/RoleGuard'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { InvitePage } from './views/InvitePage'
+import { AuthCallback } from './views/AuthCallback'
+import { NoAccess } from './views/NoAccess'
 import { ToastProvider } from './components/toast/toast'
 import { LoadingProvider } from './context/loading'
 
@@ -88,15 +92,50 @@ function AppContent() {
       <SetupGate />
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/creative" element={<DashCreative />} />
-        <Route path="/creative/clients" element={<ClientCreative />} />
-        <Route path="/creative/activity" element={<ActivityCreative />} />
-        <Route path="/creative/public" element={<PublicCreative />} />
-        <Route path="/client" element={<ClientDashboard />} />
-        <Route path="/client/book" element={<ClientBook />} />
-        <Route path="/client/orders" element={<ClientOrders />} />
-        <Route path="/advocate" element={<DashAdvocate />} />
+        <Route path="/creative" element={
+          <RoleGuard requiredRole="creative">
+            <DashCreative />
+          </RoleGuard>
+        } />
+        <Route path="/creative/clients" element={
+          <RoleGuard requiredRole="creative">
+            <ClientCreative />
+          </RoleGuard>
+        } />
+        <Route path="/creative/activity" element={
+          <RoleGuard requiredRole="creative">
+            <ActivityCreative />
+          </RoleGuard>
+        } />
+        <Route path="/creative/public" element={
+          <RoleGuard requiredRole="creative">
+            <PublicCreative />
+          </RoleGuard>
+        } />
+        <Route path="/client" element={
+          <RoleGuard requiredRole="client">
+            <ClientDashboard />
+          </RoleGuard>
+        } />
+        <Route path="/client/book" element={
+          <RoleGuard requiredRole="client">
+            <ClientBook />
+          </RoleGuard>
+        } />
+        <Route path="/client/orders" element={
+          <RoleGuard requiredRole="client">
+            <ClientOrders />
+          </RoleGuard>
+        } />
+        <Route path="/advocate" element={
+          <RoleGuard requiredRole="advocate">
+            <DashAdvocate />
+          </RoleGuard>
+        } />
         <Route path="/invite/:inviteToken" element={<InvitePage />} />
+        <Route path="/auth-callback" element={<AuthCallback />} />
+        <Route path="/no-access" element={<NoAccess />} />
+        <Route path="/contact" element={<ContactUs />} />
       </Routes>
       <AuthPopover 
         open={authOpen} 

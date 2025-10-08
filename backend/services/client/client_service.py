@@ -94,7 +94,7 @@ class ClientController:
             
             # Batch fetch all creative and user data to avoid N+1 queries
             creatives_result = db_admin.table('creatives').select(
-                'display_name, title, user_id, avatar_background_color, profile_banner_url, primary_contact'
+                'display_name, title, user_id, avatar_background_color, profile_banner_url, primary_contact, secondary_contact, description, availability_location, profile_highlights, profile_highlight_values'
             ).in_('user_id', creative_user_ids).execute()
             
             users_result = db_admin.table('users').select(
@@ -157,6 +157,20 @@ class ClientController:
                 # Get creative's configured color
                 color = creative_data.get('avatar_background_color', '#3B82F6')
                 
+                # Get creative's description
+                description = creative_data.get('description')
+                
+                # Get contact information
+                primary_contact = creative_data.get('primary_contact')
+                secondary_contact = creative_data.get('secondary_contact')
+                
+                # Get location/availability
+                availability_location = creative_data.get('availability_location')
+                
+                # Get profile highlights
+                profile_highlights = creative_data.get('profile_highlights', [])
+                profile_highlight_values = creative_data.get('profile_highlight_values', {})
+                
                 # Get service count
                 servicesCount = services_count_map.get(creative_user_id, 0)
                 print(f"🔍 Final service count for {creative_name} ({creative_user_id}): {servicesCount}")
@@ -177,7 +191,13 @@ class ClientController:
                     servicesCount=servicesCount,
                     isOnline=isOnline,
                     color=color,
-                    status=relationship.get('status', 'inactive')
+                    status=relationship.get('status', 'inactive'),
+                    description=description,
+                    primary_contact=primary_contact,
+                    secondary_contact=secondary_contact,
+                    availability_location=availability_location,
+                    profile_highlights=profile_highlights,
+                    profile_highlight_values=profile_highlight_values
                 )
                 creatives.append(creative)
             

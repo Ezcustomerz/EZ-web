@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Request, HTTPException
 from services.advocate.advocate_service import AdvocateController
+from core.limiter import limiter
 
 router = APIRouter()
 
 @router.get("/profile")
+@limiter.limit("2 per second")
 async def get_advocate_profile(request: Request):
     """Get the current user's advocate profile"""
     try:
