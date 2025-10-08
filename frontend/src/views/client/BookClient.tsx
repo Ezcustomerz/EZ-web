@@ -2,7 +2,7 @@ import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuI
 import { LayoutClient } from '../../layout/client/LayoutClient';
 import { useState } from 'react';
 import { People, MusicNote } from '@mui/icons-material';
-import ConnectedCreativesTab from './tabs/ConnectedCreativesTab';
+import { ConnectedCreativesTab } from './tabs/ConnectedCreativesTab';
 import { ConnectedServicesTab } from './tabs/ConnectedServicesTab';
 
 const tabLabels = [

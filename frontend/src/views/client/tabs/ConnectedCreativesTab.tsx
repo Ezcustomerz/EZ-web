@@ -68,7 +68,6 @@ export function ConnectedCreativesTab() {
     fetchCreatives();
   }, [isAuthenticated]);
 
-export default function ConnectedCreativesTab() {
   const handleCreativeClick = (producerId: string) => {
     console.log(producerId);
   };
