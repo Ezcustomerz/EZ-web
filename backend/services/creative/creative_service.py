@@ -119,9 +119,9 @@ class CreativeController:
 
     @staticmethod
     async def get_creative_clients(user_id: str) -> CreativeClientsListResponse:
-        """Get all clients associated with the creative"""
+        """Get all clients associated with the creative - optimized with batch queries"""
         try:
-            # First get the creative_client_relationships for this creative
+            # Get creative_client_relationships for this creative
             relationships_result = db_admin.table('creative_client_relationships').select(
                 'id, status, total_spent, projects_count, client_user_id'
             ).eq('creative_user_id', user_id).order('updated_at', desc=True).execute()
@@ -129,25 +129,30 @@ class CreativeController:
             if not relationships_result.data:
                 return CreativeClientsListResponse(clients=[], total_count=0)
             
+            client_user_ids = [rel['client_user_id'] for rel in relationships_result.data]
+            
+            # Batch fetch client and user data to avoid N+1 queries
+            clients_result = db_admin.table('clients').select(
+                'user_id, display_name, email'
+            ).in_('user_id', client_user_ids).execute()
+            
+            users_result = db_admin.table('users').select(
+                'user_id, name'
+            ).in_('user_id', client_user_ids).execute()
+            
+            # Create lookup maps
+            client_data_map = {c['user_id']: c for c in clients_result.data}
+            user_data_map = {u['user_id']: u for u in users_result.data}
+            
             clients = []
             for relationship in relationships_result.data:
                 client_user_id = relationship['client_user_id']
                 
-                # Get client details
-                client_result = db_admin.table('clients').select(
-                    'display_name, email'
-                ).eq('user_id', client_user_id).single().execute()
+                client_data = client_data_map.get(client_user_id)
+                user_data = user_data_map.get(client_user_id)
                 
-                # Get user details
-                user_result = db_admin.table('users').select(
-                    'name'
-                ).eq('user_id', client_user_id).single().execute()
-                
-                if not client_result.data or not user_result.data:
+                if not client_data or not user_data:
                     continue  # Skip if client or user data not found
-                
-                client_data = client_result.data
-                user_data = user_result.data
                 
                 # Determine contact type and primary contact
                 contact = client_data.get('email', '')
@@ -166,7 +171,7 @@ class CreativeController:
                     name=client_name,
                     contact=contact,
                     contactType=contact_type,
-                    status=relationship.get('status', 'active'),
+                    status=relationship.get('status', 'inactive'),
                     totalSpent=float(relationship.get('total_spent', 0)),
                     projects=int(relationship.get('projects_count', 0))
                 )
@@ -261,6 +266,74 @@ class CreativeController:
             if service_request.calendar_settings:
                 await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings)
             
+            # Handle photos if provided
+            if service_request.photos:
+                await CreativeController._save_service_photos(service_id, service_request.photos)
+            
+            return CreateServiceResponse(
+                success=True,
+                message="Service created successfully",
+                service_id=service_id
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+
+    @staticmethod
+    async def create_service_with_photos(user_id: str, request) -> CreateServiceResponse:
+        """Create a new service with photos in a single request"""
+        try:
+            # Parse multipart form data
+            form = await request.form()
+            
+            # Extract service data
+            title = form.get('title', '').strip()
+            description = form.get('description', '').strip()
+            price = float(form.get('price', 0))
+            delivery_time = form.get('delivery_time', '').strip()
+            status = form.get('status', 'Private')
+            color = form.get('color', '#3b82f6')
+            
+            # Validate that the user has a creative profile
+            creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
+            if not creative_result.data:
+                raise HTTPException(status_code=404, detail="Creative profile not found. Please complete your creative setup first.")
+            
+            # Validate price is positive
+            if price <= 0:
+                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+            
+            # Validate status
+            if status not in ['Public', 'Private', 'Bundle-Only']:
+                raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
+            
+            # Prepare service data
+            service_data = {
+                'creative_user_id': user_id,
+                'title': title,
+                'description': description,
+                'price': price,
+                'delivery_time': delivery_time,
+                'status': status,
+                'color': color,
+                'is_active': True
+            }
+            
+            # Insert the service
+            result = db_admin.table('creative_services').insert(service_data).execute()
+            
+            if not result.data:
+                raise HTTPException(status_code=500, detail="Failed to create service")
+            
+            service_id = result.data[0]['id']
+            
+            # Handle photos if provided
+            photos = form.getlist('photos')
+            if photos:
+                await CreativeController._save_service_photos_from_files(service_id, photos)
+            
             return CreateServiceResponse(
                 success=True,
                 message="Service created successfully",
@@ -347,6 +420,215 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to save calendar settings: {str(e)}")
 
     @staticmethod
+    async def _save_service_photos(service_id: str, photos):
+        """Save service photos for a service"""
+        try:
+            # First, delete existing photos from both storage and database
+            await CreativeController._delete_service_photos(service_id)
+            
+            # Insert new photos
+            if photos:
+                photos_data = []
+                for i, photo in enumerate(photos):
+                    photos_data.append({
+                        'service_id': service_id,
+                        'photo_url': photo.photo_url,
+                        'photo_filename': photo.photo_filename,
+                        'photo_size_bytes': photo.photo_size_bytes,
+                        'is_primary': photo.is_primary,
+                        'display_order': photo.display_order if photo.display_order > 0 else i
+                    })
+                
+                if photos_data:
+                    db_admin.table('service_photos').insert(photos_data).execute()
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save service photos: {str(e)}")
+
+    @staticmethod
+    async def _save_service_photos_from_files(service_id: str, photo_files):
+        """Save service photos from uploaded files with parallel processing"""
+        try:
+            # First, delete existing photos from both storage and database
+            await CreativeController._delete_service_photos(service_id)
+            
+            # Upload photos to Supabase Storage and save metadata
+            if photo_files:
+                import asyncio
+                from supabase import create_client, Client
+                import os
+                
+                supabase_url = os.getenv("SUPABASE_URL")
+                supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                
+                if not supabase_url or not supabase_key:
+                    raise HTTPException(status_code=500, detail="Storage configuration missing")
+                
+                supabase: Client = create_client(supabase_url, supabase_key)
+                
+                async def upload_single_photo(photo_file, index):
+                    """Upload a single photo and return metadata"""
+                    if not photo_file or not hasattr(photo_file, 'filename') or not photo_file.filename:
+                        return None
+                    
+                    try:
+                        # Read file content
+                        file_content = await photo_file.read()
+                        file_extension = photo_file.filename.split('.')[-1] if '.' in photo_file.filename else 'jpg'
+                        filename = f"service-photos/{service_id}/{index}_{photo_file.filename}"
+                        
+                        # Upload file to storage
+                        result = supabase.storage.from_("creative-assets").upload(
+                            filename, 
+                            file_content,
+                            file_options={
+                                "content-type": photo_file.content_type or "image/jpeg",
+                                "cache-control": "3600"
+                            }
+                        )
+                        
+                        if result:
+                            # Get public URL
+                            public_url = supabase.storage.from_("creative-assets").get_public_url(filename)
+                            
+                            return {
+                                'service_id': service_id,
+                                'photo_url': public_url,
+                                'photo_filename': photo_file.filename,
+                                'photo_size_bytes': len(file_content),
+                                'is_primary': index == 0,  # First photo is primary
+                                'display_order': index
+                            }
+                    except Exception as e:
+                        print(f"Failed to upload photo {index}: {str(e)}")
+                        return None
+                
+                # Upload all photos in parallel with error handling
+                upload_tasks = [
+                    upload_single_photo(photo_file, i) 
+                    for i, photo_file in enumerate(photo_files)
+                ]
+                
+                # Wait for all uploads to complete with return_exceptions to handle individual failures
+                photos_data = await asyncio.gather(*upload_tasks, return_exceptions=True)
+                
+                # Filter out exceptions and None results
+                photos_data = [
+                    photo for photo in photos_data 
+                    if photo is not None and not isinstance(photo, Exception)
+                ]
+                
+                # Batch insert all photo metadata
+                if photos_data:
+                    db_admin.table('service_photos').insert(photos_data).execute()
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to save service photos: {str(e)}")
+
+    @staticmethod
+    async def _delete_service_photos(service_id: str):
+        """Delete all photos associated with a service from storage and database"""
+        try:
+            # Get all photos for this service BEFORE deleting from database
+            photos_result = db_admin.table('service_photos').select('photo_url, photo_filename').eq('service_id', service_id).execute()
+            
+            print(f"Found {len(photos_result.data) if photos_result.data else 0} photos to delete for service {service_id}")
+            
+            if photos_result.data:
+                import re
+                
+                # Use the existing db_admin client for storage operations
+                # Extract file paths from URLs and delete from storage
+                files_to_delete = []
+                
+                for photo in photos_result.data:
+                    photo_url = photo['photo_url']
+                    print(f"Processing photo URL: {photo_url}")
+                    if photo_url:
+                        # Extract the file path from the URL
+                        # URL format: https://project.supabase.co/storage/v1/object/public/creative-assets/path/to/file
+                        match = re.search(r'/storage/v1/object/public/creative-assets/(.+)', photo_url)
+                        if match:
+                            file_path = match.group(1)
+                            # Clean the file path - remove any query parameters
+                            file_path = file_path.split('?')[0]
+                            print(f"Extracted file path: {file_path}")
+                            files_to_delete.append(file_path)
+                        else:
+                            print(f"Could not extract file path from URL: {photo_url}")
+                            # Try alternative URL patterns
+                            # Check if it's a different URL format
+                            alt_match = re.search(r'/storage/v1/object/public/([^/]+)/(.+)', photo_url)
+                            if alt_match:
+                                bucket_name = alt_match.group(1)
+                                file_path = alt_match.group(2)
+                                print(f"Alternative pattern - bucket: {bucket_name}, file path: {file_path}")
+                                files_to_delete.append(file_path)
+                
+                # Delete all files at once if we have any
+                if files_to_delete:
+                    print(f"Attempting to delete {len(files_to_delete)} files from storage: {files_to_delete}")
+                    
+                    # First, let's try to list files in the bucket to see what's there
+                    try:
+                        list_result = db_admin.storage.from_("creative-assets").list()
+                        print(f"Files in bucket before deletion: {list_result}")
+                    except Exception as e:
+                        print(f"Failed to list files in bucket: {e}")
+                    
+                    try:
+                        # Try to delete files from storage
+                        result = db_admin.storage.from_("creative-assets").remove(files_to_delete)
+                        print(f"Storage deletion result: {result}")
+                        print(f"Storage deletion result type: {type(result)}")
+                        print(f"Storage deletion result dir: {dir(result)}")
+                        
+                        # Check if the deletion was successful
+                        if hasattr(result, 'data') and result.data:
+                            print(f"Successfully deleted files: {result.data}")
+                        else:
+                            print(f"Deletion may have failed - no data returned: {result}")
+                            
+                        # Check for errors in the response
+                        if hasattr(result, 'error') and result.error:
+                            print(f"Storage deletion error: {result.error}")
+                        
+                        # Try to get more information about the result
+                        if hasattr(result, '__dict__'):
+                            print(f"Result attributes: {result.__dict__}")
+                        
+                        # List files again to see if they were actually deleted
+                        try:
+                            list_result_after = db_admin.storage.from_("creative-assets").list()
+                            print(f"Files in bucket after deletion: {list_result_after}")
+                        except Exception as e:
+                            print(f"Failed to list files after deletion: {e}")
+                            
+                    except Exception as e:
+                        print(f"Failed to delete photos from storage: {files_to_delete}, error: {str(e)}")
+                        print(f"Error type: {type(e)}")
+                        # Try to get more details about the error
+                        if hasattr(e, 'response'):
+                            print(f"Error response: {e.response}")
+                        if hasattr(e, 'details'):
+                            print(f"Error details: {e.details}")
+                        if hasattr(e, 'message'):
+                            print(f"Error message: {e.message}")
+                        if hasattr(e, 'args'):
+                            print(f"Error args: {e.args}")
+                else:
+                    print("No files to delete from storage")
+                
+                # Delete photo records from database AFTER storage cleanup
+                print(f"Deleting photo records from database for service {service_id}")
+                db_admin.table('service_photos').delete().eq('service_id', service_id).execute()
+                print(f"Successfully deleted photo records from database")
+            
+        except Exception as e:
+            print(f"Failed to delete service photos for service {service_id}: {str(e)}")
+            # Don't raise exception here as service deletion should still succeed even if photo cleanup fails
+
+    @staticmethod
     async def get_calendar_settings(service_id: str, user_id: str):
         """Get active calendar settings for a service"""
         try:
@@ -426,6 +708,9 @@ class CreativeController:
                 'updated_at': 'now()'
             }).eq('service_id', service_id).execute()
             
+            # Delete associated photos from storage and database
+            await CreativeController._delete_service_photos(service_id)
+            
             return DeleteServiceResponse(
                 success=True,
                 message=f"Service '{service_data['title']}' has been deleted successfully"
@@ -435,6 +720,7 @@ class CreativeController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete service: {str(e)}")
+
 
     @staticmethod
     async def update_service(user_id: str, service_id: str, service_request: CreateServiceRequest) -> UpdateServiceResponse:
@@ -477,6 +763,63 @@ class CreativeController:
             # Handle calendar settings if provided
             if service_request.calendar_settings:
                 await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings)
+            
+            # Handle photos if provided
+            if service_request.photos:
+                await CreativeController._save_service_photos(service_id, service_request.photos)
+
+            return UpdateServiceResponse(success=True, message="Service updated successfully")
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+
+    @staticmethod
+    async def update_service_with_photos(user_id: str, service_id: str, service_data: dict, photo_files) -> UpdateServiceResponse:
+        """Update an existing service with new photos"""
+        try:
+            # Verify the service exists and belongs to the user
+            service_result = db_admin.table('creative_services').select(
+                'id, creative_user_id, is_active'
+            ).eq('id', service_id).single().execute()
+
+            if not service_result.data:
+                raise HTTPException(status_code=404, detail="Service not found")
+
+            if service_result.data['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to edit this service")
+
+            if not service_result.data['is_active']:
+                raise HTTPException(status_code=400, detail="Cannot edit a deleted service")
+
+            if service_data['price'] <= 0:
+                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+
+            if service_data['status'] not in ['Public', 'Private', 'Bundle-Only']:
+                raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
+
+            # Update service data
+            update_data = {
+                'title': service_data['title'].strip(),
+                'description': service_data['description'].strip(),
+                'price': service_data['price'],
+                'delivery_time': service_data['delivery_time'],
+                'status': service_data['status'],
+                'color': service_data['color'],
+                'updated_at': 'now()'
+            }
+
+            result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
+            if not result.data:
+                raise HTTPException(status_code=500, detail="Failed to update service")
+
+            # Always delete existing photos first, then handle new photos if provided
+            await CreativeController._delete_service_photos(service_id)
+            
+            # Handle new photos if provided
+            if photo_files:
+                await CreativeController._save_service_photos_from_files(service_id, photo_files)
 
             return UpdateServiceResponse(success=True, message="Service updated successfully")
 
@@ -825,7 +1168,7 @@ class CreativeController:
 
     @staticmethod
     async def get_creative_bundles(user_id: str) -> CreativeBundlesListResponse:
-        """Get all bundles associated with the creative"""
+        """Get all bundles associated with the creative - optimized with batch queries"""
         try:
             # Query the creative_bundles table for this creative user
             bundles_result = db_admin.table('creative_bundles').select(
@@ -835,34 +1178,75 @@ class CreativeController:
             if not bundles_result.data:
                 return CreativeBundlesListResponse(bundles=[], total_count=0)
             
+            bundle_ids = [bundle['id'] for bundle in bundles_result.data]
+            
+            # Batch fetch all bundle services to avoid N+1 queries
+            bundle_services_result = db_admin.table('bundle_services').select(
+                'bundle_id, service_id'
+            ).in_('bundle_id', bundle_ids).execute()
+            
+            # Group service IDs by bundle ID
+            bundle_service_map = {}
+            all_service_ids = set()
+            for bs in bundle_services_result.data:
+                bundle_id = bs['bundle_id']
+                service_id = bs['service_id']
+                if bundle_id not in bundle_service_map:
+                    bundle_service_map[bundle_id] = []
+                bundle_service_map[bundle_id].append(service_id)
+                all_service_ids.add(service_id)
+            
+            # Batch fetch all service details
+            services_result = db_admin.table('creative_services').select(
+                'id, title, description, price, delivery_time, status, color'
+            ).in_('id', list(all_service_ids)).execute()
+            
+            # Create service lookup map
+            service_data_map = {s['id']: s for s in services_result.data}
+            
+            # Fetch photos for all bundle services
+            bundle_photos_result = db_admin.table('service_photos').select(
+                'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+            ).in_('service_id', list(all_service_ids)).order('service_id').order('display_order', desc=False).execute()
+            
+            # Group photos by service_id
+            bundle_photos_by_service = {}
+            if bundle_photos_result.data:
+                for photo in bundle_photos_result.data:
+                    service_id = photo['service_id']
+                    if service_id not in bundle_photos_by_service:
+                        bundle_photos_by_service[service_id] = []
+                    bundle_photos_by_service[service_id].append({
+                        'photo_url': photo['photo_url'],
+                        'photo_filename': photo['photo_filename'],
+                        'photo_size_bytes': photo['photo_size_bytes'],
+                        'is_primary': photo['is_primary'],
+                        'display_order': photo['display_order']
+                    })
+            
             bundles = []
             for bundle_data in bundles_result.data:
-                # Get services for this bundle
-                bundle_services_result = db_admin.table('bundle_services').select(
-                    'service_id'
-                ).eq('bundle_id', bundle_data['id']).execute()
-                
-                service_ids = [bs['service_id'] for bs in bundle_services_result.data] if bundle_services_result.data else []
-                
-                # Get service details
-                services_result = db_admin.table('creative_services').select(
-                    'id, title, description, price, delivery_time, status, color'
-                ).in_('id', service_ids).execute()
+                bundle_id = bundle_data['id']
+                service_ids = bundle_service_map.get(bundle_id, [])
                 
                 services = []
                 total_services_price = 0
-                for service_data in services_result.data:
-                    service = BundleServiceResponse(
-                        id=service_data['id'],
-                        title=service_data['title'],
-                        description=service_data['description'],
-                        price=float(service_data['price']),
-                        delivery_time=service_data['delivery_time'],
-                        status=service_data['status'],
-                        color=service_data['color']
-                    )
-                    services.append(service)
-                    total_services_price += service.price
+                for service_id in service_ids:
+                    service_data = service_data_map.get(service_id)
+                    if service_data:
+                        service_photos = bundle_photos_by_service.get(service_id, [])
+                        service = BundleServiceResponse(
+                            id=service_data['id'],
+                            title=service_data['title'],
+                            description=service_data['description'],
+                            price=float(service_data['price']),
+                            delivery_time=service_data['delivery_time'],
+                            status=service_data['status'],
+                            color=service_data['color'],
+                            photos=service_photos
+                        )
+                        services.append(service)
+                        total_services_price += service.price
                 
                 # Calculate final price
                 if bundle_data['pricing_option'] == 'fixed':
@@ -911,6 +1295,29 @@ class CreativeController:
             
             services = []
             if services_result.data:
+                # Get service IDs for photo lookup
+                service_ids = [service['id'] for service in services_result.data]
+                
+                # Get photos for all services
+                photos_result = db_admin.table('service_photos').select(
+                    'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+                ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
+                
+                # Group photos by service_id
+                photos_by_service = {}
+                if photos_result.data:
+                    for photo in photos_result.data:
+                        service_id = photo['service_id']
+                        if service_id not in photos_by_service:
+                            photos_by_service[service_id] = []
+                        photos_by_service[service_id].append({
+                            'photo_url': photo['photo_url'],
+                            'photo_filename': photo['photo_filename'],
+                            'photo_size_bytes': photo['photo_size_bytes'],
+                            'is_primary': photo['is_primary'],
+                            'display_order': photo['display_order']
+                        })
+                
                 for service_data in services_result.data:
                     service = CreativeServiceResponse(
                         id=service_data['id'],
@@ -922,7 +1329,8 @@ class CreativeController:
                         color=service_data['color'],
                         is_active=service_data['is_active'],
                         created_at=service_data['created_at'],
-                        updated_at=service_data['updated_at']
+                        updated_at=service_data['updated_at'],
+                        photos=photos_by_service.get(service_data['id'], [])
                     )
                     services.append(service)
             
@@ -946,9 +1354,30 @@ class CreativeController:
                         'id, title, description, price, delivery_time, status, color'
                     ).in_('id', service_ids).execute()
                     
+                    # Fetch photos for bundle services
+                    bundle_photos_result = db_admin.table('service_photos').select(
+                        'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+                    ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
+                    
+                    # Group photos by service_id
+                    bundle_photos_by_service = {}
+                    if bundle_photos_result.data:
+                        for photo in bundle_photos_result.data:
+                            service_id = photo['service_id']
+                            if service_id not in bundle_photos_by_service:
+                                bundle_photos_by_service[service_id] = []
+                            bundle_photos_by_service[service_id].append({
+                                'photo_url': photo['photo_url'],
+                                'photo_filename': photo['photo_filename'],
+                                'photo_size_bytes': photo['photo_size_bytes'],
+                                'is_primary': photo['is_primary'],
+                                'display_order': photo['display_order']
+                            })
+                    
                     bundle_services = []
                     total_services_price = 0
                     for service_data in services_result.data:
+                        service_photos = bundle_photos_by_service.get(service_data['id'], [])
                         service = BundleServiceResponse(
                             id=service_data['id'],
                             title=service_data['title'],
@@ -956,7 +1385,8 @@ class CreativeController:
                             price=float(service_data['price']),
                             delivery_time=service_data['delivery_time'],
                             status=service_data['status'],
-                            color=service_data['color']
+                            color=service_data['color'],
+                            photos=service_photos
                         )
                         bundle_services.append(service)
                         total_services_price += service.price
@@ -1141,7 +1571,32 @@ class CreativeController:
             
             services = []
             if services_result.data:
+                # Get all service IDs for photo fetching
+                service_ids = [service['id'] for service in services_result.data]
+                
+                # Fetch photos for all services
+                photos_result = db_admin.table('service_photos').select(
+                    'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+                ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
+                
+                # Group photos by service_id
+                photos_by_service = {}
+                if photos_result.data:
+                    for photo in photos_result.data:
+                        service_id = photo['service_id']
+                        if service_id not in photos_by_service:
+                            photos_by_service[service_id] = []
+                        photos_by_service[service_id].append({
+                            'photo_url': photo['photo_url'],
+                            'photo_filename': photo['photo_filename'],
+                            'photo_size_bytes': photo['photo_size_bytes'],
+                            'is_primary': photo['is_primary'],
+                            'display_order': photo['display_order']
+                        })
+                
                 for service_data in services_result.data:
+                    service_photos = photos_by_service.get(service_data['id'], [])
+                    
                     service = CreativeServiceResponse(
                         id=service_data['id'],
                         title=service_data['title'],
@@ -1152,7 +1607,8 @@ class CreativeController:
                         color=service_data['color'],
                         is_active=service_data['is_active'],
                         created_at=service_data['created_at'],
-                        updated_at=service_data['updated_at']
+                        updated_at=service_data['updated_at'],
+                        photos=service_photos
                     )
                     services.append(service)
             
@@ -1176,9 +1632,30 @@ class CreativeController:
                         'id, title, description, price, delivery_time, status, color'
                     ).in_('id', service_ids).execute()
                     
+                    # Fetch photos for bundle services
+                    bundle_photos_result = db_admin.table('service_photos').select(
+                        'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+                    ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
+                    
+                    # Group photos by service_id
+                    bundle_photos_by_service = {}
+                    if bundle_photos_result.data:
+                        for photo in bundle_photos_result.data:
+                            service_id = photo['service_id']
+                            if service_id not in bundle_photos_by_service:
+                                bundle_photos_by_service[service_id] = []
+                            bundle_photos_by_service[service_id].append({
+                                'photo_url': photo['photo_url'],
+                                'photo_filename': photo['photo_filename'],
+                                'photo_size_bytes': photo['photo_size_bytes'],
+                                'is_primary': photo['is_primary'],
+                                'display_order': photo['display_order']
+                            })
+                    
                     bundle_services = []
                     total_services_price = 0
                     for service_data in services_result.data:
+                        service_photos = bundle_photos_by_service.get(service_data['id'], [])
                         service = BundleServiceResponse(
                             id=service_data['id'],
                             title=service_data['title'],
@@ -1186,7 +1663,8 @@ class CreativeController:
                             price=float(service_data['price']),
                             delivery_time=service_data['delivery_time'],
                             status=service_data['status'],
-                            color=service_data['color']
+                            color=service_data['color'],
+                            photos=service_photos
                         )
                         bundle_services.append(service)
                         total_services_price += service.price

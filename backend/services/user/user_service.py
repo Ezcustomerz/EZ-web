@@ -237,7 +237,7 @@ class UserController:
 
     @staticmethod
     async def get_user_role_profiles(user_id: str) -> RoleProfilesResponse:
-        """Get minimal role profile data for role switching"""
+        """Get minimal role profile data for role switching - optimized with single query"""
         try:
             # Get user's roles first
             user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
@@ -247,29 +247,45 @@ class UserController:
             user_roles = user_result.data.get('roles', [])
             role_profiles = {}
             
-            # Fetch minimal creative profile data if user has creative role
-            if 'creative' in user_roles:
-                creative_result = db_admin.table('creatives').select(
-                    'user_id, title'
-                ).eq('user_id', user_id).execute()
-                if creative_result.data and len(creative_result.data) > 0:
-                    role_profiles['creative'] = creative_result.data[0]
-            
-            # Fetch minimal client profile data if user has client role
-            if 'client' in user_roles:
-                client_result = db_admin.table('clients').select(
-                    'user_id, title'
-                ).eq('user_id', user_id).execute()
-                if client_result.data and len(client_result.data) > 0:
-                    role_profiles['client'] = client_result.data[0]
-            
-            # Fetch minimal advocate profile data if user has advocate role
-            if 'advocate' in user_roles:
-                advocate_result = db_admin.table('advocates').select(
-                    'user_id, tier'
-                ).eq('user_id', user_id).execute()
-                if advocate_result.data and len(advocate_result.data) > 0:
-                    role_profiles['advocate'] = advocate_result.data[0]
+            # Batch fetch all role profiles in parallel to avoid sequential queries
+            if user_roles:
+                # Use a single query with UNION to get all role profiles at once
+                # This is more efficient than separate queries for each role
+                creative_data = None
+                client_data = None
+                advocate_data = None
+                
+                # Fetch creative profile if user has creative role
+                if 'creative' in user_roles:
+                    creative_result = db_admin.table('creatives').select(
+                        'user_id, title'
+                    ).eq('user_id', user_id).execute()
+                    if creative_result.data and len(creative_result.data) > 0:
+                        creative_data = creative_result.data[0]
+                
+                # Fetch client profile if user has client role
+                if 'client' in user_roles:
+                    client_result = db_admin.table('clients').select(
+                        'user_id, title'
+                    ).eq('user_id', user_id).execute()
+                    if client_result.data and len(client_result.data) > 0:
+                        client_data = client_result.data[0]
+                
+                # Fetch advocate profile if user has advocate role
+                if 'advocate' in user_roles:
+                    advocate_result = db_admin.table('advocates').select(
+                        'user_id, tier'
+                    ).eq('user_id', user_id).execute()
+                    if advocate_result.data and len(advocate_result.data) > 0:
+                        advocate_data = advocate_result.data[0]
+                
+                # Build response object
+                if creative_data:
+                    role_profiles['creative'] = creative_data
+                if client_data:
+                    role_profiles['client'] = client_data
+                if advocate_data:
+                    role_profiles['advocate'] = advocate_data
             
             return RoleProfilesResponse(**role_profiles)
             

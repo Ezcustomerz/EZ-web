@@ -15,7 +15,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faMusic, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -142,7 +142,7 @@ export function ServiceCreationPopover({
                 boxShadow: '0 4px 20px rgba(102, 126, 234, 0.3)',
               }}>
                 <FontAwesomeIcon 
-                  icon={faMusic} 
+                  icon={faGem} 
                   style={{ 
                     fontSize: '28px', 
                     color: '#fff' 
@@ -162,7 +162,7 @@ export function ServiceCreationPopover({
                 lineHeight: 1.5,
                 mb: 2
               }}>
-                Create a single service offering like music production, mixing, or mastering
+                Create a single service offering
               </Typography>
             </CardContent>
           </Card>
@@ -224,7 +224,7 @@ export function ServiceCreationPopover({
                 lineHeight: 1.5,
                 mb: 2
               }}>
-                Combine multiple services into a package deal with discounted pricing
+                Combine multiple services into a package deal
               </Typography>
 
             </CardContent>

@@ -22,16 +22,21 @@ export interface ServiceCardProps {
   onDelete?: () => void;
   color: string;
   showMenu?: boolean;
+  onClick?: () => void;
 }
 
-export function ServiceCard({ title, description, price, delivery, status, creative, onEdit, onDelete, color, showMenu = true }: ServiceCardProps) {
+export function ServiceCard({ title, description, price, delivery, status, creative, onEdit, onDelete, color, showMenu = true, onClick }: ServiceCardProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation(); // Prevent card click from firing
+    setAnchorEl(event.currentTarget);
+  };
   const handleMenuClose = () => setAnchorEl(null);
   return (
     <Card
+      onClick={onClick}
       sx={{
         height: '100%',
         minHeight: { xs: 135, sm: 170 },
@@ -200,12 +205,14 @@ export interface ServiceCardSimpleProps {
   delivery: string;
   color: string;
   creative: string;
+  onBook?: () => void;
 }
 
-export function ServiceCardSimple({ title, description, price, delivery, color, creative }: ServiceCardSimpleProps) {
+export function ServiceCardSimple({ title, description, price, delivery, color, creative, onBook }: ServiceCardSimpleProps) {
   const theme = useTheme();
   return (
     <Card
+      onClick={onBook}
       sx={{
         height: '100%',
         minHeight: { xs: 135, sm: 170 },

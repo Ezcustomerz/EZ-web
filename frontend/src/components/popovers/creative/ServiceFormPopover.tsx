@@ -25,16 +25,24 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Alert
+  Alert,
+  Card,
+  CardMedia,
+  Paper
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import InfoIcon from '@mui/icons-material/Info';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
-import { userService, type CreateServiceRequest } from '../../../api/userService';
+import { userService, type CreateServiceRequest, type ServicePhoto } from '../../../api/userService';
 import { successToast, errorToast } from '../../toast/toast';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
 
@@ -60,6 +68,7 @@ export interface ServiceFormPopoverProps {
     delivery_time: string;
     status: 'Public' | 'Private' | 'Bundle-Only';
     color: string;
+    photos?: ServicePhoto[];
   } | null;
 }
 
@@ -70,6 +79,9 @@ export interface ServiceFormData {
   deliveryTime: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
+  photos: File[];
+  existingPhotos: ServicePhoto[];
+  primaryPhotoIndex: number;
 }
 
 interface DeliveryTimeState {
@@ -94,6 +106,7 @@ const timeUnits = [
 const steps = [
   'Service Details',
   'Pricing & Delivery',
+  'Upload Photos',
   'Calendar Scheduling',
   'Customization & Review'
 ];
@@ -116,10 +129,14 @@ export function ServiceFormPopover({
     price: '',
     deliveryTime: '3-5 days',
     status: 'Public',
-    color: '#667eea'
+    color: '#667eea',
+    photos: [],
+    existingPhotos: [],
+    primaryPhotoIndex: -1
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [deliveryTime, setDeliveryTime] = useState<DeliveryTimeState>({
     minTime: '3',
@@ -312,6 +329,119 @@ export function ServiceFormPopover({
     }
   };
 
+  // Photo upload functions
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      // Filter files to only allow PNG and JPEG
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+      const validFiles = Array.from(files).filter(file => 
+        allowedTypes.includes(file.type)
+      );
+      
+      // Show error if any files were rejected
+      if (validFiles.length !== files.length) {
+        errorToast('Only PNG and JPEG files are allowed');
+      }
+      
+      const newPhotos = validFiles.slice(0, 6 - (formData.photos.length + formData.existingPhotos.length));
+      setFormData(prev => {
+        const updatedPhotos = [...prev.photos, ...newPhotos];
+        // If this is the first photo, set it as primary
+        const newPrimaryIndex = (prev.photos.length + prev.existingPhotos.length) === 0 ? 0 : prev.primaryPhotoIndex;
+        return {
+          ...prev,
+          photos: updatedPhotos,
+          primaryPhotoIndex: newPrimaryIndex
+        };
+      });
+    }
+  };
+
+  const handlePhotoRemove = (index: number) => {
+    setFormData(prev => {
+      const updatedPhotos = prev.photos.filter((_, i) => i !== index);
+      let newPrimaryIndex = prev.primaryPhotoIndex;
+      
+      // Adjust primary photo index if needed
+      if (index === prev.primaryPhotoIndex) {
+        // If removing the primary photo, set the first remaining photo as primary
+        newPrimaryIndex = updatedPhotos.length > 0 ? 0 : -1;
+      } else if (index < prev.primaryPhotoIndex) {
+        // If removing a photo before the primary, adjust the index
+        newPrimaryIndex = prev.primaryPhotoIndex - 1;
+      }
+      
+      return {
+        ...prev,
+        photos: updatedPhotos,
+        primaryPhotoIndex: newPrimaryIndex
+      };
+    });
+  };
+
+  const handleSetPrimaryPhoto = (index: number) => {
+    setFormData(prev => {
+      // If the index is within existing photos range, update existing photos
+      if (index < prev.existingPhotos.length) {
+        const updatedExistingPhotos = prev.existingPhotos.map((photo, i) => ({
+          ...photo,
+          is_primary: i === index
+        }));
+        
+        return {
+          ...prev,
+          existingPhotos: updatedExistingPhotos,
+          primaryPhotoIndex: index
+        };
+      } else {
+        // If the index is for a new photo, just update the primaryPhotoIndex
+        return {
+          ...prev,
+          primaryPhotoIndex: index
+        };
+      }
+    });
+  };
+
+  const handleSetPrimaryExistingPhoto = (index: number) => {
+    setFormData(prev => {
+      // Update existing photos to mark the selected one as primary and others as not primary
+      const updatedExistingPhotos = prev.existingPhotos.map((photo, i) => ({
+        ...photo,
+        is_primary: i === index
+      }));
+      
+      return {
+        ...prev,
+        existingPhotos: updatedExistingPhotos,
+        primaryPhotoIndex: index
+      };
+    });
+  };
+
+  const handleExistingPhotoRemove = (index: number) => {
+    setFormData(prev => {
+      const updatedExistingPhotos = prev.existingPhotos.filter((_, i) => i !== index);
+      let newPrimaryIndex = prev.primaryPhotoIndex;
+      
+      // Adjust primary photo index if needed
+      if (prev.primaryPhotoIndex === index) {
+        // If we're removing the primary photo, reset to -1
+        newPrimaryIndex = -1;
+      } else if (prev.primaryPhotoIndex > index) {
+        // If the primary photo is after the removed photo, adjust the index
+        newPrimaryIndex = prev.primaryPhotoIndex - 1;
+      }
+      
+      return {
+        ...prev,
+        existingPhotos: updatedExistingPhotos,
+        primaryPhotoIndex: newPrimaryIndex
+      };
+    });
+  };
+
   const isStepValid = (step: number) => {
     switch (step) {
       case 0:
@@ -319,13 +449,16 @@ export function ServiceFormPopover({
       case 1:
         return formData.price.trim().length > 0 && !isNaN(parseFloat(formData.price)) && parseFloat(formData.price) > 0;
       case 2:
+        // If photos are uploaded, a primary photo must be selected
+        return (formData.photos.length + formData.existingPhotos.length) === 0 || formData.primaryPhotoIndex >= 0;
+      case 3:
         // If calendar scheduling is enabled, require at least one weekly schedule event
         if (isSchedulingEnabled) {
           const hasEnabledDay = weeklySchedule.some(day => day.enabled);
           return hasEnabledDay;
         }
         return true; // Calendar scheduling is optional
-      case 3:
+      case 4:
         return true; // Customization is optional
       default:
         return false;
@@ -377,6 +510,9 @@ export function ServiceFormPopover({
         color: formData.color
       };
 
+      // Note: Photos are handled separately via the updateServiceWithPhotos method
+      // when there are new photos to upload
+
       // Add calendar settings if scheduling is enabled
       if (isSchedulingEnabled) {
         serviceData.calendar_settings = {
@@ -407,9 +543,21 @@ export function ServiceFormPopover({
         };
       }
 
-      // Call the API
+      // Call the API - use optimized endpoint if photos are present or if existing photos were modified
+      const hasNewPhotos = formData.photos.length > 0;
+      const hasModifiedExistingPhotos = initialService && initialService.photos && 
+        (formData.existingPhotos.length !== initialService.photos.length);
+      
       const response = mode === 'edit' && initialService
-        ? await userService.updateService(initialService.id, serviceData)
+        ? (hasNewPhotos || hasModifiedExistingPhotos)
+          ? await userService.updateServiceWithPhotos(initialService.id, serviceData, formData.photos, (progress) => {
+              setUploadProgress(progress);
+            })
+          : await userService.updateService(initialService.id, serviceData)
+        : formData.photos.length > 0
+        ? await userService.createServiceWithPhotos(serviceData, formData.photos, (progress) => {
+            setUploadProgress(progress);
+          })
         : await userService.createService(serviceData);
 
       if (response.success) {
@@ -426,6 +574,7 @@ export function ServiceFormPopover({
       errorToast(errorMessage);
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -434,6 +583,10 @@ export function ServiceFormPopover({
     if (open) {
       setActiveStep(0); // Reset to first step
       if (mode === 'edit' && initialService) {
+        // Find the index of the primary photo in existing photos
+        const existingPhotos = initialService.photos || [];
+        const primaryPhotoIndex = existingPhotos.findIndex(photo => photo.is_primary);
+        
         // Prefill from service
         setFormData({
           title: initialService.title,
@@ -442,6 +595,9 @@ export function ServiceFormPopover({
           deliveryTime: initialService.delivery_time,
           status: initialService.status,
           color: initialService.color,
+          photos: [], // New photos to upload
+          existingPhotos: existingPhotos, // Existing photos from service
+          primaryPhotoIndex: primaryPhotoIndex
         });
         // Attempt to parse delivery_time like "3-5 days" or "3 days"
         const match = initialService.delivery_time.match(/(\d+)(?:-(\d+))?\s*(day|week|month)s?/i);
@@ -461,7 +617,10 @@ export function ServiceFormPopover({
           price: '',
           deliveryTime: '3-5 days',
           status: 'Public',
-          color: '#667eea'
+          color: '#667eea',
+          photos: [],
+          existingPhotos: [],
+          primaryPhotoIndex: -1
         });
         setDeliveryTime({
           minTime: '3',
@@ -670,6 +829,252 @@ export function ServiceFormPopover({
         );
 
       case 2:
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Upload up to 6 photos to showcase your service. This helps clients understand what you offer.
+            </Alert>
+
+            {/* Photo Upload Area */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Upload Button */}
+              <Paper
+                sx={{
+                  p: 3,
+                  border: '2px dashed',
+                  borderColor: 'primary.main',
+                  borderRadius: 2,
+                  textAlign: 'center',
+                  backgroundColor: 'rgba(59, 130, 246, 0.02)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                    borderColor: 'primary.dark',
+                  }
+                }}
+                onClick={() => document.getElementById('photo-upload')?.click()}
+              >
+                <input
+                  id="photo-upload"
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/jpg"
+                  onChange={handlePhotoUpload}
+                  style={{ display: 'none' }}
+                />
+                <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
+                <Typography variant="h6" sx={{ color: 'primary.main', mb: 1 }}>
+                  Upload Photos
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Click to select photos from your device
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  PNG and JPEG files only • {(formData.photos.length + formData.existingPhotos.length)}/6 photos uploaded
+                </Typography>
+              </Paper>
+
+              {/* Photo Grid */}
+              {(formData.photos.length > 0 || formData.existingPhotos.length > 0) && (
+                <Box sx={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                  gap: 2 
+                }}>
+                  {/* Existing Photos */}
+                  {formData.existingPhotos.map((photo, index) => (
+                    <Card key={`existing-${index}`} sx={{ 
+                      position: 'relative', 
+                      aspectRatio: '1',
+                      border: photo.is_primary ? '3px solid' : '1px solid',
+                      borderColor: photo.is_primary ? 'primary.main' : 'divider'
+                    }}>
+                      <CardMedia
+                        component="img"
+                        image={photo.photo_url}
+                        alt={`Existing service photo ${index + 1}`}
+                        sx={{
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                      
+                      {/* Primary Photo Star */}
+                      <IconButton
+                        onClick={() => handleSetPrimaryExistingPhoto(index)}
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          left: 8,
+                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                          color: photo.is_primary ? 'warning.main' : 'white',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                          }
+                        }}
+                        size="small"
+                      >
+                        {photo.is_primary ? (
+                          <StarIcon fontSize="small" />
+                        ) : (
+                          <StarBorderIcon fontSize="small" />
+                        )}
+                      </IconButton>
+
+                      {/* Delete Button */}
+                      <IconButton
+                        onClick={() => handleExistingPhotoRemove(index)}
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                          color: 'white',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                          }
+                        }}
+                        size="small"
+                      >
+                        <DeleteForeverIcon fontSize="small" />
+                      </IconButton>
+
+                      {/* Primary Photo Label */}
+                      {photo.is_primary && (
+                        <Box sx={{
+                          position: 'absolute',
+                          bottom: 8,
+                          left: 8,
+                          right: 8,
+                          backgroundColor: 'primary.main',
+                          color: 'white',
+                          borderRadius: 1,
+                          py: 0.5,
+                          px: 1
+                        }}>
+                          <Typography variant="caption" sx={{ 
+                            fontSize: '0.7rem', 
+                            fontWeight: 600,
+                            textAlign: 'center',
+                            display: 'block'
+                          }}>
+                            Primary Photo
+                          </Typography>
+                        </Box>
+                      )}
+                    </Card>
+                  ))}
+
+                  {/* New Photos */}
+                  {formData.photos.map((photo, index) => (
+                    <Card key={`new-${index}`} sx={{ 
+                      position: 'relative', 
+                      aspectRatio: '1',
+                      border: (formData.existingPhotos.length + index) === formData.primaryPhotoIndex ? '3px solid' : '1px solid',
+                      borderColor: (formData.existingPhotos.length + index) === formData.primaryPhotoIndex ? 'primary.main' : 'divider'
+                    }}>
+                      <CardMedia
+                        component="img"
+                        image={URL.createObjectURL(photo)}
+                        alt={`New service photo ${index + 1}`}
+                        sx={{
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                      
+                      {/* Primary Photo Star */}
+                      <IconButton
+                        onClick={() => handleSetPrimaryPhoto(formData.existingPhotos.length + index)}
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          left: 8,
+                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                          color: (formData.existingPhotos.length + index) === formData.primaryPhotoIndex ? 'warning.main' : 'white',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                          }
+                        }}
+                        size="small"
+                      >
+                        {(formData.existingPhotos.length + index) === formData.primaryPhotoIndex ? (
+                          <StarIcon fontSize="small" />
+                        ) : (
+                          <StarBorderIcon fontSize="small" />
+                        )}
+                      </IconButton>
+
+                      {/* Delete Button */}
+                      <IconButton
+                        onClick={() => handlePhotoRemove(index)}
+                        sx={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 8,
+                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                          color: 'white',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                          }
+                        }}
+                        size="small"
+                      >
+                        <DeleteForeverIcon fontSize="small" />
+                      </IconButton>
+
+                      {/* Primary Photo Label */}
+                      {(formData.existingPhotos.length + index) === formData.primaryPhotoIndex && (
+                        <Box sx={{
+                          position: 'absolute',
+                          bottom: 8,
+                          left: 8,
+                          right: 8,
+                          backgroundColor: 'primary.main',
+                          color: 'white',
+                          borderRadius: 1,
+                          py: 0.5,
+                          px: 1
+                        }}>
+                          <Typography variant="caption" sx={{ 
+                            fontSize: '0.7rem', 
+                            fontWeight: 600,
+                            textAlign: 'center',
+                            display: 'block'
+                          }}>
+                            Primary Photo
+                          </Typography>
+                        </Box>
+                      )}
+                    </Card>
+                  ))}
+                </Box>
+              )}
+
+              {/* Primary Photo Instructions */}
+              {(formData.photos.length > 0 || formData.existingPhotos.length > 0) && formData.primaryPhotoIndex === -1 && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  Please select a primary photo by clicking the star icon on one of your photos.
+                </Alert>
+              )}
+
+              {/* Add More Photos Button */}
+              {(formData.photos.length + formData.existingPhotos.length) > 0 && (formData.photos.length + formData.existingPhotos.length) < 6 && (
+                <Button
+                  variant="outlined"
+                  startIcon={<PhotoCameraIcon />}
+                  onClick={() => document.getElementById('photo-upload')?.click()}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  Add More Photos ({6 - (formData.photos.length + formData.existingPhotos.length)} remaining)
+                </Button>
+              )}
+            </Box>
+          </Box>
+        );
+
+      case 3:
         return (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Alert severity="info" sx={{ mb: 2 }}>
@@ -1246,7 +1651,7 @@ export function ServiceFormPopover({
           </Box>
         );
 
-      case 3:
+      case 4:
         return (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Alert severity="success" sx={{ mb: 2 }}>
@@ -1669,7 +2074,20 @@ export function ServiceFormPopover({
               disabled={!isStepValid(activeStep) || isSubmitting}
               sx={{ minWidth: 120 }}
             >
-              {isSubmitting ? (mode === 'edit' ? 'Saving...' : 'Creating...') : (mode === 'edit' ? 'Save Changes' : 'Create Service')}
+              {isSubmitting ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2">
+                    {mode === 'edit' ? 'Saving...' : 'Creating...'}
+                  </Typography>
+                  {formData.photos.length > 0 && uploadProgress > 0 && (
+                    <Typography variant="caption" sx={{ color: 'inherit' }}>
+                      {uploadProgress}%
+                    </Typography>
+                  )}
+                </Box>
+              ) : (
+                mode === 'edit' ? 'Save Changes' : 'Create Service'
+              )}
             </Button>
           ) : (
             <Button

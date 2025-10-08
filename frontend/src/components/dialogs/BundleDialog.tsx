@@ -68,7 +68,7 @@ export function BundleDialog({ open, anchorEl, onClose, onEdit, onDelete }: Bund
             }}
           >
             <MenuItem
-              onClick={() => { onClose(); onEdit && onEdit(); }}
+              onClick={(e) => { e.stopPropagation(); onClose(); onEdit && onEdit(); }}
               role="menuitem"
               sx={{
                 py: 1,
@@ -116,7 +116,7 @@ export function BundleDialog({ open, anchorEl, onClose, onEdit, onDelete }: Bund
               <ListItemText primary="Edit" sx={{ '& .MuiListItemText-primary': { fontSize: '0.9rem', fontWeight: 500, color: '#241E1A' } }} />
             </MenuItem>
             <MenuItem
-              onClick={() => { onClose(); onDelete && onDelete(); }}
+              onClick={(e) => { e.stopPropagation(); onClose(); onDelete && onDelete(); }}
               role="menuitem"
               sx={{
                 py: 1,

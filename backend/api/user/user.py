@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Request, HTTPException
 from services.user.user_service import UserController
 from schemas.user import RoleProfilesResponse
+from core.limiter import limiter
 
 router = APIRouter()
 
 @router.get("/profile")
+@limiter.limit("2 per second")
 async def get_user_profile(request: Request):
     """Get the current user's profile from the database"""
     try:
@@ -21,6 +23,7 @@ async def get_user_profile(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to fetch user profile: {str(e)}")
 
 @router.get("/role-profiles", response_model=RoleProfilesResponse)
+@limiter.limit("2 per second")
 async def get_user_role_profiles(request: Request):
     """Get minimal role profile data for role switching"""
     try:

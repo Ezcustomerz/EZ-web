@@ -4,10 +4,12 @@ import { useTheme } from '@mui/material/styles';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { AnimatedButton } from '../../components/buttons/MusicButton';
+import { useRoleRedirect } from '../../utils/roleRedirect';
 
 export function Footer() {
   const navigate = useNavigate();
   const theme = useTheme();
+  const { getRedirectUrl } = useRoleRedirect();
 
   const pages = [
     { name: 'Pricing', href: '/pricing' },
@@ -62,7 +64,7 @@ export function Footer() {
               buttonVariant="landing"
               size="medium"
               borderColor={theme.palette.secondary.main}
-              onClick={() => navigate('/creative')}
+              onClick={() => navigate(getRedirectUrl())}
             />
           </Box>
 
