@@ -741,14 +741,16 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
               </Box>
 
               {/* Description */}
+                  
               <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Description color="primary" />
                     <Typography variant="h6" fontWeight={600}>
                       Description
                     </Typography>
                   </Box>
+
                   <TextField
                     fullWidth
                     multiline
@@ -759,11 +761,41 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                     value={formData.description}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                   />
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                </CardContent>
+              </Card>
+
+              {/* Global floating character counter */}
+               <Card variant="outlined">
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, position: 'relative' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Description color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Description
+                    </Typography>
+                  </Box>
+
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    placeholder="Tell clients about yourself and your services..."
+                    variant="outlined"
+                    size="small"
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                  />
+
+                  {/* Bottom-right counter */}
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ position: 'absolute', bottom: 2, right: 10 }}
+                  >
                     {formData.description.length}/500 characters
                   </Typography>
                 </CardContent>
               </Card>
+
 
               {/* Profile Highlights Configuration */}
               <Card variant="outlined">
