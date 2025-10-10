@@ -60,6 +60,8 @@ async def generate_invite_link(request: Request):
         
         # Generate invite link
         base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        # Remove trailing slash from base_url to prevent double slashes
+        base_url = base_url.rstrip('/')
         invite_link = f"{base_url}/invite/{invite_token}"
         print(f"🔍 Invite link generated: {invite_link}")
         
