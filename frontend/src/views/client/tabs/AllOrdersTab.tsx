@@ -1286,13 +1286,13 @@ export function AllServicesTab() {
             alignItems: 'center', 
             justifyContent: 'center',
             py: 8,
-            gap: 2
+            gap: 1
           }}>
             <Search sx={{ fontSize: 64, color: 'text.disabled', opacity: 0.3 }} />
             <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 500 }}>
               No orders found
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.disabled', mb: 1 }}>
+            <Typography variant="body2" sx={{ color: 'text.disabled'}}>
               Try adjusting your filters or search query
             </Typography>
             <Button
