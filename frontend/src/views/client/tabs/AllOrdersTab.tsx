@@ -1262,7 +1262,7 @@ export function AllServicesTab() {
         overflowY: 'auto',
         overflowX: 'visible',
         pr: 1,
-        pt: 1,
+        pt: 3,
         maxHeight: 'calc(100vh - 300px)',
         '&::-webkit-scrollbar': {
           width: '8px',

@@ -3,14 +3,14 @@ import { LayoutClient } from '../../layout/client/LayoutClient';
 import { useState } from 'react';
 import { TaskAlt, HourglassEmpty, History, CheckCircle } from '@mui/icons-material';
 import { AllServicesTab } from './tabs/AllOrdersTab';
-import { InProgressTab } from './tabs/InProgressTab';
-import { ReadyTab } from './tabs/ReadyTab';
-import { PastServicesTab } from './tabs/PastServicesTab';
+import { ActiveTab } from './tabs/ActiveTab';
+import { ActionNeededTab } from './tabs/ActionNeededTab';
+import { HistoryTab } from './tabs/HistoryTab';
 
 const tabLabels = [
   { label: 'All Orders', icon: <TaskAlt sx={{ fontSize: 18, mr: 1 }} /> },
   { label: 'Active', icon: <HourglassEmpty sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'Ready', icon: <CheckCircle sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Action Needed', icon: <CheckCircle sx={{ fontSize: 18, mr: 1 }} /> },
   { label: 'History', icon: <History sx={{ fontSize: 18, mr: 1 }} /> },
 ];
 
@@ -307,11 +307,11 @@ export function ClientOrders() {
             {activeTab === 0 ? (
               <AllServicesTab />
             ) : activeTab === 1 ? (
-              <InProgressTab />
+              <ActiveTab />
             ) : activeTab === 2 ? (
-              <ReadyTab />
+              <ActionNeededTab />
             ) : (
-              <PastServicesTab />
+              <HistoryTab />
             )}
           </Box>
         </Paper>
