@@ -9,6 +9,8 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, AttachMoney } from '@mui/icons-material';
+import { useState } from 'react';
+import { PlacedOrderDetailPopover, type PlacedOrderDetail, type PaymentOption } from '../../popovers/client/PlacedOrderDetailPopover';
 
 interface PlacedOrderCardProps {
   id: string;
@@ -18,41 +20,106 @@ interface PlacedOrderCardProps {
   description: string;
   price: number;
   calendarDate: string | null;
+  paymentOption?: PaymentOption;
+  serviceId?: string;
+  serviceDescription?: string;
+  serviceDeliveryTime?: string;
+  serviceColor?: string;
+  creativeAvatarUrl?: string;
+  creativeDisplayName?: string;
+  creativeTitle?: string;
+  creativeId?: string;
+  creativeEmail?: string;
+  creativeRating?: number;
+  creativeReviewCount?: number;
+  creativeServicesCount?: number;
+  creativeColor?: string;
 }
 
 export function PlacedOrderCard({
+  id,
   serviceName,
   creativeName,
   orderDate,
   description,
   price,
-  calendarDate
+  calendarDate,
+  paymentOption = 'payment_upfront',
+  serviceId,
+  serviceDescription,
+  serviceDeliveryTime,
+  serviceColor,
+  creativeAvatarUrl,
+  creativeDisplayName,
+  creativeTitle,
+  creativeId,
+  creativeEmail,
+  creativeRating,
+  creativeReviewCount,
+  creativeServicesCount,
+  creativeColor
 }: PlacedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#ff9800';
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const handleCardClick = () => {
+    setPopoverOpen(true);
+  };
+
+  const handlePopoverClose = () => {
+    setPopoverOpen(false);
+  };
+
+  const orderDetail: PlacedOrderDetail = {
+    id,
+    serviceName,
+    creativeName,
+    orderDate,
+    description,
+    price,
+    calendarDate,
+    paymentOption,
+    serviceId,
+    serviceDescription,
+    serviceDeliveryTime,
+    serviceColor: serviceColor || statusColor,
+    creativeAvatarUrl,
+    creativeDisplayName,
+    creativeTitle,
+    creativeId,
+    creativeEmail,
+    creativeRating,
+    creativeReviewCount,
+    creativeServicesCount,
+    creativeColor,
+  };
 
   return (
-    <Card 
-      sx={{ 
-        borderRadius: 2,
-        transition: 'all 0.2s ease',
-        border: '2px solid',
-        borderColor: 'rgba(255, 152, 0, 0.3)',
-        overflow: 'visible',
-        minHeight: 'fit-content',
-        height: 'auto',
-        backgroundColor: theme.palette.mode === 'dark'
-          ? 'rgba(255, 152, 0, 0.05)'
-          : 'rgba(255, 152, 0, 0.02)',
-        '&:hover': {
-          boxShadow: theme.palette.mode === 'dark'
-            ? '0 4px 20px rgba(255, 152, 0, 0.3)'
-            : '0 4px 20px rgba(255, 152, 0, 0.2)',
-          borderColor: '#ff9800',
-          transform: 'translateY(-2px)',
-        }
-      }}
-    >
+    <>
+      <Card 
+        onClick={handleCardClick}
+        sx={{ 
+          borderRadius: 2,
+          transition: 'all 0.2s ease',
+          border: '2px solid',
+          borderColor: 'rgba(255, 152, 0, 0.3)',
+          overflow: 'visible',
+          minHeight: 'fit-content',
+          height: 'auto',
+          backgroundColor: theme.palette.mode === 'dark'
+            ? 'rgba(255, 152, 0, 0.05)'
+            : 'rgba(255, 152, 0, 0.02)',
+          cursor: 'pointer',
+          '&:hover': {
+            boxShadow: theme.palette.mode === 'dark'
+              ? '0 4px 20px rgba(255, 152, 0, 0.3)'
+              : '0 4px 20px rgba(255, 152, 0, 0.2)',
+            borderColor: '#ff9800',
+            transform: 'translateY(-2px)',
+          }
+        }}
+      >
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, overflow: 'visible', display: 'flex', flexDirection: 'column' }}>
         {/* Header Section with Avatar */}
         <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
@@ -174,6 +241,13 @@ export function PlacedOrderCard({
         </Box>
       </CardContent>
     </Card>
+
+    <PlacedOrderDetailPopover
+      open={popoverOpen}
+      onClose={handlePopoverClose}
+      order={orderDetail}
+    />
+  </>
   );
 }
 

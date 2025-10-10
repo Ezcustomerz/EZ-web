@@ -9,7 +9,9 @@ import {
   Button,
   useTheme
 } from '@mui/material';
-import { DateRange, CalendarToday, CheckCircle, Folder, InsertDriveFile, Payment as PaymentIcon } from '@mui/icons-material';
+import { DateRange, CalendarToday, CheckCircle, Folder, InsertDriveFile, Lock, LockOpen } from '@mui/icons-material';
+import { useState } from 'react';
+import { LockedOrderDetailPopover, type LockedOrderDetail, type LockedPaymentOption } from '../../popovers/client/LockedOrderDetailPopover';
 
 interface LockedOrderCardProps {
   id: string;
@@ -23,9 +25,24 @@ interface LockedOrderCardProps {
   calendarDate: string | null;
   fileCount: number | null;
   fileSize: string | null;
+  paymentOption?: LockedPaymentOption;
+  serviceId?: string;
+  serviceDescription?: string;
+  serviceDeliveryTime?: string;
+  serviceColor?: string;
+  creativeAvatarUrl?: string;
+  creativeDisplayName?: string;
+  creativeTitle?: string;
+  creativeId?: string;
+  creativeEmail?: string;
+  creativeRating?: number;
+  creativeReviewCount?: number;
+  creativeServicesCount?: number;
+  creativeColor?: string;
 }
 
 export function LockedOrderCard({
+  id,
   serviceName,
   creativeName,
   orderDate,
@@ -35,13 +52,75 @@ export function LockedOrderCard({
   completedDate,
   calendarDate,
   fileCount,
-  fileSize
+  fileSize,
+  paymentOption = 'payment_later',
+  serviceId,
+  serviceDescription,
+  serviceDeliveryTime,
+  serviceColor,
+  creativeAvatarUrl,
+  creativeDisplayName,
+  creativeTitle,
+  creativeId,
+  creativeEmail,
+  creativeRating,
+  creativeReviewCount,
+  creativeServicesCount,
+  creativeColor
 }: LockedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#9c27b0';
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open popover if clicking the pay button
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    setPopoverOpen(true);
+  };
+
+  const handlePopoverClose = () => {
+    setPopoverOpen(false);
+  };
+
+  const handlePayNow = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPopoverOpen(true);
+  };
+
+  const orderDetail: LockedOrderDetail = {
+    id,
+    serviceName,
+    creativeName,
+    orderDate,
+    description,
+    price,
+    approvedDate,
+    completedDate,
+    calendarDate,
+    paymentOption,
+    fileCount,
+    fileSize,
+    serviceId,
+    serviceDescription,
+    serviceDeliveryTime,
+    serviceColor: serviceColor || statusColor,
+    creativeAvatarUrl,
+    creativeDisplayName,
+    creativeTitle,
+    creativeId,
+    creativeEmail,
+    creativeRating,
+    creativeReviewCount,
+    creativeServicesCount,
+    creativeColor,
+  };
 
   return (
-    <Card 
+    <>
+      <Card 
+        onClick={handleCardClick} 
       sx={{ 
         borderRadius: 2,
         transition: 'all 0.2s ease',
@@ -50,6 +129,7 @@ export function LockedOrderCard({
         overflow: 'visible',
         minHeight: 'fit-content',
         height: 'auto',
+        cursor: 'pointer',
         backgroundColor: theme.palette.mode === 'dark'
           ? 'rgba(156, 39, 176, 0.05)'
           : 'rgba(156, 39, 176, 0.02)',
@@ -227,8 +307,8 @@ export function LockedOrderCard({
           <Box sx={{ position: 'relative' }}>
             <Button
               variant="contained"
-              startIcon={<PaymentIcon sx={{ fontSize: 18 }} />}
               size="small"
+              onClick={handlePayNow}
               sx={{
                 backgroundColor: 'primary.main',
                 color: 'white',
@@ -244,6 +324,18 @@ export function LockedOrderCard({
                 transition: 'all 0.2s ease-in-out',
                 minWidth: 'auto',
                 zIndex: 1,
+                '& .lock-icon': {
+                  display: 'inline-flex',
+                  transition: 'opacity 0.2s ease-in-out',
+                },
+                '& .lock-closed': {
+                  opacity: 1,
+                },
+                '& .lock-open': {
+                  opacity: 0,
+                  position: 'absolute',
+                  left: 0,
+                },
                 '@keyframes sparkle': {
                   '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
                   '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
@@ -300,6 +392,12 @@ export function LockedOrderCard({
                 '&:hover': {
                   transform: 'translateY(-2px)',
                   boxShadow: '0 6px 20px 0 rgba(59, 130, 246, 0.5)',
+                  '& .lock-closed': {
+                    opacity: 0,
+                  },
+                  '& .lock-open': {
+                    opacity: 1,
+                  },
                   '&::before': {
                     animation: 'sparkle 0.5s ease-in-out infinite',
                   },
@@ -318,6 +416,10 @@ export function LockedOrderCard({
                 },
               }}
             >
+              <Box sx={{ display: 'inline-flex', mr: 1, position: 'relative', alignItems: 'center' }}>
+                <Lock className="lock-icon lock-closed" sx={{ fontSize: 18 }} />
+                <LockOpen className="lock-icon lock-open" sx={{ fontSize: 18 }} />
+              </Box>
               <Box
                 className="sparkle-3"
                 sx={{
@@ -372,6 +474,13 @@ export function LockedOrderCard({
         </Box>
       </CardContent>
     </Card>
+
+    <LockedOrderDetailPopover
+      open={popoverOpen}
+      onClose={handlePopoverClose}
+      order={orderDetail}
+    />
+  </>
   );
 }
 

@@ -9,7 +9,9 @@ import {
   Button,
   useTheme
 } from '@mui/material';
-import { DateRange, CalendarToday, CheckCircle, Folder, Replay } from '@mui/icons-material';
+import { DateRange, CheckCircle, Folder, Replay } from '@mui/icons-material';
+import { useState } from 'react';
+import { CompletedOrderDetailPopover, type CompletedOrderDetail, type CompletedPaymentOption, type CompletedFile } from '../../popovers/client/CompletedOrderDetailPopover';
 
 interface CompletedOrderCardProps {
   id: string;
@@ -22,9 +24,26 @@ interface CompletedOrderCardProps {
   completedDate: string | null;
   calendarDate: string | null;
   fileCount: number | null;
+  fileSize?: string | null;
+  paymentOption?: CompletedPaymentOption;
+  files?: CompletedFile[];
+  serviceId?: string;
+  serviceDescription?: string;
+  serviceDeliveryTime?: string;
+  serviceColor?: string;
+  creativeAvatarUrl?: string;
+  creativeDisplayName?: string;
+  creativeTitle?: string;
+  creativeId?: string;
+  creativeEmail?: string;
+  creativeRating?: number;
+  creativeReviewCount?: number;
+  creativeServicesCount?: number;
+  creativeColor?: string;
 }
 
 export function CompletedOrderCard({
+  id,
   serviceName,
   creativeName,
   orderDate,
@@ -33,13 +52,78 @@ export function CompletedOrderCard({
   approvedDate,
   completedDate,
   calendarDate,
-  fileCount
+  fileCount,
+  fileSize,
+  paymentOption = 'payment_upfront',
+  files = [],
+  serviceId,
+  serviceDescription,
+  serviceDeliveryTime,
+  serviceColor,
+  creativeAvatarUrl,
+  creativeDisplayName,
+  creativeTitle,
+  creativeId,
+  creativeEmail,
+  creativeRating,
+  creativeReviewCount,
+  creativeServicesCount,
+  creativeColor
 }: CompletedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#4caf50';
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open popover if clicking buttons
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    setPopoverOpen(true);
+  };
+
+  const handlePopoverClose = () => {
+    setPopoverOpen(false);
+  };
+
+  const handleBookAgain = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPopoverOpen(true);
+  };
+
+  const orderDetail: CompletedOrderDetail = {
+    id,
+    serviceName,
+    creativeName,
+    orderDate,
+    description,
+    price,
+    approvedDate,
+    completedDate,
+    calendarDate,
+    paymentOption,
+    files,
+    fileCount,
+    fileSize,
+    serviceId,
+    serviceDescription,
+    serviceDeliveryTime,
+    serviceColor: serviceColor || statusColor,
+    creativeAvatarUrl,
+    creativeDisplayName,
+    creativeTitle,
+    creativeId,
+    creativeEmail,
+    creativeRating,
+    creativeReviewCount,
+    creativeServicesCount,
+    creativeColor,
+  };
 
   return (
-    <Card 
+    <>
+      <Card 
+        onClick={handleCardClick} 
       sx={{ 
         borderRadius: 2,
         transition: 'all 0.2s ease',
@@ -48,6 +132,7 @@ export function CompletedOrderCard({
         overflow: 'visible',
         minHeight: 'fit-content',
         height: 'auto',
+        cursor: 'pointer',
         backgroundColor: theme.palette.mode === 'dark'
           ? 'rgba(76, 175, 80, 0.05)'
           : 'rgba(76, 175, 80, 0.02)',
@@ -134,28 +219,6 @@ export function CompletedOrderCard({
             </Box>
           </Box>
 
-          {calendarDate && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                Booking Set For
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <CalendarToday sx={{ fontSize: 16, color: 'primary.main' }} />
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {new Date(calendarDate).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
-                  })} at {new Date(calendarDate).toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit',
-                    hour12: true
-                  })}
-                </Typography>
-              </Box>
-            </Box>
-          )}
-
           {completedDate && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
               <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
@@ -210,6 +273,7 @@ export function CompletedOrderCard({
               variant="contained"
               startIcon={<Replay sx={{ fontSize: 18 }} />}
               size="small"
+              onClick={handleBookAgain}
               sx={{
                 backgroundColor: 'primary.main',
                 color: 'white',
@@ -355,6 +419,13 @@ export function CompletedOrderCard({
         </Box>
       </CardContent>
     </Card>
+
+    <CompletedOrderDetailPopover
+      open={popoverOpen}
+      onClose={handlePopoverClose}
+      order={orderDetail}
+    />
+  </>
   );
 }
 

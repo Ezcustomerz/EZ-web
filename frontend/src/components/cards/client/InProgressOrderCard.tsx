@@ -9,6 +9,8 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, CalendarToday, AttachMoney } from '@mui/icons-material';
+import { useState } from 'react';
+import { InProgressOrderDetailPopover, type InProgressOrderDetail, type InProgressPaymentOption } from '../../popovers/client/InProgressOrderDetailPopover';
 
 interface InProgressOrderCardProps {
   id: string;
@@ -19,42 +21,114 @@ interface InProgressOrderCardProps {
   price: number;
   approvedDate: string | null;
   calendarDate: string | null;
+  paymentOption?: InProgressPaymentOption;
+  amountPaid?: number;
+  amountRemaining?: number;
+  serviceId?: string;
+  serviceDescription?: string;
+  serviceDeliveryTime?: string;
+  serviceColor?: string;
+  creativeAvatarUrl?: string;
+  creativeDisplayName?: string;
+  creativeTitle?: string;
+  creativeId?: string;
+  creativeEmail?: string;
+  creativeRating?: number;
+  creativeReviewCount?: number;
+  creativeServicesCount?: number;
+  creativeColor?: string;
 }
 
 export function InProgressOrderCard({
+  id,
   serviceName,
   creativeName,
   orderDate,
   description,
   price,
   approvedDate,
-  calendarDate
+  calendarDate,
+  paymentOption = 'payment_upfront',
+  amountPaid,
+  amountRemaining,
+  serviceId,
+  serviceDescription,
+  serviceDeliveryTime,
+  serviceColor,
+  creativeAvatarUrl,
+  creativeDisplayName,
+  creativeTitle,
+  creativeId,
+  creativeEmail,
+  creativeRating,
+  creativeReviewCount,
+  creativeServicesCount,
+  creativeColor
 }: InProgressOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#2196f3';
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const handleCardClick = () => {
+    setPopoverOpen(true);
+  };
+
+  const handlePopoverClose = () => {
+    setPopoverOpen(false);
+  };
+
+  const orderDetail: InProgressOrderDetail = {
+    id,
+    serviceName,
+    creativeName,
+    orderDate,
+    description,
+    price,
+    approvedDate,
+    calendarDate,
+    paymentOption,
+    amountPaid,
+    amountRemaining,
+    serviceId,
+    serviceDescription,
+    serviceDeliveryTime,
+    serviceColor: serviceColor || statusColor,
+    creativeAvatarUrl,
+    creativeDisplayName,
+    creativeTitle,
+    creativeId,
+    creativeEmail,
+    creativeRating,
+    creativeReviewCount,
+    creativeServicesCount,
+    creativeColor,
+  };
 
   return (
-    <Card 
-      sx={{ 
-        borderRadius: 2,
-        transition: 'all 0.2s ease',
-        border: '2px solid',
-        borderColor: 'rgba(33, 150, 243, 0.3)',
-        overflow: 'visible',
-        minHeight: 'fit-content',
-        height: 'auto',
-        backgroundColor: theme.palette.mode === 'dark'
-          ? 'rgba(33, 150, 243, 0.05)'
-          : 'rgba(33, 150, 243, 0.02)',
-        '&:hover': {
-          boxShadow: theme.palette.mode === 'dark'
-            ? '0 4px 20px rgba(33, 150, 243, 0.3)'
-            : '0 4px 20px rgba(33, 150, 243, 0.2)',
-          borderColor: '#2196f3',
-          transform: 'translateY(-2px)',
-        }
-      }}
-    >
+    <>
+      <Card 
+        onClick={handleCardClick} 
+        sx={{ 
+          borderRadius: 2,
+          transition: 'all 0.2s ease',
+          border: '2px solid',
+          borderColor: 'rgba(33, 150, 243, 0.3)',
+          overflow: 'visible',
+          minHeight: 'fit-content',
+          height: 'auto',
+          backgroundColor: theme.palette.mode === 'dark'
+            ? 'rgba(33, 150, 243, 0.05)'
+            : 'rgba(33, 150, 243, 0.02)',
+          cursor: 'pointer',
+          '&:hover': {
+            boxShadow: theme.palette.mode === 'dark'
+              ? '0 4px 20px rgba(33, 150, 243, 0.3)'
+              : '0 4px 20px rgba(33, 150, 243, 0.2)',
+            borderColor: '#2196f3',
+            transform: 'translateY(-2px)',
+          }
+        }}
+      >
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, overflow: 'visible', display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
           <Avatar 
@@ -185,6 +259,13 @@ export function InProgressOrderCard({
         </Box>
       </CardContent>
     </Card>
+
+    <InProgressOrderDetailPopover
+      open={popoverOpen}
+      onClose={handlePopoverClose}
+      order={orderDetail}
+    />
+  </>
   );
 }
 

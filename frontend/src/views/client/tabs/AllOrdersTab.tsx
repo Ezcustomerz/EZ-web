@@ -46,6 +46,19 @@ const dummyOrders = [
     completedDate: null,
     fileCount: null,
     fileSize: null,
+    paymentOption: 'split_payment' as const,
+    serviceId: 'svc_1',
+    serviceDescription: 'Professional mixing and mastering service for your tracks',
+    serviceDeliveryTime: '5-7 days',
+    serviceColor: '#667eea',
+    creativeId: 'creative_1',
+    creativeDisplayName: 'DJ Producer',
+    creativeTitle: 'Audio Engineer & Producer',
+    creativeEmail: 'djproducer@ez.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 24,
+    creativeServicesCount: 12,
+    creativeColor: '#667eea',
   },
   {
     id: '2',
@@ -60,6 +73,19 @@ const dummyOrders = [
     completedDate: null,
     fileCount: null,
     fileSize: null,
+    paymentOption: 'payment_upfront' as const,
+    serviceId: 'svc_2',
+    serviceDescription: 'Complete podcast editing including noise reduction and mastering',
+    serviceDeliveryTime: '3-5 days',
+    serviceColor: '#4ecdc4',
+    creativeId: 'creative_4',
+    creativeDisplayName: 'Sound Designer X',
+    creativeTitle: 'Audio Engineer & Sound Designer',
+    creativeEmail: 'sounddesigner@ez.com',
+    creativeRating: 4.8,
+    creativeReviewCount: 16,
+    creativeServicesCount: 11,
+    creativeColor: '#4ecdc4',
   },
   {
     id: '3',
@@ -74,6 +100,21 @@ const dummyOrders = [
     completedDate: null,
     fileCount: null,
     fileSize: null,
+    paymentOption: 'payment_upfront' as const,
+    amountPaid: 200.00,
+    amountRemaining: 0.00,
+    serviceId: 'svc_3',
+    serviceDescription: 'Professional vocal recording session with guidance',
+    serviceDeliveryTime: '1-2 days',
+    serviceColor: '#96ceb4',
+    creativeId: 'creative_3',
+    creativeDisplayName: 'Vocal Coach Pro',
+    creativeTitle: 'Vocal Coach & Recording Specialist',
+    creativeEmail: 'vocalcoach@ez.com',
+    creativeRating: 5.0,
+    creativeReviewCount: 31,
+    creativeServicesCount: 7,
+    creativeColor: '#96ceb4',
   },
   {
     id: '4',
@@ -88,6 +129,19 @@ const dummyOrders = [
     completedDate: null,
     fileCount: null,
     fileSize: null,
+    paymentOption: 'payment_later' as const,
+    serviceId: 'svc_4',
+    serviceDescription: 'Custom beat production tailored to your style',
+    serviceDeliveryTime: '7-10 days',
+    serviceColor: '#feca57',
+    creativeId: 'creative_2',
+    creativeDisplayName: 'Beat Master',
+    creativeTitle: 'Hip-Hop Producer & Beatmaker',
+    creativeEmail: 'beatmaster@ez.com',
+    creativeRating: 4.7,
+    creativeReviewCount: 18,
+    creativeServicesCount: 9,
+    creativeColor: '#feca57',
   },
   {
     id: '5',
@@ -102,6 +156,21 @@ const dummyOrders = [
     completedDate: null,
     fileCount: null,
     fileSize: null,
+    paymentOption: 'split_payment' as const,
+    depositAmount: 60.00,
+    remainingAmount: 60.00,
+    serviceId: 'svc_5',
+    serviceDescription: 'High-quality mastering for final polish',
+    serviceDeliveryTime: '2-3 days',
+    serviceColor: '#ff6b6b',
+    creativeId: 'creative_5',
+    creativeDisplayName: 'Engineer Elite',
+    creativeTitle: 'Mastering Engineer',
+    creativeEmail: 'engineer@ez.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 28,
+    creativeServicesCount: 6,
+    creativeColor: '#ff6b6b',
   },
   {
     id: '6',
@@ -116,6 +185,21 @@ const dummyOrders = [
     completedDate: null,
     fileCount: null,
     fileSize: null,
+    paymentOption: 'split_payment' as const,
+    amountPaid: 150.00,
+    amountRemaining: 150.00,
+    serviceId: 'svc_6',
+    serviceDescription: 'Complete sound design package for your project',
+    serviceDeliveryTime: '10-14 days',
+    serviceColor: '#a55eea',
+    creativeId: 'creative_4',
+    creativeDisplayName: 'Sound Designer X',
+    creativeTitle: 'Audio Engineer & Sound Designer',
+    creativeEmail: 'sounddesigner@ez.com',
+    creativeRating: 4.8,
+    creativeReviewCount: 16,
+    creativeServicesCount: 11,
+    creativeColor: '#a55eea',
   },
   {
     id: '7',
@@ -130,6 +214,67 @@ const dummyOrders = [
     completedDate: null,
     fileCount: null,
     fileSize: null,
+    paymentOption: 'split_payment' as const,
+    serviceId: 'svc_7',
+    serviceDescription: 'Professional audio engineering services',
+    serviceDeliveryTime: '5-7 days',
+    serviceColor: '#6c5ce7',
+  },
+  {
+    id: '18',
+    serviceName: 'Free Consultation',
+    creativeName: 'Vocal Coach Pro',
+    orderDate: '2025-10-02',
+    status: 'placed',
+    calendarDate: '2025-10-08T14:00:00',
+    description: 'Awaiting Approval',
+    price: 0.00,
+    approvedDate: null,
+    completedDate: null,
+    fileCount: null,
+    fileSize: null,
+    paymentOption: 'free' as const,
+    serviceId: 'svc_18',
+    serviceDescription: 'Complimentary 30-minute consultation to discuss your music goals and how I can help you achieve them',
+    serviceDeliveryTime: '30 minutes',
+    serviceColor: '#95a5a6',
+    creativeId: 'creative_3',
+    creativeDisplayName: 'Vocal Coach Pro',
+    creativeTitle: 'Vocal Coach & Recording Specialist',
+    creativeEmail: 'vocalcoach@ez.com',
+    creativeRating: 5.0,
+    creativeReviewCount: 31,
+    creativeServicesCount: 7,
+    creativeColor: '#95a5a6',
+  },
+  {
+    id: '19',
+    serviceName: 'Portfolio Review Session',
+    creativeName: 'Beat Master',
+    orderDate: '2025-09-29',
+    status: 'in-progress',
+    calendarDate: '2025-10-05T10:00:00',
+    description: 'Session in progress',
+    price: 0.00,
+    approvedDate: '2025-09-30',
+    completedDate: null,
+    fileCount: null,
+    fileSize: null,
+    paymentOption: 'free' as const,
+    amountPaid: 0.00,
+    amountRemaining: 0.00,
+    serviceId: 'svc_19',
+    serviceDescription: 'Free portfolio review and feedback session to help improve your music production',
+    serviceDeliveryTime: '1 hour',
+    serviceColor: '#7f8c8d',
+    creativeId: 'creative_2',
+    creativeDisplayName: 'Beat Master',
+    creativeTitle: 'Hip-Hop Producer & Beatmaker',
+    creativeEmail: 'beatmaster@ez.com',
+    creativeRating: 4.7,
+    creativeReviewCount: 18,
+    creativeServicesCount: 9,
+    creativeColor: '#7f8c8d',
   },
   {
     id: '8',
@@ -144,6 +289,21 @@ const dummyOrders = [
     completedDate: null,
     fileCount: null,
     fileSize: null,
+    paymentOption: 'payment_later' as const,
+    amountPaid: 0.00,
+    amountRemaining: 195.00,
+    serviceId: 'svc_8',
+    serviceDescription: 'Professional track mixing service',
+    serviceDeliveryTime: '4-6 days',
+    serviceColor: '#fd79a8',
+    creativeId: 'creative_1',
+    creativeDisplayName: 'DJ Producer',
+    creativeTitle: 'Audio Engineer & Producer',
+    creativeEmail: 'djproducer@ez.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 24,
+    creativeServicesCount: 12,
+    creativeColor: '#fd79a8',
   },
   {
     id: '9',
@@ -158,6 +318,20 @@ const dummyOrders = [
     completedDate: '2025-10-04',
     fileCount: 12,
     fileSize: '2.4 GB',
+    paymentOption: 'split_payment' as const,
+    serviceId: 'svc_9',
+    serviceDescription: 'Complete album mastering service',
+    serviceDeliveryTime: '14-21 days',
+    serviceColor: '#00b894',
+    creativeId: 'creative_5',
+    creativeDisplayName: 'Mike "Engineer" Elite',
+    creativeTitle: 'Audio Engineer & Mastering Specialist',
+    creativeEmail: 'mike@engineerelite.com',
+    creativeRating: 5.0,
+    creativeReviewCount: 203,
+    creativeServicesCount: 15,
+    creativeColor: '#00b894',
+    creativeAvatarUrl: undefined,
   },
   {
     id: '10',
@@ -172,6 +346,20 @@ const dummyOrders = [
     completedDate: '2025-10-03',
     fileCount: 5,
     fileSize: '856 MB',
+    paymentOption: 'payment_later' as const,
+    serviceId: 'svc_10',
+    serviceDescription: 'Professional remix production',
+    serviceDeliveryTime: '7-10 days',
+    serviceColor: '#0984e3',
+    creativeId: 'creative_2',
+    creativeDisplayName: 'Marcus "Beat" Thompson',
+    creativeTitle: 'Drum Programmer & Producer',
+    creativeEmail: 'marcus@beatmaster.com',
+    creativeRating: 4.8,
+    creativeReviewCount: 124,
+    creativeServicesCount: 18,
+    creativeColor: '#0984e3',
+    creativeAvatarUrl: undefined,
   },
   {
     id: '11',
@@ -186,6 +374,30 @@ const dummyOrders = [
     completedDate: '2025-10-02',
     fileCount: 8,
     fileSize: '1.2 GB',
+    paymentOption: 'payment_upfront' as const,
+    serviceId: 'svc_11',
+    serviceDescription: 'Professional vocal tuning and pitch correction',
+    serviceDeliveryTime: '2-4 days',
+    serviceColor: '#00cec9',
+    files: [
+      { id: 'file_1', name: 'Lead_Vocals_Tuned.wav', type: 'Audio (WAV)', size: '256 MB' },
+      { id: 'file_2', name: 'Backup_Vocals_Tuned.wav', type: 'Audio (WAV)', size: '198 MB' },
+      { id: 'file_3', name: 'Harmony_Track_1.wav', type: 'Audio (WAV)', size: '142 MB' },
+      { id: 'file_4', name: 'Harmony_Track_2.wav', type: 'Audio (WAV)', size: '138 MB' },
+      { id: 'file_5', name: 'Vocal_Stems.zip', type: 'Archive (ZIP)', size: '425 MB' },
+      { id: 'file_6', name: 'Project_Notes.pdf', type: 'Document (PDF)', size: '2.4 MB' },
+      { id: 'file_7', name: 'Pitch_Reference.txt', type: 'Text (TXT)', size: '8 KB' },
+      { id: 'file_8', name: 'Final_Mix_Preview.mp3', type: 'Audio (MP3)', size: '12 MB' },
+    ],
+    creativeId: 'creative_3',
+    creativeDisplayName: 'Sarah Johnson',
+    creativeTitle: 'Vocal Coach & Producer',
+    creativeEmail: 'sarah@vocalcoachpro.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 87,
+    creativeServicesCount: 12,
+    creativeColor: '#00cec9',
+    creativeAvatarUrl: undefined,
   },
   {
     id: '12',
@@ -200,6 +412,105 @@ const dummyOrders = [
     completedDate: '2025-10-01',
     fileCount: 15,
     fileSize: '3.1 GB',
+    paymentOption: 'split_payment' as const,
+    serviceId: 'svc_12',
+    serviceDescription: 'Custom drum programming for your tracks',
+    serviceDeliveryTime: '5-7 days',
+    serviceColor: '#fdcb6e',
+    files: [
+      { id: 'file_9', name: 'Kick_Pattern_1.wav', type: 'Audio (WAV)', size: '185 MB' },
+      { id: 'file_10', name: 'Kick_Pattern_2.wav', type: 'Audio (WAV)', size: '178 MB' },
+      { id: 'file_11', name: 'Snare_Layer_1.wav', type: 'Audio (WAV)', size: '156 MB' },
+      { id: 'file_12', name: 'Snare_Layer_2.wav', type: 'Audio (WAV)', size: '164 MB' },
+      { id: 'file_13', name: 'Hi_Hat_Groove.wav', type: 'Audio (WAV)', size: '142 MB' },
+      { id: 'file_14', name: 'Percussion_Elements.wav', type: 'Audio (WAV)', size: '298 MB' },
+      { id: 'file_15', name: 'Full_Drum_Mix.wav', type: 'Audio (WAV)', size: '512 MB' },
+      { id: 'file_16', name: 'Drum_Stems_Separated.zip', type: 'Archive (ZIP)', size: '876 MB' },
+      { id: 'file_17', name: 'MIDI_Files.zip', type: 'Archive (ZIP)', size: '45 MB' },
+      { id: 'file_18', name: 'Drum_Patterns_Reference.pdf', type: 'Document (PDF)', size: '5.2 MB' },
+      { id: 'file_19', name: 'BPM_Tempo_Map.txt', type: 'Text (TXT)', size: '12 KB' },
+      { id: 'file_20', name: 'Groove_Video_Tutorial.mp4', type: 'Video (MP4)', size: '458 MB' },
+      { id: 'file_21', name: 'Sample_Pack_Used.zip', type: 'Archive (ZIP)', size: '328 MB' },
+      { id: 'file_22', name: 'Alternate_Mix_Preview.mp3', type: 'Audio (MP3)', size: '18 MB' },
+      { id: 'file_23', name: 'Session_Screenshot.png', type: 'Image (PNG)', size: '2.8 MB' },
+    ],
+    creativeId: 'creative_2',
+    creativeDisplayName: 'Marcus "Beat" Thompson',
+    creativeTitle: 'Drum Programmer & Producer',
+    creativeEmail: 'marcus@beatmaster.com',
+    creativeRating: 4.8,
+    creativeReviewCount: 124,
+    creativeServicesCount: 18,
+    creativeColor: '#fdcb6e',
+    creativeAvatarUrl: undefined,
+  },
+  {
+    id: '20',
+    serviceName: 'Production Tips Session',
+    creativeName: 'Sound Designer X',
+    orderDate: '2025-09-25',
+    status: 'download',
+    calendarDate: '2025-09-26T14:00:00',
+    description: 'Files ready for download',
+    price: 0.00,
+    approvedDate: '2025-09-25',
+    completedDate: '2025-09-26',
+    fileCount: 3,
+    fileSize: '45 MB',
+    paymentOption: 'free' as const,
+    serviceId: 'svc_20',
+    serviceDescription: 'Free production tips and tricks session recording',
+    serviceDeliveryTime: '1 hour',
+    serviceColor: '#6c5ce7',
+    files: [
+      { id: 'file_24', name: 'Session_Recording.mp4', type: 'Video (MP4)', size: '38 MB' },
+      { id: 'file_25', name: 'Production_Tips_PDF.pdf', type: 'Document (PDF)', size: '4.5 MB' },
+      { id: 'file_26', name: 'Resource_Links.txt', type: 'Text (TXT)', size: '6 KB' },
+    ],
+    creativeId: 'creative_4',
+    creativeDisplayName: 'Alex Rivera',
+    creativeTitle: 'Sound Designer & Educator',
+    creativeEmail: 'alex@sounddesignerx.com',
+    creativeRating: 4.7,
+    creativeReviewCount: 56,
+    creativeServicesCount: 9,
+    creativeColor: '#6c5ce7',
+    creativeAvatarUrl: undefined,
+  },
+  {
+    id: '21',
+    serviceName: 'Mastering Service',
+    creativeName: 'Sound Designer X',
+    orderDate: '2025-08-01',
+    status: 'download',
+    calendarDate: null,
+    description: 'Files ready for download',
+    price: 300.00,
+    approvedDate: '2025-08-02',
+    completedDate: '2025-08-25',
+    fileCount: 5,
+    fileSize: '680 MB',
+    paymentOption: 'payment_upfront' as const,
+    serviceId: 'svc_21',
+    serviceDescription: 'Professional audio mastering service',
+    serviceDeliveryTime: '3-5 days',
+    serviceColor: '#e74c3c',
+    files: [
+      { id: 'file_43', name: 'Track_01_Mastered.wav', type: 'Audio (WAV)', size: '156 MB' },
+      { id: 'file_44', name: 'Track_02_Mastered.wav', type: 'Audio (WAV)', size: '148 MB' },
+      { id: 'file_45', name: 'Track_03_Mastered.wav', type: 'Audio (WAV)', size: '152 MB' },
+      { id: 'file_46', name: 'Full_Album_Master.wav', type: 'Audio (WAV)', size: '214 MB' },
+      { id: 'file_47', name: 'Mastering_Report.pdf', type: 'Document (PDF)', size: '10 MB' },
+    ],
+    creativeId: 'creative_4',
+    creativeDisplayName: 'Alex Rivera',
+    creativeTitle: 'Sound Designer & Educator',
+    creativeEmail: 'alex@sounddesignerx.com',
+    creativeRating: 4.7,
+    creativeReviewCount: 56,
+    creativeServicesCount: 9,
+    creativeColor: '#e74c3c',
+    creativeAvatarUrl: undefined,
   },
   {
     id: '13',
@@ -214,6 +525,28 @@ const dummyOrders = [
     completedDate: '2025-09-28',
     fileCount: 6,
     fileSize: '945 MB',
+    paymentOption: 'payment_upfront' as const,
+    serviceId: 'svc_13',
+    serviceDescription: 'Custom beat production service',
+    serviceDeliveryTime: '7-10 days',
+    serviceColor: '#e84393',
+    files: [
+      { id: 'file_27', name: 'Main_Beat_Master.wav', type: 'Audio (WAV)', size: '245 MB' },
+      { id: 'file_28', name: 'Beat_Stems.zip', type: 'Archive (ZIP)', size: '512 MB' },
+      { id: 'file_29', name: 'MIDI_Project.zip', type: 'Archive (ZIP)', size: '87 MB' },
+      { id: 'file_30', name: 'Mix_Notes.pdf', type: 'Document (PDF)', size: '3.2 MB' },
+      { id: 'file_31', name: 'Beat_Preview.mp3', type: 'Audio (MP3)', size: '15 MB' },
+      { id: 'file_32', name: 'Alternate_Version.wav', type: 'Audio (WAV)', size: '82 MB' },
+    ],
+    creativeId: 'creative_1',
+    creativeDisplayName: 'DJ Producer',
+    creativeTitle: 'Music Producer & Beat Maker',
+    creativeEmail: 'contact@djproducer.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 156,
+    creativeServicesCount: 22,
+    creativeColor: '#e84393',
+    creativeAvatarUrl: undefined,
   },
   {
     id: '14',
@@ -223,11 +556,26 @@ const dummyOrders = [
     status: 'completed',
     calendarDate: '2025-09-18T10:30:00',
     description: 'Consultation completed',
-    price: 100.00,
+    price: 0.00,
     approvedDate: '2025-09-13',
     completedDate: '2025-09-18',
     fileCount: null,
     fileSize: null,
+    paymentOption: 'free' as const,
+    serviceId: 'svc_14',
+    serviceDescription: 'Free consultation call to discuss your project',
+    serviceDeliveryTime: '30 minutes',
+    serviceColor: '#2d3436',
+    files: [],
+    creativeId: 'creative_3',
+    creativeDisplayName: 'Sarah Johnson',
+    creativeTitle: 'Vocal Coach & Producer',
+    creativeEmail: 'sarah@vocalcoachpro.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 87,
+    creativeServicesCount: 12,
+    creativeColor: '#00cec9',
+    creativeAvatarUrl: undefined,
   },
   {
     id: '15',
@@ -242,6 +590,70 @@ const dummyOrders = [
     completedDate: '2025-09-25',
     fileCount: 10,
     fileSize: '1.8 GB',
+    paymentOption: 'payment_later' as const,
+    serviceId: 'svc_15',
+    serviceDescription: 'Professional audio editing service',
+    serviceDeliveryTime: '5-7 days',
+    serviceColor: '#667eea',
+    files: [
+      { id: 'file_33', name: 'Track_01_Edited.wav', type: 'Audio (WAV)', size: '186 MB' },
+      { id: 'file_34', name: 'Track_02_Edited.wav', type: 'Audio (WAV)', size: '192 MB' },
+      { id: 'file_35', name: 'Track_03_Edited.wav', type: 'Audio (WAV)', size: '178 MB' },
+      { id: 'file_36', name: 'Track_04_Edited.wav', type: 'Audio (WAV)', size: '184 MB' },
+      { id: 'file_37', name: 'Full_Mix_Edited.wav', type: 'Audio (WAV)', size: '425 MB' },
+      { id: 'file_38', name: 'Editing_Before_After.pdf', type: 'Document (PDF)', size: '8.5 MB' },
+      { id: 'file_39', name: 'EQ_Settings.txt', type: 'Text (TXT)', size: '4 KB' },
+      { id: 'file_40', name: 'Compression_Chain.txt', type: 'Text (TXT)', size: '3 KB' },
+      { id: 'file_41', name: 'Preview_Mix.mp3', type: 'Audio (MP3)', size: '22 MB' },
+      { id: 'file_42', name: 'Session_File.zip', type: 'Archive (ZIP)', size: '625 MB' },
+    ],
+    creativeId: 'creative_2',
+    creativeDisplayName: 'Marcus "Beat" Thompson',
+    creativeTitle: 'Drum Programmer & Producer',
+    creativeEmail: 'marcus@beatmaster.com',
+    creativeRating: 4.8,
+    creativeReviewCount: 124,
+    creativeServicesCount: 18,
+    creativeColor: '#fdcb6e',
+    creativeAvatarUrl: undefined,
+  },
+  {
+    id: '22',
+    serviceName: 'Podcast Editing',
+    creativeName: 'DJ Producer',
+    orderDate: '2025-07-20',
+    status: 'completed',
+    calendarDate: null,
+    description: 'Service completed successfully',
+    price: 175.00,
+    approvedDate: '2025-07-21',
+    completedDate: '2025-08-15',
+    fileCount: 8,
+    fileSize: '1.1 GB',
+    paymentOption: 'split_payment' as const,
+    serviceId: 'svc_22',
+    serviceDescription: 'Professional podcast editing and post-production',
+    serviceDeliveryTime: '3-5 days',
+    serviceColor: '#3498db',
+    files: [
+      { id: 'file_48', name: 'Episode_01_Final.mp3', type: 'Audio (MP3)', size: '125 MB' },
+      { id: 'file_49', name: 'Episode_02_Final.mp3', type: 'Audio (MP3)', size: '132 MB' },
+      { id: 'file_50', name: 'Episode_03_Final.mp3', type: 'Audio (MP3)', size: '118 MB' },
+      { id: 'file_51', name: 'Episode_04_Final.mp3', type: 'Audio (MP3)', size: '128 MB' },
+      { id: 'file_52', name: 'Intro_Outro_Music.wav', type: 'Audio (WAV)', size: '245 MB' },
+      { id: 'file_53', name: 'Show_Notes.pdf', type: 'Document (PDF)', size: '5.2 MB' },
+      { id: 'file_54', name: 'Timestamps.txt', type: 'Text (TXT)', size: '12 KB' },
+      { id: 'file_55', name: 'Raw_Files_Backup.zip', type: 'Archive (ZIP)', size: '425 MB' },
+    ],
+    creativeId: 'creative_1',
+    creativeDisplayName: 'DJ Producer',
+    creativeTitle: 'Music Producer & Beat Maker',
+    creativeEmail: 'contact@djproducer.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 156,
+    creativeServicesCount: 22,
+    creativeColor: '#3498db',
+    creativeAvatarUrl: undefined,
   },
   {
     id: '16',
@@ -257,6 +669,20 @@ const dummyOrders = [
     fileCount: null,
     fileSize: null,
     canceledDate: '2025-09-07',
+    paymentOption: 'payment_upfront' as const,
+    serviceId: 'svc_16',
+    serviceDescription: 'Professional music video production',
+    serviceDeliveryTime: '30-45 days',
+    serviceColor: '#f093fb',
+    creativeId: 'creative_3',
+    creativeDisplayName: 'Sarah Johnson',
+    creativeTitle: 'Vocal Coach & Producer',
+    creativeEmail: 'sarah@vocalcoachpro.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 87,
+    creativeServicesCount: 12,
+    creativeColor: '#f093fb',
+    creativeAvatarUrl: undefined,
   },
   {
     id: '17',
@@ -272,6 +698,20 @@ const dummyOrders = [
     fileCount: null,
     fileSize: null,
     canceledDate: '2025-08-30',
+    paymentOption: 'split_payment' as const,
+    serviceId: 'svc_17',
+    serviceDescription: 'Professional track mastering service',
+    serviceDeliveryTime: '3-5 days',
+    serviceColor: '#45b7d1',
+    creativeId: 'creative_1',
+    creativeDisplayName: 'DJ Producer',
+    creativeTitle: 'Music Producer & Beat Maker',
+    creativeEmail: 'contact@djproducer.com',
+    creativeRating: 4.9,
+    creativeReviewCount: 156,
+    creativeServicesCount: 22,
+    creativeColor: '#45b7d1',
+    creativeAvatarUrl: undefined,
   },
 ];
 
@@ -894,10 +1334,36 @@ export function AllServicesTab() {
 
             switch (order.status) {
               case 'placed':
-                return <PlacedOrderCard {...commonProps} calendarDate={order.calendarDate} />;
+                return <PlacedOrderCard 
+                  {...commonProps} 
+                  calendarDate={order.calendarDate}
+                  paymentOption={order.paymentOption}
+                  serviceId={order.serviceId}
+                  serviceDescription={order.serviceDescription}
+                  serviceDeliveryTime={order.serviceDeliveryTime}
+                  serviceColor={order.serviceColor}
+                />;
               
               case 'payment-approval':
-                return <PaymentApprovalOrderCard {...commonProps} calendarDate={order.calendarDate} />;
+                return <PaymentApprovalOrderCard 
+                  {...commonProps} 
+                  calendarDate={order.calendarDate}
+                  paymentOption={(order.paymentOption === 'split_payment' || order.paymentOption === 'payment_upfront') ? order.paymentOption : 'payment_upfront'}
+                  depositAmount={order.depositAmount}
+                  remainingAmount={order.remainingAmount}
+                  serviceId={order.serviceId}
+                  serviceDescription={order.serviceDescription}
+                  serviceDeliveryTime={order.serviceDeliveryTime}
+                  serviceColor={order.serviceColor}
+                  creativeId={order.creativeId}
+                  creativeDisplayName={order.creativeDisplayName}
+                  creativeTitle={order.creativeTitle}
+                  creativeEmail={order.creativeEmail}
+                  creativeRating={order.creativeRating}
+                  creativeReviewCount={order.creativeReviewCount}
+                  creativeServicesCount={order.creativeServicesCount}
+                  creativeColor={order.creativeColor}
+                />;
               
               case 'in-progress':
                 return (
@@ -905,6 +1371,22 @@ export function AllServicesTab() {
                     {...commonProps}
                     approvedDate={order.approvedDate}
                     calendarDate={order.calendarDate}
+                    paymentOption={order.paymentOption}
+                    amountPaid={order.amountPaid}
+                    amountRemaining={order.amountRemaining}
+                    serviceId={order.serviceId}
+                    serviceDescription={order.serviceDescription}
+                    serviceDeliveryTime={order.serviceDeliveryTime}
+                    serviceColor={order.serviceColor}
+                    creativeId={order.creativeId}
+                    creativeDisplayName={order.creativeDisplayName}
+                    creativeTitle={order.creativeTitle}
+                    creativeEmail={order.creativeEmail}
+                    creativeRating={order.creativeRating}
+                    creativeReviewCount={order.creativeReviewCount}
+                    creativeServicesCount={order.creativeServicesCount}
+                    creativeColor={order.creativeColor}
+                    creativeAvatarUrl={order.creativeAvatarUrl}
                   />
                 );
               
@@ -917,6 +1399,20 @@ export function AllServicesTab() {
                     calendarDate={order.calendarDate}
                     fileCount={order.fileCount}
                     fileSize={order.fileSize}
+                    paymentOption={order.paymentOption}
+                    serviceId={order.serviceId}
+                    serviceDescription={order.serviceDescription}
+                    serviceDeliveryTime={order.serviceDeliveryTime}
+                    serviceColor={order.serviceColor}
+                    creativeId={order.creativeId}
+                    creativeDisplayName={order.creativeDisplayName}
+                    creativeTitle={order.creativeTitle}
+                    creativeEmail={order.creativeEmail}
+                    creativeRating={order.creativeRating}
+                    creativeReviewCount={order.creativeReviewCount}
+                    creativeServicesCount={order.creativeServicesCount}
+                    creativeColor={order.creativeColor}
+                    creativeAvatarUrl={order.creativeAvatarUrl}
                   />
                 );
               
@@ -929,6 +1425,21 @@ export function AllServicesTab() {
                     calendarDate={order.calendarDate}
                     fileCount={order.fileCount}
                     fileSize={order.fileSize}
+                    paymentOption={order.paymentOption}
+                    files={order.files}
+                    serviceId={order.serviceId}
+                    serviceDescription={order.serviceDescription}
+                    serviceDeliveryTime={order.serviceDeliveryTime}
+                    serviceColor={order.serviceColor}
+                    creativeId={order.creativeId}
+                    creativeDisplayName={order.creativeDisplayName}
+                    creativeTitle={order.creativeTitle}
+                    creativeEmail={order.creativeEmail}
+                    creativeRating={order.creativeRating}
+                    creativeReviewCount={order.creativeReviewCount}
+                    creativeServicesCount={order.creativeServicesCount}
+                    creativeColor={order.creativeColor}
+                    creativeAvatarUrl={order.creativeAvatarUrl}
                   />
                 );
               
@@ -940,6 +1451,22 @@ export function AllServicesTab() {
                     completedDate={order.completedDate}
                     calendarDate={order.calendarDate}
                     fileCount={order.fileCount}
+                    fileSize={order.fileSize}
+                    paymentOption={order.paymentOption}
+                    files={order.files}
+                    serviceId={order.serviceId}
+                    serviceDescription={order.serviceDescription}
+                    serviceDeliveryTime={order.serviceDeliveryTime}
+                    serviceColor={order.serviceColor}
+                    creativeId={order.creativeId}
+                    creativeDisplayName={order.creativeDisplayName}
+                    creativeTitle={order.creativeTitle}
+                    creativeEmail={order.creativeEmail}
+                    creativeRating={order.creativeRating}
+                    creativeReviewCount={order.creativeReviewCount}
+                    creativeServicesCount={order.creativeServicesCount}
+                    creativeColor={order.creativeColor}
+                    creativeAvatarUrl={order.creativeAvatarUrl}
                   />
                 );
               
@@ -948,6 +1475,20 @@ export function AllServicesTab() {
                   <CanceledOrderCard
                     {...commonProps}
                     canceledDate={(order as any).canceledDate}
+                    paymentOption={order.paymentOption}
+                    serviceId={order.serviceId}
+                    serviceDescription={order.serviceDescription}
+                    serviceDeliveryTime={order.serviceDeliveryTime}
+                    serviceColor={order.serviceColor}
+                    creativeId={order.creativeId}
+                    creativeDisplayName={order.creativeDisplayName}
+                    creativeTitle={order.creativeTitle}
+                    creativeEmail={order.creativeEmail}
+                    creativeRating={order.creativeRating}
+                    creativeReviewCount={order.creativeReviewCount}
+                    creativeServicesCount={order.creativeServicesCount}
+                    creativeColor={order.creativeColor}
+                    creativeAvatarUrl={order.creativeAvatarUrl}
                   />
                 );
               

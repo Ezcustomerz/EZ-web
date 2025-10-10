@@ -10,6 +10,8 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, Cancel, Replay } from '@mui/icons-material';
+import { useState } from 'react';
+import { CanceledOrderDetailPopover, type CanceledOrderDetail, type CanceledPaymentOption } from '../../popovers/client/CanceledOrderDetailPopover';
 
 interface CanceledOrderCardProps {
   id: string;
@@ -19,21 +21,94 @@ interface CanceledOrderCardProps {
   description: string;
   price: number;
   canceledDate?: string;
+  paymentOption?: CanceledPaymentOption;
+  serviceId?: string;
+  serviceDescription?: string;
+  serviceDeliveryTime?: string;
+  serviceColor?: string;
+  creativeAvatarUrl?: string;
+  creativeDisplayName?: string;
+  creativeTitle?: string;
+  creativeId?: string;
+  creativeEmail?: string;
+  creativeRating?: number;
+  creativeReviewCount?: number;
+  creativeServicesCount?: number;
+  creativeColor?: string;
 }
 
 export function CanceledOrderCard({
+  id,
   serviceName,
   creativeName,
   orderDate,
   description,
   price,
-  canceledDate
+  canceledDate,
+  paymentOption,
+  serviceId,
+  serviceDescription,
+  serviceDeliveryTime,
+  serviceColor,
+  creativeAvatarUrl,
+  creativeDisplayName,
+  creativeTitle,
+  creativeId,
+  creativeEmail,
+  creativeRating,
+  creativeReviewCount,
+  creativeServicesCount,
+  creativeColor
 }: CanceledOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#f44336';
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open popover if clicking the rebook button
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    setPopoverOpen(true);
+  };
+
+  const handlePopoverClose = () => {
+    setPopoverOpen(false);
+  };
+
+  const handleRebook = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPopoverOpen(true);
+  };
+
+  const orderDetail: CanceledOrderDetail = {
+    id,
+    serviceName,
+    creativeName,
+    orderDate,
+    description,
+    price,
+    canceledDate,
+    paymentOption,
+    serviceId,
+    serviceDescription,
+    serviceDeliveryTime,
+    serviceColor: serviceColor || statusColor,
+    creativeAvatarUrl,
+    creativeDisplayName,
+    creativeTitle,
+    creativeId,
+    creativeEmail,
+    creativeRating,
+    creativeReviewCount,
+    creativeServicesCount,
+    creativeColor,
+  };
 
   return (
-    <Card 
+    <>
+      <Card 
+        onClick={handleCardClick} 
       sx={{ 
         borderRadius: 2,
         transition: 'all 0.2s ease',
@@ -42,6 +117,7 @@ export function CanceledOrderCard({
         overflow: 'visible',
         minHeight: 'fit-content',
         height: 'auto',
+        cursor: 'pointer',
         backgroundColor: theme.palette.mode === 'dark'
           ? 'rgba(244, 67, 54, 0.05)'
           : 'rgba(244, 67, 54, 0.02)',
@@ -153,6 +229,7 @@ export function CanceledOrderCard({
               variant="contained"
               startIcon={<Replay sx={{ fontSize: 18 }} />}
               size="small"
+              onClick={handleRebook}
               sx={{
                 backgroundColor: 'primary.main',
                 color: 'white',
@@ -298,6 +375,13 @@ export function CanceledOrderCard({
         </Box>
       </CardContent>
     </Card>
+
+    <CanceledOrderDetailPopover
+      open={popoverOpen}
+      onClose={handlePopoverClose}
+      order={orderDetail}
+    />
+  </>
   );
 }
 

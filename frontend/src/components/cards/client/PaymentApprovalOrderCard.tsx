@@ -10,6 +10,8 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, CalendarToday, Payment as PaymentIcon } from '@mui/icons-material';
+import { useState } from 'react';
+import { PaymentApprovalOrderDetailPopover, type PaymentApprovalOrderDetail, type PaymentApprovalOption } from '../../popovers/client/PaymentApprovalOrderDetailPopover';
 
 interface PaymentApprovalOrderCardProps {
   id: string;
@@ -19,41 +21,121 @@ interface PaymentApprovalOrderCardProps {
   description: string;
   price: number;
   calendarDate: string | null;
+  paymentOption?: PaymentApprovalOption;
+  depositAmount?: number;
+  remainingAmount?: number;
+  serviceId?: string;
+  serviceDescription?: string;
+  serviceDeliveryTime?: string;
+  serviceColor?: string;
+  creativeAvatarUrl?: string;
+  creativeDisplayName?: string;
+  creativeTitle?: string;
+  creativeId?: string;
+  creativeEmail?: string;
+  creativeRating?: number;
+  creativeReviewCount?: number;
+  creativeServicesCount?: number;
+  creativeColor?: string;
 }
 
 export function PaymentApprovalOrderCard({
+  id,
   serviceName,
   creativeName,
   orderDate,
   description,
   price,
-  calendarDate
+  calendarDate,
+  paymentOption = 'payment_upfront',
+  depositAmount,
+  remainingAmount,
+  serviceId,
+  serviceDescription,
+  serviceDeliveryTime,
+  serviceColor,
+  creativeAvatarUrl,
+  creativeDisplayName,
+  creativeTitle,
+  creativeId,
+  creativeEmail,
+  creativeRating,
+  creativeReviewCount,
+  creativeServicesCount,
+  creativeColor
 }: PaymentApprovalOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#00bcd4';
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open popover if clicking the pay button
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    setPopoverOpen(true);
+  };
+
+  const handlePopoverClose = () => {
+    setPopoverOpen(false);
+  };
+
+  const handlePay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPopoverOpen(true);
+  };
+
+  const orderDetail: PaymentApprovalOrderDetail = {
+    id,
+    serviceName,
+    creativeName,
+    orderDate,
+    description,
+    price,
+    calendarDate,
+    paymentOption,
+    depositAmount,
+    remainingAmount,
+    serviceId,
+    serviceDescription,
+    serviceDeliveryTime,
+    serviceColor: serviceColor || statusColor,
+    creativeAvatarUrl,
+    creativeDisplayName,
+    creativeTitle,
+    creativeId,
+    creativeEmail,
+    creativeRating,
+    creativeReviewCount,
+    creativeServicesCount,
+    creativeColor,
+  };
 
   return (
-    <Card 
-      sx={{ 
-        borderRadius: 2,
-        transition: 'all 0.2s ease',
-        border: '2px solid',
-        borderColor: 'rgba(0, 188, 212, 0.3)',
-        overflow: 'visible',
-        minHeight: 'fit-content',
-        height: 'auto',
-        backgroundColor: theme.palette.mode === 'dark'
-          ? 'rgba(0, 188, 212, 0.05)'
-          : 'rgba(0, 188, 212, 0.02)',
-        '&:hover': {
-          boxShadow: theme.palette.mode === 'dark'
-            ? '0 4px 20px rgba(0, 188, 212, 0.3)'
-            : '0 4px 20px rgba(0, 188, 212, 0.2)',
-          borderColor: '#00bcd4',
-          transform: 'translateY(-2px)',
-        }
-      }}
-    >
+    <>
+      <Card 
+        onClick={handleCardClick} 
+        sx={{ 
+          borderRadius: 2,
+          transition: 'all 0.2s ease',
+          border: '2px solid',
+          borderColor: 'rgba(0, 188, 212, 0.3)',
+          overflow: 'visible',
+          minHeight: 'fit-content',
+          height: 'auto',
+          backgroundColor: theme.palette.mode === 'dark'
+            ? 'rgba(0, 188, 212, 0.05)'
+            : 'rgba(0, 188, 212, 0.02)',
+          cursor: 'pointer',
+          '&:hover': {
+            boxShadow: theme.palette.mode === 'dark'
+              ? '0 4px 20px rgba(0, 188, 212, 0.3)'
+              : '0 4px 20px rgba(0, 188, 212, 0.2)',
+            borderColor: '#00bcd4',
+            transform: 'translateY(-2px)',
+          }
+        }}
+      >
       <CardContent sx={{ p: 2, '&:last-child': { pb: 2 }, overflow: 'visible', display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
           <Avatar 
@@ -154,6 +236,7 @@ export function PaymentApprovalOrderCard({
 
           <Box sx={{ position: 'relative' }}>
             <Button
+              onClick={handlePay}
               variant="contained"
               startIcon={<PaymentIcon sx={{ fontSize: 18 }} />}
               size="small"
@@ -300,6 +383,18 @@ export function PaymentApprovalOrderCard({
         </Box>
       </CardContent>
     </Card>
+
+    <PaymentApprovalOrderDetailPopover
+      open={popoverOpen}
+      onClose={handlePopoverClose}
+      order={orderDetail}
+      onPay={(orderId, amount) => {
+        console.log('Processing payment:', orderId, amount);
+        // TODO: Integrate with actual payment processing
+        handlePopoverClose();
+      }}
+    />
+  </>
   );
 }
 

@@ -10,6 +10,8 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, CalendarToday, CheckCircle, Folder, InsertDriveFile, Download as DownloadIcon } from '@mui/icons-material';
+import { useState } from 'react';
+import { DownloadOrderDetailPopover, type DownloadOrderDetail, type DownloadPaymentOption, type DownloadFile } from '../../popovers/client/DownloadOrderDetailPopover';
 
 interface DownloadOrderCardProps {
   id: string;
@@ -23,9 +25,25 @@ interface DownloadOrderCardProps {
   calendarDate: string | null;
   fileCount: number | null;
   fileSize: string | null;
+  paymentOption?: DownloadPaymentOption;
+  files?: DownloadFile[];
+  serviceId?: string;
+  serviceDescription?: string;
+  serviceDeliveryTime?: string;
+  serviceColor?: string;
+  creativeAvatarUrl?: string;
+  creativeDisplayName?: string;
+  creativeTitle?: string;
+  creativeId?: string;
+  creativeEmail?: string;
+  creativeRating?: number;
+  creativeReviewCount?: number;
+  creativeServicesCount?: number;
+  creativeColor?: string;
 }
 
 export function DownloadOrderCard({
+  id,
   serviceName,
   creativeName,
   orderDate,
@@ -35,13 +53,77 @@ export function DownloadOrderCard({
   completedDate,
   calendarDate,
   fileCount,
-  fileSize
+  fileSize,
+  paymentOption = 'payment_upfront',
+  files = [],
+  serviceId,
+  serviceDescription,
+  serviceDeliveryTime,
+  serviceColor,
+  creativeAvatarUrl,
+  creativeDisplayName,
+  creativeTitle,
+  creativeId,
+  creativeEmail,
+  creativeRating,
+  creativeReviewCount,
+  creativeServicesCount,
+  creativeColor
 }: DownloadOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#0097a7';
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't open popover if clicking the download button
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    setPopoverOpen(true);
+  };
+
+  const handlePopoverClose = () => {
+    setPopoverOpen(false);
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPopoverOpen(true);
+  };
+
+  const orderDetail: DownloadOrderDetail = {
+    id,
+    serviceName,
+    creativeName,
+    orderDate,
+    description,
+    price,
+    approvedDate,
+    completedDate,
+    calendarDate,
+    paymentOption,
+    files,
+    fileCount,
+    fileSize,
+    serviceId,
+    serviceDescription,
+    serviceDeliveryTime,
+    serviceColor: serviceColor || statusColor,
+    creativeAvatarUrl,
+    creativeDisplayName,
+    creativeTitle,
+    creativeId,
+    creativeEmail,
+    creativeRating,
+    creativeReviewCount,
+    creativeServicesCount,
+    creativeColor,
+  };
 
   return (
-    <Card 
+    <>
+      <Card 
+        onClick={handleCardClick} 
       sx={{ 
         borderRadius: 2,
         transition: 'all 0.2s ease',
@@ -50,6 +132,7 @@ export function DownloadOrderCard({
         overflow: 'visible',
         minHeight: 'fit-content',
         height: 'auto',
+        cursor: 'pointer',
         backgroundColor: theme.palette.mode === 'dark'
           ? 'rgba(0, 151, 167, 0.05)'
           : 'rgba(0, 151, 167, 0.02)',
@@ -229,6 +312,7 @@ export function DownloadOrderCard({
               variant="contained"
               startIcon={<DownloadIcon sx={{ fontSize: 18 }} />}
               size="small"
+              onClick={handleDownload}
               sx={{
                 backgroundColor: 'primary.main',
                 color: 'white',
@@ -372,6 +456,13 @@ export function DownloadOrderCard({
         </Box>
       </CardContent>
     </Card>
+
+    <DownloadOrderDetailPopover
+      open={popoverOpen}
+      onClose={handlePopoverClose}
+      order={orderDetail}
+    />
+  </>
   );
 }
 
