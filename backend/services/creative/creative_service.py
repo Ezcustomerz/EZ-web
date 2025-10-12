@@ -234,9 +234,9 @@ class CreativeController:
             if not creative_result.data:
                 raise HTTPException(status_code=404, detail="Creative profile not found. Please complete your creative setup first.")
             
-            # Validate price is positive
-            if service_request.price <= 0:
-                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+            # Validate price is non-negative (allow free services at $0)
+            if service_request.price < 0:
+                raise HTTPException(status_code=422, detail="Price cannot be negative")
             
             # Validate status
             if service_request.status not in ['Public', 'Private', 'Bundle-Only']:
@@ -251,6 +251,7 @@ class CreativeController:
                 'delivery_time': service_request.delivery_time,
                 'status': service_request.status,
                 'color': service_request.color,
+                'payment_option': service_request.payment_option,
                 'is_active': True
             }
             
@@ -295,6 +296,7 @@ class CreativeController:
             delivery_time = form.get('delivery_time', '').strip()
             status = form.get('status', 'Private')
             color = form.get('color', '#3b82f6')
+            payment_option = form.get('payment_option', 'later')
             
             # Validate that the user has a creative profile
             creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
@@ -318,6 +320,7 @@ class CreativeController:
                 'delivery_time': delivery_time,
                 'status': status,
                 'color': color,
+                'payment_option': payment_option,
                 'is_active': True
             }
             
@@ -753,6 +756,7 @@ class CreativeController:
                 'delivery_time': service_request.delivery_time,
                 'status': service_request.status,
                 'color': service_request.color,
+                'payment_option': service_request.payment_option,
                 'updated_at': 'now()'
             }
 
@@ -807,6 +811,7 @@ class CreativeController:
                 'delivery_time': service_data['delivery_time'],
                 'status': service_data['status'],
                 'color': service_data['color'],
+                'payment_option': service_data.get('payment_option', 'later'),
                 'updated_at': 'now()'
             }
 
@@ -1290,7 +1295,7 @@ class CreativeController:
         try:
             # Get services
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
             services = []
@@ -1327,6 +1332,7 @@ class CreativeController:
                         delivery_time=service_data['delivery_time'],
                         status=service_data['status'],
                         color=service_data['color'],
+                        payment_option=service_data['payment_option'],
                         is_active=service_data['is_active'],
                         created_at=service_data['created_at'],
                         updated_at=service_data['updated_at'],
@@ -1566,7 +1572,7 @@ class CreativeController:
         try:
             # Get public services
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at'
             ).eq('creative_user_id', user_id).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             services = []
@@ -1605,6 +1611,7 @@ class CreativeController:
                         delivery_time=service_data['delivery_time'],
                         status=service_data['status'],
                         color=service_data['color'],
+                        payment_option=service_data['payment_option'],
                         is_active=service_data['is_active'],
                         created_at=service_data['created_at'],
                         updated_at=service_data['updated_at'],

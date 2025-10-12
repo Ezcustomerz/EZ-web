@@ -68,6 +68,7 @@ export interface ServiceFormPopoverProps {
     delivery_time: string;
     status: 'Public' | 'Private' | 'Bundle-Only';
     color: string;
+    payment_option?: 'upfront' | 'split' | 'later';
     photos?: ServicePhoto[];
   } | null;
 }
@@ -82,6 +83,7 @@ export interface ServiceFormData {
   photos: File[];
   existingPhotos: ServicePhoto[];
   primaryPhotoIndex: number;
+  paymentOption: 'upfront' | 'split' | 'later';
 }
 
 interface DeliveryTimeState {
@@ -132,7 +134,8 @@ export function ServiceFormPopover({
     color: '#667eea',
     photos: [],
     existingPhotos: [],
-    primaryPhotoIndex: -1
+    primaryPhotoIndex: -1,
+    paymentOption: 'later'
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -447,7 +450,7 @@ export function ServiceFormPopover({
       case 0:
         return formData.title.trim().length > 0 && formData.description.trim().length > 0;
       case 1:
-        return formData.price.trim().length > 0 && !isNaN(parseFloat(formData.price)) && parseFloat(formData.price) > 0;
+        return formData.price.trim().length > 0 && !isNaN(parseFloat(formData.price)) && parseFloat(formData.price) >= 0;
       case 2:
         // If photos are uploaded, a primary photo must be selected
         return (formData.photos.length + formData.existingPhotos.length) === 0 || formData.primaryPhotoIndex >= 0;
@@ -507,7 +510,8 @@ export function ServiceFormPopover({
         price: parseFloat(formData.price),
         delivery_time: formData.deliveryTime,
         status: formData.status as 'Public' | 'Private' | 'Bundle-Only',
-        color: formData.color
+        color: formData.color,
+        payment_option: formData.paymentOption
       };
 
       // Note: Photos are handled separately via the updateServiceWithPhotos method
@@ -597,7 +601,8 @@ export function ServiceFormPopover({
           color: initialService.color,
           photos: [], // New photos to upload
           existingPhotos: existingPhotos, // Existing photos from service
-          primaryPhotoIndex: primaryPhotoIndex
+          primaryPhotoIndex: primaryPhotoIndex,
+          paymentOption: initialService.payment_option || 'later' // Use existing or default to later
         });
         // Attempt to parse delivery_time like "3-5 days" or "3 days"
         const match = initialService.delivery_time.match(/(\d+)(?:-(\d+))?\s*(day|week|month)s?/i);
@@ -620,7 +625,8 @@ export function ServiceFormPopover({
           color: '#667eea',
           photos: [],
           existingPhotos: [],
-          primaryPhotoIndex: -1
+          primaryPhotoIndex: -1,
+          paymentOption: 'later'
         });
         setDeliveryTime({
           minTime: '3',
@@ -759,6 +765,133 @@ export function ServiceFormPopover({
               }}
               helperText="Set your service price in USD"
             />
+
+            {/* Payment Options - Only show when price is not free */}
+            {formData.price && parseFloat(formData.price) > 0 && (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    Payment Options
+                  </Typography>
+                  <Tooltip
+                    title="Choose how you want to receive payment from clients for this service"
+                    placement="top"
+                    arrow
+                  >
+                    <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                  </Tooltip>
+                </Box>
+
+                <RadioGroup
+                  value={formData.paymentOption}
+                  onChange={(e) => handleInputChange('paymentOption', e.target.value)}
+                >
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    {/* Upfront Payment */}
+                    <Paper
+                      sx={{
+                        p: 2,
+                        border: '2px solid',
+                        borderColor: formData.paymentOption === 'upfront' ? 'primary.main' : 'divider',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        backgroundColor: formData.paymentOption === 'upfront' ? 'rgba(59, 130, 246, 0.05)' : 'transparent',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          backgroundColor: 'rgba(59, 130, 246, 0.02)',
+                        }
+                      }}
+                      onClick={() => handleInputChange('paymentOption', 'upfront')}
+                    >
+                      <FormControlLabel
+                        value="upfront"
+                        control={<Radio />}
+                        label={
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                              Upfront Payment
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                              Client pays the full amount before work begins
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ m: 0, width: '100%' }}
+                      />
+                    </Paper>
+
+                    {/* Split Payment */}
+                    <Paper
+                      sx={{
+                        p: 2,
+                        border: '2px solid',
+                        borderColor: formData.paymentOption === 'split' ? 'primary.main' : 'divider',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        backgroundColor: formData.paymentOption === 'split' ? 'rgba(59, 130, 246, 0.05)' : 'transparent',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          backgroundColor: 'rgba(59, 130, 246, 0.02)',
+                        }
+                      }}
+                      onClick={() => handleInputChange('paymentOption', 'split')}
+                    >
+                      <FormControlLabel
+                        value="split"
+                        control={<Radio />}
+                        label={
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                              Split Payment
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                              Client pays 50% upfront, 50% upon completion
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ m: 0, width: '100%' }}
+                      />
+                    </Paper>
+
+                    {/* Payment Later */}
+                    <Paper
+                      sx={{
+                        p: 2,
+                        border: '2px solid',
+                        borderColor: formData.paymentOption === 'later' ? 'primary.main' : 'divider',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        backgroundColor: formData.paymentOption === 'later' ? 'rgba(59, 130, 246, 0.05)' : 'transparent',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          backgroundColor: 'rgba(59, 130, 246, 0.02)',
+                        }
+                      }}
+                      onClick={() => handleInputChange('paymentOption', 'later')}
+                    >
+                      <FormControlLabel
+                        value="later"
+                        control={<Radio />}
+                        label={
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                              Payment Later
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                              Client pays after work is completed and delivered
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ m: 0, width: '100%' }}
+                      />
+                    </Paper>
+                  </Box>
+                </RadioGroup>
+              </Box>
+            )}
 
             <Box>
               <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>

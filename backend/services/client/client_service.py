@@ -350,7 +350,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             # Get all bundles from these creatives
@@ -421,6 +421,7 @@ class ClientController:
                         'delivery_time': service_data['delivery_time'],
                         'status': service_data['status'],
                         'color': service_data['color'],
+                        'payment_option': service_data['payment_option'],
                         'is_active': service_data['is_active'],
                         'created_at': service_data['created_at'],
                         'updated_at': service_data['updated_at'],

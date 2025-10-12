@@ -191,6 +191,7 @@ export interface CreativeService {
   delivery_time: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
+  payment_option: 'upfront' | 'split' | 'later';
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -249,6 +250,7 @@ export interface CreateServiceRequest {
   delivery_time: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
+  payment_option: 'upfront' | 'split' | 'later';
   calendar_settings?: CalendarSettings;
   photos?: ServicePhoto[];
 }
