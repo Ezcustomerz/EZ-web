@@ -65,7 +65,7 @@ function AppContent() {
     originalSelectedRoles
   } = useAuth();
   
-  const [roleProfiles, setRoleProfiles] = useState<UserRoleProfiles | null>(null);
+  const [roleProfiles, setRoleProfiles] = useState<UserRoleProfiles | undefined>(undefined);
 
   // Fetch role profiles when role selection popover opens
   useEffect(() => {
@@ -76,10 +76,10 @@ function AppContent() {
           setRoleProfiles(profiles);
         } catch (error) {
           console.error('Failed to fetch role profiles for role selection:', error);
-          setRoleProfiles(null);
+          setRoleProfiles(undefined);
         }
       } else {
-        setRoleProfiles(null);
+        setRoleProfiles(undefined);
       }
     };
 
