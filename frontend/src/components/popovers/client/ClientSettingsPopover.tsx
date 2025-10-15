@@ -23,6 +23,7 @@ import {
   MenuItem,
   Avatar,
   Popover,
+  Divider,
 } from '@mui/material';
 import {
   Close,
@@ -776,25 +777,36 @@ export function ClientSettingsPopover({ open, onClose }: ClientSettingsPopoverPr
                       transition: 'all 0.2s ease-in-out',
                       '&.Mui-selected': {
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderLeft: '3px solid',
-                        borderColor: 'primary.main',
+                        color: theme.palette.primary.main,
                         '&:hover': {
                           backgroundColor: 'rgba(59, 130, 246, 0.15)',
                         },
+                        '& .MuiListItemIcon-root': {
+                          color: theme.palette.primary.main,
+                        },
                       },
                       '&:hover': {
-                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                        transform: 'translateX(4px)',
                       },
                     }}
                   >
-                    <ListItemIcon sx={{ minWidth: 40, color: isSelected ? 'primary.main' : 'text.secondary' }}>
+                    <ListItemIcon
+                      sx={{
+                        minWidth: 40,
+                        color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                        transition: 'color 0.2s ease-in-out',
+                      }}
+                    >
                       <IconComponent />
                     </ListItemIcon>
                     <ListItemText
                       primary={section.label}
-                      primaryTypographyProps={{
-                        fontWeight: isSelected ? 600 : 400,
-                        color: isSelected ? 'primary.main' : 'text.primary',
+                      sx={{
+                        '& .MuiListItemText-primary': {
+                          fontWeight: isSelected ? 600 : 500,
+                          fontSize: '0.95rem',
+                        },
                       }}
                     />
                   </ListItemButton>
@@ -803,56 +815,64 @@ export function ClientSettingsPopover({ open, onClose }: ClientSettingsPopoverPr
             })}
           </List>
 
-          {/* Account Section Divider & Items */}
-          <Box sx={{ px: 2, py: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ px: 2, fontWeight: 600 }}>
-              User Settings
-            </Typography>
-          </Box>
+            {/* Separator */}
+            <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.1)' }} />
 
-          <List sx={{ py: 0, pb: 2 }}>
-            {accountSections.map((section) => {
-              const IconComponent = section.icon;
-              const isSelected = selectedSection === section.id;
+            {/* Account-Specific Settings - Pushed to bottom */}
+            <List sx={{ py: 1 }}>
+              {accountSections.map((section) => {
+                const IconComponent = section.icon;
+                const isSelected = selectedSection === section.id;
 
-              return (
-                <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
-                  <ListItemButton
-                    onClick={() => setSelectedSection(section.id)}
-                    selected={isSelected}
-                    sx={{
-                      borderRadius: 2,
-                      py: 1.5,
-                      px: 2,
-                      transition: 'all 0.2s ease-in-out',
-                      '&.Mui-selected': {
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderLeft: '3px solid',
-                        borderColor: 'primary.main',
-                        '&:hover': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                return (
+                  <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                    <ListItemButton
+                      onClick={() => setSelectedSection(section.id)}
+                      selected={isSelected}
+                      sx={{
+                        borderRadius: 2,
+                        py: 1.5,
+                        px: 2,
+                        transition: 'all 0.2s ease-in-out',
+                        '&.Mui-selected': {
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          color: theme.palette.primary.main,
+                          '&:hover': {
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                          },
+                          '& .MuiListItemIcon-root': {
+                            color: theme.palette.primary.main,
+                          },
                         },
-                      },
-                      '&:hover': {
-                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                      },
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 40, color: isSelected ? 'primary.main' : 'text.secondary' }}>
-                      <IconComponent />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={section.label}
-                      primaryTypographyProps={{
-                        fontWeight: isSelected ? 600 : 400,
-                        color: isSelected ? 'primary.main' : 'text.primary',
+                        '&:hover': {
+                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                          transform: 'translateX(4px)',
+                        },
                       }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
-          </List>
+                    >
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 40,
+                          color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                          transition: 'color 0.2s ease-in-out',
+                        }}
+                      >
+                        <IconComponent />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={section.label}
+                        sx={{
+                          '& .MuiListItemText-primary': {
+                            fontWeight: isSelected ? 600 : 500,
+                            fontSize: '0.95rem',
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+            </List>
 
         </Box>
 
