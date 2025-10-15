@@ -272,7 +272,7 @@ export function LayoutClient({
             position: 'fixed',
             top: 16,
             left: 16,
-            zIndex: 1400,
+            zIndex: 1200,
             opacity: isSidebarOpen ? 0 : 1,
             visibility: isSidebarOpen ? 'hidden' : 'visible',
             transition: theme.transitions.create(['opacity', 'visibility'], {

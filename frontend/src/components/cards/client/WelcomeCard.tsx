@@ -75,32 +75,34 @@ export function WelcomeCard({ userName = "Demo User", userType = "Country Artist
         mb: 3,
         textAlign: { xs: 'center', md: 'left' },
       }}>
-        <Typography
-          variant="h4"
-          component="h1"
-          sx={{
-            fontSize: { xs: '1.5rem', md: '1.75rem' },
-            fontWeight: 600,
-            color: 'primary.main',
-            letterSpacing: '-0.025em',
-            lineHeight: 1.2,
-            mb: 0.25,
-          }}
-        >
-          Welcome, {userName}
-        </Typography>
+        <Box>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
+              fontSize: { xs: '1.5rem', md: '1.75rem' },
+              fontWeight: 600,
+              color: 'primary.main',
+              letterSpacing: '-0.025em',
+              lineHeight: 1.2,
+              mb: 0.25,
+            }}
+          >
+            Welcome, {userName}
+          </Typography>
 
-        <Typography
-          variant="subtitle1"
-          sx={{
-            fontSize: { xs: '0.85rem', md: '0.9rem' },
-            fontWeight: 400,
-            color: 'text.secondary',
-            letterSpacing: '0.01em',
-          }}
-        >
-          {userType}
-        </Typography>
+          <Typography
+            variant="subtitle1"
+            sx={{
+              fontSize: { xs: '0.85rem', md: '0.9rem' },
+              fontWeight: 400,
+              color: 'text.secondary',
+              letterSpacing: '0.01em',
+            }}
+          >
+            {userType}
+          </Typography>
+        </Box>
       </Box>
 
       {/* Stats Cards Grid */}
