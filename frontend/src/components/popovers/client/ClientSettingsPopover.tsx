@@ -633,8 +633,6 @@ export function ClientSettingsPopover({ open, onClose }: ClientSettingsPopoverPr
                       transition: 'all 0.2s ease-in-out',
                       '&.Mui-selected': {
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderLeft: '3px solid',
-                        borderColor: 'primary.main',
                         '&:hover': {
                           backgroundColor: 'rgba(59, 130, 246, 0.15)',
                         },
@@ -684,8 +682,6 @@ export function ClientSettingsPopover({ open, onClose }: ClientSettingsPopoverPr
                       transition: 'all 0.2s ease-in-out',
                       '&.Mui-selected': {
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderLeft: '3px solid',
-                        borderColor: 'primary.main',
                         '&:hover': {
                           backgroundColor: 'rgba(59, 130, 246, 0.15)',
                         },
