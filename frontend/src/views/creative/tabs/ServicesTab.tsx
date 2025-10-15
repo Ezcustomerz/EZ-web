@@ -617,6 +617,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           delivery_time: editingService.delivery_time,
           status: editingService.status,
           color: editingService.color,
+          payment_option: editingService.payment_option,
           photos: editingService.photos || [],
         } : null}
       />

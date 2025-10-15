@@ -178,7 +178,8 @@ async def update_service_with_photos(request: Request, service_id: str):
             'price': float(form.get('price', 0)),
             'delivery_time': form.get('delivery_time'),
             'status': form.get('status'),
-            'color': form.get('color')
+            'color': form.get('color'),
+            'payment_option': form.get('payment_option', 'later')
         }
         
         # Get photo files

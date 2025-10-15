@@ -17,12 +17,7 @@ import {
   Button,
   Card,
   CardContent,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Avatar,
-  Popover,
   Divider,
 } from '@mui/material';
 import {
@@ -31,8 +26,6 @@ import {
   Settings,
   CreditCard,
   PhotoCamera,
-  Palette,
-  Title,
   ContactPhone,
   AccountCircle,
   Check,
@@ -45,64 +38,21 @@ interface AdvocateSettingsPopoverProps {
 
 type SettingsSection = 'account' | 'billing' | 'userAccount';
 
-const ADVOCATE_TITLES = [
-  'Other', // Move to top for easy access
-  
-  // Music Industry
-  'A&R Representative',
-  'Music Manager',
-  'Talent Agent',
-  'Music Publisher',
-  'Label Executive',
-  'Tour Manager',
-  'Music Consultant',
-  
-  // Legal & Business
-  'Entertainment Lawyer',
-  'Music Attorney',
-  'Business Manager',
-  'Financial Advisor',
-  'Contract Specialist',
-  
-  // Marketing & PR
-  'Publicist',
-  'PR Specialist',
-  'Marketing Manager',
-  'Brand Manager',
-  'Social Media Manager',
-  
-  // Other Advocates
-  'Career Advisor',
-  'Music Industry Professional',
-  'Creative Consultant',
-  'Industry Advocate',
-];
-
 export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
   const [selectedTheme, setSelectedTheme] = useState('light');
-  const [colorPickerOpen, setColorPickerOpen] = useState(false);
-  const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
     displayName: '',
     profilePhoto: null as File | null,
-    avatarBgColor: '#3B82F6',
-    title: '',
-    customTitle: '',
     primaryContact: '',
   });
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleColorSelect = (color: string) => {
-    handleInputChange('avatarBgColor', color);
-    setColorPickerOpen(false);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,7 +105,7 @@ export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopov
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                     <Avatar
                       src={formData.profilePhoto ? URL.createObjectURL(formData.profilePhoto) : undefined}
-                      sx={{ width: 80, height: 80, bgcolor: formData.avatarBgColor }}
+                      sx={{ width: 80, height: 80 }}
                     >
                       {!formData.profilePhoto && formData.displayName.charAt(0).toUpperCase()}
                     </Avatar>
@@ -195,177 +145,6 @@ export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopov
                     onChange={(e) => handleInputChange('displayName', e.target.value)}
                     placeholder="Enter your display name"
                   />
-                </CardContent>
-              </Card>
-
-              {/* Title */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Title color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Title
-                    </Typography>
-                  </Box>
-                  <FormControl fullWidth>
-                    <InputLabel>Select Title</InputLabel>
-                    <Select
-                      label="Select Title"
-                      value={formData.title}
-                      onChange={(e) => handleInputChange('title', e.target.value)}
-                    >
-                      {ADVOCATE_TITLES.map((title) => (
-                        <MenuItem key={title} value={title}>
-                          {title}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  
-                  {/* Custom Title Field - Only shown when "Other" is selected */}
-                  {formData.title === 'Other' && (
-                    <TextField
-                      fullWidth
-                      value={formData.customTitle}
-                      onChange={(e) => handleInputChange('customTitle', e.target.value)}
-                      placeholder="Enter custom title"
-                      sx={{ mt: 2 }}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Avatar Background Color */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Palette color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Avatar Background Color
-                    </Typography>
-                  </Box>
-                  
-                  {/* Current Selection Preview */}
-                  <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
-                      Preview
-                    </Typography>
-                    <Box sx={{
-                      background: `linear-gradient(135deg, ${formData.avatarBgColor} 0%, ${formData.avatarBgColor}CC 100%)`,
-                      color: 'white',
-                      p: 2,
-                      borderRadius: 2,
-                      textAlign: 'center',
-                      position: 'relative',
-                      overflow: 'hidden'
-                    }}>
-                      <Avatar
-                        src={formData.profilePhoto ? URL.createObjectURL(formData.profilePhoto) : undefined}
-                        sx={{ 
-                          width: 60, 
-                          height: 60,
-                          mx: 'auto',
-                          mb: 1,
-                          bgcolor: 'rgba(255, 255, 255, 0.2)',
-                          border: '2px solid rgba(255, 255, 255, 0.3)'
-                        }}
-                      >
-                        {formData.displayName?.charAt(0) || 'A'}
-                      </Avatar>
-                      <Typography variant="subtitle1" fontWeight={600} sx={{ opacity: 0.9 }}>
-                        {formData.displayName || 'Your Name'}
-                      </Typography>
-                      <Typography variant="body2" sx={{ opacity: 0.8, fontFamily: 'monospace', mt: 1 }}>
-                        {formData.avatarBgColor.toUpperCase()}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].map((color) => {
-                      const isSelected = color === formData.avatarBgColor;
-                      return (
-                        <Box
-                          key={color}
-                          onClick={() => handleColorSelect(color)}
-                          sx={{
-                            position: 'relative',
-                            width: 48,
-                            height: 48,
-                            borderRadius: '50%',
-                            backgroundColor: color,
-                            border: '3px solid',
-                            borderColor: isSelected ? 'primary.main' : 'transparent',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': {
-                              transform: 'scale(1.1)',
-                              borderColor: isSelected ? 'primary.main' : 'grey.400',
-                              boxShadow: isSelected ? '0 0 0 2px rgba(25, 118, 210, 0.2)' : '0 2px 8px rgba(0,0,0,0.15)',
-                            },
-                            ...(isSelected && {
-                              boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
-                            })
-                          }}
-                        >
-                          {isSelected && (
-                            <Check 
-                              sx={{ 
-                                color: 'white', 
-                                fontSize: 24,
-                                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))'
-                              }} 
-                            />
-                          )}
-                        </Box>
-                      );
-                    })}
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={(e) => {
-                        setColorPickerAnchor(e.currentTarget);
-                        setColorPickerOpen(true);
-                      }}
-                      sx={{ 
-                        minWidth: 80,
-                        borderColor: formData.avatarBgColor && !['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].includes(formData.avatarBgColor) 
-                          ? formData.avatarBgColor 
-                          : undefined,
-                        borderWidth: formData.avatarBgColor && !['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'].includes(formData.avatarBgColor) 
-                          ? 2 
-                          : 1,
-                      }}
-                    >
-                      Custom
-                    </Button>
-                  </Box>
-                  
-                  {/* Custom Color Picker */}
-                  <Popover
-                    open={colorPickerOpen}
-                    anchorEl={colorPickerAnchor}
-                    onClose={() => setColorPickerOpen(false)}
-                    anchorOrigin={{
-                      vertical: 'bottom',
-                      horizontal: 'left',
-                    }}
-                  >
-                    <Box sx={{ p: 2 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Choose Custom Color
-                      </Typography>
-                      <input
-                        type="color"
-                        value={formData.avatarBgColor}
-                        onChange={(e) => handleColorSelect(e.target.value)}
-                        style={{ width: '100%', height: 40, border: 'none', borderRadius: 4 }}
-                      />
-                    </Box>
-                  </Popover>
                 </CardContent>
               </Card>
 
@@ -771,36 +550,25 @@ export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopov
                       transition: 'all 0.2s ease-in-out',
                       '&.Mui-selected': {
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        color: theme.palette.primary.main,
+                        borderLeft: '3px solid',
+                        borderColor: 'primary.main',
                         '&:hover': {
                           backgroundColor: 'rgba(59, 130, 246, 0.15)',
                         },
-                        '& .MuiListItemIcon-root': {
-                          color: theme.palette.primary.main,
-                        },
                       },
                       '&:hover': {
-                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                        transform: 'translateX(4px)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
                       },
                     }}
                   >
-                    <ListItemIcon
-                      sx={{
-                        minWidth: 40,
-                        color: isSelected ? theme.palette.primary.main : 'text.secondary',
-                        transition: 'color 0.2s ease-in-out',
-                      }}
-                    >
+                    <ListItemIcon sx={{ minWidth: 40, color: isSelected ? 'primary.main' : 'text.secondary' }}>
                       <IconComponent />
                     </ListItemIcon>
                     <ListItemText
                       primary={section.label}
-                      sx={{
-                        '& .MuiListItemText-primary': {
-                          fontWeight: isSelected ? 600 : 500,
-                          fontSize: '0.95rem',
-                        },
+                      primaryTypographyProps={{
+                        fontWeight: isSelected ? 600 : 400,
+                        color: isSelected ? 'primary.main' : 'text.primary',
                       }}
                     />
                   </ListItemButton>
@@ -809,64 +577,56 @@ export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopov
             })}
           </List>
 
-            {/* Separator */}
-            <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.1)' }} />
+          {/* Account Section Divider & Items */}
+          <Box sx={{ px: 2, py: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ px: 2, fontWeight: 600 }}>
+              User Settings
+            </Typography>
+          </Box>
 
-            {/* Account-Specific Settings - Pushed to bottom */}
-            <List sx={{ py: 1 }}>
-              {accountSections.map((section) => {
-                const IconComponent = section.icon;
-                const isSelected = selectedSection === section.id;
+          <List sx={{ py: 0, pb: 2 }}>
+            {accountSections.map((section) => {
+              const IconComponent = section.icon;
+              const isSelected = selectedSection === section.id;
 
-                return (
-                  <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
-                    <ListItemButton
-                      onClick={() => setSelectedSection(section.id)}
-                      selected={isSelected}
-                      sx={{
-                        borderRadius: 2,
-                        py: 1.5,
-                        px: 2,
-                        transition: 'all 0.2s ease-in-out',
-                        '&.Mui-selected': {
-                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                          color: theme.palette.primary.main,
-                          '&:hover': {
-                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                          },
-                          '& .MuiListItemIcon-root': {
-                            color: theme.palette.primary.main,
-                          },
-                        },
+              return (
+                <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                  <ListItemButton
+                    onClick={() => setSelectedSection(section.id)}
+                    selected={isSelected}
+                    sx={{
+                      borderRadius: 2,
+                      py: 1.5,
+                      px: 2,
+                      transition: 'all 0.2s ease-in-out',
+                      '&.Mui-selected': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderLeft: '3px solid',
+                        borderColor: 'primary.main',
                         '&:hover': {
-                          backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                          transform: 'translateX(4px)',
+                          backgroundColor: 'rgba(59, 130, 246, 0.15)',
                         },
+                      },
+                      '&:hover': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40, color: isSelected ? 'primary.main' : 'text.secondary' }}>
+                      <IconComponent />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={section.label}
+                      primaryTypographyProps={{
+                        fontWeight: isSelected ? 600 : 400,
+                        color: isSelected ? 'primary.main' : 'text.primary',
                       }}
-                    >
-                      <ListItemIcon
-                        sx={{
-                          minWidth: 40,
-                          color: isSelected ? theme.palette.primary.main : 'text.secondary',
-                          transition: 'color 0.2s ease-in-out',
-                        }}
-                      >
-                        <IconComponent />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={section.label}
-                        sx={{
-                          '& .MuiListItemText-primary': {
-                            fontWeight: isSelected ? 600 : 500,
-                            fontSize: '0.95rem',
-                          },
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                );
-              })}
-            </List>
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
 
         </Box>
 

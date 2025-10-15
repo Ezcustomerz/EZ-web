@@ -120,8 +120,36 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
-export function RequestsTable({ requests }: { requests?: typeof mockRequests }) {
+export function RequestsTable({ 
+  requests, 
+  context = 'requests' 
+}: { 
+  requests?: typeof mockRequests;
+  context?: 'orders' | 'payments' | 'requests';
+}) {
   const theme = useTheme();
+  
+  // Helper function to get context-appropriate text
+  const getContextText = (type: 'search' | 'count' | 'empty') => {
+    const textMap = {
+      orders: {
+        search: 'Search Orders...',
+        count: 'Order',
+        empty: 'No orders Found'
+      },
+      payments: {
+        search: 'Search Payments...',
+        count: 'Payment',
+        empty: 'No payments Found'
+      },
+      requests: {
+        search: 'Search Requests...',
+        count: 'Request',
+        empty: 'No requests Found'
+      }
+    };
+    return textMap[context][type];
+  };
   const [filter, setFilter] = useState('All');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -239,7 +267,7 @@ export function RequestsTable({ requests }: { requests?: typeof mockRequests }) 
           <Stack spacing={1}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TextField
-                placeholder="Search Requests..."
+                placeholder={getContextText('search')}
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
                 size="small"
@@ -259,7 +287,7 @@ export function RequestsTable({ requests }: { requests?: typeof mockRequests }) 
                 }}
               />
               <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.95em', ml: 1, minWidth: 80 }}>
-                {filteredrequests.length} Request{filteredrequests.length !== 1 ? 's' : ''}
+                {filteredrequests.length} {getContextText('count')}{filteredrequests.length !== 1 ? 's' : ''}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
@@ -513,7 +541,7 @@ export function RequestsTable({ requests }: { requests?: typeof mockRequests }) 
                   zIndex: 1,
                 }}
               >
-                No requests Found
+                {getContextText('empty')}
               </Typography>
               <Typography
                 variant="body2"
@@ -702,7 +730,7 @@ export function RequestsTable({ requests }: { requests?: typeof mockRequests }) 
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TextField
-              placeholder="Search Requests..."
+              placeholder={getContextText('search')}
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               size="small"
@@ -722,7 +750,7 @@ export function RequestsTable({ requests }: { requests?: typeof mockRequests }) 
               }}
             />
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.95em', ml: 1, minWidth: 80 }}>
-              {filteredrequests.length} Request{filteredrequests.length !== 1 ? 's' : ''}
+              {filteredrequests.length} {getContextText('count')}{filteredrequests.length !== 1 ? 's' : ''}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: 'auto' }}>
@@ -972,7 +1000,7 @@ export function RequestsTable({ requests }: { requests?: typeof mockRequests }) 
                     backgroundColor: '#e6f3fa',
                   }}
                 >
-                  Type
+                  Service
                 </TableCell>
                 <TableCell
                   onClick={() => handleSort('amount')}
@@ -1132,7 +1160,7 @@ export function RequestsTable({ requests }: { requests?: typeof mockRequests }) 
                           zIndex: 1,
                         }}
                       >
-                        No requests Found
+                        {getContextText('empty')}
                       </Typography>
                       <Typography
                         variant="body2"
