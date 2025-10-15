@@ -46,7 +46,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
   const currentRole = getCurrentRole();
 
   const menuItems = [
-    ...(isAuthenticated ? [{
+    {
       id: 'settings', 
       label: 'Settings', 
       icon: Settings,
@@ -54,7 +54,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
         setSettingsOpen(true);
         onClose();
       }
-    }] : []),
+    },
     { 
       id: 'switch-role', 
       label: 'Switch Role', 
