@@ -32,6 +32,10 @@ import {
   CanceledRow 
 } from './rows';
 import { PendingApprovalPopover, type PendingApprovalOrder } from '../popovers/creative/PendingApprovalPopover';
+import { AwaitingPaymentPopover, type AwaitingPaymentOrder } from '../popovers/creative/AwaitingPaymentPopover';
+import { InProgressPopover, type InProgressOrder } from '../popovers/creative/InProgressPopover';
+import { CompletePopover, type CompleteOrder } from '../popovers/creative/CompletePopover';
+import { CancelledPopover, type CancelledOrder } from '../popovers/creative/CancelledPopover';
 
 
 type SortField = 'client' | 'service' | 'amount' | 'date' | 'bookingDate' | undefined;
@@ -99,6 +103,15 @@ export function RequestsTable({
   // Popover state
   const [pendingApprovalPopoverOpen, setPendingApprovalPopoverOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<PendingApprovalOrder | null>(null);
+  const [awaitingPaymentPopoverOpen, setAwaitingPaymentPopoverOpen] = useState(false);
+  const [selectedAwaitingPaymentOrder, setSelectedAwaitingPaymentOrder] = useState<AwaitingPaymentOrder | null>(null);
+  const [inProgressPopoverOpen, setInProgressPopoverOpen] = useState(false);
+  const [selectedInProgressOrder, setSelectedInProgressOrder] = useState<InProgressOrder | null>(null);
+  const [completePopoverOpen, setCompletePopoverOpen] = useState(false);
+  const [selectedCompleteOrder, setSelectedCompleteOrder] = useState<CompleteOrder | null>(null);
+  const [cancelledPopoverOpen, setCancelledPopoverOpen] = useState(false);
+  const [selectedCancelledOrder, setSelectedCancelledOrder] = useState<CancelledOrder | null>(null);
+  const [showFinalizationStep, setShowFinalizationStep] = useState(false);
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
@@ -112,6 +125,7 @@ export function RequestsTable({
         price: order.amount,
         delivery_time: order.service.delivery_time || '3-5 days',
         color: order.service.color || '#667eea',
+        payment_option: order.service.payment_option || 'later',
         photos: order.service.photos || []
       },
       amount: order.amount,
@@ -132,6 +146,154 @@ export function RequestsTable({
     setSelectedOrder(null);
   };
 
+  const handleOpenAwaitingPaymentPopover = (order: any) => {
+    const awaitingPaymentOrder: AwaitingPaymentOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description || 'Service description not available',
+        price: order.amount,
+        delivery_time: order.service.delivery_time || '3-5 days',
+        color: order.service.color || '#667eea',
+        payment_option: order.service.payment_option || 'later',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      bookingDate: order.bookingDate,
+      amountPaid: order.amountPaid || 0,
+      amountRemaining: order.amountRemaining || order.amount,
+      depositPaid: order.depositPaid || false,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements
+    };
+    setSelectedAwaitingPaymentOrder(awaitingPaymentOrder);
+    setAwaitingPaymentPopoverOpen(true);
+  };
+
+  const handleCloseAwaitingPaymentPopover = () => {
+    setAwaitingPaymentPopoverOpen(false);
+    setSelectedAwaitingPaymentOrder(null);
+  };
+
+  const handleOpenInProgressPopover = (order: any) => {
+    const inProgressOrder: InProgressOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description || 'Service description not available',
+        price: order.amount,
+        delivery_time: order.service.delivery_time || '3-5 days',
+        color: order.service.color || '#667eea',
+        payment_option: order.service.payment_option || 'later',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      bookingDate: order.bookingDate,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements,
+      deliverables: order.deliverables,
+      notes: order.notes
+    };
+    setSelectedInProgressOrder(inProgressOrder);
+    setInProgressPopoverOpen(true);
+  };
+
+  const handleCloseInProgressPopover = () => {
+    setInProgressPopoverOpen(false);
+    setSelectedInProgressOrder(null);
+    setShowFinalizationStep(false);
+  };
+
+  const handleOpenCompletePopover = (order: any) => {
+    const completeOrder: CompleteOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description,
+        price: order.service.price,
+        delivery_time: order.service.delivery_time,
+        color: order.service.color,
+        payment_option: order.service.payment_option || 'upfront',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      completedDate: order.completedDate || order.date,
+      bookingDate: order.bookingDate,
+      amountPaid: order.amountPaid,
+      amountRemaining: order.amountRemaining,
+      depositPaid: order.depositPaid,
+      rating: order.rating,
+      review: order.review,
+      deliverables: order.deliverables,
+      completionNotes: order.completionNotes,
+      receiptPdf: order.receiptPdf,
+      serviceSummaryPdf: order.serviceSummaryPdf,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements,
+      notes: order.notes
+    };
+    setSelectedCompleteOrder(completeOrder);
+    setCompletePopoverOpen(true);
+  };
+
+  const handleCloseCompletePopover = () => {
+    setCompletePopoverOpen(false);
+    setSelectedCompleteOrder(null);
+  };
+
+  const handleOpenCancelledPopover = (order: any) => {
+    const cancelledOrder: CancelledOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description || 'Service description not available',
+        price: order.amount,
+        delivery_time: order.service.delivery_time || '3-5 days',
+        color: order.service.color || '#667eea',
+        payment_option: order.service.payment_option || 'later',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      bookingDate: order.bookingDate,
+      cancelledDate: order.cancelledDate || order.date,
+      cancelledBy: order.cancelledBy || 'system',
+      cancellationReason: order.cancellationReason,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements
+    };
+    setSelectedCancelledOrder(cancelledOrder);
+    setCancelledPopoverOpen(true);
+  };
+
+  const handleCloseCancelledPopover = () => {
+    setCancelledPopoverOpen(false);
+    setSelectedCancelledOrder(null);
+  };
+
   // Approval handlers
   const handleApprove = (orderId: string) => {
     console.log('Approving order:', orderId);
@@ -149,9 +311,69 @@ export function RequestsTable({
 
   const handleComplete = (orderId: string) => {
     console.log('Completing order:', orderId);
-    // TODO: Implement completion logic - update order status to 'Completed' or move to past orders
-    // This would typically involve an API call to update the order status
+    // Find the order data
+    const order = requests.find(req => req.id === orderId);
+    if (order) {
+      const inProgressOrder: InProgressOrder = {
+        id: order.id,
+        client: order.client,
+        service: {
+          id: order.service.id || 'service-1',
+          title: order.service.title,
+          description: order.service.description,
+          price: order.service.price,
+          delivery_time: order.service.delivery_time,
+          color: order.service.color,
+          payment_option: order.service.payment_option || 'upfront',
+          photos: order.service.photos || []
+        },
+        amount: order.amount,
+        status: order.status,
+        date: order.date,
+        bookingDate: order.bookingDate,
+        amountPaid: order.amountPaid,
+        amountRemaining: order.amountRemaining,
+        depositPaid: order.depositPaid,
+        description: order.description,
+        clientEmail: order.clientEmail,
+        clientPhone: order.clientPhone,
+        specialRequirements: order.specialRequirements,
+        deliverables: order.deliverables,
+        notes: order.notes
+      };
+      setSelectedInProgressOrder(inProgressOrder);
+      setShowFinalizationStep(true);
+      setInProgressPopoverOpen(true);
+    }
   };
+
+  // Awaiting payment handlers
+  const handleSendReminder = (orderId: string) => {
+    console.log('Sending payment reminder for order:', orderId);
+    // TODO: Implement reminder logic - send email/SMS to client
+    handleCloseAwaitingPaymentPopover();
+  };
+
+  // In Progress handlers
+  const handleFinalizeService = async (orderId: string, files: any[]) => {
+    console.log('Finalizing service for order:', orderId, 'with files:', files);
+    // TODO: Implement service finalization logic - update order status to 'Complete'
+    // This would typically involve an API call to finalize the service and upload files
+    handleCloseInProgressPopover();
+  };
+
+  // Complete handlers
+  const handleDownloadReceipt = (orderId: string) => {
+    console.log('Downloading receipt for order:', orderId);
+    // TODO: Implement receipt download logic
+  };
+
+  const handleDownloadSummary = (orderId: string) => {
+    console.log('Downloading service summary for order:', orderId);
+    // TODO: Implement service summary download logic
+  };
+
+
 
   const filteredrequests = useMemo(() => {
     let data = filter === 'All' ? requests : requests.filter((inv) => inv.status === filter);
@@ -686,19 +908,35 @@ export function RequestsTable({
                   e.preventDefault();
                   e.stopPropagation();
                   handleOpenPendingApprovalPopover(inv);
+                } : inv.status === 'Awaiting Payment' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenAwaitingPaymentPopover(inv);
+                } : inv.status === 'In Progress' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenInProgressPopover(inv);
+                } : inv.status === 'Complete' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenCompletePopover(inv);
+                } : inv.status === 'Canceled' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenCancelledPopover(inv);
                 } : undefined}
                 sx={{
                   borderRadius: 2,
                   p: 2,
                   mb: 2,
-                  cursor: inv.status === 'Pending Approval' ? 'pointer' : 'default',
+                  cursor: (inv.status === 'Pending Approval' || inv.status === 'Awaiting Payment' || inv.status === 'In Progress' || inv.status === 'Complete' || inv.status === 'Canceled') ? 'pointer' : 'default',
                   position: 'relative',
                   transition: 'box-shadow 0.2s, border 0.2s',
                   '&:hover, &:focus': {
-                    boxShadow: inv.status === 'Pending Approval' ? 4 : 1,
-                    border: inv.status === 'Pending Approval' ? '1.5px solid' : 'none',
-                    borderColor: inv.status === 'Pending Approval' ? 'primary.main' : 'transparent',
-                    backgroundColor: inv.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.04)' : 'transparent',
+                    boxShadow: (inv.status === 'Pending Approval' || inv.status === 'Awaiting Payment' || inv.status === 'In Progress' || inv.status === 'Complete' || inv.status === 'Canceled') ? 4 : 1,
+                    border: (inv.status === 'Pending Approval' || inv.status === 'Awaiting Payment' || inv.status === 'In Progress' || inv.status === 'Complete' || inv.status === 'Canceled') ? '1.5px solid' : 'none',
+                    borderColor: inv.status === 'Pending Approval' ? 'primary.main' : inv.status === 'Awaiting Payment' ? '#3b82f6' : inv.status === 'In Progress' ? '#8b5cf6' : inv.status === 'Complete' ? '#10b981' : inv.status === 'Canceled' ? '#ef4444' : 'transparent',
+                    backgroundColor: inv.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.04)' : inv.status === 'Awaiting Payment' ? 'rgba(59, 130, 246, 0.04)' : inv.status === 'In Progress' ? 'rgba(139, 92, 246, 0.04)' : inv.status === 'Complete' ? 'rgba(16, 185, 129, 0.04)' : inv.status === 'Canceled' ? 'rgba(239, 68, 68, 0.04)' : 'transparent',
                     outline: 'none',
                   },
                 }}
@@ -1403,12 +1641,28 @@ export function RequestsTable({
                       e.preventDefault();
                       e.stopPropagation();
                       handleOpenPendingApprovalPopover(inv);
+                    } : inv.status === 'Awaiting Payment' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenAwaitingPaymentPopover(inv);
+                    } : inv.status === 'In Progress' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenInProgressPopover(inv);
+                    } : inv.status === 'Complete' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenCompletePopover(inv);
+                    } : inv.status === 'Canceled' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenCancelledPopover(inv);
                     } : undefined}
                     sx={{
                       transition: 'background 0.18s',
-                      cursor: inv.status === 'Pending Approval' ? 'pointer' : 'default',
+                      cursor: (inv.status === 'Pending Approval' || inv.status === 'Awaiting Payment' || inv.status === 'In Progress' || inv.status === 'Complete' || inv.status === 'Canceled') ? 'pointer' : 'default',
                       '&:hover': {
-                        backgroundColor: inv.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.08)' : 'grey.50',
+                        backgroundColor: inv.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.08)' : inv.status === 'Awaiting Payment' ? 'rgba(59, 130, 246, 0.08)' : inv.status === 'In Progress' ? 'rgba(139, 92, 246, 0.08)' : inv.status === 'Complete' ? 'rgba(16, 185, 129, 0.08)' : inv.status === 'Canceled' ? 'rgba(239, 68, 68, 0.08)' : 'grey.50',
                       },
                     }}
                   >
@@ -1640,6 +1894,39 @@ export function RequestsTable({
         order={selectedOrder}
         onApprove={handleApprove}
         onReject={handleReject}
+      />
+
+      {/* Awaiting Payment Popover */}
+      <AwaitingPaymentPopover
+        open={awaitingPaymentPopoverOpen}
+        onClose={handleCloseAwaitingPaymentPopover}
+        order={selectedAwaitingPaymentOrder}
+        onSendReminder={handleSendReminder}
+      />
+
+      {/* In Progress Popover */}
+      <InProgressPopover
+        open={inProgressPopoverOpen}
+        onClose={handleCloseInProgressPopover}
+        order={selectedInProgressOrder}
+        onFinalizeService={handleFinalizeService}
+        showFinalizationStep={showFinalizationStep}
+      />
+
+      {/* Complete Popover */}
+      <CompletePopover
+        open={completePopoverOpen}
+        onClose={handleCloseCompletePopover}
+        order={selectedCompleteOrder}
+        onDownloadReceipt={handleDownloadReceipt}
+        onDownloadSummary={handleDownloadSummary}
+      />
+
+      {/* Cancelled Popover */}
+      <CancelledPopover
+        open={cancelledPopoverOpen}
+        onClose={handleCloseCancelledPopover}
+        order={selectedCancelledOrder}
       />
     </Box>
   );

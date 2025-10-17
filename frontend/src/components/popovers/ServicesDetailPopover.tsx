@@ -376,7 +376,7 @@ export function ServicesDetailPopover({
                      Price
                    </Typography>
                    <Typography variant="h6" fontWeight={600} sx={{ color: 'success.main' }}>
-                     ${service.price.toLocaleString()}
+                     ${(service.price || 0).toLocaleString()}
                    </Typography>
                  </Box>
                </Box>
