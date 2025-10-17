@@ -15,20 +15,24 @@ export function CanceledRow({ status, isMobile = false }: CanceledRowProps) {
       minHeight: isMobile ? 32 : 28,
       height: isMobile ? 32 : 28
     }}>
-      <Chip
-        label={status}
-        size="small"
-        sx={{
-          backgroundColor: '#ef4444',
-          color: '#fff',
-          fontSize: isMobile ? '0.8rem' : '0.75rem',
-          fontWeight: 500,
-          height: isMobile ? 22 : 24,
-          borderRadius: isMobile ? 1.5 : '12px',
-          textTransform: 'capitalize',
-          px: isMobile ? 1.5 : 2,
-        }}
-      />
+      <Tooltip title={status} arrow placement="top">
+        <Chip
+          label={status}
+          size="small"
+          sx={{
+            backgroundColor: '#ef4444',
+            color: '#fff',
+            fontSize: isMobile ? '0.8rem' : '0.75rem',
+            fontWeight: 500,
+            height: isMobile ? 22 : 24,
+            borderRadius: isMobile ? 1.5 : '12px',
+            textTransform: 'capitalize',
+            px: isMobile ? 1.5 : 2,
+            cursor: 'help',
+            pointerEvents: 'none',
+          }}
+        />
+      </Tooltip>
       <Tooltip title="Order canceled" arrow placement="top">
         <Box sx={{ 
           display: 'flex', 
@@ -45,7 +49,7 @@ export function CanceledRow({ status, isMobile = false }: CanceledRowProps) {
           border: '1px solid rgba(239, 68, 68, 0.3)',
           cursor: 'help',
           transition: 'all 0.2s ease',
-          pointerEvents: 'auto',
+          pointerEvents: 'none',
           flexShrink: 0,
           '&:hover': {
             backgroundColor: 'rgba(239, 68, 68, 0.2)',

@@ -27,20 +27,24 @@ export function PendingApprovalRow({
       height: isMobile ? 32 : 28,
       pointerEvents: showActions ? 'auto' : 'none'
     }}>
-      <Chip
-        label={status}
-        size="small"
-        sx={{
-          backgroundColor: '#f59e0b',
-          color: '#fff',
-          fontSize: isMobile ? '0.8rem' : '0.75rem',
-          fontWeight: 500,
-          height: isMobile ? 22 : 24,
-          borderRadius: isMobile ? 1.5 : '12px',
-          textTransform: 'capitalize',
-          px: isMobile ? 1.5 : 2,
-        }}
-      />
+      <Tooltip title={status} arrow placement="top">
+        <Chip
+          label={status}
+          size="small"
+          sx={{
+            backgroundColor: '#f59e0b',
+            color: '#fff',
+            fontSize: isMobile ? '0.8rem' : '0.75rem',
+            fontWeight: 500,
+            height: isMobile ? 22 : 24,
+            borderRadius: isMobile ? 1.5 : '12px',
+            textTransform: 'capitalize',
+            px: isMobile ? 1.5 : 2,
+            cursor: 'help',
+            pointerEvents: 'auto', // Ensure tooltip works even when parent has pointerEvents: 'none'
+          }}
+        />
+      </Tooltip>
       <Tooltip title="Your approval needed" arrow placement="top">
         <Box sx={{ 
           display: 'flex', 

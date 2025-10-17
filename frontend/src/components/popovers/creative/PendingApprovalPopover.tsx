@@ -23,7 +23,9 @@ import {
   Person, 
   Check, 
   Close,
-  AccessTime
+  AccessTime,
+  Payment,
+  AccountBalanceWallet
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
@@ -61,6 +63,7 @@ export interface PendingApprovalOrder {
     price: number;
     delivery_time: string;
     color: string;
+    payment_option: 'upfront' | 'split' | 'later';
     photos?: Array<{ url: string; alt?: string }>;
   };
   amount: number;
@@ -95,6 +98,100 @@ export function PendingApprovalPopover({
   const [bookingDetailOpen, setBookingDetailOpen] = useState(false);
 
   if (!order) return null;
+
+  // Payment option utility functions
+  const getPaymentOptionLabel = (option: 'upfront' | 'split' | 'later', price: number) => {
+    if (price === 0) {
+      return 'Free Service';
+    }
+    switch (option) {
+      case 'upfront':
+        return 'Payment Upfront';
+      case 'split':
+        return 'Split Payment';
+      case 'later':
+        return 'Payment Later';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  const getPaymentOptionDescription = (option: 'upfront' | 'split' | 'later', price: number) => {
+    if (price === 0) {
+      return 'This is a complimentary service';
+    }
+    switch (option) {
+      case 'upfront':
+        return 'Full payment required before service begins';
+      case 'split':
+        return 'Partial deposit paid upfront, remaining balance due after completion';
+      case 'later':
+        return 'Payment due after service completion';
+      default:
+        return '';
+    }
+  };
+
+  const getPaymentOptionColor = (option: 'upfront' | 'split' | 'later', price: number) => {
+    if (price === 0) {
+      return theme.palette.grey[500];
+    }
+    switch (option) {
+      case 'upfront':
+        return theme.palette.success.main;
+      case 'split':
+        return theme.palette.info.main;
+      case 'later':
+        return theme.palette.warning.main;
+      default:
+        return theme.palette.grey[500];
+    }
+  };
+
+  // Payment breakdown calculations
+  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number) => {
+    if (price === 0) {
+      return {
+        depositAmount: 0,
+        remainingAmount: 0,
+        amountDueNow: 0,
+        isFree: true
+      };
+    }
+
+    switch (option) {
+      case 'upfront':
+        return {
+          depositAmount: price,
+          remainingAmount: 0,
+          amountDueNow: price,
+          isFree: false
+        };
+      case 'split':
+        const depositAmount = Math.round(price * 0.5 * 100) / 100; // 50% deposit
+        const remainingAmount = price - depositAmount;
+        return {
+          depositAmount,
+          remainingAmount,
+          amountDueNow: depositAmount,
+          isFree: false
+        };
+      case 'later':
+        return {
+          depositAmount: 0,
+          remainingAmount: price,
+          amountDueNow: 0,
+          isFree: false
+        };
+      default:
+        return {
+          depositAmount: 0,
+          remainingAmount: price,
+          amountDueNow: 0,
+          isFree: false
+        };
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -302,6 +399,134 @@ export function PendingApprovalPopover({
           </CardContent>
         </Card>
 
+        {/* Payment Information */}
+        <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+              Payment Information
+            </Typography>
+            
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+              <Payment sx={{ fontSize: 20, color: getPaymentOptionColor(order.service.payment_option, order.service.price), mt: 0.25 }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, display: 'block', mb: 0.5 }}>
+                  Payment Option
+                </Typography>
+                <Chip
+                  label={getPaymentOptionLabel(order.service.payment_option, order.service.price)}
+                  size="small"
+                  sx={{
+                    bgcolor: `${getPaymentOptionColor(order.service.payment_option, order.service.price)}20`,
+                    color: getPaymentOptionColor(order.service.payment_option, order.service.price),
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    mb: 1,
+                  }}
+                />
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                  {getPaymentOptionDescription(order.service.payment_option, order.service.price)}
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Payment Breakdown */}
+        {!getPaymentBreakdown(order.service.payment_option, order.service.price).isFree && (
+          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <AccountBalanceWallet sx={{ fontSize: 20, color: getPaymentOptionColor(order.service.payment_option, order.service.price) }} />
+                <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  Payment Breakdown
+                </Typography>
+              </Box>
+
+              {(() => {
+                const breakdown = getPaymentBreakdown(order.service.payment_option, order.service.price);
+                const statusColor = getPaymentOptionColor(order.service.payment_option, order.service.price);
+                
+                return (
+                  <Box 
+                    sx={{ 
+                      p: 2,
+                      borderRadius: 2,
+                      bgcolor: theme.palette.mode === 'dark' ? `${statusColor}20` : `${statusColor}10`,
+                      border: `1px solid ${statusColor}30`,
+                    }}
+                  >
+                    {order.service.payment_option === 'split' ? (
+                      <>
+                        {/* Deposit Amount */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              Deposit Due Now
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Required to start service
+                            </Typography>
+                          </Box>
+                          <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                            {formatCurrency(breakdown.depositAmount)}
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ height: 1, bgcolor: 'divider', mb: 1.5 }} />
+
+                        {/* Remaining Amount */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              Remaining Balance
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Due after completion
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                            {formatCurrency(breakdown.remainingAmount)}
+                          </Typography>
+                        </Box>
+                      </>
+                    ) : order.service.payment_option === 'upfront' ? (
+                      /* Payment Upfront */
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            Amount Due Now
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Full payment required
+                          </Typography>
+                        </Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                          {formatCurrency(breakdown.amountDueNow)}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      /* Payment Later */
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            Amount Due After Completion
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            No upfront payment required
+                          </Typography>
+                        </Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                          {formatCurrency(breakdown.remainingAmount)}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Service Card */}
         <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
           <CardContent>
@@ -324,7 +549,7 @@ export function PendingApprovalPopover({
 
         {/* Booking Date Card */}
         {order.bookingDate && (
-          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2, cursor: 'pointer', '&:hover': { boxShadow: 2 } }} onClick={handleViewBooking}>
+          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
                 Booking Details
@@ -339,9 +564,40 @@ export function PendingApprovalPopover({
                     {formatBookingDate(order.bookingDate)}
                   </Typography>
                 </Box>
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 500 }}>
-                  View Details →
-                </Typography>
+                <Box
+                  component="button"
+                  onClick={handleViewBooking}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: 2,
+                    py: 1,
+                    backgroundColor: 'transparent',
+                    border: '1px solid #3b82f6',
+                    borderRadius: 1.5,
+                    color: '#3b82f6',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textDecoration: 'none',
+                    '&:hover': {
+                      backgroundColor: '#3b82f6',
+                      color: '#fff',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                    },
+                    '&:active': {
+                      transform: 'translateY(0)',
+                    }
+                  }}
+                >
+                  View Details
+                  <Typography component="span" sx={{ fontSize: '0.75rem', ml: 0.5 }}>
+                    →
+                  </Typography>
+                </Box>
               </Box>
             </CardContent>
           </Card>

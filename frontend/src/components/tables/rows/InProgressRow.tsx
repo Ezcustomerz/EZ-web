@@ -17,20 +17,23 @@ export function InProgressRow({ status, onComplete, orderId, isMobile = false }:
       minHeight: isMobile ? 32 : 28,
       height: isMobile ? 32 : 28
     }}>
-      <Chip
-        label={status}
-        size="small"
-        sx={{
-          backgroundColor: '#8b5cf6',
-          color: '#fff',
-          fontSize: isMobile ? '0.8rem' : '0.75rem',
-          fontWeight: 500,
-          height: isMobile ? 22 : 24,
-          borderRadius: isMobile ? 1.5 : '12px',
-          textTransform: 'capitalize',
-          px: isMobile ? 1.5 : 2,
-        }}
-      />
+      <Tooltip title={status} arrow placement="top">
+        <Chip
+          label={status}
+          size="small"
+          sx={{
+            backgroundColor: '#8b5cf6',
+            color: '#fff',
+            fontSize: isMobile ? '0.8rem' : '0.75rem',
+            fontWeight: 500,
+            height: isMobile ? 22 : 24,
+            borderRadius: isMobile ? 1.5 : '12px',
+            textTransform: 'capitalize',
+            px: isMobile ? 1.5 : 2,
+            cursor: 'help',
+          }}
+        />
+      </Tooltip>
       <Tooltip title="Work in progress" arrow placement="top">
         <Box sx={{ 
           display: 'flex', 
