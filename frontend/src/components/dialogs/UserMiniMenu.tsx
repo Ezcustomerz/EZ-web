@@ -50,7 +50,11 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       icon: Settings,
       action: () => {
         if (currentRole === 'creative') {
-          setSettingsOpen(true);
+          if (isAuthenticated) {
+            setSettingsOpen(true);
+          } else {
+            openAuth();
+          }
         } else {
           console.log('Settings clicked for non-creative role');
         }
@@ -71,7 +75,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       label: 'Contact Us', 
       icon: ChatBubbleOutline,
       action: () => {
-        console.log('Contact Us clicked');
+        window.location.href = '/contact';
         onClose();
       }
     },

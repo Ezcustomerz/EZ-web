@@ -35,6 +35,7 @@ class CreativeServiceResponse(BaseModel):
     delivery_time: str
     status: str
     color: str
+    payment_option: str
     is_active: bool
     created_at: str
     updated_at: str
@@ -86,6 +87,7 @@ class CreateServiceRequest(BaseModel):
     delivery_time: str
     status: Literal['Public', 'Private', 'Bundle-Only'] = 'Private'
     color: str = '#3b82f6'
+    payment_option: Literal['upfront', 'split', 'later'] = 'later'
     calendar_settings: Optional[CalendarSettingsRequest] = None
     photos: Optional[List[ServicePhotoRequest]] = None
 

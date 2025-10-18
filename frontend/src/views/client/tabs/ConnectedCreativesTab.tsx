@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { People } from '@mui/icons-material';
 import { CreativeCard } from '../../../components/cards/client/CreativeCard';
+import { CreativeDetailPopover } from '../../../components/popovers/client/CreativeDetailPopover';
 import { userService, type ClientCreative } from '../../../api/userService';
 import { useAuth } from '../../../context/auth';
 
@@ -9,6 +10,8 @@ export function ConnectedCreativesTab() {
   const { isAuthenticated } = useAuth();
   const [creatives, setCreatives] = useState<ClientCreative[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCreative, setSelectedCreative] = useState<ClientCreative | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   
   const fetchingRef = useRef(false);
   const lastAuthStateRef = useRef<boolean | null>(null);
@@ -69,9 +72,17 @@ export function ConnectedCreativesTab() {
   }, [isAuthenticated]);
 
   const handleCreativeClick = (producerId: string) => {
-    // Navigate to the creative's profile page
-    // You can adjust the route structure as needed
-    console.log(producerId);
+    // Find the creative by ID and open detail popover
+    const creative = creatives.find(c => c.id === producerId);
+    if (creative) {
+      setSelectedCreative(creative);
+      setDetailOpen(true);
+    }
+  };
+
+  const handleDetailClose = () => {
+    setDetailOpen(false);
+    setSelectedCreative(null);
   };
 
   if (loading) {
@@ -143,6 +154,15 @@ export function ConnectedCreativesTab() {
           ))}
         </Box>
       )}
+
+      {/* Creative Detail Popover */}
+      {selectedCreative && (
+        <CreativeDetailPopover
+          open={detailOpen}
+          onClose={handleDetailClose}
+          creative={selectedCreative}
+        />
+      )}
     </Box>
   );
-} 
+}

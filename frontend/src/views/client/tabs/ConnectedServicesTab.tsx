@@ -18,6 +18,9 @@ interface Service {
   price: number;
   delivery_time: string;
   creative_name: string;
+  creative_display_name?: string;
+  creative_title?: string;
+  creative_avatar_url?: string;
   color: string;
   status: string;
   is_active: boolean;
@@ -166,8 +169,8 @@ export function ConnectedServicesTab() {
 
   // Get unique creatives for filter
   const uniqueCreatives = useMemo(() => {
-    const serviceCreatives = services.map(service => service.creative_name);
-    const bundleCreatives = bundles.map(bundle => bundle.creative_name || 'Creative');
+    const serviceCreatives = services.map(service => service.creative_display_name || service.creative_name);
+    const bundleCreatives = bundles.map(bundle => bundle.creative_display_name || bundle.creative_name || 'Creative');
     const allCreatives = [...serviceCreatives, ...bundleCreatives];
     const creatives = [...new Set(allCreatives)];
     return creatives.sort();
@@ -180,18 +183,18 @@ export function ConnectedServicesTab() {
   const filteredAndSortedItems = useMemo(() => {
     // Filter services
     const filteredServices = services.filter(service =>
-      (producerFilter === 'all' || service.creative_name === producerFilter) &&
+      (producerFilter === 'all' || (service.creative_display_name || service.creative_name) === producerFilter) &&
       (service.title.toLowerCase().includes(search.toLowerCase()) ||
         service.description.toLowerCase().includes(search.toLowerCase()) ||
-        service.creative_name.toLowerCase().includes(search.toLowerCase()))
+        (service.creative_display_name || service.creative_name).toLowerCase().includes(search.toLowerCase()))
     );
 
     // Filter bundles
     const filteredBundles = bundles.filter(bundle =>
-      (producerFilter === 'all' || bundle.creative_name === producerFilter) &&
+      (producerFilter === 'all' || (bundle.creative_display_name || bundle.creative_name) === producerFilter) &&
       (bundle.title.toLowerCase().includes(search.toLowerCase()) ||
         bundle.description.toLowerCase().includes(search.toLowerCase()) ||
-        (bundle.creative_name || 'Creative').toLowerCase().includes(search.toLowerCase()))
+        (bundle.creative_display_name || bundle.creative_name || 'Creative').toLowerCase().includes(search.toLowerCase()))
     );
 
     // Combine and sort
@@ -251,9 +254,9 @@ export function ConnectedServicesTab() {
       // Add creative profile information to the service object
       const serviceWithCreative = {
         ...service,
-        creative_display_name: service.creative_name,
-        creative_title: 'Creative Professional', // Default title for connected services
-        creative_avatar_url: undefined // No avatar URL available for connected services
+        creative_display_name: service.creative_display_name || service.creative_name,
+        creative_title: service.creative_title,
+        creative_avatar_url: service.creative_avatar_url
       };
       setSelectedService(serviceWithCreative as any);
       setServiceDetailOpen(true);
@@ -780,13 +783,13 @@ export function ConnectedServicesTab() {
                   price={item.price}
                   delivery={item.delivery_time}
                   color={item.color}
-                  creative={item.creative_name}
+                  creative={item.creative_display_name || item.creative_name}
                   onBook={() => handleServiceClick(item.id)}
                 />
               ) : (
                 <BundleCard
                   bundle={item}
-                  creative={item.creative_name || 'Creative'}
+                  creative={item.creative_display_name || item.creative_name || 'Creative'}
                   showStatus={false}
                   showMenu={false}
                   onClick={() => handleBundleClick(item.id)}

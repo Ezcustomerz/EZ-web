@@ -94,7 +94,7 @@ class ClientController:
             
             # Batch fetch all creative and user data to avoid N+1 queries
             creatives_result = db_admin.table('creatives').select(
-                'display_name, title, user_id, avatar_background_color'
+                'display_name, title, user_id, avatar_background_color, profile_banner_url, primary_contact, secondary_contact, description, availability_location, profile_highlights, profile_highlight_values'
             ).in_('user_id', creative_user_ids).execute()
             
             users_result = db_admin.table('users').select(
@@ -148,14 +148,28 @@ class ClientController:
                 # Get creative's specialty (title)
                 specialty = creative_data.get('title', 'Music Producer')
                 
-                # Get email
-                email = user_data.get('email', '')
+                # Get email from creative's primary_contact (fallback to user email if not set)
+                email = creative_data.get('primary_contact') or user_data.get('email', '')
                 
-                # Get profile picture
-                avatar = user_data.get('profile_picture_url')
+                # Get profile picture from creative's profile_banner_url (not user's profile_picture_url)
+                avatar = creative_data.get('profile_banner_url')
                 
                 # Get creative's configured color
                 color = creative_data.get('avatar_background_color', '#3B82F6')
+                
+                # Get creative's description
+                description = creative_data.get('description')
+                
+                # Get contact information
+                primary_contact = creative_data.get('primary_contact')
+                secondary_contact = creative_data.get('secondary_contact')
+                
+                # Get location/availability
+                availability_location = creative_data.get('availability_location')
+                
+                # Get profile highlights
+                profile_highlights = creative_data.get('profile_highlights', [])
+                profile_highlight_values = creative_data.get('profile_highlight_values', {})
                 
                 # Get service count
                 servicesCount = services_count_map.get(creative_user_id, 0)
@@ -177,7 +191,13 @@ class ClientController:
                     servicesCount=servicesCount,
                     isOnline=isOnline,
                     color=color,
-                    status=relationship.get('status', 'inactive')
+                    status=relationship.get('status', 'inactive'),
+                    description=description,
+                    primary_contact=primary_contact,
+                    secondary_contact=secondary_contact,
+                    availability_location=availability_location,
+                    profile_highlights=profile_highlights,
+                    profile_highlight_values=profile_highlight_values
                 )
                 creatives.append(creative)
             
@@ -330,7 +350,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             # Get all bundles from these creatives
@@ -401,6 +421,7 @@ class ClientController:
                         'delivery_time': service_data['delivery_time'],
                         'status': service_data['status'],
                         'color': service_data['color'],
+                        'payment_option': service_data['payment_option'],
                         'is_active': service_data['is_active'],
                         'created_at': service_data['created_at'],
                         'updated_at': service_data['updated_at'],

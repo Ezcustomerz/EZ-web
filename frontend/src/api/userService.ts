@@ -170,6 +170,12 @@ export interface ClientCreative {
   isOnline: boolean;
   color: string;
   status: string;
+  description?: string;
+  primary_contact?: string;
+  secondary_contact?: string;
+  availability_location?: string;
+  profile_highlights?: string[];
+  profile_highlight_values?: Record<string, string>;
 }
 
 export interface ClientCreativesListResponse {
@@ -185,6 +191,7 @@ export interface CreativeService {
   delivery_time: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
+  payment_option: 'upfront' | 'split' | 'later';
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -243,6 +250,7 @@ export interface CreateServiceRequest {
   delivery_time: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
+  payment_option: 'upfront' | 'split' | 'later';
   calendar_settings?: CalendarSettings;
   photos?: ServicePhoto[];
 }
@@ -621,6 +629,47 @@ export const userService = {
       `${API_BASE_URL}/creative/services/${serviceId}`,
       serviceData,
       { headers }
+    );
+    return response.data;
+  },
+
+  async updateServiceWithPhotos(serviceId: string, serviceData: CreateServiceRequest, photos: File[], onProgress?: (progress: number) => void): Promise<UpdateServiceResponse> {
+    const headers = await getAuthHeaders();
+    
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    
+    // Add service data
+    formData.append('title', serviceData.title);
+    formData.append('description', serviceData.description);
+    formData.append('price', serviceData.price.toString());
+    formData.append('delivery_time', serviceData.delivery_time);
+    formData.append('status', serviceData.status);
+    formData.append('color', serviceData.color);
+    
+    // Add calendar settings if provided
+    if (serviceData.calendar_settings) {
+      formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
+    }
+    
+    // Add photo files
+    photos.forEach((photo, index) => {
+      formData.append(`photo_${index}`, photo);
+    });
+    
+    const response = await axios.put<UpdateServiceResponse>(
+      `${API_BASE_URL}/creative/services/${serviceId}/photos`,
+      formData,
+      { 
+        headers: {
+          ...headers,
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: onProgress ? (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          onProgress(progress);
+        } : undefined
+      }
     );
     return response.data;
   },

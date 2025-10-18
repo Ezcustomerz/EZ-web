@@ -76,6 +76,9 @@ export function CreativeCard({ creative, index, onClick }: CreativeCardProps) {
           {/* Avatar and Name */}
           <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2.5 }}>
             <Avatar
+              src={creative.avatar || undefined}
+              alt={`${creative.name} avatar`}
+              imgProps={{ referrerPolicy: 'no-referrer' }}
               sx={{
                 width: 52,
                 height: 52,

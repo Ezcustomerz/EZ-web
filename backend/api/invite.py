@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from db.db_session import db_admin
 from typing import Optional
 import os
+from core.limiter import limiter
 
 router = APIRouter(prefix="/invite", tags=["invite"])
 
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/invite", tags=["invite"])
 INVITE_SECRET = os.getenv("INVITE_SECRET", "dev-invite-secret-change-in-production")
 
 @router.post("/generate")
+@limiter.limit("2 per second")
 async def generate_invite_link(request: Request):
     """
     Generate an invite link for a creative to invite clients
@@ -58,6 +60,8 @@ async def generate_invite_link(request: Request):
         
         # Generate invite link
         base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+        # Remove trailing slash from base_url to prevent double slashes
+        base_url = base_url.rstrip('/')
         invite_link = f"{base_url}/invite/{invite_token}"
         print(f"🔍 Invite link generated: {invite_link}")
         
@@ -78,6 +82,7 @@ async def generate_invite_link(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to generate invite link: {str(e)}")
 
 @router.get("/validate/{invite_token}")
+@limiter.limit("2 per second")
 async def validate_invite_token(invite_token: str, request: Request):
     """
     Validate an invite token and return creative information
@@ -153,6 +158,7 @@ async def validate_invite_token(invite_token: str, request: Request):
         raise HTTPException(status_code=500, detail="Failed to validate invite token")
 
 @router.post("/accept/{invite_token}")
+@limiter.limit("2 per second")
 async def accept_invite(invite_token: str, request: Request):
     """
     Accept an invite and create the creative-client relationship
@@ -259,6 +265,7 @@ async def accept_invite(invite_token: str, request: Request):
         raise HTTPException(status_code=500, detail="Failed to accept invite")
 
 @router.post("/accept-after-role-setup/{invite_token}")
+@limiter.limit("2 per second")
 async def accept_invite_after_role_setup(invite_token: str, request: Request):
     """
     Accept an invite after user has set up their client role

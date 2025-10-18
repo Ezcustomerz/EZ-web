@@ -1,12 +1,14 @@
 import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { useState } from 'react';
-import { ReceiptLong, BarChart, MusicNote } from '@mui/icons-material';
-import { RequestsTab } from './tabs/RequestsTab';
+import { ReceiptLong, BarChart, MusicNote, Payment } from '@mui/icons-material';
+import { CurrentOrdersTab } from './tabs/CurrentOrdersTab';
+import { PastOrdersTab } from './tabs/PastOrdersTab';
 import { AnalyticsTab } from './tabs/AnalyticsTab';
 
 const tabLabels = [
-  { label: 'Requests', icon: <ReceiptLong sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Current Orders', icon: <ReceiptLong sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Past Orders', icon: <Payment sx={{ fontSize: 18, mr: 1 }} /> },
   { label: 'Analytics', icon: <BarChart sx={{ fontSize: 18, mr: 1 }} /> },
 ];
 
@@ -299,14 +301,16 @@ export function ActivityCreative() {
                   transform: 'translateY(0) scale(1)',
                 },
               },
-              ...(activeTab === 1 && {
+              ...(activeTab === 2 && {
                 alignItems: 'center',
                 justifyContent: 'center',
               }),
             }}
           >
             {activeTab === 0 ? (
-              <RequestsTab />
+              <CurrentOrdersTab />
+            ) : activeTab === 1 ? (
+              <PastOrdersTab />
             ) : (
               <AnalyticsTab />
             )}
