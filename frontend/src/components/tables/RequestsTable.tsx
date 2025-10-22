@@ -13,102 +13,32 @@ import {
   FormControl,
   InputLabel,
   useTheme,
-  Chip,
   Tooltip,
   Button,
   TextField,
   InputAdornment,
   Stack,
+  IconButton,
 } from '@mui/material';
-import { ArrowDropUp, ArrowDropDown, SwapVert, Search as SearchIcon, Payment as PaymentIcon, ReceiptLong, FilterList as FilterIcon } from '@mui/icons-material';
+import { ArrowDropUp, ArrowDropDown, SwapVert, Search as SearchIcon, Payment as PaymentIcon, ReceiptLong, FilterList as FilterIcon, Check, Close, Done as DoneIcon } from '@mui/icons-material';
 import Card from '@mui/material/Card';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import EventIcon from '@mui/icons-material/Event';
+import { 
+  PendingApprovalRow, 
+  AwaitingPaymentRow, 
+  InProgressRow, 
+  CompleteRow, 
+  CanceledRow 
+} from './rows';
+import { PendingApprovalPopover, type PendingApprovalOrder } from '../popovers/creative/PendingApprovalPopover';
+import { AwaitingPaymentPopover, type AwaitingPaymentOrder } from '../popovers/creative/AwaitingPaymentPopover';
+import { InProgressPopover, type InProgressOrder } from '../popovers/creative/InProgressPopover';
+import { CompletePopover, type CompleteOrder } from '../popovers/creative/CompletePopover';
+import { CancelledPopover, type CancelledOrder } from '../popovers/creative/CancelledPopover';
 
-export const mockRequests = [
-  {
-    id: 'inv-1',
-    client: 'Alice Johnson',
-    service: { title: 'Piano Lesson', desc: 'Beginner piano session' },
-    amount: 120,
-    status: 'Paid',
-    date: '2024-05-01',
-  },
-  {
-    id: 'inv-2',
-    client: 'Bob Smith',
-    service: { title: 'Guitar Lesson', desc: 'Intermediate guitar session' },
-    amount: 90,
-    status: 'Waiting',
-    date: '2024-05-03',
-  },
-  {
-    id: 'inv-3',
-    client: 'Carol Lee',
-    service: { title: 'Vocal Coaching', desc: 'Advanced vocal session' },
-    amount: 150,
-    status: 'Overdue',
-    date: '2024-04-28',
-  },
-  {
-    id: 'inv-4',
-    client: 'David Kim',
-    service: { title: 'Drum Lesson', desc: 'Beginner drum session' },
-    amount: 110,
-    status: 'Paid',
-    date: '2024-05-02',
-  },
-  {
-    id: 'inv-5',
-    client: 'Eve White',
-    service: { title: 'Bass Lesson', desc: 'Beginner bass session' },
-    amount: 130,
-    status: 'Paid',
-    date: '2024-05-04',
-  },
-  {
-    id: 'inv-6',
-    client: 'Frank Green',
-    service: { title: 'Saxophone Lesson', desc: 'Beginner saxophone session' },
-    amount: 140,
-    status: 'Paid',
-    date: '2024-05-05',
-  },
-  {
-    id: 'inv-7',
-    client: 'Grace Brown',
-    service: { title: 'Violin Lesson', desc: 'Beginner violin session' },
-    amount: 160,
-    status: 'Paid',
-    date: '2024-05-06',
-  },
-  {
-    id: 'inv-8',
-    client: 'Henry Davis',
-    service: { title: 'Flute Lesson', desc: 'Beginner flute session' },
-    amount: 170,
-    status: 'Paid',
-    date: '2024-05-07',
-  },
-  {
-    id: 'inv-9',
-    client: 'Ivy Wilson',
-    service: { title: 'Clarinet Lesson', desc: 'Beginner clarinet session' },
-    amount: 180,
-    status: 'Paid',
-    date: '2024-05-08',
-  },
-  {
-    id: 'inv-10',
-    client: 'Jackie Brown',
-    service: { title: 'Oboe Lesson', desc: 'Beginner oboe session' },
-    amount: 190,
-    status: 'Paid',
-    date: '2024-05-09',
-  },
-];
 
-type SortField = 'client' | 'service' | 'amount' | 'date' | undefined;
+type SortField = 'client' | 'service' | 'amount' | 'date' | 'bookingDate' | undefined;
 type SortDirection = 'asc' | 'desc' | undefined;
 
 function formatCurrency(amount: number) {
@@ -120,11 +50,25 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
+function formatBookingDate(bookingDateStr: string | null) {
+  if (!bookingDateStr) return 'Not scheduled';
+  
+  const date = new Date(bookingDateStr);
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: '2-digit', 
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
 export function RequestsTable({ 
-  requests, 
+  requests = [], 
   context = 'requests' 
 }: { 
-  requests?: typeof mockRequests;
+  requests?: any[];
   context?: 'orders' | 'payments' | 'requests';
 }) {
   const theme = useTheme();
@@ -155,9 +99,284 @@ export function RequestsTable({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [hoveredSort, setHoveredSort] = useState<SortField | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Popover state
+  const [pendingApprovalPopoverOpen, setPendingApprovalPopoverOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<PendingApprovalOrder | null>(null);
+  const [awaitingPaymentPopoverOpen, setAwaitingPaymentPopoverOpen] = useState(false);
+  const [selectedAwaitingPaymentOrder, setSelectedAwaitingPaymentOrder] = useState<AwaitingPaymentOrder | null>(null);
+  const [inProgressPopoverOpen, setInProgressPopoverOpen] = useState(false);
+  const [selectedInProgressOrder, setSelectedInProgressOrder] = useState<InProgressOrder | null>(null);
+  const [completePopoverOpen, setCompletePopoverOpen] = useState(false);
+  const [selectedCompleteOrder, setSelectedCompleteOrder] = useState<CompleteOrder | null>(null);
+  const [cancelledPopoverOpen, setCancelledPopoverOpen] = useState(false);
+  const [selectedCancelledOrder, setSelectedCancelledOrder] = useState<CancelledOrder | null>(null);
+  const [showFinalizationStep, setShowFinalizationStep] = useState(false);
+
+  // Popover handlers
+  const handleOpenPendingApprovalPopover = (order: any) => {
+    const pendingOrder: PendingApprovalOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description || 'Service description not available',
+        price: order.amount,
+        delivery_time: order.service.delivery_time || '3-5 days',
+        color: order.service.color || '#667eea',
+        payment_option: order.service.payment_option || 'later',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      bookingDate: order.bookingDate,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements
+    };
+    setSelectedOrder(pendingOrder);
+    setPendingApprovalPopoverOpen(true);
+  };
+
+  const handleClosePendingApprovalPopover = () => {
+    setPendingApprovalPopoverOpen(false);
+    setSelectedOrder(null);
+  };
+
+  const handleOpenAwaitingPaymentPopover = (order: any) => {
+    const awaitingPaymentOrder: AwaitingPaymentOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description || 'Service description not available',
+        price: order.amount,
+        delivery_time: order.service.delivery_time || '3-5 days',
+        color: order.service.color || '#667eea',
+        payment_option: order.service.payment_option || 'later',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      bookingDate: order.bookingDate,
+      amountPaid: order.amountPaid || 0,
+      amountRemaining: order.amountRemaining || order.amount,
+      depositPaid: order.depositPaid || false,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements
+    };
+    setSelectedAwaitingPaymentOrder(awaitingPaymentOrder);
+    setAwaitingPaymentPopoverOpen(true);
+  };
+
+  const handleCloseAwaitingPaymentPopover = () => {
+    setAwaitingPaymentPopoverOpen(false);
+    setSelectedAwaitingPaymentOrder(null);
+  };
+
+  const handleOpenInProgressPopover = (order: any) => {
+    const inProgressOrder: InProgressOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description || 'Service description not available',
+        price: order.amount,
+        delivery_time: order.service.delivery_time || '3-5 days',
+        color: order.service.color || '#667eea',
+        payment_option: order.service.payment_option || 'later',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      bookingDate: order.bookingDate,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements,
+      deliverables: order.deliverables,
+      notes: order.notes
+    };
+    setSelectedInProgressOrder(inProgressOrder);
+    setInProgressPopoverOpen(true);
+  };
+
+  const handleCloseInProgressPopover = () => {
+    setInProgressPopoverOpen(false);
+    setSelectedInProgressOrder(null);
+    setShowFinalizationStep(false);
+  };
+
+  const handleOpenCompletePopover = (order: any) => {
+    const completeOrder: CompleteOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description,
+        price: order.service.price,
+        delivery_time: order.service.delivery_time,
+        color: order.service.color,
+        payment_option: order.service.payment_option || 'upfront',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      completedDate: order.completedDate || order.date,
+      bookingDate: order.bookingDate,
+      amountPaid: order.amountPaid,
+      amountRemaining: order.amountRemaining,
+      depositPaid: order.depositPaid,
+      rating: order.rating,
+      review: order.review,
+      deliverables: order.deliverables,
+      completionNotes: order.completionNotes,
+      receiptPdf: order.receiptPdf,
+      serviceSummaryPdf: order.serviceSummaryPdf,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements,
+      notes: order.notes
+    };
+    setSelectedCompleteOrder(completeOrder);
+    setCompletePopoverOpen(true);
+  };
+
+  const handleCloseCompletePopover = () => {
+    setCompletePopoverOpen(false);
+    setSelectedCompleteOrder(null);
+  };
+
+  const handleOpenCancelledPopover = (order: any) => {
+    const cancelledOrder: CancelledOrder = {
+      id: order.id,
+      client: order.client,
+      service: {
+        id: order.service.id || 'service-1',
+        title: order.service.title,
+        description: order.service.description || 'Service description not available',
+        price: order.amount,
+        delivery_time: order.service.delivery_time || '3-5 days',
+        color: order.service.color || '#667eea',
+        payment_option: order.service.payment_option || 'later',
+        photos: order.service.photos || []
+      },
+      amount: order.amount,
+      status: order.status,
+      date: order.date,
+      bookingDate: order.bookingDate,
+      cancelledDate: order.cancelledDate || order.date,
+      cancelledBy: order.cancelledBy || 'system',
+      cancellationReason: order.cancellationReason,
+      description: order.description,
+      clientEmail: order.clientEmail,
+      clientPhone: order.clientPhone,
+      specialRequirements: order.specialRequirements
+    };
+    setSelectedCancelledOrder(cancelledOrder);
+    setCancelledPopoverOpen(true);
+  };
+
+  const handleCloseCancelledPopover = () => {
+    setCancelledPopoverOpen(false);
+    setSelectedCancelledOrder(null);
+  };
+
+  // Approval handlers
+  const handleApprove = (orderId: string) => {
+    console.log('Approving order:', orderId);
+    // TODO: Implement approval logic - update order status to 'Approved' or 'Waiting'
+    // This would typically involve an API call to update the order status
+    handleClosePendingApprovalPopover();
+  };
+
+  const handleReject = (orderId: string) => {
+    console.log('Rejecting order:', orderId);
+    // TODO: Implement rejection logic - update order status to 'Rejected' or remove from list
+    // This would typically involve an API call to update the order status
+    handleClosePendingApprovalPopover();
+  };
+
+  const handleComplete = (orderId: string) => {
+    console.log('Completing order:', orderId);
+    // Find the order data
+    const order = requests.find(req => req.id === orderId);
+    if (order) {
+      const inProgressOrder: InProgressOrder = {
+        id: order.id,
+        client: order.client,
+        service: {
+          id: order.service.id || 'service-1',
+          title: order.service.title,
+          description: order.service.description,
+          price: order.service.price,
+          delivery_time: order.service.delivery_time,
+          color: order.service.color,
+          payment_option: order.service.payment_option || 'upfront',
+          photos: order.service.photos || []
+        },
+        amount: order.amount,
+        status: order.status,
+        date: order.date,
+        bookingDate: order.bookingDate,
+        amountPaid: order.amountPaid,
+        amountRemaining: order.amountRemaining,
+        depositPaid: order.depositPaid,
+        description: order.description,
+        clientEmail: order.clientEmail,
+        clientPhone: order.clientPhone,
+        specialRequirements: order.specialRequirements,
+        deliverables: order.deliverables,
+        notes: order.notes
+      };
+      setSelectedInProgressOrder(inProgressOrder);
+      setShowFinalizationStep(true);
+      setInProgressPopoverOpen(true);
+    }
+  };
+
+  // Awaiting payment handlers
+  const handleSendReminder = (orderId: string) => {
+    console.log('Sending payment reminder for order:', orderId);
+    // TODO: Implement reminder logic - send email/SMS to client
+    handleCloseAwaitingPaymentPopover();
+  };
+
+  // In Progress handlers
+  const handleFinalizeService = async (orderId: string, files: any[]) => {
+    console.log('Finalizing service for order:', orderId, 'with files:', files);
+    // TODO: Implement service finalization logic - update order status to 'Complete'
+    // This would typically involve an API call to finalize the service and upload files
+    handleCloseInProgressPopover();
+  };
+
+  // Complete handlers
+  const handleDownloadReceipt = (orderId: string) => {
+    console.log('Downloading receipt for order:', orderId);
+    // TODO: Implement receipt download logic
+  };
+
+  const handleDownloadSummary = (orderId: string) => {
+    console.log('Downloading service summary for order:', orderId);
+    // TODO: Implement service summary download logic
+  };
+
+
 
   const filteredrequests = useMemo(() => {
-    let data = filter === 'All' ? (requests ?? mockRequests) : (requests ?? mockRequests).filter((inv) => inv.status === filter);
+    let data = filter === 'All' ? requests : requests.filter((inv) => inv.status === filter);
     if (searchTerm.trim()) {
       const lower = searchTerm.toLowerCase();
       data = data.filter(inv =>
@@ -185,6 +404,10 @@ export function RequestsTable({
         case 'date':
           aValue = new Date(a.date).getTime();
           bValue = new Date(b.date).getTime();
+          break;
+        case 'bookingDate':
+          aValue = a.bookingDate ? new Date(a.bookingDate).getTime() : 0;
+          bValue = b.bookingDate ? new Date(b.bookingDate).getTime() : 0;
           break;
         default:
           return 0;
@@ -347,9 +570,11 @@ export function RequestsTable({
                   }}
                 >
                   <MenuItem value="All" disableRipple>All</MenuItem>
-                  <MenuItem value="Paid" disableRipple>Paid</MenuItem>
-                  <MenuItem value="Waiting" disableRipple>Waiting</MenuItem>
-                  <MenuItem value="Overdue" disableRipple>Overdue</MenuItem>
+                  <MenuItem value="Pending Approval" disableRipple>Pending Approval</MenuItem>
+                  <MenuItem value="Awaiting Payment" disableRipple>Awaiting Payment</MenuItem>
+                  <MenuItem value="In Progress" disableRipple>In Progress</MenuItem>
+                  <MenuItem value="Complete" disableRipple>Complete</MenuItem>
+                  <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
                 </Select>
               </FormControl>
               <Button
@@ -679,16 +904,39 @@ export function RequestsTable({
                 elevation={1}
                 tabIndex={0}
                 aria-label={`Request for ${inv.client}, ${inv.status}, ${formatCurrency(inv.amount)}, ${formatDate(inv.date)}`}
+                onClick={inv.status === 'Pending Approval' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenPendingApprovalPopover(inv);
+                } : inv.status === 'Awaiting Payment' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenAwaitingPaymentPopover(inv);
+                } : inv.status === 'In Progress' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenInProgressPopover(inv);
+                } : inv.status === 'Complete' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenCompletePopover(inv);
+                } : inv.status === 'Canceled' ? (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleOpenCancelledPopover(inv);
+                } : undefined}
                 sx={{
                   borderRadius: 2,
                   p: 2,
                   mb: 2,
-                  cursor: 'pointer',
+                  cursor: (inv.status === 'Pending Approval' || inv.status === 'Awaiting Payment' || inv.status === 'In Progress' || inv.status === 'Complete' || inv.status === 'Canceled') ? 'pointer' : 'default',
+                  position: 'relative',
                   transition: 'box-shadow 0.2s, border 0.2s',
                   '&:hover, &:focus': {
-                    boxShadow: 4,
-                    border: '1.5px solid',
-                    borderColor: 'primary.main',
+                    boxShadow: (inv.status === 'Pending Approval' || inv.status === 'Awaiting Payment' || inv.status === 'In Progress' || inv.status === 'Complete' || inv.status === 'Canceled') ? 4 : 1,
+                    border: (inv.status === 'Pending Approval' || inv.status === 'Awaiting Payment' || inv.status === 'In Progress' || inv.status === 'Complete' || inv.status === 'Canceled') ? '1.5px solid' : 'none',
+                    borderColor: inv.status === 'Pending Approval' ? 'primary.main' : inv.status === 'Awaiting Payment' ? '#3b82f6' : inv.status === 'In Progress' ? '#8b5cf6' : inv.status === 'Complete' ? '#10b981' : inv.status === 'Canceled' ? '#ef4444' : 'transparent',
+                    backgroundColor: inv.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.04)' : inv.status === 'Awaiting Payment' ? 'rgba(59, 130, 246, 0.04)' : inv.status === 'In Progress' ? 'rgba(139, 92, 246, 0.04)' : inv.status === 'Complete' ? 'rgba(16, 185, 129, 0.04)' : inv.status === 'Canceled' ? 'rgba(239, 68, 68, 0.04)' : 'transparent',
                     outline: 'none',
                   },
                 }}
@@ -696,9 +944,52 @@ export function RequestsTable({
                 <Stack spacing={1}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Typography variant="subtitle1" fontWeight={600}>{inv.client}</Typography>
-                    <Chip label={inv.status} color={inv.status === 'Paid' ? 'success' : inv.status === 'Waiting' ? 'warning' : 'error'} size="small" sx={{ fontWeight: 500, px: 1.5, height: 22, borderRadius: 1.5, boxShadow: 'none', fontSize: '0.8rem' }} />
+                    {inv.status === 'Pending Approval' && (
+                      <PendingApprovalRow 
+                        status={inv.status} 
+                        onApprove={handleApprove} 
+                        onReject={handleReject} 
+                        orderId={inv.id} 
+                        isMobile={true}
+                        showActions={false}
+                      />
+                    )}
+                    {inv.status === 'Awaiting Payment' && (
+                      <AwaitingPaymentRow 
+                        status={inv.status} 
+                        isMobile={true} 
+                      />
+                    )}
+                    {inv.status === 'In Progress' && (
+                      <InProgressRow 
+                        status={inv.status} 
+                        onComplete={handleComplete} 
+                        orderId={inv.id} 
+                        isMobile={true} 
+                      />
+                    )}
+                    {inv.status === 'Complete' && (
+                      <CompleteRow 
+                        status={inv.status} 
+                        isMobile={true} 
+                      />
+                    )}
+                    {inv.status === 'Canceled' && (
+                      <CanceledRow 
+                        status={inv.status} 
+                        isMobile={true} 
+                      />
+                    )}
                   </Stack>
                   <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.95em', mb: 0.5 }}>{inv.service.title}</Typography>
+                  {inv.bookingDate && (
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                      <EventIcon fontSize="small" color="primary" />
+                      <Typography variant="body2" color="primary.main" sx={{ fontWeight: 500 }}>
+                        {formatBookingDate(inv.bookingDate)}
+                      </Typography>
+                    </Stack>
+                  )}
                   <Stack direction="row" spacing={1} alignItems="center">
                     <AttachMoneyIcon fontSize="small" color="action" />
                     <Typography variant="body2"><strong>{formatCurrency(inv.amount)}</strong></Typography>
@@ -810,9 +1101,11 @@ export function RequestsTable({
                 }}
               >
                 <MenuItem value="All" disableRipple>All</MenuItem>
-                <MenuItem value="Paid" disableRipple>Paid</MenuItem>
-                <MenuItem value="Waiting" disableRipple>Waiting</MenuItem>
-                <MenuItem value="Overdue" disableRipple>Overdue</MenuItem>
+                <MenuItem value="Pending Approval" disableRipple>Pending Approval</MenuItem>
+                <MenuItem value="Awaiting Payment" disableRipple>Awaiting Payment</MenuItem>
+                <MenuItem value="In Progress" disableRipple>In Progress</MenuItem>
+                <MenuItem value="Complete" disableRipple>Complete</MenuItem>
+                <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
               </Select>
             </FormControl>
             <Button
@@ -941,7 +1234,7 @@ export function RequestsTable({
             boxShadow: 'none',
             width: '100%',
             p: 0,
-            overflow: 'auto',
+            overflow: filteredrequests.length > 0 ? 'auto' : 'visible',
             flex: '1 1 0',
             minHeight: 0,
           }}
@@ -1048,6 +1341,52 @@ export function RequestsTable({
                   Status
                 </TableCell>
                 <TableCell
+                  sx={{
+                    fontWeight: 600,
+                    color: 'text.primary',
+                    minWidth: { xs: 120, sm: 'auto' },
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2,
+                    backgroundColor: '#e6f3fa',
+                    textAlign: 'center',
+                  }}
+                >
+                  Actions
+                </TableCell>
+                <TableCell
+                  onClick={() => handleSort('bookingDate')}
+                  onMouseEnter={() => setHoveredSort('bookingDate')}
+                  onMouseLeave={() => setHoveredSort(null)}
+                  sx={{
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    color: sortField === 'bookingDate' ? 'primary.main' : 'text.primary',
+                    fontWeight: sortField === 'bookingDate' ? 700 : 600,
+                    transition: 'all 0.2s ease',
+                    minWidth: { xs: 140, sm: 'auto' },
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2,
+                    backgroundColor: '#e6f3fa',
+                    '&:hover': {
+                      backgroundColor: 'grey.100',
+                      '& .MuiSvgIcon-root': {
+                        opacity: 1,
+                        color: 'primary.main',
+                        transform: 'scale(1.15)',
+                      },
+                    },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    Booking Date
+                    <Tooltip title={getSortTooltip('bookingDate')} arrow placement="top" open={hoveredSort === 'bookingDate'}>
+                      <span>{getSortIcon('bookingDate')}</span>
+                    </Tooltip>
+                  </Box>
+                </TableCell>
+                <TableCell
                   onClick={() => handleSort('date')}
                   onMouseEnter={() => setHoveredSort('date')}
                   onMouseLeave={() => setHoveredSort(null)}
@@ -1085,7 +1424,7 @@ export function RequestsTable({
             <TableBody>
               {filteredrequests.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} sx={{ border: 0, p: 0, height: '100%', verticalAlign: 'middle' }}>
+                  <TableCell colSpan={7} sx={{ border: 0, p: 0, height: '100%', verticalAlign: 'middle' }}>
                     <Box
                       sx={{
                         width: '100%',
@@ -1298,11 +1637,32 @@ export function RequestsTable({
                   <TableRow
                     key={inv.id}
                     hover
+                    onClick={inv.status === 'Pending Approval' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenPendingApprovalPopover(inv);
+                    } : inv.status === 'Awaiting Payment' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenAwaitingPaymentPopover(inv);
+                    } : inv.status === 'In Progress' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenInProgressPopover(inv);
+                    } : inv.status === 'Complete' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenCompletePopover(inv);
+                    } : inv.status === 'Canceled' ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleOpenCancelledPopover(inv);
+                    } : undefined}
                     sx={{
                       transition: 'background 0.18s',
-                      cursor: 'pointer',
+                      cursor: (inv.status === 'Pending Approval' || inv.status === 'Awaiting Payment' || inv.status === 'In Progress' || inv.status === 'Complete' || inv.status === 'Canceled') ? 'pointer' : 'default',
                       '&:hover': {
-                        backgroundColor: 'grey.50',
+                        backgroundColor: inv.status === 'Pending Approval' ? 'rgba(245, 158, 11, 0.08)' : inv.status === 'Awaiting Payment' ? 'rgba(59, 130, 246, 0.08)' : inv.status === 'In Progress' ? 'rgba(139, 92, 246, 0.08)' : inv.status === 'Complete' ? 'rgba(16, 185, 129, 0.08)' : inv.status === 'Canceled' ? 'rgba(239, 68, 68, 0.08)' : 'grey.50',
                       },
                     }}
                   >
@@ -1320,25 +1680,200 @@ export function RequestsTable({
                     </TableCell>
                     {/* Status */}
                     <TableCell>
-                      <Chip
-                        label={inv.status}
-                        size="small"
-                        sx={{
-                          backgroundColor:
-                            inv.status === 'Paid'
-                              ? theme.palette.success.main
-                              : inv.status === 'Waiting'
-                                ? theme.palette.warning.main
-                                : theme.palette.error.main,
-                          color: '#fff',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          height: 24,
-                          borderRadius: '12px',
-                          textTransform: 'capitalize',
-                          px: 2,
-                        }}
-                      />
+                      {inv.status === 'Pending Approval' && (
+                        <PendingApprovalRow 
+                          status={inv.status} 
+                          onApprove={handleApprove} 
+                          onReject={handleReject} 
+                          orderId={inv.id} 
+                          isMobile={false}
+                          showActions={false}
+                        />
+                      )}
+                      {inv.status === 'Awaiting Payment' && (
+                        <AwaitingPaymentRow 
+                          status={inv.status} 
+                          isMobile={false} 
+                        />
+                      )}
+                      {inv.status === 'In Progress' && (
+                        <InProgressRow 
+                          status={inv.status} 
+                          onComplete={handleComplete} 
+                          orderId={inv.id} 
+                          isMobile={false} 
+                        />
+                      )}
+                      {inv.status === 'Complete' && (
+                        <CompleteRow 
+                          status={inv.status} 
+                          isMobile={false} 
+                        />
+                      )}
+                      {inv.status === 'Canceled' && (
+                        <CanceledRow 
+                          status={inv.status} 
+                          isMobile={false} 
+                        />
+                      )}
+                    </TableCell>
+                    {/* Actions */}
+                    <TableCell sx={{ textAlign: 'center' }}>
+                      {inv.status === 'Pending Approval' ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5 }}>
+                          <Tooltip title="Accept Order" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleApprove(inv.id)}
+                              sx={{
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                width: 36,
+                                height: 36,
+                                position: 'relative',
+                                overflow: 'hidden',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                                '&::before': {
+                                  content: '""',
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: '-100%',
+                                  width: '100%',
+                                  height: '100%',
+                                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                                  transition: 'left 0.5s',
+                                },
+                                '&:hover': {
+                                  backgroundColor: '#059669',
+                                  transform: 'scale(1.1) translateY(-2px)',
+                                  boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
+                                  '&::before': {
+                                    left: '100%',
+                                  },
+                                  '& .MuiSvgIcon-root': {
+                                    transform: 'rotate(360deg) scale(1.2)',
+                                    transition: 'transform 0.3s ease',
+                                  }
+                                },
+                                '&:active': {
+                                  transform: 'scale(0.95) translateY(0)',
+                                  transition: 'transform 0.1s ease',
+                                }
+                              }}
+                            >
+                              <Check sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Reject Order" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleReject(inv.id)}
+                              sx={{
+                                backgroundColor: '#ef4444',
+                                color: 'white',
+                                width: 36,
+                                height: 36,
+                                position: 'relative',
+                                overflow: 'hidden',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                                '&::before': {
+                                  content: '""',
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: '-100%',
+                                  width: '100%',
+                                  height: '100%',
+                                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                                  transition: 'left 0.5s',
+                                },
+                                '&:hover': {
+                                  backgroundColor: '#dc2626',
+                                  transform: 'scale(1.1) translateY(-2px)',
+                                  boxShadow: '0 8px 25px rgba(239, 68, 68, 0.4)',
+                                  '&::before': {
+                                    left: '100%',
+                                  },
+                                  '& .MuiSvgIcon-root': {
+                                    transform: 'rotate(180deg) scale(1.2)',
+                                    transition: 'transform 0.3s ease',
+                                  }
+                                },
+                                '&:active': {
+                                  transform: 'scale(0.95) translateY(0)',
+                                  transition: 'transform 0.1s ease',
+                                }
+                              }}
+                            >
+                              <Close sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      ) : inv.status === 'In Progress' ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5 }}>
+                          <Tooltip title="Complete Order" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleComplete(inv.id)}
+                              sx={{
+                                backgroundColor: '#8b5cf6',
+                                color: 'white',
+                                width: 90,
+                                height: 36,
+                                position: 'relative',
+                                overflow: 'hidden',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: '0 2px 8px rgba(139, 92, 246, 0.3)',
+                                borderRadius: '8px',
+                                '&::before': {
+                                  content: '""',
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: '-100%',
+                                  width: '100%',
+                                  height: '100%',
+                                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+                                  transition: 'left 0.5s',
+                                },
+                                '&:hover': {
+                                  backgroundColor: '#7c3aed',
+                                  transform: 'scale(1.05) translateY(-1px)',
+                                  boxShadow: '0 6px 20px rgba(139, 92, 246, 0.4)',
+                                  '&::before': {
+                                    left: '100%',
+                                  },
+                                  '& .MuiSvgIcon-root': {
+                                    transform: 'scale(1.1)',
+                                    transition: 'transform 0.3s ease',
+                                  }
+                                },
+                                '&:active': {
+                                  transform: 'scale(0.98) translateY(0)',
+                                  transition: 'transform 0.1s ease',
+                                }
+                              }}
+                            >
+                              <DoneIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                          No actions
+                        </Typography>
+                      )}
+                    </TableCell>
+                    {/* Booking Date */}
+                    <TableCell>
+                      <Typography sx={{ 
+                        fontWeight: 500, 
+                        color: inv.bookingDate ? 'text.primary' : 'text.secondary', 
+                        fontSize: { xs: '0.85rem', md: '1rem' },
+                        fontStyle: inv.bookingDate ? 'normal' : 'italic'
+                      }}>
+                        {formatBookingDate(inv.bookingDate)}
+                      </Typography>
                     </TableCell>
                     {/* Date */}
                     <TableCell sx={{ textAlign: 'right' }}>
@@ -1351,6 +1886,48 @@ export function RequestsTable({
           </Table>
         </TableContainer>
       </Box>
+      
+      {/* Pending Approval Popover */}
+      <PendingApprovalPopover
+        open={pendingApprovalPopoverOpen}
+        onClose={handleClosePendingApprovalPopover}
+        order={selectedOrder}
+        onApprove={handleApprove}
+        onReject={handleReject}
+      />
+
+      {/* Awaiting Payment Popover */}
+      <AwaitingPaymentPopover
+        open={awaitingPaymentPopoverOpen}
+        onClose={handleCloseAwaitingPaymentPopover}
+        order={selectedAwaitingPaymentOrder}
+        onSendReminder={handleSendReminder}
+      />
+
+      {/* In Progress Popover */}
+      <InProgressPopover
+        open={inProgressPopoverOpen}
+        onClose={handleCloseInProgressPopover}
+        order={selectedInProgressOrder}
+        onFinalizeService={handleFinalizeService}
+        showFinalizationStep={showFinalizationStep}
+      />
+
+      {/* Complete Popover */}
+      <CompletePopover
+        open={completePopoverOpen}
+        onClose={handleCloseCompletePopover}
+        order={selectedCompleteOrder}
+        onDownloadReceipt={handleDownloadReceipt}
+        onDownloadSummary={handleDownloadSummary}
+      />
+
+      {/* Cancelled Popover */}
+      <CancelledPopover
+        open={cancelledPopoverOpen}
+        onClose={handleCloseCancelledPopover}
+        order={selectedCancelledOrder}
+      />
     </Box>
   );
 } 
