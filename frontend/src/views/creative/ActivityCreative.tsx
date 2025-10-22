@@ -2,13 +2,13 @@ import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuI
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { useState } from 'react';
 import { ReceiptLong, BarChart, MusicNote, Payment } from '@mui/icons-material';
-import { OrdersTab } from './tabs/RequestsTab';
-import { PaymentsTab } from './tabs/PaymentsTab';
+import { CurrentOrdersTab } from './tabs/CurrentOrdersTab';
+import { PastOrdersTab } from './tabs/PastOrdersTab';
 import { AnalyticsTab } from './tabs/AnalyticsTab';
 
 const tabLabels = [
-  { label: 'Orders', icon: <ReceiptLong sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'Payments', icon: <Payment sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Current Orders', icon: <ReceiptLong sx={{ fontSize: 18, mr: 1 }} /> },
+  { label: 'Past Orders', icon: <Payment sx={{ fontSize: 18, mr: 1 }} /> },
   { label: 'Analytics', icon: <BarChart sx={{ fontSize: 18, mr: 1 }} /> },
 ];
 
@@ -308,9 +308,9 @@ export function ActivityCreative() {
             }}
           >
             {activeTab === 0 ? (
-              <OrdersTab />
+              <CurrentOrdersTab />
             ) : activeTab === 1 ? (
-              <PaymentsTab />
+              <PastOrdersTab />
             ) : (
               <AnalyticsTab />
             )}
