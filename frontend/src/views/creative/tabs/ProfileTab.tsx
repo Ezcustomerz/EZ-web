@@ -29,6 +29,7 @@ import { userService, type CreativeProfile, type CreativeService, type CreativeB
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
 import { useInviteClient } from '../../../hooks/useInviteClient';
 import { useAuth } from '../../../context/auth';
+import { RecordSpinner } from '../../../components/loaders/RecordSpinner';
 
 // Mock data for reviews
 const MOCK_REVIEWS = [
@@ -263,9 +264,15 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
         minHeight: { xs: '100vh', md: '100vh' },
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.02)',
       }}>
-        <CircularProgress size={60} />
+        <RecordSpinner 
+          size={140} 
+          speed="normal" 
+          variant="scratch" 
+          ariaLabel="Loading profile" 
+        />
       </Box>
     );
   }
