@@ -251,7 +251,7 @@ export function CreativeDetailPopover({ open, onClose, creative }: CreativeDetai
             </Card>
           )}
 
-          {/* 2. Contact Information Section nice*/}
+          {/* 2. Contact Information Section */}
           {(creative.primary_contact || creative.secondary_contact) && (
             <Card sx={{ 
               my: 2,
