@@ -23,6 +23,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import BookOnlineIcon from '@mui/icons-material/BookOnline';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import Visibility from '@mui/icons-material/Visibility';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -69,6 +70,7 @@ export interface ServicesDetailPopoverProps {
   service: ServiceDetail | null;
   context: 'client-connected' | 'invite-page' | 'services-tab' | 'profile-tab';
   onBook?: () => void;
+  onCreativeClick?: (creativeData: any) => void;
 }
 
 export function ServicesDetailPopover({ 
@@ -76,7 +78,8 @@ export function ServicesDetailPopover({
   onClose, 
   service, 
   context,
-  onBook 
+  onBook,
+  onCreativeClick
 }: ServicesDetailPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -240,6 +243,43 @@ export function ServicesDetailPopover({
                    {service.creative_title || 'Creative Professional'}
                  </Typography>
                </Box>
+               {onCreativeClick && (
+                 <IconButton
+                   onClick={() => {
+                     if (onCreativeClick && service) {
+                       const creativeData = {
+                         id: service.creative_name, // Using creative_name as ID for now
+                         name: service.creative_display_name || service.creative_name,
+                         avatar: service.creative_avatar_url,
+                         specialty: service.creative_title || 'Creative Professional',
+                         email: '', // Not available in service data
+                         rating: 4.5, // Default rating
+                         reviewCount: 0, // Default review count
+                         servicesCount: 0, // Default services count
+                         isOnline: true, // Default online status
+                         color: service.color,
+                         status: 'active', // Default status
+                         description: `Professional creative offering ${service.title}`,
+                         primary_contact: '',
+                         secondary_contact: '',
+                         availability_location: '',
+                         profile_highlights: [],
+                         profile_highlight_values: {}
+                       };
+                       onCreativeClick(creativeData);
+                     }
+                   }}
+                   sx={{
+                     color: 'text.secondary',
+                     '&:hover': {
+                       backgroundColor: 'rgba(0,0,0,0.04)',
+                       color: 'text.primary'
+                     }
+                   }}
+                 >
+                   <Visibility sx={{ fontSize: 20 }} />
+                 </IconButton>
+               )}
              </Box>
            </Box>
 

@@ -10,7 +10,6 @@ import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import demoClientData from '../../../demoData/clientUserData.json';
 
-// test to see if deploy works
 
 interface LayoutClientProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; clientProfile: ClientProfile | null }) => ReactNode);
