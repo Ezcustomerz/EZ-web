@@ -1,6 +1,6 @@
 from fastapi import HTTPException, UploadFile
 from db.db_session import db_admin
-from schemas.creative import CreativeSetupRequest, CreativeSetupResponse, CreativeClientsListResponse, CreativeClientResponse, CreativeServicesListResponse, CreativeServiceResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse, ProfilePhotoUploadResponse, CreateBundleRequest, CreateBundleResponse, CreativeBundleResponse, CreativeBundlesListResponse, BundleServiceResponse, UpdateBundleRequest, UpdateBundleResponse, DeleteBundleResponse, PublicServicesAndBundlesResponse
+from schemas.creative import CreativeSetupRequest, CreativeSetupResponse, CreativeClientsListResponse, CreativeClientResponse, CreativeServicesListResponse, CreativeServiceResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse, ProfilePhotoUploadResponse, CreateBundleRequest, CreateBundleResponse, CreativeBundleResponse, CreativeBundlesListResponse, BundleServiceResponse, UpdateBundleRequest, UpdateBundleResponse, DeleteBundleResponse, PublicServicesAndBundlesResponse, CalendarSettingsRequest
 from core.validation import validate_contact_field
 import re
 import uuid
@@ -298,6 +298,18 @@ class CreativeController:
             color = form.get('color', '#3b82f6')
             payment_option = form.get('payment_option', 'later')
             
+            # Extract calendar settings if provided
+            calendar_settings = None
+            calendar_settings_json = form.get('calendar_settings')
+            if calendar_settings_json:
+                try:
+                    import json
+                    calendar_data = json.loads(calendar_settings_json)
+                    calendar_settings = CalendarSettingsRequest(**calendar_data)
+                except (json.JSONDecodeError, ValueError) as e:
+                    print(f"Warning: Failed to parse calendar settings: {e}")
+                    calendar_settings = None
+            
             # Validate that the user has a creative profile
             creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
             if not creative_result.data:
@@ -331,6 +343,10 @@ class CreativeController:
                 raise HTTPException(status_code=500, detail="Failed to create service")
             
             service_id = result.data[0]['id']
+            
+            # Handle calendar settings if provided
+            if calendar_settings:
+                await CreativeController._save_calendar_settings(service_id, calendar_settings)
             
             # Handle photos if provided
             photos = form.getlist('photos')
@@ -780,7 +796,7 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
 
     @staticmethod
-    async def update_service_with_photos(user_id: str, service_id: str, service_data: dict, photo_files) -> UpdateServiceResponse:
+    async def update_service_with_photos(user_id: str, service_id: str, service_data: dict, photo_files, calendar_settings=None) -> UpdateServiceResponse:
         """Update an existing service with new photos"""
         try:
             # Verify the service exists and belongs to the user
@@ -819,6 +835,10 @@ class CreativeController:
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to update service")
 
+            # Handle calendar settings if provided
+            if calendar_settings:
+                await CreativeController._save_calendar_settings(service_id, calendar_settings)
+            
             # Always delete existing photos first, then handle new photos if provided
             await CreativeController._delete_service_photos(service_id)
             

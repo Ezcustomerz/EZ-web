@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException, UploadFile, File
 from services.creative.creative_service import CreativeController
-from schemas.creative import CreativeClientsListResponse, CreativeServicesListResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse, ProfilePhotoUploadResponse, CreateBundleRequest, CreateBundleResponse, CreativeBundlesListResponse, UpdateBundleRequest, UpdateBundleResponse, DeleteBundleResponse, PublicServicesAndBundlesResponse
+from schemas.creative import CreativeClientsListResponse, CreativeServicesListResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse, ProfilePhotoUploadResponse, CreateBundleRequest, CreateBundleResponse, CreativeBundlesListResponse, UpdateBundleRequest, UpdateBundleResponse, DeleteBundleResponse, PublicServicesAndBundlesResponse, CalendarSettingsRequest
 from core.limiter import limiter
 
 router = APIRouter()
@@ -182,13 +182,25 @@ async def update_service_with_photos(request: Request, service_id: str):
             'payment_option': form.get('payment_option', 'later')
         }
         
+        # Extract calendar settings if provided
+        calendar_settings = None
+        calendar_settings_json = form.get('calendar_settings')
+        if calendar_settings_json:
+            try:
+                import json
+                calendar_data = json.loads(calendar_settings_json)
+                calendar_settings = CalendarSettingsRequest(**calendar_data)
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Warning: Failed to parse calendar settings: {e}")
+                calendar_settings = None
+        
         # Get photo files
         photo_files = []
         for key, value in form.items():
             if key.startswith('photo_') and hasattr(value, 'file'):
                 photo_files.append(value)
         
-        return await CreativeController.update_service_with_photos(user_id, service_id, service_data, photo_files)
+        return await CreativeController.update_service_with_photos(user_id, service_id, service_data, photo_files, calendar_settings)
 
     except HTTPException:
         raise

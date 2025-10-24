@@ -597,6 +597,12 @@ export const userService = {
     formData.append('delivery_time', serviceData.delivery_time);
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
+    formData.append('payment_option', serviceData.payment_option);
+    
+    // Add calendar settings if provided
+    if (serviceData.calendar_settings) {
+      formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
+    }
     
     // Add photos
     photos.forEach((photo) => {
@@ -646,6 +652,7 @@ export const userService = {
     formData.append('delivery_time', serviceData.delivery_time);
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
+    formData.append('payment_option', serviceData.payment_option);
     
     // Add calendar settings if provided
     if (serviceData.calendar_settings) {
@@ -718,7 +725,7 @@ export const userService = {
     const filename = `service-photos/${serviceId || 'temp'}/${timestamp}-${randomString}.${fileExtension}`;
     
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('creative-assets')
       .upload(filename, file, {
         cacheControl: '3600',
