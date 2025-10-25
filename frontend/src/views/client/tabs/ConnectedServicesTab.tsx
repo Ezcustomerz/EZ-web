@@ -29,6 +29,7 @@ interface Service {
   created_at: string;
   updated_at: string;
   creative_user_id: string;
+  requires_booking: boolean;
   photos?: Array<{
     photo_url: string;
     photo_filename?: string;
@@ -891,6 +892,7 @@ export function ConnectedServicesTab() {
                   color={item.color}
                   creative={item.creative_display_name || item.creative_name}
                   onBook={() => handleServiceClick(item.id)}
+                  requires_booking={item.requires_booking}
                 />
               ) : (
                 <BundleCard

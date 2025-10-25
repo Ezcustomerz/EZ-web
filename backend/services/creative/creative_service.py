@@ -193,7 +193,7 @@ class CreativeController:
         try:
             # Query the creative_services table for this creative user
             result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at'
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, requires_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
             if not result.data:
@@ -211,7 +211,8 @@ class CreativeController:
                     color=service_data['color'],
                     is_active=service_data['is_active'],
                     created_at=service_data['created_at'],
-                    updated_at=service_data['updated_at']
+                    updated_at=service_data['updated_at'],
+                    requires_booking=service_data['requires_booking']
                 )
                 services.append(service)
             
@@ -252,7 +253,8 @@ class CreativeController:
                 'status': service_request.status,
                 'color': service_request.color,
                 'payment_option': service_request.payment_option,
-                'is_active': True
+                'is_active': True,
+                'requires_booking': service_request.calendar_settings is not None
             }
             
             # Insert the service
@@ -333,7 +335,8 @@ class CreativeController:
                 'status': status,
                 'color': color,
                 'payment_option': payment_option,
-                'is_active': True
+                'is_active': True,
+                'requires_booking': calendar_settings is not None
             }
             
             # Insert the service
@@ -773,7 +776,8 @@ class CreativeController:
                 'status': service_request.status,
                 'color': service_request.color,
                 'payment_option': service_request.payment_option,
-                'updated_at': 'now()'
+                'updated_at': 'now()',
+                'requires_booking': service_request.calendar_settings is not None
             }
 
             result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
@@ -828,7 +832,8 @@ class CreativeController:
                 'status': service_data['status'],
                 'color': service_data['color'],
                 'payment_option': service_data.get('payment_option', 'later'),
-                'updated_at': 'now()'
+                'updated_at': 'now()',
+                'requires_booking': calendar_settings is not None
             }
 
             result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
@@ -1315,7 +1320,7 @@ class CreativeController:
         try:
             # Get services
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
             services = []
@@ -1356,6 +1361,7 @@ class CreativeController:
                         is_active=service_data['is_active'],
                         created_at=service_data['created_at'],
                         updated_at=service_data['updated_at'],
+                        requires_booking=service_data['requires_booking'],
                         photos=photos_by_service.get(service_data['id'], [])
                     )
                     services.append(service)
@@ -1592,7 +1598,7 @@ class CreativeController:
         try:
             # Get public services
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             services = []
@@ -1635,6 +1641,7 @@ class CreativeController:
                         is_active=service_data['is_active'],
                         created_at=service_data['created_at'],
                         updated_at=service_data['updated_at'],
+                        requires_booking=service_data['requires_booking'],
                         photos=service_photos
                     )
                     services.append(service)

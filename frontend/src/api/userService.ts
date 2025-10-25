@@ -195,6 +195,7 @@ export interface CreativeService {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  requires_booking: boolean;
   photos?: ServicePhoto[];
 }
 

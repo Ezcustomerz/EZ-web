@@ -24,6 +24,7 @@ export interface SessionPopoverProps {
     delivery: string;
     color: string;
     creative: string;
+    requires_booking?: boolean;
   }>;
   bundles: Array<{
     id: string;

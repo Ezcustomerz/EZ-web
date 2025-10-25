@@ -560,6 +560,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
                 color={item.data.color}
                 showMenu={true}
                 onClick={() => handleServiceClick(item.data)}
+                requires_booking={item.data.requires_booking}
               />
             ) : (
               <BundleCard

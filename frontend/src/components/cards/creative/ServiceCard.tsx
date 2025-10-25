@@ -2,7 +2,7 @@ import { Card, CardContent, Box, Typography, IconButton, Tooltip, useTheme } fro
 import { MoreVert } from '@mui/icons-material';
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGlobe, faLock, faLayerGroup, faGem } from '@fortawesome/free-solid-svg-icons';
+import { faGlobe, faLock, faLayerGroup, faGem, faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { ServiceDialog } from '../../dialogs/ServiceDialog';
 
 const statusHelp = {
@@ -23,9 +23,10 @@ export interface ServiceCardProps {
   color: string;
   showMenu?: boolean;
   onClick?: () => void;
+  requires_booking?: boolean;
 }
 
-export function ServiceCard({ title, description, price, delivery, status, creative, onEdit, onDelete, color, showMenu = true, onClick }: ServiceCardProps) {
+export function ServiceCard({ title, description, price, delivery, status, creative, onEdit, onDelete, color, showMenu = true, onClick, requires_booking = false }: ServiceCardProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -137,9 +138,38 @@ export function ServiceCard({ title, description, price, delivery, status, creat
             pt: 1,
           }}
         >
-          <Typography fontWeight={700} color="primary" fontSize="1rem" sx={{ mb: { xs: 0.5, sm: 0 } }}>
-            ${price}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { xs: 0.5, sm: 0 } }}>
+            <Typography fontWeight={700} color="primary" fontSize="1rem">
+              ${price}
+            </Typography>
+            {requires_booking && (
+              <Tooltip title="This service requires booking a session" arrow>
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.3,
+                    px: 0.8,
+                    py: 0.2,
+                    borderRadius: 1,
+                    backgroundColor: '#fef3c7',
+                    border: '1px solid #f59e0b',
+                    color: '#92400e',
+                    fontWeight: 600,
+                    fontSize: '0.65rem',
+                    letterSpacing: '0.01em',
+                    cursor: 'help',
+                  }}
+                >
+                  <FontAwesomeIcon
+                    icon={faCalendar}
+                    style={{ fontSize: 8, color: 'inherit' }}
+                  />
+                  Book
+                </Box>
+              </Tooltip>
+            )}
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             <Tooltip title={statusHelp[status]} arrow>
               {/* Redesigned pill */}
@@ -206,9 +236,10 @@ export interface ServiceCardSimpleProps {
   color: string;
   creative: string;
   onBook?: () => void;
+  requires_booking?: boolean;
 }
 
-export function ServiceCardSimple({ title, description, price, delivery, color, creative, onBook }: ServiceCardSimpleProps) {
+export function ServiceCardSimple({ title, description, price, delivery, color, creative, onBook, requires_booking = false }: ServiceCardSimpleProps) {
   const theme = useTheme();
   return (
     <Card
@@ -271,9 +302,38 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
         </Typography>
         {/* Price and Delivery Row */}
         <Box sx={{ mt: 2 }}>
-          <Typography fontWeight={700} color="primary" fontSize="1rem">
-            ${price}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.5 }}>
+            <Typography fontWeight={700} color="primary" fontSize="1rem">
+              ${price}
+            </Typography>
+            {requires_booking && (
+              <Tooltip title="This service requires booking a session" arrow>
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.3,
+                    px: 0.6,
+                    py: 0.15,
+                    borderRadius: 1,
+                    backgroundColor: '#fef3c7',
+                    border: '1px solid #f59e0b',
+                    color: '#92400e',
+                    fontWeight: 600,
+                    fontSize: '0.6rem',
+                    letterSpacing: '0.01em',
+                    cursor: 'help',
+                  }}
+                >
+                  <FontAwesomeIcon
+                    icon={faCalendar}
+                    style={{ fontSize: 7, color: 'inherit' }}
+                  />
+                  Book
+                </Box>
+              </Tooltip>
+            )}
+          </Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             {delivery} delivery
           </Typography>

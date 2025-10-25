@@ -18,6 +18,7 @@ import {
   Modal,
   Backdrop,
   Fade,
+  Tooltip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import BookOnlineIcon from '@mui/icons-material/BookOnline';
@@ -27,7 +28,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGem } from '@fortawesome/free-solid-svg-icons';
+import { faGem, faCalendar } from '@fortawesome/free-solid-svg-icons';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -50,6 +51,7 @@ export interface ServiceDetail {
   created_at?: string;
   updated_at?: string;
   creative_user_id?: string;
+  requires_booking?: boolean;
   // Creative profile information
   creative_display_name?: string;
   creative_title?: string;
@@ -171,6 +173,34 @@ export function ServicesDetailPopover({
                }}>
                  {service.title}
                </Typography>
+               {service.requires_booking && (
+                 <Tooltip title="This service requires booking a session" arrow>
+                   <Box
+                     sx={{
+                       display: 'inline-flex',
+                       alignItems: 'center',
+                       gap: 0.5,
+                       px: 1,
+                       py: 0.3,
+                       borderRadius: 1.5,
+                       backgroundColor: '#fef3c7',
+                       border: '1px solid #f59e0b',
+                       color: '#92400e',
+                       fontWeight: 600,
+                       fontSize: '0.7rem',
+                       letterSpacing: '0.01em',
+                       flexShrink: 0,
+                       cursor: 'help',
+                     }}
+                   >
+                     <FontAwesomeIcon
+                       icon={faCalendar}
+                       style={{ fontSize: 10, color: 'inherit' }}
+                     />
+                     Book
+                   </Box>
+                 </Tooltip>
+               )}
                {service.status && (context === 'services-tab' || context === 'profile-tab') && (
                  <Chip 
                    label={service.status} 

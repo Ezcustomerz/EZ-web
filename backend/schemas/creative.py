@@ -39,6 +39,7 @@ class CreativeServiceResponse(BaseModel):
     is_active: bool
     created_at: str
     updated_at: str
+    requires_booking: bool
     photos: Optional[List["ServicePhotoRequest"]] = []
 
 class CreativeServicesListResponse(BaseModel):
