@@ -52,6 +52,7 @@ export interface ServiceDetail {
   updated_at?: string;
   creative_user_id?: string;
   requires_booking?: boolean;
+  is_time_slot_booking?: boolean;
   // Creative profile information
   creative_display_name?: string;
   creative_title?: string;
@@ -417,7 +418,7 @@ export function ServicesDetailPopover({
             <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: 'text.primary' }}>
               Service Details
             </Typography>
-             <Box sx={{ display: 'flex', gap: 2 }}>
+             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                {/* Price */}
                <Box sx={{ 
                  display: 'flex', 
@@ -427,7 +428,8 @@ export function ServicesDetailPopover({
                  borderRadius: 2,
                  backgroundColor: 'rgba(76, 175, 80, 0.08)',
                  border: '1px solid rgba(76, 175, 80, 0.2)',
-                 flex: 1
+                 flex: 1,
+                 minWidth: '200px'
                }}>
                  <Box sx={{ 
                    display: 'flex', 
@@ -460,7 +462,8 @@ export function ServicesDetailPopover({
                  borderRadius: 2,
                  backgroundColor: 'rgba(33, 150, 243, 0.08)',
                  border: '1px solid rgba(33, 150, 243, 0.2)',
-                 flex: 1
+                 flex: 1,
+                 minWidth: '200px'
                }}>
                  <Box sx={{ 
                    display: 'flex', 
@@ -483,6 +486,59 @@ export function ServicesDetailPopover({
                    </Typography>
                  </Box>
                </Box>
+
+               {/* Booking Type */}
+               {service.requires_booking && (
+                 <Tooltip 
+                   title={
+                     service.is_time_slot_booking 
+                       ? 'This service uses predefined time slots. You can only book during specific available time periods set by the creative.'
+                       : 'This service uses flexible booking. You can book at any time that works for both you and the creative.'
+                   }
+                   arrow
+                   placement="top"
+                 >
+                   <Box sx={{ 
+                     display: 'flex', 
+                     alignItems: 'center', 
+                     gap: 2,
+                     p: 2,
+                     borderRadius: 2,
+                     backgroundColor: service.is_time_slot_booking 
+                       ? 'rgba(156, 39, 176, 0.08)' 
+                       : 'rgba(255, 152, 0, 0.08)',
+                     border: service.is_time_slot_booking 
+                       ? '1px solid rgba(156, 39, 176, 0.2)' 
+                       : '1px solid rgba(255, 152, 0, 0.2)',
+                     flex: 1,
+                     minWidth: '200px',
+                     cursor: 'help'
+                   }}>
+                     <Box sx={{ 
+                       display: 'flex', 
+                       alignItems: 'center', 
+                       justifyContent: 'center',
+                       width: 40,
+                       height: 40,
+                       borderRadius: 1.5,
+                       backgroundColor: service.is_time_slot_booking ? 'purple' : 'orange',
+                       color: 'white'
+                     }}>
+                       <FontAwesomeIcon icon={faCalendar} />
+                     </Box>
+                     <Box sx={{ flex: 1 }}>
+                       <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                         Booking Type
+                       </Typography>
+                       <Typography variant="h6" fontWeight={600} sx={{ 
+                         color: service.is_time_slot_booking ? 'purple' : 'orange' 
+                       }}>
+                         {service.is_time_slot_booking ? 'Time Slots' : 'Flexible'}
+                       </Typography>
+                     </Box>
+                   </Box>
+                 </Tooltip>
+               )}
 
             </Box>
            </Box>

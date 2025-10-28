@@ -40,6 +40,7 @@ class CreativeServiceResponse(BaseModel):
     created_at: str
     updated_at: str
     requires_booking: bool
+    is_time_slot_booking: Optional[bool] = None
     photos: Optional[List["ServicePhotoRequest"]] = []
 
 class CreativeServicesListResponse(BaseModel):

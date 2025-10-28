@@ -105,6 +105,8 @@ export function BundleDetailPopover({
       delivery_time: service.delivery_time,
       color: service.color,
       status: service.status,
+      requires_booking: service.requires_booking,
+      is_time_slot_booking: service.is_time_slot_booking,
       creative_name: bundle?.creative_name,
       creative_display_name: bundle?.creative_display_name,
       creative_title: bundle?.creative_title,

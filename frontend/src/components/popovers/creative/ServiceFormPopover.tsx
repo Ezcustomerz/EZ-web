@@ -45,6 +45,13 @@ import React, { useState, useEffect } from 'react';
 import { userService, type CreateServiceRequest, type ServicePhoto } from '../../../api/userService';
 import { successToast, errorToast } from '../../toast/toast';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
+import { 
+  convertTimeBlocksToUTC, 
+  convertTimeSlotsToUTC, 
+  convertTimeBlocksFromUTC, 
+  convertTimeSlotsFromUTC,
+  getUserTimezone 
+} from '../../../utils/timezoneUtils';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -70,6 +77,26 @@ export interface ServiceFormPopoverProps {
     color: string;
     payment_option?: 'upfront' | 'split' | 'later';
     photos?: ServicePhoto[];
+    requires_booking?: boolean;
+    is_time_slot_booking?: boolean;
+    calendar_settings?: {
+      is_scheduling_enabled: boolean;
+      use_time_slots: boolean;
+      session_durations: number[];
+      default_session_length: number;
+      min_notice_amount: number;
+      min_notice_unit: 'hours' | 'days';
+      max_advance_amount: number;
+      max_advance_unit: 'days' | 'weeks' | 'months';
+      buffer_time_amount: number;
+      buffer_time_unit: 'minutes' | 'hours';
+      weekly_schedule: {
+        day: string;
+        enabled: boolean;
+        time_blocks: { start: string; end: string }[];
+        time_slots: { time: string; enabled: boolean }[];
+      }[];
+    };
   } | null;
 }
 
@@ -170,6 +197,9 @@ export function ServiceFormPopover({
       timeSlots: []
     }))
   );
+  
+  // Flag to track if time slots were loaded from backend
+  const [timeSlotsLoadedFromBackend, setTimeSlotsLoadedFromBackend] = useState(false);
 
   // Helper functions for managing time blocks
   const addTimeBlock = (dayIndex: number) => {
@@ -211,6 +241,8 @@ export function ServiceFormPopover({
       }
       return schedule;
     }));
+    // Reset the flag when toggling days so time slots can be regenerated
+    setTimeSlotsLoadedFromBackend(false);
   };
 
   // Validation function to check for overlapping time blocks
@@ -250,6 +282,8 @@ export function ServiceFormPopover({
       }
       return schedule;
     }));
+    // Reset the flag when time blocks are updated so time slots can be regenerated
+    setTimeSlotsLoadedFromBackend(false);
   };
 
   // Generate time slots based on time blocks, session duration, and buffer time
@@ -519,6 +553,7 @@ export function ServiceFormPopover({
 
       // Add calendar settings if scheduling is enabled
       if (isSchedulingEnabled) {
+        const userTimezone = getUserTimezone();
         serviceData.calendar_settings = {
           is_scheduling_enabled: isSchedulingEnabled,
           use_time_slots: useTimeSlots,
@@ -535,14 +570,8 @@ export function ServiceFormPopover({
             .map(schedule => ({
               day: schedule.day,
               enabled: schedule.enabled,
-              time_blocks: schedule.timeBlocks.map(block => ({
-                start: block.start,
-                end: block.end
-              })),
-              time_slots: schedule.timeSlots.map(slot => ({
-                time: slot.time,
-                enabled: slot.enabled
-              }))
+              time_blocks: convertTimeBlocksToUTC(schedule.timeBlocks, userTimezone),
+              time_slots: convertTimeSlotsToUTC(schedule.timeSlots, userTimezone)
             }))
         };
       }
@@ -586,7 +615,9 @@ export function ServiceFormPopover({
   useEffect(() => {
     if (open) {
       setActiveStep(0); // Reset to first step
+      setTimeSlotsLoadedFromBackend(false); // Reset flag
       if (mode === 'edit' && initialService) {
+        console.log('Edit mode - initial service:', initialService);
         // Find the index of the primary photo in existing photos
         const existingPhotos = initialService.photos || [];
         const primaryPhotoIndex = existingPhotos.findIndex(photo => photo.is_primary);
@@ -614,8 +645,78 @@ export function ServiceFormPopover({
         } else {
           setDeliveryTime({ minTime: '3', maxTime: '5', unit: 'day' });
         }
+        
+        // Load existing calendar settings
+        setIsSchedulingEnabled(initialService.requires_booking || false);
+        setUseTimeSlots(initialService.is_time_slot_booking || false);
+        
+        // Load detailed calendar settings if available
+        console.log('Initial service calendar settings:', initialService.calendar_settings);
+        console.log('Full initial service:', initialService);
+        if (initialService.calendar_settings) {
+          const calendarSettings = initialService.calendar_settings;
+          console.log('Processing calendar settings:', calendarSettings);
+          
+          // Set calendar settings
+          setIsSchedulingEnabled(calendarSettings.is_scheduling_enabled);
+          setUseTimeSlots(calendarSettings.use_time_slots);
+          setSessionDurations(calendarSettings.session_durations.map(String));
+          setDefaultSessionLength(String(calendarSettings.default_session_length));
+          setMinNotice({
+            amount: String(calendarSettings.min_notice_amount),
+            unit: calendarSettings.min_notice_unit
+          });
+          setMaxAdvance({
+            amount: String(calendarSettings.max_advance_amount),
+            unit: calendarSettings.max_advance_unit
+          });
+          setBufferTime({
+            amount: String(calendarSettings.buffer_time_amount),
+            unit: calendarSettings.buffer_time_unit
+          });
+          
+          // Load weekly schedule
+          console.log('Weekly schedule check:', calendarSettings.weekly_schedule);
+          if (calendarSettings.weekly_schedule && calendarSettings.weekly_schedule.length > 0) {
+            console.log('Loading weekly schedule:', calendarSettings.weekly_schedule);
+            const userTimezone = getUserTimezone();
+            const loadedSchedule = daysOfWeek.map(day => {
+              const dayData = calendarSettings.weekly_schedule.find(ws => ws.day === day);
+              if (dayData) {
+                console.log(`Found data for ${day}:`, dayData);
+                return {
+                  day,
+                  enabled: dayData.enabled,
+                  timeBlocks: dayData.time_blocks 
+                    ? convertTimeBlocksFromUTC(dayData.time_blocks, userTimezone)
+                    : [{ start: '09:00', end: '17:00' }],
+                  timeSlots: dayData.time_slots 
+                    ? convertTimeSlotsFromUTC(dayData.time_slots, userTimezone)
+                    : []
+                };
+              }
+              return {
+                day,
+                enabled: false,
+                timeBlocks: [{ start: '09:00', end: '17:00' }],
+                timeSlots: []
+              };
+            });
+            console.log('Loaded schedule:', loadedSchedule);
+            console.log('Wednesday schedule specifically:', loadedSchedule.find(day => day.day === 'Wednesday'));
+            setWeeklySchedule(loadedSchedule);
+            // Mark that time slots were loaded from backend
+            setTimeSlotsLoadedFromBackend(true);
+          } else {
+            console.log('No weekly schedule data found or empty array');
+          }
+        } else {
+          console.log('No calendar settings found in initial service');
+          setTimeSlotsLoadedFromBackend(false);
+        }
       } else {
         // Reset form data for create mode
+        setTimeSlotsLoadedFromBackend(false);
         setFormData({
           title: '',
           description: '',
@@ -677,14 +778,15 @@ export function ServiceFormPopover({
   }, [sessionDurations, defaultSessionLength]);
 
   // Regenerate time slots when session duration or buffer time changes in time slot mode
+  // But only if time slots weren't loaded from backend
   useEffect(() => {
-    if (useTimeSlots && defaultSessionLength) {
+    if (useTimeSlots && defaultSessionLength && !timeSlotsLoadedFromBackend) {
       setWeeklySchedule((prev) => prev.map((schedule) => ({
         ...schedule,
         timeSlots: schedule.enabled ? generateTimeSlots(schedule.timeBlocks, parseInt(defaultSessionLength)) : schedule.timeSlots
       })));
     }
-  }, [defaultSessionLength, useTimeSlots, bufferTime]);
+  }, [defaultSessionLength, useTimeSlots, bufferTime, timeSlotsLoadedFromBackend]);
 
   // Restrict to single session duration when switching to time slot mode
   useEffect(() => {

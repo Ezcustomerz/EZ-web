@@ -6,7 +6,6 @@ import {
   Button, 
   Typography, 
   Box, 
-  Avatar,
   Divider,
   useTheme,
   useMediaQuery,
@@ -17,10 +16,8 @@ import {
 } from '@mui/material';
 import { 
   Close, 
-  AccessTime,
   BookOnline,
   AccountBalanceWallet,
-  Visibility
 } from '@mui/icons-material';
 import { useState } from 'react';
 
@@ -198,101 +195,10 @@ export function BookingServicePopover({
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 3, pt: 3 }}>
-        {/* Service Info Card */}
-        <Box sx={{
-          p: 2.5,
-          borderRadius: 2,
-          border: `1px solid ${service.color}30`,
-          background: `linear-gradient(135deg, ${service.color}08 0%, ${service.color}04 100%)`,
-          mb: 2,
-          mt: 2
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <Avatar 
-              src={service.creative_avatar_url} 
-              sx={{ 
-                width: 40, 
-                height: 40,
-                background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`
-              }}
-            >
-              {service.creative_display_name?.charAt(0) || service.creative_name.charAt(0)}
-            </Avatar>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                {service.creative_display_name || service.creative_name}
-              </Typography>
-              {service.creative_title && (
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  {service.creative_title}
-                </Typography>
-              )}
-            </Box>
-            <IconButton
-              onClick={() => {
-                if (onCreativeClick && service) {
-                  const creativeData = {
-                    id: service.creative_name, // Using creative_name as ID for now
-                    name: service.creative_display_name || service.creative_name,
-                    avatar: service.creative_avatar_url,
-                    specialty: service.creative_title || 'Creative Professional',
-                    email: '', // Not available in service data
-                    rating: 4.5, // Default rating
-                    reviewCount: 0, // Default review count
-                    servicesCount: 0, // Default services count
-                    isOnline: true, // Default online status
-                    color: service.color,
-                    status: 'active', // Default status
-                    description: `Professional creative offering ${service.title}`,
-                    primary_contact: '',
-                    secondary_contact: '',
-                    availability_location: '',
-                    profile_highlights: [],
-                    profile_highlight_values: {}
-                  };
-                  onCreativeClick(creativeData);
-                }
-              }}
-              sx={{ 
-                p: 0.5,
-                '&:hover': {
-                  backgroundColor: 'rgba(0,0,0,0.04)',
-                  '& .MuiSvgIcon-root': {
-                    color: 'primary.main'
-                  }
-                }
-              }}
-            >
-              <Visibility sx={{ 
-                fontSize: 16, 
-                color: 'text.secondary',
-                opacity: 0.7
-              }} />
-            </IconButton>
-          </Box>
-          
-          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-            {service.description}
-          </Typography>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: service.color }}>
-                {formatCurrency(service.price)}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AccessTime sx={{ fontSize: 18, color: 'text.secondary' }} />
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {service.delivery_time}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
+      <DialogContent sx={{ p: 3, pt: 2}}>
 
         {/* Payment Information */}
-        <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+        <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2, mt: 2 }}>
           <CardContent>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
               Payment Information

@@ -811,4 +811,16 @@ export const userService = {
     return response.data;
   },
 
+  /**
+   * Get calendar settings for a specific service
+   */
+  async getServiceCalendarSettings(serviceId: string): Promise<{success: boolean, calendar_settings: CalendarSettings | null}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<{success: boolean, calendar_settings: CalendarSettings | null}>(
+      `${API_BASE_URL}/creative/services/${serviceId}/calendar`,
+      { headers }
+    );
+    return response.data;
+  },
+
 };

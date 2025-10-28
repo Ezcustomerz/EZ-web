@@ -352,7 +352,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id, requires_booking'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id, requires_booking, is_time_slot_booking'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             # Get all bundles from these creatives
@@ -433,6 +433,7 @@ class ClientController:
                         'creative_title': creative_data.get('title'),
                         'creative_avatar_url': creative_data.get('profile_banner_url'),
                         'requires_booking': service_data['requires_booking'],
+                        'is_time_slot_booking': service_data.get('is_time_slot_booking'),
                         'photos': photos_by_service.get(service_data['id'], [])
                     }
                     services.append(service)

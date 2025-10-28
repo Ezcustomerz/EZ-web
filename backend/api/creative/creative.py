@@ -96,7 +96,7 @@ async def create_service(request: Request, service_request: CreateServiceRequest
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
         
-        return await CreativeController.create_service(user_id, service_request)
+        return await CreativeController.create_service(user_id, service_request, request)
         
     except HTTPException:
         raise
@@ -151,7 +151,7 @@ async def update_service(request: Request, service_id: str, service_request: Cre
         if not user_id:
             raise HTTPException(status_code=401, detail="User ID not found in token")
 
-        return await CreativeController.update_service(user_id, service_id, service_request)
+        return await CreativeController.update_service(user_id, service_id, service_request, request)
 
     except HTTPException:
         raise

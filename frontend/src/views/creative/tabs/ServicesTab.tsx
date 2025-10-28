@@ -102,8 +102,29 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   };
 
   // Handle edit service
-  const handleEditService = (service: CreativeService) => {
-    setEditingService(service);
+  const handleEditService = async (service: CreativeService) => {
+    // Fetch calendar settings for the service first
+    try {
+      const calendarResponse = await userService.getServiceCalendarSettings(service.id);
+      if (calendarResponse.success && calendarResponse.calendar_settings) {
+        // Add calendar settings to the service object
+        const serviceWithCalendar = {
+          ...service,
+          calendar_settings: calendarResponse.calendar_settings
+        };
+        console.log('Service with calendar settings:', serviceWithCalendar);
+        setEditingService(serviceWithCalendar);
+      } else {
+        console.log('No calendar settings found for service');
+        setEditingService(service);
+      }
+    } catch (error) {
+      console.error('Failed to fetch calendar settings:', error);
+      // Still open edit form even if calendar settings fetch fails
+      setEditingService(service);
+    }
+    
+    // Open the form after setting the service with calendar settings
     setServiceFormOpen(true);
   };
 
@@ -620,6 +641,9 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           color: editingService.color,
           payment_option: editingService.payment_option,
           photos: editingService.photos || [],
+          requires_booking: editingService.requires_booking,
+          is_time_slot_booking: editingService.is_time_slot_booking,
+          calendar_settings: editingService.calendar_settings,
         } : null}
       />
 

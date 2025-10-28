@@ -6,6 +6,14 @@ import re
 import uuid
 import os
 from datetime import datetime
+from fastapi import Request
+from core.timezone_utils import (
+    convert_time_blocks_to_utc, 
+    convert_time_slots_to_utc,
+    convert_time_blocks_from_utc,
+    convert_time_slots_from_utc,
+    get_user_timezone_from_request
+)
 
 class CreativeController:
     @staticmethod
@@ -193,7 +201,7 @@ class CreativeController:
         try:
             # Query the creative_services table for this creative user
             result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, requires_booking'
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, requires_booking, is_time_slot_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
             if not result.data:
@@ -212,7 +220,8 @@ class CreativeController:
                     is_active=service_data['is_active'],
                     created_at=service_data['created_at'],
                     updated_at=service_data['updated_at'],
-                    requires_booking=service_data['requires_booking']
+                    requires_booking=service_data['requires_booking'],
+                    is_time_slot_booking=service_data.get('is_time_slot_booking')
                 )
                 services.append(service)
             
@@ -227,7 +236,7 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch creative services: {str(e)}")
 
     @staticmethod
-    async def create_service(user_id: str, service_request: CreateServiceRequest) -> CreateServiceResponse:
+    async def create_service(user_id: str, service_request: CreateServiceRequest, request: Request = None) -> CreateServiceResponse:
         """Create a new service for the creative"""
         try:
             # Validate that the user has a creative profile
@@ -254,7 +263,8 @@ class CreativeController:
                 'color': service_request.color,
                 'payment_option': service_request.payment_option,
                 'is_active': True,
-                'requires_booking': service_request.calendar_settings is not None
+                'requires_booking': service_request.calendar_settings is not None,
+                'is_time_slot_booking': service_request.calendar_settings.use_time_slots if service_request.calendar_settings else None
             }
             
             # Insert the service
@@ -267,7 +277,7 @@ class CreativeController:
             
             # Handle calendar settings if provided
             if service_request.calendar_settings:
-                await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings)
+                await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings, request)
             
             # Handle photos if provided
             if service_request.photos:
@@ -336,7 +346,8 @@ class CreativeController:
                 'color': color,
                 'payment_option': payment_option,
                 'is_active': True,
-                'requires_booking': calendar_settings is not None
+                'requires_booking': calendar_settings is not None,
+                'is_time_slot_booking': calendar_settings.use_time_slots if calendar_settings else None
             }
             
             # Insert the service
@@ -368,9 +379,16 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
 
     @staticmethod
-    async def _save_calendar_settings(service_id: str, calendar_settings):
+    async def _save_calendar_settings(service_id: str, calendar_settings, request: Request = None):
         """Save calendar settings for a service"""
         try:
+            # Get user timezone from request headers
+            user_timezone = 'UTC'  # Default to UTC
+            if request:
+                user_timezone = get_user_timezone_from_request(dict(request.headers))
+                print(f"DEBUG: User timezone detected: {user_timezone}")
+                print(f"DEBUG: Request headers: {dict(request.headers)}")
+            
             # First, delete existing calendar settings for this service
             db_admin.table('calendar_settings').delete().eq('service_id', service_id).execute()
             
@@ -412,27 +430,37 @@ class CreativeController:
                     
                     weekly_schedule_id = weekly_result.data[0]['id']
                     
-                    # Save time blocks
+                    # Save time blocks (convert to UTC)
                     if day_schedule.time_blocks:
                         time_blocks_data = []
-                        for block in day_schedule.time_blocks:
+                        # Convert time blocks to UTC
+                        utc_time_blocks = convert_time_blocks_to_utc(
+                            [{'start': block.start, 'end': block.end} for block in day_schedule.time_blocks],
+                            user_timezone
+                        )
+                        for block in utc_time_blocks:
                             time_blocks_data.append({
                                 'weekly_schedule_id': weekly_schedule_id,
-                                'start_time': block.start,
-                                'end_time': block.end
+                                'start_time': block['start'],
+                                'end_time': block['end']
                             })
                         
                         if time_blocks_data:
                             db_admin.table('time_blocks').insert(time_blocks_data).execute()
                     
-                    # Save time slots (if using time slot mode)
+                    # Save time slots (if using time slot mode, convert to UTC)
                     if calendar_settings.use_time_slots and day_schedule.time_slots:
                         time_slots_data = []
-                        for slot in day_schedule.time_slots:
+                        # Convert time slots to UTC
+                        utc_time_slots = convert_time_slots_to_utc(
+                            [{'time': slot.time, 'enabled': slot.enabled} for slot in day_schedule.time_slots],
+                            user_timezone
+                        )
+                        for slot in utc_time_slots:
                             time_slots_data.append({
                                 'weekly_schedule_id': weekly_schedule_id,
-                                'slot_time': slot.time,
-                                'is_enabled': slot.enabled
+                                'slot_time': slot['time'],
+                                'is_enabled': slot['enabled']
                             })
                         
                         if time_slots_data:
@@ -679,12 +707,59 @@ class CreativeController:
             calendar_data = calendar_result.data[0]
             calendar_setting_id = calendar_data['id']
             
-            # Get weekly schedule with time blocks and time slots
+            # Get weekly schedule
             weekly_result = db_admin.table('weekly_schedule').select(
-                '*, time_blocks(*), time_slots(*)'
+                'id, day_of_week, is_enabled'
             ).eq('calendar_setting_id', calendar_setting_id).execute()
             
-            calendar_data['weekly_schedule'] = weekly_result.data if weekly_result.data else []
+            # Get time blocks for each weekly schedule entry
+            time_blocks_result = db_admin.table('time_blocks').select(
+                'weekly_schedule_id, start_time, end_time'
+            ).in_('weekly_schedule_id', [ws['id'] for ws in weekly_result.data] if weekly_result.data else []).execute()
+            
+            # Get time slots for each weekly schedule entry
+            time_slots_result = db_admin.table('time_slots').select(
+                'weekly_schedule_id, slot_time, is_enabled'
+            ).in_('weekly_schedule_id', [ws['id'] for ws in weekly_result.data] if weekly_result.data else []).execute()
+            
+            # Group time blocks and slots by weekly_schedule_id
+            time_blocks_by_ws = {}
+            for tb in time_blocks_result.data or []:
+                ws_id = tb['weekly_schedule_id']
+                if ws_id not in time_blocks_by_ws:
+                    time_blocks_by_ws[ws_id] = []
+                # Convert time format from HH:MM:SS to HH:MM
+                start_time = str(tb['start_time'])[:5] if tb['start_time'] else '09:00'
+                end_time = str(tb['end_time'])[:5] if tb['end_time'] else '17:00'
+                time_blocks_by_ws[ws_id].append({
+                    'start': start_time,
+                    'end': end_time
+                })
+            
+            time_slots_by_ws = {}
+            for ts in time_slots_result.data or []:
+                ws_id = ts['weekly_schedule_id']
+                if ws_id not in time_slots_by_ws:
+                    time_slots_by_ws[ws_id] = []
+                # Convert time format from HH:MM:SS to HH:MM
+                slot_time = str(ts['slot_time'])[:5] if ts['slot_time'] else '09:00'
+                time_slots_by_ws[ws_id].append({
+                    'time': slot_time,
+                    'enabled': ts['is_enabled']
+                })
+            
+            # Build weekly schedule with nested data
+            weekly_schedule = []
+            for ws in weekly_result.data or []:
+                ws_id = ws['id']
+                weekly_schedule.append({
+                    'day': ws['day_of_week'],
+                    'enabled': ws['is_enabled'],
+                    'time_blocks': time_blocks_by_ws.get(ws_id, []),
+                    'time_slots': time_slots_by_ws.get(ws_id, [])
+                })
+            
+            calendar_data['weekly_schedule'] = weekly_schedule
             
             return calendar_data
             
@@ -745,7 +820,7 @@ class CreativeController:
 
 
     @staticmethod
-    async def update_service(user_id: str, service_id: str, service_request: CreateServiceRequest) -> UpdateServiceResponse:
+    async def update_service(user_id: str, service_id: str, service_request: CreateServiceRequest, request: Request = None) -> UpdateServiceResponse:
         """Update an existing service (same fields as create)."""
         try:
             # Verify the service exists and belongs to the user
@@ -777,7 +852,8 @@ class CreativeController:
                 'color': service_request.color,
                 'payment_option': service_request.payment_option,
                 'updated_at': 'now()',
-                'requires_booking': service_request.calendar_settings is not None
+                'requires_booking': service_request.calendar_settings is not None,
+                'is_time_slot_booking': service_request.calendar_settings.use_time_slots if service_request.calendar_settings else None
             }
 
             result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
@@ -786,7 +862,7 @@ class CreativeController:
 
             # Handle calendar settings if provided
             if service_request.calendar_settings:
-                await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings)
+                await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings, request)
             
             # Handle photos if provided
             if service_request.photos:
@@ -833,7 +909,8 @@ class CreativeController:
                 'color': service_data['color'],
                 'payment_option': service_data.get('payment_option', 'later'),
                 'updated_at': 'now()',
-                'requires_booking': calendar_settings is not None
+                'requires_booking': calendar_settings is not None,
+                'is_time_slot_booking': calendar_settings.use_time_slots if calendar_settings else None
             }
 
             result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
@@ -1320,7 +1397,7 @@ class CreativeController:
         try:
             # Get services
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking, is_time_slot_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
             services = []
@@ -1362,6 +1439,7 @@ class CreativeController:
                         created_at=service_data['created_at'],
                         updated_at=service_data['updated_at'],
                         requires_booking=service_data['requires_booking'],
+                        is_time_slot_booking=service_data.get('is_time_slot_booking'),
                         photos=photos_by_service.get(service_data['id'], [])
                     )
                     services.append(service)
