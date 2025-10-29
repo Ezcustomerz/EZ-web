@@ -2,7 +2,6 @@ import {
   Dialog, 
   DialogTitle, 
   DialogContent, 
-  DialogActions, 
   Button, 
   Typography, 
   Box, 
@@ -18,7 +17,12 @@ import {
   Slide,
   Avatar,
   LinearProgress,
-  Tooltip
+  Tooltip,
+  Card,
+  CardContent,
+  Paper,
+  Chip,
+  Alert
 } from '@mui/material';
 import { 
   Close, 
@@ -26,13 +30,605 @@ import {
   CheckCircle,
   Schedule,
   Payment,
-  CalendarToday
+  CalendarToday,
+  AccountBalanceWallet,
+  ArrowForward,
+  Info
 } from '@mui/icons-material';
-import { useState } from 'react';
+import { convertUTCToLocalTime, getUserTimezone } from '../../../utils/timezoneUtils';
+import { useState, useRef, useEffect } from 'react';
 import { BookingSchedulePopover, type BookingScheduleData } from './BookingSchedulePopover';
-import { ScheduleSessionStep } from './ScheduleSessionStep';
-import { ScheduleConfirmationStep } from './ScheduleConfirmationStep';
-import { PaymentStep } from './PaymentStep';
+// Inlined components: ScheduleSessionStep and PaymentStep
+ 
+
+export interface PaymentStepProps {
+  service: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    delivery_time: string;
+    creative_name: string;
+    creative_display_name?: string;
+    creative_title?: string;
+    creative_avatar_url?: string;
+    color: string;
+    payment_option?: 'upfront' | 'split' | 'later';
+    requires_booking?: boolean;
+  };
+  schedulingData: BookingScheduleData | null;
+  isSubmitting: boolean;
+  onSubmit: () => void;
+}
+
+export function PaymentStep({
+  service,
+  schedulingData: _schedulingData,
+  isSubmitting,
+  onSubmit
+}: PaymentStepProps) {
+  const getPaymentOptionLabel = (option: 'upfront' | 'split' | 'later', price: number) => {
+    if (price === 0) {
+      return 'Free Service';
+    }
+    switch (option) {
+      case 'upfront':
+        return 'Payment Upfront';
+      case 'split':
+        return 'Split Payment';
+      case 'later':
+        return 'Payment Later';
+      default:
+        return 'Payment Upfront';
+    }
+  };
+
+  const getPaymentOptionDescription = (option: 'upfront' | 'split' | 'later', price: number) => {
+    if (price === 0) {
+      return 'This is a complimentary service';
+    }
+    switch (option) {
+      case 'upfront':
+        return 'Full payment required before service begins';
+      case 'split':
+        return '50% deposit required to secure booking, remaining 50% due after completion';
+      case 'later':
+        return 'Payment due after service completion';
+      default:
+        return 'Full payment required before service begins';
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const paymentBreakdown = {
+    isFree: service?.price === 0,
+    totalAmount: service?.price || 0,
+    amountPaid: 0,
+    amountRemaining: service?.price || 0,
+  };
+
+  return (
+    <Fade in={true} timeout={300}>
+      <Card sx={{ 
+        border: `2px solid ${service.color}20`, 
+        borderRadius: 3,
+        boxShadow: `0 8px 24px ${service.color}15`,
+        transition: 'all 0.3s ease',
+        
+      }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Avatar sx={{
+              width: 40,
+              height: 40,
+              background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+              boxShadow: `0 4px 12px ${service.color}30`
+            }}>
+              <Payment sx={{ color: 'white', fontSize: 20 }} />
+            </Avatar>
+            <Typography variant="subtitle1" sx={{ 
+              fontWeight: 600, 
+              color: 'text.primary',
+              fontSize: '1.1rem'
+            }}>
+              Payment Information
+            </Typography>
+          </Box>
+        
+          <Paper sx={{ 
+            p: 2, 
+            bgcolor: `${service.color}08`,
+            border: `1px solid ${service.color}20`,
+            borderRadius: 2,
+            mb: 2
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+              <AccountBalanceWallet sx={{ 
+                fontSize: 24, 
+                color: service.color, 
+                mt: 0.25,
+                flexShrink: 0
+              }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" sx={{ 
+                  color: 'text.secondary', 
+                  fontWeight: 600, 
+                  display: 'block', 
+                  mb: 1,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  fontSize: '0.75rem'
+                }}>
+                  Payment Option
+                </Typography>
+                <Chip
+                  label={getPaymentOptionLabel(service.payment_option || 'upfront', service.price)}
+                  size="small"
+                  sx={{
+                    bgcolor: `${service.color}20`,
+                    color: service.color,
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    mb: 1,
+                    height: 28,
+                    '& .MuiChip-label': {
+                      px: 1.5
+                    }
+                  }}
+                />
+                <Typography variant="body2" sx={{ 
+                  color: 'text.secondary', 
+                  fontSize: '0.875rem',
+                  lineHeight: 1.5
+                }}>
+                  {getPaymentOptionDescription(service.payment_option || 'upfront', service.price)}
+                </Typography>
+                {(service.payment_option === 'split' || service.payment_option === 'upfront') && (
+                  <Typography variant="caption" sx={{ 
+                    color: 'text.secondary', 
+                    display: 'block', 
+                    mt: 1 
+                  }}>
+                    Payment is only captured once the creative approves your booking.
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          </Paper>
+
+          {!paymentBreakdown.isFree && (
+            <Box 
+              sx={{ 
+                p: 2,
+                borderRadius: 2,
+                bgcolor: `${service.color}10`,
+                border: `1px solid ${service.color}30`,
+                mb: 2
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <AccountBalanceWallet sx={{ fontSize: 20, color: service.color }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  Payment Status
+                </Typography>
+              </Box>
+
+              {service.payment_option === 'split' ? (
+                <>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Deposit Required
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        50% deposit required to secure booking
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: service.color }}>
+                      {formatCurrency(paymentBreakdown.totalAmount * 0.5)}
+                    </Typography>
+                  </Box>
+
+                  <Divider sx={{ my: 1.5 }} />
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Remaining Balance
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Due after service completion
+                      </Typography>
+                    </Box>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                      {formatCurrency(paymentBreakdown.totalAmount * 0.5)}
+                    </Typography>
+                  </Box>
+                </>
+              ) : service.payment_option === 'upfront' ? (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                      Full Payment Required
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      Complete payment needed before service can begin
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: service.color }}>
+                    {formatCurrency(paymentBreakdown.amountRemaining)}
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                      Payment Due After Completion
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      Service can begin without upfront payment
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: service.color }}>
+                    {formatCurrency(paymentBreakdown.amountRemaining)}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+          
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            mt: 3, 
+            gap: 1.5 
+          }}>
+            <Button
+              onClick={onSubmit}
+              variant="contained"
+              disabled={isSubmitting}
+              endIcon={isSubmitting ? null : <CheckCircle />}
+              sx={{
+                borderRadius: 2,
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                fontSize: '0.875rem',
+                minWidth: 140,
+                background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+                boxShadow: `0 4px 12px ${service.color}30`,
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${service.color}CC 0%, ${service.color} 100%)`,
+                  boxShadow: `0 6px 16px ${service.color}40`,
+                  transform: 'translateY(-1px)'
+                },
+                '&:disabled': {
+                  background: 'rgba(0,0,0,0.12)',
+                  color: 'rgba(0,0,0,0.26)',
+                  transform: 'none',
+                  boxShadow: 'none'
+                }
+              }}
+            >
+              {isSubmitting ? 'Processing...' : 'Confirm Booking'}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+    </Fade>
+  );
+}
+
+export interface ScheduleSessionStepProps {
+  service: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    delivery_time: string;
+    creative_name: string;
+    creative_display_name?: string;
+    creative_title?: string;
+    creative_avatar_url?: string;
+    color: string;
+    payment_option?: 'upfront' | 'split' | 'later';
+    requires_booking?: boolean;
+  };
+  activeStep: number;
+  stepTransition: boolean;
+  onScheduleClick: () => void;
+}
+
+export function ScheduleSessionStep({
+  service,
+  activeStep,
+  stepTransition,
+  onScheduleClick
+}: ScheduleSessionStepProps) {
+  return (
+    <Fade in={stepTransition} timeout={300}>
+      <Card sx={{ 
+        border: '2px solid',
+        borderColor: activeStep === 0 ? service.color : 'divider',
+        borderRadius: 3,
+        mt: 2,
+        transition: 'all 0.3s ease',
+        boxShadow: activeStep === 0 
+          ? `0 8px 24px ${service.color}20` 
+          : '0 4px 12px rgba(0,0,0,0.1)',
+        
+      }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 3, 
+            mb: 3 
+          }}>
+            <Avatar sx={{
+              width: 40,
+              height: 40,
+              background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+              boxShadow: `0 4px 12px ${service.color}30`
+            }}>
+              <Schedule sx={{ color: 'white', fontSize: 20 }} />
+            </Avatar>
+            <Box>
+              <Typography variant="subtitle1" sx={{ 
+                fontWeight: 600, 
+                color: 'text.primary',
+                mb: 0.5
+              }}>
+                Schedule Your Session
+              </Typography>
+              <Typography variant="body2" sx={{ 
+                color: 'text.secondary',
+                fontWeight: 500,
+                fontSize: '0.875rem'
+              }}>
+                This service requires calendar scheduling
+              </Typography>
+            </Box>
+          </Box>
+          
+          <Paper sx={{ 
+            p: 2, 
+            bgcolor: `${service.color}08`,
+            border: `1px solid ${service.color}20`,
+            borderRadius: 2,
+            mb: 3
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+              <Info sx={{ 
+                color: service.color, 
+                fontSize: 20, 
+                mt: 0.25,
+                flexShrink: 0
+              }} />
+              <Box>
+                <Typography variant="body1" sx={{ 
+                  color: 'text.primary',
+                  fontWeight: 600,
+                  mb: 1
+                }}>
+                  Booking Required
+                </Typography>
+                <Typography variant="body2" sx={{ 
+                  color: 'text.secondary',
+                  lineHeight: 1.6
+                }}>
+                  This service requires advance scheduling
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+          
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+            <Button
+              onClick={onScheduleClick}
+              variant="contained"
+              endIcon={<ArrowForward />}
+              sx={{
+                borderRadius: 2,
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                fontSize: '0.875rem',
+                background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+                boxShadow: `0 4px 12px ${service.color}30`,
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${service.color}CC 0%, ${service.color} 100%)`,
+                  boxShadow: `0 6px 16px ${service.color}40`,
+                  transform: 'translateY(-1px)'
+                }
+              }}
+            >
+              Schedule Session
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+    </Fade>
+  );
+}
+
+export interface ScheduleConfirmationStepProps {
+  service: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    delivery_time: string;
+    creative_name: string;
+    creative_display_name?: string;
+    creative_title?: string;
+    creative_avatar_url?: string;
+    color: string;
+    payment_option?: 'upfront' | 'split' | 'later';
+    requires_booking?: boolean;
+  };
+  schedulingData: BookingScheduleData | null;
+  onNext: () => void;
+  isConfirmed?: boolean;
+}
+
+export function ScheduleConfirmationStep({
+  service,
+  schedulingData,
+  onNext,
+  isConfirmed = false
+}: ScheduleConfirmationStepProps) {
+  const parseUtcTimeToLocalDate = (timeStr: string): Date => {
+    try {
+      // Convert from UTC HH:MM[:SS][+offset] to local HH:MM using utils
+      const [timePart] = timeStr.split('+');
+      const [h, m] = timePart.split(':');
+      const localHHMM = convertUTCToLocalTime(`${h}:${m}`, getUserTimezone());
+      const [localH, localM] = localHHMM.split(':').map(Number);
+      const d = new Date();
+      d.setHours(localH, localM, 0, 0);
+      return d;
+    } catch {
+      return new Date('2000-01-01T00:00:00');
+    }
+  };
+
+  const formatTimeRange = (timeStr?: string | null, durationMin?: number): string | null => {
+    if (!timeStr || !durationMin) return null;
+    const start = parseUtcTimeToLocalDate(timeStr);
+    const end = new Date(start.getTime() + durationMin * 60000);
+    const opts: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+    return `${start.toLocaleTimeString(undefined, opts)} - ${end.toLocaleTimeString(undefined, opts)}`;
+  };
+  return (
+    <Fade in={true} timeout={300}>
+      <Card sx={{ 
+        border: `2px solid ${service.color}20`, 
+        borderRadius: 3,
+        boxShadow: `0 8px 24px ${service.color}15`,
+        transition: 'all 0.3s ease'
+      }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+            <Avatar sx={{
+              width: 40,
+              height: 40,
+              background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+              boxShadow: `0 4px 12px ${service.color}30`
+            }}>
+              <CalendarToday sx={{ color: 'white', fontSize: 20 }} />
+            </Avatar>
+            <Typography variant="subtitle1" sx={{ 
+              fontWeight: 600, 
+              color: 'text.primary',
+              fontSize: '1.1rem'
+            }}>
+              Schedule Confirmation
+            </Typography>
+          </Box>
+
+          {schedulingData ? (
+            <Paper sx={{ 
+              p: 2, 
+              bgcolor: `${service.color}08`,
+              border: `1px solid ${service.color}20`,
+              borderRadius: 2,
+              mb: 3
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <CheckCircle sx={{ 
+                  color: service.color, 
+                  fontSize: 24, 
+                  mt: 0.25,
+                  flexShrink: 0
+                }} />
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body1" sx={{ 
+                    color: 'text.primary',
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
+                    Session Scheduled
+                  </Typography>
+                  <Typography variant="body2" sx={{ 
+                    color: 'text.secondary',
+                    lineHeight: 1.6,
+                    mb: 2
+                  }}>
+                    Date: {schedulingData.selectedDate ? schedulingData.selectedDate.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    }) : 'Not selected'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ 
+                    color: 'text.secondary',
+                    lineHeight: 1.6,
+                    mb: 2
+                  }}>
+                    Time: {formatTimeRange(schedulingData.selectedTime, schedulingData.sessionDuration) || 'Not selected'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ 
+                    color: 'text.secondary',
+                    lineHeight: 1.6
+                  }}>
+                    Duration: {schedulingData.sessionDuration} minutes
+                  </Typography>
+                </Box>
+              </Box>
+            </Paper>
+          ) : (
+            <Alert severity="info" sx={{ borderRadius: 2, mb: 3 }}>
+              Please schedule your session to continue
+            </Alert>
+          )}
+          
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, gap: 2 }}>
+            <Button
+              onClick={onNext}
+              variant="contained"
+              disabled={isConfirmed || !schedulingData}
+              endIcon={<CheckCircle />}
+              sx={{
+                borderRadius: 2,
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                fontSize: '0.875rem',
+                minWidth: 140,
+                background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+                boxShadow: `0 4px 12px ${service.color}30`,
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${service.color}CC 0%, ${service.color} 100%)`,
+                  boxShadow: `0 6px 16px ${service.color}40`,
+                  transform: 'translateY(-1px)'
+                },
+                '&:disabled': {
+                  background: 'rgba(0,0,0,0.12)',
+                  color: 'rgba(0,0,0,0.26)',
+                  transform: 'none',
+                  boxShadow: 'none'
+                }
+              }}
+            >
+              {isConfirmed ? 'Confirmed' : 'Confirm Session'}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+    </Fade>
+  );
+}
 
 export interface BookingServicePopoverProps {
   open: boolean;
@@ -63,17 +659,6 @@ export interface BookingServicePopoverProps {
     buffer_time_amount: number;
     buffer_time_unit: 'minutes' | 'hours';
   } | null;
-  weeklySchedule?: Array<{
-    day_of_week: string;
-    is_enabled: boolean;
-    start_time: string;
-    end_time: string;
-  }>;
-  timeSlots?: Array<{
-    slot_time: string;
-    is_enabled: boolean;
-    day_of_week: string;
-  }>;
   onConfirmBooking?: (bookingData: BookingData) => void;
 }
 
@@ -90,8 +675,6 @@ export function BookingServicePopover({
   onClose, 
   service,
   calendarSettings,
-  weeklySchedule = [],
-  timeSlots = [],
   onConfirmBooking
 }: BookingServicePopoverProps) {
   const theme = useTheme();
@@ -100,32 +683,77 @@ export function BookingServicePopover({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [stepTransition, setStepTransition] = useState(true);
-  const [showProgress, setShowProgress] = useState(false);
+  // removed footer progress UI
   const [showSchedulePopover, setShowSchedulePopover] = useState(false);
   const [schedulingData, setSchedulingData] = useState<BookingScheduleData | null>(null);
+
+  // Refs for auto-scrolling to steps
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const step0Ref = useRef<HTMLDivElement | null>(null);
+  const step1Ref = useRef<HTMLDivElement | null>(null);
+  const step2Ref = useRef<HTMLDivElement | null>(null);
+
+  const scrollToStep = (index: number) => {
+    const container = contentRef.current;
+    const refs = [step0Ref.current, step1Ref.current, step2Ref.current];
+    const stepEl = refs[index] as HTMLElement | null;
+    if (!container || !stepEl) return;
+    const labelEl = (stepEl.querySelector('.MuiStepLabel-root') as HTMLElement) || stepEl;
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = labelEl.getBoundingClientRect();
+    const currentScrollTop = container.scrollTop;
+    const offsetWithinContainer = targetRect.top - containerRect.top;
+    const topMargin = 8;
+    const nextScrollTop = currentScrollTop + offsetWithinContainer - topMargin;
+    container.scrollTo({ top: Math.max(nextScrollTop, 0), behavior: 'smooth' });
+  };
 
   // Determine if booking is required
   const isBookingRequired = service?.requires_booking || false;
   
   // Progress calculation - 3 steps if booking required (schedule, confirm, payment)
-  const progress = isBookingRequired ? ((activeStep + 1) / 3) * 100 : 100;
+  const clampedStep = Math.max(0, Math.min(activeStep, 2));
+  const progress = isBookingRequired ? ((clampedStep + 1) / 3) * 100 : 100;
 
   // Step navigation functions with smooth transitions
   const handleNext = () => {
     setStepTransition(false);
     setTimeout(() => {
-      setActiveStep((prevActiveStep) => prevActiveStep + 1);
+      setActiveStep((prevActiveStep) => Math.min(prevActiveStep + 1, 2));
       setStepTransition(true);
     }, 150);
   };
 
-  const handleBack = () => {
-    setStepTransition(false);
-    setTimeout(() => {
-      setActiveStep((prevActiveStep) => prevActiveStep - 1);
-      setStepTransition(true);
-    }, 150);
-  };
+  // Back handler is no longer used in the payment step
+
+  // Scroll to the active step smoothly inside dialog content
+  useEffect(() => {
+    if (!isBookingRequired) return;
+    const container = contentRef.current;
+    const refs = [step0Ref.current, step1Ref.current, step2Ref.current];
+    const stepEl = refs[activeStep] as HTMLElement | null;
+    if (!container || !stepEl) return;
+
+    // Wait for the StepContent expand animation to finish before measuring
+    const timeoutId = window.setTimeout(() => {
+      // For the final step, just scroll to the bottom to ensure the whole section is visible
+      if (activeStep === 2) {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        return;
+      }
+      const labelEl = (stepEl.querySelector('.MuiStepLabel-root') as HTMLElement) || stepEl;
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = labelEl.getBoundingClientRect();
+      const currentScrollTop = container.scrollTop;
+      const offsetWithinContainer = targetRect.top - containerRect.top;
+      // Scroll more for step 3 so the "Confirm Booking & Payment" header is clearly visible
+      const topMargin = activeStep === 2 ? -72 : 8;
+      const nextScrollTop = currentScrollTop + offsetWithinContainer - topMargin;
+      container.scrollTo({ top: Math.max(nextScrollTop, 0), behavior: 'smooth' });
+    }, 250); // align with StepContent transition duration
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeStep, isBookingRequired]);
 
   // Handle scheduling popover
   const handleOpenSchedule = () => {
@@ -140,7 +768,14 @@ export function BookingServicePopover({
   const handleScheduleConfirm = (data: BookingScheduleData) => {
     setSchedulingData(data);
     setShowSchedulePopover(false);
-    handleNext(); // Move to next step after scheduling
+    // Move to Confirm Schedule (step index 1) without exceeding bounds
+    setStepTransition(false);
+    setTimeout(() => {
+      setActiveStep(1);
+      setStepTransition(true);
+      // ensure view scrolls to step 2 header after closing the popover
+      setTimeout(() => scrollToStep(1), 200);
+    }, 150);
   };
 
   // Debug logging to help troubleshoot
@@ -167,7 +802,7 @@ export function BookingServicePopover({
 
     // Final submission
     setIsSubmitting(true);
-    setShowProgress(true);
+    
     
     try {
       const bookingData: BookingData = {
@@ -184,17 +819,24 @@ export function BookingServicePopover({
       
       // Add a small delay for better UX
       setTimeout(() => {
+        // Clear any saved scheduling when finishing all steps
+        setSchedulingData(null);
         onClose();
       }, 500);
     } catch (error) {
       console.error('Failed to submit booking:', error);
-      setShowProgress(false);
+      
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleClose = () => {
+    // Reset booking flow state when closing the popover
+    setSchedulingData(null);
+    setActiveStep(0);
+    setIsSubmitting(false);
+    setShowSchedulePopover(false);
     onClose();
   };
 
@@ -245,10 +887,7 @@ export function BookingServicePopover({
               height: 48,
               background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
               boxShadow: `0 6px 16px ${service.color}30`,
-              '&:hover': {
-                transform: 'scale(1.05)',
                 transition: 'transform 0.2s ease-in-out'
-              }
             }}>
               <BookOnline sx={{ color: 'white', fontSize: 24 }} />
             </Avatar>
@@ -301,7 +940,7 @@ export function BookingServicePopover({
                 Progress
               </Typography>
               <Typography variant="caption" sx={{ color: service.color, fontWeight: 600 }}>
-                {activeStep + 1} of 3
+                {clampedStep + 1} of 3
               </Typography>
             </Box>
             <LinearProgress 
@@ -321,11 +960,11 @@ export function BookingServicePopover({
         )}
       </DialogTitle>
 
-      <DialogContent sx={{ p: 3, pt: 2}}>
+      <DialogContent ref={contentRef} sx={{ p: 3, pt: 2}}>
         {isBookingRequired ? (
           <Stepper activeStep={activeStep} orientation="vertical" sx={{ mt: 1 }}>
             {/* Step 1: Booking Required */}
-            <Step expanded={activeStep >= 0}>
+            <Step expanded={activeStep >= 0} ref={step0Ref}>
               <StepLabel
                 StepIconComponent={({ active, completed }) => (
                   <Box
@@ -336,11 +975,7 @@ export function BookingServicePopover({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      bgcolor: completed 
-                        ? service.color 
-                        : active 
-                          ? `${service.color}20` 
-                          : 'grey.200',
+                      bgcolor: completed || active ? service.color : 'grey.200',
                       color: completed || active ? 'white' : 'grey.500',
                       fontWeight: 600,
                       fontSize: '0.875rem',
@@ -348,9 +983,6 @@ export function BookingServicePopover({
                       boxShadow: active || completed 
                         ? `0 3px 8px ${service.color}30` 
                         : '0 2px 4px rgba(0,0,0,0.1)',
-                      '&:hover': {
-                        transform: 'scale(1.05)',
-                      }
                     }}
                   >
                     {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <Schedule sx={{ fontSize: 20 }} />}
@@ -366,7 +998,7 @@ export function BookingServicePopover({
               >
                 Schedule Your Session
               </StepLabel>
-              <StepContent>
+              <StepContent ref={step0Ref}>
                 <ScheduleSessionStep
                   service={service}
                   activeStep={activeStep}
@@ -377,7 +1009,7 @@ export function BookingServicePopover({
             </Step>
 
             {/* Step 2: Schedule Confirmation */}
-            <Step expanded={activeStep >= 1}>
+            <Step expanded={activeStep >= 1} ref={step1Ref}>
               <StepLabel
                 StepIconComponent={({ active, completed }) => (
                   <Box
@@ -388,11 +1020,7 @@ export function BookingServicePopover({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      bgcolor: completed 
-                        ? service.color 
-                        : active 
-                          ? `${service.color}20` 
-                          : 'grey.200',
+                      bgcolor: completed || active ? service.color : 'grey.200',
                       color: completed || active ? 'white' : 'grey.500',
                       fontWeight: 600,
                       fontSize: '0.875rem',
@@ -400,9 +1028,6 @@ export function BookingServicePopover({
                       boxShadow: active || completed 
                         ? `0 3px 8px ${service.color}30` 
                         : '0 2px 4px rgba(0,0,0,0.1)',
-                      '&:hover': {
-                        transform: 'scale(1.05)',
-                      }
                     }}
                   >
                     {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <CalendarToday sx={{ fontSize: 20 }} />}
@@ -418,18 +1043,18 @@ export function BookingServicePopover({
               >
                 Confirm Schedule
               </StepLabel>
-              <StepContent sx={{ mt: 2 }}>
+              <StepContent ref={step1Ref} sx={{ mt: 2 }}>
                 <ScheduleConfirmationStep
                   service={service}
                   schedulingData={schedulingData}
-                  onBack={handleBack}
                   onNext={handleNext}
+                  isConfirmed={activeStep >= 2}
                 />
               </StepContent>
             </Step>
 
             {/* Step 3: Confirm Booking & Payment */}
-            <Step expanded={activeStep >= 2}>
+            <Step expanded={activeStep >= 2} ref={step2Ref}>
               <StepLabel
                 StepIconComponent={({ active, completed }) => (
                   <Box
@@ -440,11 +1065,7 @@ export function BookingServicePopover({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      bgcolor: completed 
-                        ? service.color 
-                        : active 
-                          ? `${service.color}20` 
-                          : 'grey.200',
+                      bgcolor: completed || active ? service.color : 'grey.200',
                       color: completed || active ? 'white' : 'grey.500',
                       fontWeight: 600,
                       fontSize: '0.875rem',
@@ -452,9 +1073,6 @@ export function BookingServicePopover({
                       boxShadow: active || completed 
                         ? `0 3px 8px ${service.color}30` 
                         : '0 2px 4px rgba(0,0,0,0.1)',
-                      '&:hover': {
-                        transform: 'scale(1.05)',
-                      }
                     }}
                   >
                     {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <Payment sx={{ fontSize: 20 }} />}
@@ -470,12 +1088,11 @@ export function BookingServicePopover({
               >
                 Confirm Booking & Payment
               </StepLabel>
-              <StepContent sx={{ mt: 2 }}>
+              <StepContent ref={step2Ref} sx={{ mt: 2 }}>
                 <PaymentStep
                   service={service}
                   schedulingData={schedulingData}
                   isSubmitting={isSubmitting}
-                  onBack={handleBack}
                   onSubmit={handleSubmit}
                 />
               </StepContent>
@@ -488,110 +1105,23 @@ export function BookingServicePopover({
               service={service}
               schedulingData={null}
               isSubmitting={isSubmitting}
-              onBack={undefined} // No back button for single step
               onSubmit={handleSubmit}
             />
           </Fade>
         )}
       </DialogContent>
 
-      <Divider sx={{ borderColor: `${service.color}20` }} />
-
-      <DialogActions sx={{ p: 3, pt: 2, gap: 2 }}>
-        <Button
-          onClick={handleClose}
-          variant="outlined"
-          sx={{ 
-            borderRadius: 2, 
-            fontWeight: 600,
-            px: 3,
-            py: 1,
-            fontSize: '0.875rem',
-            color: 'error.main',
-            borderColor: 'error.main',
-            minWidth: 100,
-            transition: 'all 0.2s ease-in-out',
-            '&:hover': {
-              backgroundColor: 'error.main',
-              color: 'white',
-              borderColor: 'error.main',
-              transform: 'translateY(-1px)',
-              boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)'
-            }
-          }}
-        >
-          Cancel
-        </Button>
-        
-        {!isBookingRequired && (
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            disabled={isSubmitting}
-            endIcon={isSubmitting ? null : <CheckCircle />}
-            sx={{
-              borderRadius: 2,
-              fontWeight: 600,
-              px: 3,
-              py: 1,
-              fontSize: '0.875rem',
-              minWidth: 140,
-              background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
-              boxShadow: `0 4px 12px ${service.color}30`,
-              transition: 'all 0.2s ease-in-out',
-              '&:hover': {
-                background: `linear-gradient(135deg, ${service.color}CC 0%, ${service.color} 100%)`,
-                boxShadow: `0 6px 16px ${service.color}40`,
-                transform: 'translateY(-1px)'
-              },
-              '&:disabled': {
-                background: 'rgba(0,0,0,0.12)',
-                color: 'rgba(0,0,0,0.26)',
-                transform: 'none',
-                boxShadow: 'none'
-              }
-            }}
-          >
-            {isSubmitting ? 'Processing...' : 'Confirm Booking'}
-          </Button>
-        )}
-        
-        {/* Progress indicator for submission */}
-        {showProgress && (
-          <Box sx={{ width: '100%', mt: 2 }}>
-            <LinearProgress 
-              sx={{
-                height: 4,
-                borderRadius: 2,
-                bgcolor: `${service.color}20`,
-                '& .MuiLinearProgress-bar': {
-                  borderRadius: 2,
-                  background: `linear-gradient(90deg, ${service.color} 0%, ${service.color}CC 100%)`,
-                }
-              }}
-            />
-            <Typography variant="caption" sx={{ 
-              color: service.color, 
-              fontWeight: 600, 
-              mt: 1, 
-              display: 'block',
-              textAlign: 'center'
-            }}>
-              Processing your booking...
-            </Typography>
-          </Box>
-        )}
-      </DialogActions>
+      
 
       {/* Scheduling Popover */}
       <BookingSchedulePopover
         open={showSchedulePopover}
         onClose={handleCloseSchedule}
         service={service}
-        calendarSettings={calendarSettings || null}
-        weeklySchedule={weeklySchedule}
-        timeSlots={timeSlots}
         onConfirmBooking={handleScheduleConfirm}
+        initialSelectedDate={schedulingData?.selectedDate || null}
+        initialSelectedTime={schedulingData?.selectedTime || null}
+        initialDuration={schedulingData?.sessionDuration || null}
       />
     </Dialog>
   );

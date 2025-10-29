@@ -1,4 +1,4 @@
-import { 
+import {
   Dialog, 
   DialogTitle, 
   DialogContent, 
@@ -17,6 +17,8 @@ import {
   LinearProgress,
   Tooltip,
   Alert,
+  CircularProgress,
+  Chip,
 } from '@mui/material';
 import { 
   Close, 
@@ -27,7 +29,10 @@ import {
   ArrowBack
 } from '@mui/icons-material';
 import { useState, useEffect, useMemo } from 'react';
-import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addHours, addMinutes, addWeeks, addMonths } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { bookingService } from '../../../api/bookingService';
+import type { CalendarSettings, TimeSlot, AvailableDate } from '../../../api/bookingService';
+import { convertUTCToLocalTime, getUserTimezone } from '../../../utils/timezoneUtils';
 
 export interface BookingSchedulePopoverProps {
   open: boolean;
@@ -46,30 +51,11 @@ export interface BookingSchedulePopoverProps {
     payment_option?: 'upfront' | 'split' | 'later';
     requires_booking?: boolean;
   } | null;
-  calendarSettings?: {
-    service_id: string;
-    is_scheduling_enabled: boolean;
-    session_duration: number;
-    default_session_length: number;
-    min_notice_amount: number;
-    min_notice_unit: 'minutes' | 'hours' | 'days';
-    max_advance_amount: number;
-    max_advance_unit: 'hours' | 'days' | 'weeks' | 'months';
-    buffer_time_amount: number;
-    buffer_time_unit: 'minutes' | 'hours';
-  } | null;
-  weeklySchedule: Array<{
-    day_of_week: string;
-    is_enabled: boolean;
-    start_time: string;
-    end_time: string;
-  }>;
-  timeSlots?: Array<{
-    slot_time: string;
-    is_enabled: boolean;
-    day_of_week: string;
-  }>;
   onConfirmBooking?: (bookingData: BookingScheduleData) => void;
+  // Optional initial values to restore previous selection in current session
+  initialSelectedDate?: Date | null;
+  initialSelectedTime?: string | null;
+  initialDuration?: number | null;
 }
 
 export interface BookingScheduleData {
@@ -84,10 +70,10 @@ export function BookingSchedulePopover({
   open, 
   onClose, 
   service,
-  calendarSettings,
-  weeklySchedule,
-  timeSlots = [],
-  onConfirmBooking
+  onConfirmBooking,
+  initialSelectedDate,
+  initialSelectedTime,
+  initialDuration
 }: BookingSchedulePopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -95,182 +81,147 @@ export function BookingSchedulePopover({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [selectedDuration] = useState<number>(calendarSettings?.default_session_length || 60);
+  const [selectedDuration, setSelectedDuration] = useState<number>(60);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showProgress, setShowProgress] = useState(false);
+  
+  // Backend data state
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
+  const [availableDates, setAvailableDates] = useState<AvailableDate[]>([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
+  
+  // Loading states
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isLoadingTimeSlots, setIsLoadingTimeSlots] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Create default calendar settings if none provided
-  const defaultCalendarSettings = {
-    service_id: service?.id || '',
-    is_scheduling_enabled: true,
-    session_duration: 60,
-    default_session_length: 60,
-    min_notice_amount: 24,
-    min_notice_unit: 'hours' as const,
-    max_advance_amount: 30,
-    max_advance_unit: 'days' as const,
-    buffer_time_amount: 15,
-    buffer_time_unit: 'minutes' as const
+  // Fetch booking data when component opens
+  useEffect(() => {
+    if (open && service?.id) {
+      fetchBookingData();
+    }
+  }, [open, service?.id]);
+
+  // Fetch time slots when date is selected
+  useEffect(() => {
+    if (selectedDate && service?.id) {
+      fetchTimeSlotsForDate(selectedDate);
+    }
+  }, [selectedDate, service?.id]);
+
+  const fetchBookingData = async () => {
+    if (!service?.id) return;
+    
+    setIsLoadingData(true);
+    setError(null);
+    
+    try {
+      const [calendarData, availableDatesData] = await Promise.all([
+        bookingService.getCalendarSettings(service.id),
+        bookingService.getAvailableDates(service.id)
+      ]);
+
+      setCalendarSettings(calendarData);
+      setAvailableDates(availableDatesData);
+      
+      // Set default session duration from calendar settings
+      if (calendarData.default_session_length) {
+        setSelectedDuration(calendarData.default_session_length);
+      }
+    } catch (err) {
+      console.error('Error fetching booking data:', err);
+      setError('Failed to load booking data. Please try again.');
+    } finally {
+      setIsLoadingData(false);
+    }
   };
 
-  const effectiveCalendarSettings = calendarSettings || defaultCalendarSettings;
+  const fetchTimeSlotsForDate = async (date: Date) => {
+    if (!service?.id) return;
+    
+    setIsLoadingTimeSlots(true);
+    
+    try {
+      const dateString = format(date, 'yyyy-MM-dd');
+      const timeSlots = await bookingService.getAvailableTimeSlots(service.id, dateString);
+      setAvailableTimeSlots(timeSlots);
+    } catch (err) {
+      console.error('Error fetching time slots:', err);
+      setAvailableTimeSlots([]);
+    } finally {
+      setIsLoadingTimeSlots(false);
+    }
+  };
 
-  // Helper function to parse time safely
+  // Helper function to parse time safely and convert to user's timezone
   const parseTime = (timeStr: string) => {
     try {
-      // Handle different time formats
-      let timeToParse = timeStr;
-      if (timeStr.includes('+')) {
-        // Remove timezone info for parsing
-        timeToParse = timeStr.split('+')[0];
-      }
-      if (timeToParse.split(':').length === 2) {
-        // Add seconds if missing
-        timeToParse += ':00';
-      }
-      return new Date(`2000-01-01T${timeToParse}`);
+      // Extract time part from UTC string (e.g., "13:00:00+00" -> "13:00:00")
+      const [timePart] = timeStr.split('+');
+      const [hour, minute] = timePart.split(':').map(Number);
+      
+      // Get user's timezone
+      const userTimezone = getUserTimezone();
+      
+      // Convert UTC time to local time using timezone utils
+      const localTimeStr = convertUTCToLocalTime(`${hour}:${minute}`, userTimezone);
+      const [localHour, localMinute] = localTimeStr.split(':').map(Number);
+      
+      // Create a date object with the local time
+      return new Date(2000, 0, 1, localHour, localMinute);
     } catch (error) {
       console.warn('Failed to parse time:', timeStr, error);
       return new Date('2000-01-01T09:00:00'); // fallback
     }
   };
 
-  // Reset state when dialog opens/closes
+  // Reset or restore state when dialog opens
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    setCurrentMonth(initialSelectedDate ? initialSelectedDate : new Date());
+    setAvailableTimeSlots([]);
+    setError(null);
+    setShowProgress(false);
+    setIsSubmitting(false);
+
+    if (initialSelectedDate) {
+      setSelectedDate(initialSelectedDate);
+    } else {
       setSelectedDate(null);
+    }
+    if (initialSelectedTime) {
+      setSelectedTime(initialSelectedTime);
+    } else {
       setSelectedTime(null);
-      setCurrentMonth(new Date());
     }
-  }, [open]);
-
-  // Calculate available dates based on weekly schedule
-  const availableDates = useMemo(() => {
-    if (!effectiveCalendarSettings) return [];
-
-    // If no weekly schedule provided, create a default one (Monday to Friday, 9 AM to 5 PM)
-    const defaultWeeklySchedule = [
-      { day_of_week: 'Monday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' },
-      { day_of_week: 'Tuesday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' },
-      { day_of_week: 'Wednesday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' },
-      { day_of_week: 'Thursday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' },
-      { day_of_week: 'Friday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' }
-    ];
-
-    const scheduleToUse = weeklySchedule.length > 0 ? weeklySchedule : defaultWeeklySchedule;
-    const enabledDays = scheduleToUse
-      .filter(day => day.is_enabled)
-      .map(day => day.day_of_week);
-
-    const startDate = new Date();
-    let endDate;
-    if (effectiveCalendarSettings.max_advance_unit === 'hours') {
-      endDate = addHours(startDate, effectiveCalendarSettings.max_advance_amount);
-    } else if (effectiveCalendarSettings.max_advance_unit === 'days') {
-      endDate = addDays(startDate, effectiveCalendarSettings.max_advance_amount);
-    } else if (effectiveCalendarSettings.max_advance_unit === 'weeks') {
-      endDate = addWeeks(startDate, effectiveCalendarSettings.max_advance_amount);
-    } else { // months
-      endDate = addMonths(startDate, effectiveCalendarSettings.max_advance_amount);
+    if (initialDuration ?? null) {
+      setSelectedDuration(initialDuration as number);
     }
-
-    const dates: Date[] = [];
-    const current = new Date(startDate);
-
-    while (current <= endDate) {
-      const dayName = format(current, 'EEEE');
-      if (enabledDays.includes(dayName)) {
-        // Check minimum notice requirement
-        let minNoticeHours;
-        if (effectiveCalendarSettings.min_notice_unit === 'minutes') {
-          minNoticeHours = effectiveCalendarSettings.min_notice_amount / 60;
-        } else if (effectiveCalendarSettings.min_notice_unit === 'hours') {
-          minNoticeHours = effectiveCalendarSettings.min_notice_amount;
-        } else { // days
-          minNoticeHours = effectiveCalendarSettings.min_notice_amount * 24;
-        }
-        
-        const minNoticeDate = addHours(new Date(), minNoticeHours);
-        
-        if (current >= minNoticeDate) {
-          dates.push(new Date(current));
-        }
-      }
-      current.setDate(current.getDate() + 1);
+    // Ensure time slots load for the restored date immediately
+    if (initialSelectedDate && service?.id) {
+      fetchTimeSlotsForDate(initialSelectedDate);
     }
+  }, [open, initialSelectedDate, initialSelectedTime, initialDuration]);
 
-    return dates;
-  }, [effectiveCalendarSettings, weeklySchedule]);
-
-  // Calculate available time slots for selected date
-  const availableTimeSlots = useMemo(() => {
-    try {
-      if (!selectedDate || !effectiveCalendarSettings) return [];
-
-      // If no weekly schedule provided, create a default one
-      const defaultWeeklySchedule = [
-        { day_of_week: 'Monday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' },
-        { day_of_week: 'Tuesday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' },
-        { day_of_week: 'Wednesday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' },
-        { day_of_week: 'Thursday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' },
-        { day_of_week: 'Friday', is_enabled: true, start_time: '09:00:00+00', end_time: '17:00:00+00' }
-      ];
-
-      const scheduleToUse = weeklySchedule.length > 0 ? weeklySchedule : defaultWeeklySchedule;
-      const dayName = format(selectedDate, 'EEEE');
-      const daySchedule = scheduleToUse.find(day => day.day_of_week === dayName);
+  // Convert backend time slots to display format
+  const displayTimeSlots = useMemo(() => {
+    return availableTimeSlots.map(slot => {
+      const slotTime = parseTime(slot.slot_time);
+      const displayTime = format(slotTime, 'h:mm a');
       
-      if (!daySchedule || !daySchedule.is_enabled) return [];
-
-      const slots: Array<{ time: string; displayTime: string; isAvailable: boolean }> = [];
-
-      if (timeSlots.length > 0) {
-        // Use predefined time slots (always use time slots now)
-        const dayTimeSlots = timeSlots.filter(slot => 
-          slot.day_of_week === dayName && slot.is_enabled
-        );
-
-        dayTimeSlots.forEach(slot => {
-          const slotTime = parseTime(slot.slot_time);
-          const displayTime = format(slotTime, 'h:mm a');
-          
-          slots.push({
-            time: slot.slot_time,
-            displayTime,
-            isAvailable: true
-          });
-        });
-      } else {
-        // Generate time slots based on time blocks
-        const startTime = parseTime(daySchedule.start_time);
-        const endTime = parseTime(daySchedule.end_time);
-        
-        let currentTime = new Date(startTime);
-        const bufferMinutes = effectiveCalendarSettings.buffer_time_unit === 'minutes' 
-          ? effectiveCalendarSettings.buffer_time_amount 
-          : effectiveCalendarSettings.buffer_time_amount * 60;
-
-        while (currentTime < endTime) {
-          const displayTime = format(currentTime, 'h:mm a');
-          const timeString = format(currentTime, 'HH:mm:ss') + '+00:00';
-          
-          slots.push({
-            time: timeString,
-            displayTime,
-            isAvailable: true
-          });
-
-          // Add buffer time between slots
-          currentTime = addMinutes(currentTime, selectedDuration + bufferMinutes);
-        }
-      }
-
-      return slots;
-    } catch (error) {
-      console.error('Error calculating available time slots:', error);
-      return [];
-    }
-  }, [selectedDate, effectiveCalendarSettings, weeklySchedule, timeSlots, selectedDuration]);
+      // Debug logging
+      const userTimezone = getUserTimezone();
+      console.log(`UTC time: ${slot.slot_time} -> Local time: ${displayTime} (Timezone: ${userTimezone})`);
+      
+      return {
+        id: slot.id,
+        time: slot.slot_time,
+        displayTime,
+        isAvailable: slot.is_enabled,
+        day_of_week: slot.day_of_week
+      };
+    });
+  }, [availableTimeSlots]);
 
 
   // Get month dates for calendar view
@@ -296,14 +247,14 @@ export function BookingSchedulePopover({
     setSelectedTime(null);
   };
 
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
+  const handleTimeSelect = (timeSlot: { time: string; id: string }) => {
+    setSelectedTime(timeSlot.time);
   };
 
 
 
   const handleSubmit = async () => {
-    if (!service || !selectedDate || !selectedTime || !effectiveCalendarSettings) {
+    if (!service || !selectedDate || !selectedTime || !calendarSettings) {
       return;
     }
 
@@ -335,18 +286,24 @@ export function BookingSchedulePopover({
   };
 
   const handleClose = () => {
+    setShowProgress(false);
+    setIsSubmitting(false);
     onClose();
   };
 
   const isDateAvailable = (date: Date) => {
-    return availableDates.some(availableDate => isSameDay(availableDate, date));
+    if (!Array.isArray(availableDates)) {
+      return false;
+    }
+    const dateString = format(date, 'yyyy-MM-dd');
+    return availableDates.some(availableDate => availableDate.date === dateString && availableDate.is_available);
   };
 
   const isDateSelected = (date: Date) => {
     return selectedDate ? isSameDay(selectedDate, date) : false;
   };
 
-  const canProceed = selectedDate && selectedTime && selectedDuration;
+  const canProceed = selectedDate && selectedTime && selectedDuration && calendarSettings;
 
   if (!service) return null;
 
@@ -445,7 +402,19 @@ export function BookingSchedulePopover({
       </DialogTitle>
 
       <DialogContent sx={{ p: 3, pt: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+        {isLoadingData ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+            <CircularProgress size={40} sx={{ color: service.color, mr: 2 }} />
+            <Typography variant="h6" color="text.secondary">
+              Loading booking calendar...
+            </Typography>
+          </Box>
+        ) : error ? (
+          <Alert severity="error" sx={{ borderRadius: 2, mb: 2 }}>
+            {error}
+          </Alert>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, pt: 2 }}>
           {/* Mini Calendar */}
           <Card sx={{ 
             border: `2px solid ${service.color}20`, 
@@ -547,22 +516,7 @@ export function BookingSchedulePopover({
                 })}
               </Box>
 
-              {selectedDate && (
-                <Alert 
-                  severity="success" 
-                  sx={{ 
-                    mt: 2, 
-                    borderRadius: 2,
-                    backgroundColor: `${service.color}10`,
-                    border: `1px solid ${service.color}30`,
-                    '& .MuiAlert-icon': {
-                      color: service.color
-                    }
-                  }}
-                >
-                  Selected: {format(selectedDate, 'EEEE, MMMM do, yyyy')}
-                </Alert>
-              )}
+              {/* Removed selected date alert per request */}
             </CardContent>
           </Card>
 
@@ -575,30 +529,62 @@ export function BookingSchedulePopover({
             minWidth: 300
           }}>
             <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                <Avatar sx={{
-                  width: 32,
-                  height: 32,
-                  background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
-                  boxShadow: `0 3px 8px ${service.color}30`
-                }}>
-                  <Schedule sx={{ color: 'white', fontSize: 18 }} />
-                </Avatar>
-                <Typography variant="subtitle1" sx={{ 
-                  fontWeight: 600, 
-                  color: 'text.primary'
-                }}>
-                  Available Times
-                </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Avatar sx={{
+                    width: 32,
+                    height: 32,
+                    background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+                    boxShadow: `0 3px 8px ${service.color}30`
+                  }}>
+                    <Schedule sx={{ color: 'white', fontSize: 18 }} />
+                  </Avatar>
+                  <Typography variant="subtitle1" sx={{ 
+                    fontWeight: 600, 
+                    color: 'text.primary'
+                  }}>
+                    Available Times
+                  </Typography>
+                </Box>
+                {selectedTime && (
+                  (() => {
+                    const start = parseTime(selectedTime);
+                    const minutes = selectedDuration || calendarSettings?.default_session_length || 0;
+                    const end = new Date(start.getTime() + minutes * 60000);
+                    const startStr = format(start, 'h:mm a');
+                    const endStr = format(end, 'h:mm a');
+                    return (
+                      <Chip 
+                        label={`${startStr} - ${endStr}`}
+                        size="small"
+                        sx={{
+                          bgcolor: `${service.color}20`,
+                          color: service.color,
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          height: 26,
+                          '& .MuiChip-label': { px: 1.5 }
+                        }}
+                      />
+                    );
+                  })()
+                )}
               </Box>
 
               {!selectedDate ? (
                 <Alert severity="info" sx={{ borderRadius: 2 }}>
                   Please select a date to view available times
                 </Alert>
-              ) : availableTimeSlots.length === 0 ? (
+              ) : isLoadingTimeSlots ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                  <CircularProgress size={24} sx={{ color: service.color, mr: 2 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Loading available times...
+                  </Typography>
+                </Box>
+              ) : displayTimeSlots.length === 0 ? (
                 <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                  No available times for the selected date
+                  No bookings available for this day
                 </Alert>
               ) : (
                 <Box sx={{ 
@@ -606,10 +592,10 @@ export function BookingSchedulePopover({
                   gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', 
                   gap: 1 
                 }}>
-                  {availableTimeSlots.map((slot, index) => (
+                  {displayTimeSlots.map((slot) => (
                     <Box
-                      key={index}
-                      onClick={() => handleTimeSelect(slot.time)}
+                      key={slot.id}
+                      onClick={() => handleTimeSelect(slot)}
                       sx={{
                         p: 2,
                         borderRadius: 2,
@@ -640,55 +626,16 @@ export function BookingSchedulePopover({
                 </Box>
               )}
 
-              {selectedTime && (
-                <Alert 
-                  severity="success" 
-                  sx={{ 
-                    mt: 2, 
-                    borderRadius: 2,
-                    backgroundColor: `${service.color}10`,
-                    border: `1px solid ${service.color}30`,
-                    '& .MuiAlert-icon': {
-                      color: service.color
-                    }
-                  }}
-                >
-                  Selected: {format(new Date(`2000-01-01T${selectedTime}`), 'h:mm a')}
-                </Alert>
-              )}
+              
             </CardContent>
           </Card>
         </Box>
+        )}
       </DialogContent>
 
       <Divider sx={{ borderColor: `${service.color}20` }} />
 
       <DialogActions sx={{ p: 3, pt: 2, gap: 2 }}>
-        <Button
-          onClick={handleClose}
-          variant="outlined"
-          sx={{ 
-            borderRadius: 2, 
-            fontWeight: 600,
-            px: 3,
-            py: 1,
-            fontSize: '0.875rem',
-            color: 'error.main',
-            borderColor: 'error.main',
-            minWidth: 100,
-            transition: 'all 0.2s ease-in-out',
-            '&:hover': {
-              backgroundColor: 'error.main',
-              color: 'white',
-              borderColor: 'error.main',
-              transform: 'translateY(-1px)',
-              boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)'
-            }
-          }}
-        >
-          Cancel
-        </Button>
-        
         <Button
           onClick={handleSubmit}
           variant="contained"
