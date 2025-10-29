@@ -224,13 +224,12 @@ export interface WeeklySchedule {
 
 export interface CalendarSettings {
   is_scheduling_enabled: boolean;
-  use_time_slots: boolean;
-  session_durations: number[]; // Duration in minutes
+  session_duration: number; // Duration in minutes
   default_session_length: number;
   min_notice_amount: number;
-  min_notice_unit: 'hours' | 'days';
+  min_notice_unit: 'minutes' | 'hours' | 'days';
   max_advance_amount: number;
-  max_advance_unit: 'days' | 'weeks' | 'months';
+  max_advance_unit: 'hours' | 'days' | 'weeks' | 'months';
   buffer_time_amount: number;
   buffer_time_unit: 'minutes' | 'hours';
   weekly_schedule: WeeklySchedule[];

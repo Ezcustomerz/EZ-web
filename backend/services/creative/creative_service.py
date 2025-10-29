@@ -201,7 +201,7 @@ class CreativeController:
         try:
             # Query the creative_services table for this creative user
             result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, requires_booking, is_time_slot_booking'
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, requires_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
             if not result.data:
@@ -220,8 +220,7 @@ class CreativeController:
                     is_active=service_data['is_active'],
                     created_at=service_data['created_at'],
                     updated_at=service_data['updated_at'],
-                    requires_booking=service_data['requires_booking'],
-                    is_time_slot_booking=service_data.get('is_time_slot_booking')
+                    requires_booking=service_data['requires_booking']
                 )
                 services.append(service)
             
@@ -263,8 +262,7 @@ class CreativeController:
                 'color': service_request.color,
                 'payment_option': service_request.payment_option,
                 'is_active': True,
-                'requires_booking': service_request.calendar_settings is not None,
-                'is_time_slot_booking': service_request.calendar_settings.use_time_slots if service_request.calendar_settings else None
+                'requires_booking': service_request.calendar_settings is not None
             }
             
             # Insert the service
@@ -347,7 +345,6 @@ class CreativeController:
                 'payment_option': payment_option,
                 'is_active': True,
                 'requires_booking': calendar_settings is not None,
-                'is_time_slot_booking': calendar_settings.use_time_slots if calendar_settings else None
             }
             
             # Insert the service
@@ -396,8 +393,7 @@ class CreativeController:
             calendar_data = {
                 'service_id': service_id,
                 'is_scheduling_enabled': calendar_settings.is_scheduling_enabled,
-                'use_time_slots': calendar_settings.use_time_slots,
-                'session_durations': calendar_settings.session_durations,
+                'session_duration': calendar_settings.session_duration,
                 'default_session_length': calendar_settings.default_session_length,
                 'min_notice_amount': calendar_settings.min_notice_amount,
                 'min_notice_unit': calendar_settings.min_notice_unit,
@@ -448,8 +444,8 @@ class CreativeController:
                         if time_blocks_data:
                             db_admin.table('time_blocks').insert(time_blocks_data).execute()
                     
-                    # Save time slots (if using time slot mode, convert to UTC)
-                    if calendar_settings.use_time_slots and day_schedule.time_slots:
+                    # Save time slots (always use time slot mode, convert to UTC)
+                    if day_schedule.time_slots:
                         time_slots_data = []
                         # Convert time slots to UTC
                         utc_time_slots = convert_time_slots_to_utc(
@@ -853,7 +849,6 @@ class CreativeController:
                 'payment_option': service_request.payment_option,
                 'updated_at': 'now()',
                 'requires_booking': service_request.calendar_settings is not None,
-                'is_time_slot_booking': service_request.calendar_settings.use_time_slots if service_request.calendar_settings else None
             }
 
             result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
@@ -910,7 +905,6 @@ class CreativeController:
                 'payment_option': service_data.get('payment_option', 'later'),
                 'updated_at': 'now()',
                 'requires_booking': calendar_settings is not None,
-                'is_time_slot_booking': calendar_settings.use_time_slots if calendar_settings else None
             }
 
             result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
@@ -1397,7 +1391,7 @@ class CreativeController:
         try:
             # Get services
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking, is_time_slot_booking'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
             services = []
@@ -1439,7 +1433,6 @@ class CreativeController:
                         created_at=service_data['created_at'],
                         updated_at=service_data['updated_at'],
                         requires_booking=service_data['requires_booking'],
-                        is_time_slot_booking=service_data.get('is_time_slot_booking'),
                         photos=photos_by_service.get(service_data['id'], [])
                     )
                     services.append(service)

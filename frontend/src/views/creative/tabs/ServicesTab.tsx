@@ -642,7 +642,6 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           payment_option: editingService.payment_option,
           photos: editingService.photos || [],
           requires_booking: editingService.requires_booking,
-          is_time_slot_booking: editingService.is_time_slot_booking,
           calendar_settings: editingService.calendar_settings,
         } : null}
       />

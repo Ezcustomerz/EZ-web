@@ -17,8 +17,6 @@ import {
   Switch,
   FormControlLabel,
   InputAdornment,
-  Checkbox,
-  FormGroup,
   Tooltip,
   Radio,
   RadioGroup,
@@ -78,16 +76,14 @@ export interface ServiceFormPopoverProps {
     payment_option?: 'upfront' | 'split' | 'later';
     photos?: ServicePhoto[];
     requires_booking?: boolean;
-    is_time_slot_booking?: boolean;
     calendar_settings?: {
       is_scheduling_enabled: boolean;
-      use_time_slots: boolean;
-      session_durations: number[];
+      session_duration: number;
       default_session_length: number;
       min_notice_amount: number;
-      min_notice_unit: 'hours' | 'days';
+      min_notice_unit: 'minutes' | 'hours' | 'days';
       max_advance_amount: number;
-      max_advance_unit: 'days' | 'weeks' | 'months';
+      max_advance_unit: 'hours' | 'days' | 'weeks' | 'months';
       buffer_time_amount: number;
       buffer_time_unit: 'minutes' | 'hours';
       weekly_schedule: {
@@ -176,12 +172,15 @@ export function ServiceFormPopover({
 
   // Calendar scheduling (UI-only)
   const [isSchedulingEnabled, setIsSchedulingEnabled] = useState(false);
-  const sessionDurationOptions = ['15', '30', '45', '60', '90', '120']; // minutes
-  const [sessionDurations, setSessionDurations] = useState<string[]>(['60']);
+  // Common presets for quick selection
+  const commonDurations = ['15', '30', '45', '60', '90', '120', '180'];
+  
+  const [sessionDuration, setSessionDuration] = useState<string>('60');
   const [defaultSessionLength, setDefaultSessionLength] = useState('60');
-  const [useTimeSlots, setUseTimeSlots] = useState(false);
-  const [minNotice, setMinNotice] = useState<{ amount: string; unit: 'hours' | 'days' }>({ amount: '24', unit: 'hours' });
-  const [maxAdvance, setMaxAdvance] = useState<{ amount: string; unit: 'days' | 'weeks' | 'months' }>({ amount: '30', unit: 'days' });
+  // Always use time slots - removed toggle functionality
+  const useTimeSlots = true;
+  const [minNotice, setMinNotice] = useState<{ amount: string; unit: 'minutes' | 'hours' | 'days' }>({ amount: '24', unit: 'hours' });
+  const [maxAdvance, setMaxAdvance] = useState<{ amount: string; unit: 'hours' | 'days' | 'weeks' | 'months' }>({ amount: '30', unit: 'days' });
   const [bufferTime, setBufferTime] = useState<{ amount: string; unit: 'minutes' | 'hours' }>({ amount: '15', unit: 'minutes' });
   const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const [weeklySchedule, setWeeklySchedule] = useState<{
@@ -556,8 +555,7 @@ export function ServiceFormPopover({
         const userTimezone = getUserTimezone();
         serviceData.calendar_settings = {
           is_scheduling_enabled: isSchedulingEnabled,
-          use_time_slots: useTimeSlots,
-          session_durations: sessionDurations.map(d => parseInt(d)),
+          session_duration: parseInt(sessionDuration),
           default_session_length: parseInt(defaultSessionLength),
           min_notice_amount: parseInt(minNotice.amount),
           min_notice_unit: minNotice.unit,
@@ -648,7 +646,7 @@ export function ServiceFormPopover({
         
         // Load existing calendar settings
         setIsSchedulingEnabled(initialService.requires_booking || false);
-        setUseTimeSlots(initialService.is_time_slot_booking || false);
+        // Always use time slots - no longer need to set this from initial service
         
         // Load detailed calendar settings if available
         console.log('Initial service calendar settings:', initialService.calendar_settings);
@@ -659,8 +657,8 @@ export function ServiceFormPopover({
           
           // Set calendar settings
           setIsSchedulingEnabled(calendarSettings.is_scheduling_enabled);
-          setUseTimeSlots(calendarSettings.use_time_slots);
-          setSessionDurations(calendarSettings.session_durations.map(String));
+          // Always use time slots - no longer need to set this from calendar settings
+          setSessionDuration(String(calendarSettings.session_duration));
           setDefaultSessionLength(String(calendarSettings.default_session_length));
           setMinNotice({
             amount: String(calendarSettings.min_notice_amount),
@@ -737,8 +735,7 @@ export function ServiceFormPopover({
 
         // Reset calendar scheduling settings to defaults
         setIsSchedulingEnabled(false);
-        setUseTimeSlots(false);
-        setSessionDurations(['60']);
+        setSessionDuration('60');
         setDefaultSessionLength('60');
         setMinNotice({ amount: '24', unit: 'hours' });
         setMaxAdvance({ amount: '30', unit: 'days' });
@@ -770,12 +767,12 @@ export function ServiceFormPopover({
     setFormData(prev => ({ ...prev, deliveryTime: formattedTime }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ensure default session length is part of selected durations
+  // Ensure default session length matches session duration
   useEffect(() => {
-    if (sessionDurations.length > 0 && !sessionDurations.includes(defaultSessionLength)) {
-      setDefaultSessionLength(sessionDurations[0]);
+    if (sessionDuration !== defaultSessionLength) {
+      setDefaultSessionLength(sessionDuration);
     }
-  }, [sessionDurations, defaultSessionLength]);
+  }, [sessionDuration, defaultSessionLength]);
 
   // Regenerate time slots when session duration or buffer time changes in time slot mode
   // But only if time slots weren't loaded from backend
@@ -789,16 +786,7 @@ export function ServiceFormPopover({
   }, [defaultSessionLength, useTimeSlots, bufferTime, timeSlotsLoadedFromBackend]);
 
   // Restrict to single session duration when switching to time slot mode
-  useEffect(() => {
-    if (useTimeSlots && sessionDurations.length > 1) {
-      // Keep only the default session length when switching to time slot mode
-      const singleDuration = sessionDurations.includes(defaultSessionLength)
-        ? defaultSessionLength
-        : sessionDurations[0];
-      setSessionDurations([singleDuration]);
-      setDefaultSessionLength(singleDuration);
-    }
-  }, [useTimeSlots]);
+  // No longer needed since we always use time slots and have single duration
 
   const renderStepContent = (step: number) => {
     switch (step) {
@@ -1347,7 +1335,7 @@ export function ServiceFormPopover({
 
             {isSchedulingEnabled && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* Time Slot Mode Toggle */}
+                {/* Time Slot Mode Info */}
                 <Box sx={{
                   p: 2.5,
                   borderRadius: 2,
@@ -1355,29 +1343,14 @@ export function ServiceFormPopover({
                   border: '1px solid rgba(59, 130, 246, 0.2)',
                   mb: 1
                 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={useTimeSlots}
-                        onChange={(e) => setUseTimeSlots(e.target.checked)}
-                        color="primary"
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          Use predefined time slots
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {useTimeSlots
-                            ? 'Create specific appointment/session times. Clients book exact slots (e.g., 9:00 AM, 9:30 AM, 10:00 AM).'
-                            : 'Allow flexible booking within your available hours. Clients choose any start time during your open blocks.'
-                          }
-                        </Typography>
-                      </Box>
-                    }
-                    sx={{ alignItems: 'flex-start', margin: 0 }}
-                  />
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                      Predefined Time Slots
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Create specific appointment/session times. Clients book exact slots (e.g., 9:00 AM, 9:30 AM, 10:00 AM).
+                    </Typography>
+                  </Box>
                 </Box>
 
                 {/* Validation Message */}
@@ -1412,18 +1385,22 @@ export function ServiceFormPopover({
                       <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
                     </Tooltip>
                   </Box>
-                  {useTimeSlots ? (
-                    // Radio buttons for single selection in time slot mode
+                  {/* Session duration selection - time slots only */}
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Quick select common durations:
+                    </Typography>
                     <RadioGroup
                       row
-                      value={sessionDurations[0] || ''}
+                      value={sessionDuration || ''}
                       onChange={(e) => {
                         const newDuration = e.target.value;
-                        setSessionDurations([newDuration]);
+                        setSessionDuration(newDuration);
                         setDefaultSessionLength(newDuration);
                       }}
+                      sx={{ mb: 2, flexWrap: 'wrap' }}
                     >
-                      {sessionDurationOptions.map((opt) => (
+                      {commonDurations.map((opt) => (
                         <FormControlLabel
                           key={opt}
                           value={opt}
@@ -1432,69 +1409,37 @@ export function ServiceFormPopover({
                         />
                       ))}
                     </RadioGroup>
-                  ) : (
-                    // Checkboxes for multiple selection in flexible mode
-                    <FormGroup row>
-                      {sessionDurationOptions.map((opt) => {
-                        const checked = sessionDurations.includes(opt);
-                        return (
-                          <FormControlLabel
-                            key={opt}
-                            control={
-                              <Checkbox
-                                checked={checked}
-                                onChange={(e) => {
-                                  const isChecked = e.target.checked;
-                                  setSessionDurations((prev) => {
-                                    if (isChecked) return [...prev, opt].sort((a, b) => parseInt(a) - parseInt(b));
-                                    return prev.filter((d) => d !== opt);
-                                  });
-                                }}
-                              />
-                            }
-                            label={`${opt} min`}
-                          />
-                        );
-                      })}
-                    </FormGroup>
-                  )}
+                    
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Or enter custom duration (5-minute increments, 15-720 minutes):
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={sessionDuration || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === '' || (parseInt(value) >= 15 && parseInt(value) <= 720 && parseInt(value) % 5 === 0)) {
+                            setSessionDuration(value);
+                            setDefaultSessionLength(value);
+                          }
+                        }}
+                        inputProps={{
+                          min: 15,
+                          max: 720,
+                          step: 5
+                        }}
+                        sx={{ width: 120 }}
+                        placeholder="e.g., 75"
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        minutes
+                      </Typography>
+                    </Box>
+                  </Box>
                 </Box>
 
-                {/* Default Session Length - Only show in flexible mode */}
-                {!useTimeSlots && (
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        Default session length
-                      </Typography>
-                      <Tooltip
-                        title="This duration will be pre-selected when clients book a session. Clients can still choose other available durations if you've enabled multiple options."
-                        placement="top"
-                        arrow
-                      >
-                        <InfoIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
-                      </Tooltip>
-                    </Box>
-                    <FormControl size="small" sx={{ minWidth: 180 }}>
-                      <Select
-                        value={defaultSessionLength}
-                        onChange={(e) => setDefaultSessionLength(String(e.target.value))}
-                        disabled={sessionDurations.length === 0}
-                        sx={{ borderRadius: 2, backgroundColor: '#f8f9fa' }}
-                      >
-                        {sessionDurations.length === 0 ? (
-                          <MenuItem value="" disabled>
-                            Select durations first
-                          </MenuItem>
-                        ) : (
-                          sessionDurations.map((d) => (
-                            <MenuItem key={d} value={d}>{`${d} min`}</MenuItem>
-                          ))
-                        )}
-                      </Select>
-                    </FormControl>
-                  </Box>
-                )}
 
                 {/* Booking Rules */}
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
@@ -1525,9 +1470,10 @@ export function ServiceFormPopover({
                       <FormControl size="small" sx={{ minWidth: 140 }}>
                         <Select
                           value={minNotice.unit}
-                          onChange={(e) => setMinNotice({ ...minNotice, unit: e.target.value as 'hours' | 'days' })}
+                          onChange={(e) => setMinNotice({ ...minNotice, unit: e.target.value as 'minutes' | 'hours' | 'days' })}
                           sx={{ borderRadius: 2, backgroundColor: '#f8f9fa' }}
                         >
+                          <MenuItem value="minutes">Minutes</MenuItem>
                           <MenuItem value="hours">Hours</MenuItem>
                           <MenuItem value="days">Days</MenuItem>
                         </Select>
@@ -1562,9 +1508,10 @@ export function ServiceFormPopover({
                       <FormControl size="small" sx={{ minWidth: 140 }}>
                         <Select
                           value={maxAdvance.unit}
-                          onChange={(e) => setMaxAdvance({ ...maxAdvance, unit: e.target.value as 'days' | 'weeks' | 'months' })}
+                          onChange={(e) => setMaxAdvance({ ...maxAdvance, unit: e.target.value as 'hours' | 'days' | 'weeks' | 'months' })}
                           sx={{ borderRadius: 2, backgroundColor: '#f8f9fa' }}
                         >
+                          <MenuItem value="hours">Hours</MenuItem>
                           <MenuItem value="days">Days</MenuItem>
                           <MenuItem value="weeks">Weeks</MenuItem>
                           <MenuItem value="months">Months</MenuItem>

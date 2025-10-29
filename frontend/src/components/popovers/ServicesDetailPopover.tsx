@@ -52,7 +52,6 @@ export interface ServiceDetail {
   updated_at?: string;
   creative_user_id?: string;
   requires_booking?: boolean;
-  is_time_slot_booking?: boolean;
   // Creative profile information
   creative_display_name?: string;
   creative_title?: string;
@@ -490,11 +489,7 @@ export function ServicesDetailPopover({
                {/* Booking Type */}
                {service.requires_booking && (
                  <Tooltip 
-                   title={
-                     service.is_time_slot_booking 
-                       ? 'This service uses predefined time slots. You can only book during specific available time periods set by the creative.'
-                       : 'This service uses flexible booking. You can book at any time that works for both you and the creative.'
-                   }
+                   title="This service uses predefined time slots. You can only book during specific available time periods set by the creative."
                    arrow
                    placement="top"
                  >
@@ -504,12 +499,8 @@ export function ServicesDetailPopover({
                      gap: 2,
                      p: 2,
                      borderRadius: 2,
-                     backgroundColor: service.is_time_slot_booking 
-                       ? 'rgba(156, 39, 176, 0.08)' 
-                       : 'rgba(255, 152, 0, 0.08)',
-                     border: service.is_time_slot_booking 
-                       ? '1px solid rgba(156, 39, 176, 0.2)' 
-                       : '1px solid rgba(255, 152, 0, 0.2)',
+                     backgroundColor: 'rgba(156, 39, 176, 0.08)',
+                     border: '1px solid rgba(156, 39, 176, 0.2)',
                      flex: 1,
                      minWidth: '200px',
                      cursor: 'help'
@@ -521,7 +512,7 @@ export function ServicesDetailPopover({
                        width: 40,
                        height: 40,
                        borderRadius: 1.5,
-                       backgroundColor: service.is_time_slot_booking ? 'purple' : 'orange',
+                       backgroundColor: 'purple',
                        color: 'white'
                      }}>
                        <FontAwesomeIcon icon={faCalendar} />
@@ -531,9 +522,9 @@ export function ServicesDetailPopover({
                          Booking Type
                        </Typography>
                        <Typography variant="h6" fontWeight={600} sx={{ 
-                         color: service.is_time_slot_booking ? 'purple' : 'orange' 
+                         color: 'purple'
                        }}>
-                         {service.is_time_slot_booking ? 'Time Slots' : 'Flexible'}
+                         Time Slots
                        </Typography>
                      </Box>
                    </Box>
