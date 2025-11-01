@@ -64,20 +64,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tempSetupData, setTempSetupData] = useState<SetupData>({});
   const [originalSelectedRoles, setOriginalSelectedRoles] = useState<string[]>([]);
   const [isSetupInProgress, setIsSetupInProgress] = useState(false);
+  
+  // Track last synced tokens to prevent duplicate syncs
+  const lastSyncedTokensRef = React.useRef<{ access: string; refresh: string } | null>(null);
 
   useEffect(() => {
-    // Initial read
+    // Initial read (just set session state, don't sync tokens yet)
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       const isAuthed = !!data.session;
       console.log('[Auth] initial state:', { isAuthenticated: isAuthed, userId: data.session?.user.id });
       
-      // Sync tokens to HttpOnly cookies if session exists
-      if (data.session?.access_token && data.session?.refresh_token) {
-        syncTokensToCookies(data.session.access_token, data.session.refresh_token).catch(err => {
-          console.warn('[Auth] Failed to sync initial tokens to cookies:', err);
-        });
-      }
+      // Don't sync tokens here - let onAuthStateChange handle it
+      // to avoid duplicate calls on initial load
     });
 
     // Subscribe to changes
@@ -87,11 +86,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[Auth] state changed:', { event, isAuthenticated: isAuthed, userId: newSession?.user.id });
       
       // Sync tokens to HttpOnly cookies for XSS protection
+      // This handles: INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, etc.
       if (newSession?.access_token && newSession?.refresh_token) {
-        // Sync tokens to backend HttpOnly cookies (non-blocking)
-        syncTokensToCookies(newSession.access_token, newSession.refresh_token).catch(err => {
-          console.warn('[Auth] Failed to sync tokens to cookies:', err);
-        });
+        // Check if tokens have actually changed to avoid duplicate syncs
+        const lastSynced = lastSyncedTokensRef.current;
+        const tokensChanged = !lastSynced || 
+          lastSynced.access !== newSession.access_token || 
+          lastSynced.refresh !== newSession.refresh_token;
+        
+        if (tokensChanged) {
+          // Update last synced tokens
+          lastSyncedTokensRef.current = {
+            access: newSession.access_token,
+            refresh: newSession.refresh_token
+          };
+          
+          // Sync tokens to backend HttpOnly cookies (non-blocking)
+          syncTokensToCookies(newSession.access_token, newSession.refresh_token).catch(err => {
+            console.warn('[Auth] Failed to sync tokens to cookies:', err);
+          });
+        } else {
+          console.log('[Auth] Tokens unchanged, skipping sync');
+        }
+      } else {
+        // Clear last synced tokens when session is null
+        lastSyncedTokensRef.current = null;
       }
       
       // Reset user profile when session becomes null (logout, token expiry, etc.)
@@ -149,14 +168,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
       
-      // Also sync on token refresh
-      if (newSession && event === 'TOKEN_REFRESHED') {
-        if (newSession.access_token && newSession.refresh_token) {
-          syncTokensToCookies(newSession.access_token, newSession.refresh_token).catch(err => {
-            console.warn('[Auth] Failed to sync refreshed tokens to cookies:', err);
-          });
-        }
-      }
+      // Note: TOKEN_REFRESHED events are already handled by the sync above
+      // No need to sync again here
     });
 
     return () => {

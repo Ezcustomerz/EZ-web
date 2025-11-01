@@ -28,6 +28,9 @@ export interface TimeSlot {
   slot_time: string;
   is_enabled: boolean;
   day_of_week: string;
+  is_template?: boolean;
+  current_bookings?: number;
+  max_bookings?: number;
 }
 
 export interface AvailableDate {
@@ -42,8 +45,26 @@ export interface ServiceBookingData {
   time_slots: TimeSlot[];
 }
 
+export interface CreateBookingRequest {
+  service_id: string;
+  booking_date?: string;
+  start_time?: string;
+  end_time?: string;
+  session_duration?: number;
+  booking_availability_id?: string;
+  notes?: string;
+}
+
+export interface CreateBookingResponse {
+  success: boolean;
+  message: string;
+  booking_id?: string;
+  booking?: any;
+}
+
 class BookingService {
   private baseUrl = '/api/booking';
+  private bookingsUrl = '/api/bookings';
 
   async getCalendarSettings(serviceId: string): Promise<CalendarSettings> {
     const response = await apiClient.get(`${this.baseUrl}/service/${serviceId}/calendar-settings`);
@@ -86,6 +107,11 @@ class BookingService {
   async getServiceBookingData(serviceId: string): Promise<ServiceBookingData> {
     const response = await apiClient.get(`${this.baseUrl}/service/${serviceId}/booking-data`);
     return response.data.data;
+  }
+
+  async createBooking(bookingData: CreateBookingRequest): Promise<CreateBookingResponse> {
+    const response = await apiClient.post(`${this.bookingsUrl}/create`, bookingData);
+    return response.data;
   }
 }
 

@@ -64,6 +64,7 @@ export interface BookingScheduleData {
   selectedTime: string;
   sessionDuration: number;
   timeSlotId?: string;
+  bookingAvailabilityId?: string;
 }
 
 export function BookingSchedulePopover({ 
@@ -81,6 +82,7 @@ export function BookingSchedulePopover({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedAvailabilityId, setSelectedAvailabilityId] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showProgress, setShowProgress] = useState(false);
@@ -89,6 +91,8 @@ export function BookingSchedulePopover({
   const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
   const [availableDates, setAvailableDates] = useState<AvailableDate[]>([]);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<TimeSlot[]>([]);
+  // Track dates that have been checked and found to have no available time slots
+  const [datesWithNoSlots, setDatesWithNoSlots] = useState<Set<string>>(new Set());
   
   // Loading states
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -102,18 +106,21 @@ export function BookingSchedulePopover({
     }
   }, [open, service?.id]);
 
-  // Fetch time slots when date is selected
+  // Fetch time slots when date is selected OR when popover opens with a date already selected
+  // Adding 'open' ensures fresh data is fetched each time the popover opens
   useEffect(() => {
-    if (selectedDate && service?.id) {
+    if (open && selectedDate && service?.id) {
       fetchTimeSlotsForDate(selectedDate);
     }
-  }, [selectedDate, service?.id]);
+  }, [selectedDate, service?.id, open]);
 
   const fetchBookingData = async () => {
     if (!service?.id) return;
     
     setIsLoadingData(true);
     setError(null);
+    // Don't reset tracked dates - keep previous checks across popover opens
+    // This prevents dates from flickering between available/unavailable
     
     try {
       const [calendarData, availableDatesData] = await Promise.all([
@@ -145,9 +152,29 @@ export function BookingSchedulePopover({
       const dateString = format(date, 'yyyy-MM-dd');
       const timeSlots = await bookingService.getAvailableTimeSlots(service.id, dateString);
       setAvailableTimeSlots(timeSlots);
+      
+      // Track dates with no available time slots
+      if (timeSlots.length === 0) {
+        setDatesWithNoSlots(prev => new Set(prev).add(dateString));
+        // Clear selected time if no slots are available for the selected date
+        if (selectedDate && isSameDay(selectedDate, date)) {
+          setSelectedTime(null);
+          setSelectedAvailabilityId(null);
+        }
+      } else {
+        // Remove from set if slots become available
+        setDatesWithNoSlots(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(dateString);
+          return newSet;
+        });
+      }
     } catch (err) {
       console.error('Error fetching time slots:', err);
       setAvailableTimeSlots([]);
+      // Mark as having no slots on error
+      const dateString = format(date, 'yyyy-MM-dd');
+      setDatesWithNoSlots(prev => new Set(prev).add(dateString));
     } finally {
       setIsLoadingTimeSlots(false);
     }
@@ -183,6 +210,8 @@ export function BookingSchedulePopover({
     setError(null);
     setShowProgress(false);
     setIsSubmitting(false);
+    setSelectedAvailabilityId(null);
+    // Don't reset datesWithNoSlots - keep it for the session so dates remain marked if checked
 
     if (initialSelectedDate) {
       setSelectedDate(initialSelectedDate);
@@ -197,10 +226,7 @@ export function BookingSchedulePopover({
     if (initialDuration ?? null) {
       setSelectedDuration(initialDuration as number);
     }
-    // Ensure time slots load for the restored date immediately
-    if (initialSelectedDate && service?.id) {
-      fetchTimeSlotsForDate(initialSelectedDate);
-    }
+    // Note: Time slots will be fetched by the separate useEffect that watches selectedDate and open
   }, [open, initialSelectedDate, initialSelectedTime, initialDuration]);
 
   // Convert backend time slots to display format
@@ -218,7 +244,10 @@ export function BookingSchedulePopover({
         time: slot.slot_time,
         displayTime,
         isAvailable: slot.is_enabled,
-        day_of_week: slot.day_of_week
+        day_of_week: slot.day_of_week,
+        isTemplate: slot.is_template,
+        current_bookings: slot.current_bookings,
+        max_bookings: slot.max_bookings
       };
     });
   }, [availableTimeSlots]);
@@ -247,8 +276,10 @@ export function BookingSchedulePopover({
     setSelectedTime(null);
   };
 
-  const handleTimeSelect = (timeSlot: { time: string; id: string }) => {
+  const handleTimeSelect = (timeSlot: { time: string; id: string; isTemplate?: boolean }) => {
     setSelectedTime(timeSlot.time);
+    // Store the availability ID (or time slot template ID if no availability exists yet)
+    setSelectedAvailabilityId(timeSlot.isTemplate ? null : timeSlot.id);
   };
 
 
@@ -266,7 +297,8 @@ export function BookingSchedulePopover({
         serviceId: service.id,
         selectedDate,
         selectedTime,
-        sessionDuration: selectedDuration
+        sessionDuration: selectedDuration,
+        bookingAvailabilityId: selectedAvailabilityId || undefined
       };
 
       if (onConfirmBooking) {
@@ -296,6 +328,32 @@ export function BookingSchedulePopover({
       return false;
     }
     const dateString = format(date, 'yyyy-MM-dd');
+    const isCurrentlySelected = selectedDate && isSameDay(selectedDate, date);
+    
+    // First check: if this date has been checked and found to have no available time slots, it's not available
+    if (datesWithNoSlots.has(dateString)) {
+      return false;
+    }
+    
+    // Second check: if this date is currently selected
+    if (isCurrentlySelected) {
+      // If we're still loading time slots, be conservative and don't show as available yet
+      if (isLoadingTimeSlots) {
+        return false;
+      }
+      // If we've finished loading (or haven't started yet) and have no slots, it's not available
+      // Empty array means either: 1) we haven't fetched yet, 2) we fetched and found none
+      // In both cases, don't show as available until we confirm there are slots
+      if (availableTimeSlots.length === 0) {
+        return false;
+      }
+      // If we have slots, it's available
+      return true;
+    }
+    
+    // Third check: if date is in the available dates list AND not marked as having no slots
+    // For dates that haven't been selected yet, we show them as available based on backend data
+    // (they will be checked when clicked)
     return availableDates.some(availableDate => availableDate.date === dateString && availableDate.is_available);
   };
 
