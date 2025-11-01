@@ -15,7 +15,10 @@ import axios, {
   }
   
   export const createApiClient = (baseURL: string): AxiosInstance => {
-    const http: AxiosInstance = axios.create({ baseURL });
+    const http: AxiosInstance = axios.create({ 
+      baseURL,
+      withCredentials: true, // Include cookies (HttpOnly cookies) in requests
+    });
   
     // ✅ Request interceptor for auth
     http.interceptors.request.use(

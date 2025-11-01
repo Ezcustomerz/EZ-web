@@ -22,7 +22,8 @@ import {
   CardContent,
   Paper,
   Chip,
-  Alert
+  Alert,
+  TextField
 } from '@mui/material';
 import { 
   Close, 
@@ -33,7 +34,8 @@ import {
   CalendarToday,
   AccountBalanceWallet,
   ArrowForward,
-  Info
+  Info,
+  Note
 } from '@mui/icons-material';
 import { convertUTCToLocalTime, getUserTimezone } from '../../../utils/timezoneUtils';
 import { useState, useRef, useEffect } from 'react';
@@ -480,6 +482,150 @@ export interface ScheduleConfirmationStepProps {
   isConfirmed?: boolean;
 }
 
+export interface AdditionalNotesStepProps {
+  service: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    delivery_time: string;
+    creative_name: string;
+    creative_display_name?: string;
+    creative_title?: string;
+    creative_avatar_url?: string;
+    color: string;
+    payment_option?: 'upfront' | 'split' | 'later';
+    requires_booking?: boolean;
+  };
+  notes: string;
+  onNotesChange: (notes: string) => void;
+  onNext: () => void;
+  activeStep: number;
+  stepTransition: boolean;
+}
+
+export function AdditionalNotesStep({
+  service,
+  notes,
+  onNotesChange,
+  onNext,
+  activeStep,
+  stepTransition
+}: AdditionalNotesStepProps) {
+  return (
+    <Fade in={stepTransition} timeout={300}>
+      <Card sx={{ 
+        border: `2px solid ${activeStep === 2 ? service.color : service.color}20`, 
+        borderRadius: 3,
+        boxShadow: activeStep === 2 
+          ? `0 8px 24px ${service.color}20` 
+          : `0 4px 12px ${service.color}15`,
+        transition: 'all 0.3s ease'
+      }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Avatar sx={{
+              width: 40,
+              height: 40,
+              background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+              boxShadow: `0 4px 12px ${service.color}30`
+            }}>
+              <Note sx={{ color: 'white', fontSize: 20 }} />
+            </Avatar>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle1" sx={{ 
+                fontWeight: 600, 
+                color: 'text.primary',
+                fontSize: '1.1rem'
+              }}>
+                Additional Notes
+              </Typography>
+              <Typography variant="caption" sx={{ 
+                color: 'text.secondary',
+                fontSize: '0.75rem'
+              }}>
+                Optional - Add any special requests or information
+              </Typography>
+            </Box>
+          </Box>
+
+          <Paper sx={{ 
+            p: 2, 
+            bgcolor: `${service.color}08`,
+            border: `1px solid ${service.color}20`,
+            borderRadius: 2,
+            mb: 3
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+              <Info sx={{ 
+                color: service.color, 
+                fontSize: 20, 
+                mt: 0.25,
+                flexShrink: 0
+              }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" sx={{ 
+                  color: 'text.secondary',
+                  lineHeight: 1.6,
+                  fontSize: '0.875rem'
+                }}>
+                  Let the creative know about any specific requirements, preferences, or details that might be helpful for your session.
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            placeholder="e.g., I'd like to focus on branding, preferred color scheme, special accessibility needs, etc."
+            value={notes}
+            onChange={(e) => onNotesChange(e.target.value)}
+            sx={{
+              mb: 3,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2,
+                '&:hover fieldset': {
+                  borderColor: service.color,
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: service.color,
+                },
+              }
+            }}
+          />
+          
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
+            <Button
+              onClick={onNext}
+              variant="contained"
+              endIcon={<ArrowForward />}
+              sx={{
+                borderRadius: 2,
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                fontSize: '0.875rem',
+                background: `linear-gradient(135deg, ${service.color} 0%, ${service.color}CC 100%)`,
+                boxShadow: `0 4px 12px ${service.color}30`,
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${service.color}CC 0%, ${service.color} 100%)`,
+                  boxShadow: `0 6px 16px ${service.color}40`,
+                  transform: 'translateY(-1px)'
+                }
+              }}
+            >
+              Continue
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+    </Fade>
+  );
+}
+
 export function ScheduleConfirmationStep({
   service,
   schedulingData,
@@ -668,6 +814,7 @@ export interface BookingData {
   selectedTime?: string;
   sessionDuration?: number;
   timeSlotId?: string;
+  additionalNotes?: string;
 }
 
 export function BookingServicePopover({ 
@@ -686,16 +833,18 @@ export function BookingServicePopover({
   // removed footer progress UI
   const [showSchedulePopover, setShowSchedulePopover] = useState(false);
   const [schedulingData, setSchedulingData] = useState<BookingScheduleData | null>(null);
+  const [additionalNotes, setAdditionalNotes] = useState('');
 
   // Refs for auto-scrolling to steps
   const contentRef = useRef<HTMLDivElement | null>(null);
   const step0Ref = useRef<HTMLDivElement | null>(null);
   const step1Ref = useRef<HTMLDivElement | null>(null);
   const step2Ref = useRef<HTMLDivElement | null>(null);
+  const step3Ref = useRef<HTMLDivElement | null>(null);
 
   const scrollToStep = (index: number) => {
     const container = contentRef.current;
-    const refs = [step0Ref.current, step1Ref.current, step2Ref.current];
+    const refs = [step0Ref.current, step1Ref.current, step2Ref.current, step3Ref.current];
     const stepEl = refs[index] as HTMLElement | null;
     if (!container || !stepEl) return;
     const labelEl = (stepEl.querySelector('.MuiStepLabel-root') as HTMLElement) || stepEl;
@@ -711,15 +860,16 @@ export function BookingServicePopover({
   // Determine if booking is required
   const isBookingRequired = service?.requires_booking || false;
   
-  // Progress calculation - 3 steps if booking required (schedule, confirm, payment)
-  const clampedStep = Math.max(0, Math.min(activeStep, 2));
-  const progress = isBookingRequired ? ((clampedStep + 1) / 3) * 100 : 100;
+  // Progress calculation - 4 steps if booking required (schedule, confirm, notes, payment), 2 steps if not (notes, payment)
+  const maxStep = isBookingRequired ? 3 : 1;
+  const clampedStep = Math.max(0, Math.min(activeStep, maxStep));
+  const progress = isBookingRequired ? ((clampedStep + 1) / 4) * 100 : ((clampedStep + 1) / 2) * 100;
 
   // Step navigation functions with smooth transitions
   const handleNext = () => {
     setStepTransition(false);
     setTimeout(() => {
-      setActiveStep((prevActiveStep) => Math.min(prevActiveStep + 1, 2));
+      setActiveStep((prevActiveStep) => Math.min(prevActiveStep + 1, maxStep));
       setStepTransition(true);
     }, 150);
   };
@@ -728,16 +878,22 @@ export function BookingServicePopover({
 
   // Scroll to the active step smoothly inside dialog content
   useEffect(() => {
-    if (!isBookingRequired) return;
     const container = contentRef.current;
-    const refs = [step0Ref.current, step1Ref.current, step2Ref.current];
+    if (!container) return;
+    
+    // Map activeStep to the correct ref based on booking requirement
+    const refs = isBookingRequired 
+      ? [step0Ref.current, step1Ref.current, step2Ref.current, step3Ref.current]
+      : [step2Ref.current, step3Ref.current]; // For non-booking, only use Notes and Payment refs
+    
     const stepEl = refs[activeStep] as HTMLElement | null;
-    if (!container || !stepEl) return;
+    if (!stepEl) return;
 
     // Wait for the StepContent expand animation to finish before measuring
     const timeoutId = window.setTimeout(() => {
+      const maxStep = isBookingRequired ? 3 : 1;
       // For the final step, just scroll to the bottom to ensure the whole section is visible
-      if (activeStep === 2) {
+      if (activeStep === maxStep) {
         container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
         return;
       }
@@ -746,8 +902,7 @@ export function BookingServicePopover({
       const targetRect = labelEl.getBoundingClientRect();
       const currentScrollTop = container.scrollTop;
       const offsetWithinContainer = targetRect.top - containerRect.top;
-      // Scroll more for step 3 so the "Confirm Booking & Payment" header is clearly visible
-      const topMargin = activeStep === 2 ? -72 : 8;
+      const topMargin = 8;
       const nextScrollTop = currentScrollTop + offsetWithinContainer - topMargin;
       container.scrollTo({ top: Math.max(nextScrollTop, 0), behavior: 'smooth' });
     }, 250); // align with StepContent transition duration
@@ -800,7 +955,7 @@ export function BookingServicePopover({
       return;
     }
 
-    // Final submission
+    // Final submission (for both booking and non-booking flows)
     setIsSubmitting(true);
     
     
@@ -810,7 +965,8 @@ export function BookingServicePopover({
         selectedDate: schedulingData?.selectedDate,
         selectedTime: schedulingData?.selectedTime,
         sessionDuration: schedulingData?.sessionDuration,
-        timeSlotId: schedulingData?.timeSlotId
+        timeSlotId: schedulingData?.timeSlotId,
+        additionalNotes: additionalNotes.trim() || undefined
       };
 
       if (onConfirmBooking) {
@@ -837,6 +993,7 @@ export function BookingServicePopover({
     setActiveStep(0);
     setIsSubmitting(false);
     setShowSchedulePopover(false);
+    setAdditionalNotes('');
     onClose();
   };
 
@@ -933,182 +1090,223 @@ export function BookingServicePopover({
         </Box>
         
         {/* Progress indicator */}
-        {isBookingRequired && (
-          <Box sx={{ mt: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                Progress
-              </Typography>
-              <Typography variant="caption" sx={{ color: service.color, fontWeight: 600 }}>
-                {clampedStep + 1} of 3
-              </Typography>
-            </Box>
-            <LinearProgress 
-              variant="determinate" 
-              value={progress} 
-              sx={{
-                height: 6,
-                borderRadius: 3,
-                bgcolor: `${service.color}20`,
-                '& .MuiLinearProgress-bar': {
-                  borderRadius: 3,
-                  background: `linear-gradient(90deg, ${service.color} 0%, ${service.color}CC 100%)`,
-                }
-              }}
-            />
+        <Box sx={{ mt: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+              Progress
+            </Typography>
+            <Typography variant="caption" sx={{ color: service.color, fontWeight: 600 }}>
+              {clampedStep + 1} of {isBookingRequired ? 4 : 2}
+            </Typography>
           </Box>
-        )}
+          <LinearProgress 
+            variant="determinate" 
+            value={progress} 
+            sx={{
+              height: 6,
+              borderRadius: 3,
+              bgcolor: `${service.color}20`,
+              '& .MuiLinearProgress-bar': {
+                borderRadius: 3,
+                background: `linear-gradient(90deg, ${service.color} 0%, ${service.color}CC 100%)`,
+              }
+            }}
+          />
+        </Box>
       </DialogTitle>
 
       <DialogContent ref={contentRef} sx={{ p: 3, pt: 2}}>
-        {isBookingRequired ? (
-          <Stepper activeStep={activeStep} orientation="vertical" sx={{ mt: 1 }}>
-            {/* Step 1: Booking Required */}
-            <Step expanded={activeStep >= 0} ref={step0Ref}>
-              <StepLabel
-                StepIconComponent={({ active, completed }) => (
-                  <Box
-                    sx={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: completed || active ? service.color : 'grey.200',
-                      color: completed || active ? 'white' : 'grey.500',
+        <Stepper activeStep={activeStep} orientation="vertical" sx={{ mt: 1 }}>
+          {isBookingRequired && (
+            <>
+              {/* Step 1: Booking Required */}
+              <Step expanded={activeStep >= 0} ref={step0Ref}>
+                <StepLabel
+                  StepIconComponent={({ active, completed }) => {
+                    const isActive = active || activeStep === 0;
+                    const isCompleted = completed || activeStep > 0;
+                    return (
+                      <Box
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: isCompleted || isActive ? service.color : 'grey.200',
+                          color: isCompleted || isActive ? 'white' : 'grey.500',
+                          fontWeight: 600,
+                          fontSize: '0.875rem',
+                          transition: 'all 0.3s ease-in-out',
+                          boxShadow: isActive || isCompleted 
+                            ? `0 3px 8px ${service.color}30` 
+                            : '0 2px 4px rgba(0,0,0,0.1)',
+                        }}
+                      >
+                        {isCompleted ? <CheckCircle sx={{ fontSize: 20 }} /> : <Schedule sx={{ fontSize: 20 }} />}
+                      </Box>
+                    );
+                  }}
+                  sx={{
+                    '& .MuiStepLabel-label': {
                       fontWeight: 600,
-                      fontSize: '0.875rem',
-                      transition: 'all 0.3s ease-in-out',
-                      boxShadow: active || completed 
-                        ? `0 3px 8px ${service.color}30` 
-                        : '0 2px 4px rgba(0,0,0,0.1)',
-                    }}
-                  >
-                    {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <Schedule sx={{ fontSize: 20 }} />}
-                  </Box>
-                )}
-                sx={{
-                  '& .MuiStepLabel-label': {
-                    fontWeight: 600,
-                    fontSize: '1rem',
-                    color: activeStep >= 0 ? service.color : 'text.secondary'
-                  }
-                }}
-              >
-                Schedule Your Session
-              </StepLabel>
-              <StepContent ref={step0Ref}>
-                <ScheduleSessionStep
-                  service={service}
-                  activeStep={activeStep}
-                  stepTransition={stepTransition}
-                  onScheduleClick={handleOpenSchedule}
-                />
-              </StepContent>
-            </Step>
+                      fontSize: '1rem',
+                      color: activeStep >= 0 ? service.color : 'text.secondary'
+                    }
+                  }}
+                >
+                  Schedule Your Session
+                </StepLabel>
+                <StepContent ref={step0Ref}>
+                  <ScheduleSessionStep
+                    service={service}
+                    activeStep={activeStep}
+                    stepTransition={stepTransition}
+                    onScheduleClick={handleOpenSchedule}
+                  />
+                </StepContent>
+              </Step>
 
-            {/* Step 2: Schedule Confirmation */}
-            <Step expanded={activeStep >= 1} ref={step1Ref}>
-              <StepLabel
-                StepIconComponent={({ active, completed }) => (
-                  <Box
-                    sx={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: completed || active ? service.color : 'grey.200',
-                      color: completed || active ? 'white' : 'grey.500',
+              {/* Step 2: Schedule Confirmation */}
+              <Step expanded={activeStep >= 1} ref={step1Ref}>
+                <StepLabel
+                  StepIconComponent={({ active, completed }) => (
+                    <Box
+                      sx={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        bgcolor: completed || active ? service.color : 'grey.200',
+                        color: completed || active ? 'white' : 'grey.500',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        transition: 'all 0.3s ease-in-out',
+                        boxShadow: active || completed 
+                          ? `0 3px 8px ${service.color}30` 
+                          : '0 2px 4px rgba(0,0,0,0.1)',
+                      }}
+                    >
+                      {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <CalendarToday sx={{ fontSize: 20 }} />}
+                    </Box>
+                  )}
+                  sx={{
+                    '& .MuiStepLabel-label': {
                       fontWeight: 600,
-                      fontSize: '0.875rem',
-                      transition: 'all 0.3s ease-in-out',
-                      boxShadow: active || completed 
-                        ? `0 3px 8px ${service.color}30` 
-                        : '0 2px 4px rgba(0,0,0,0.1)',
-                    }}
-                  >
-                    {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <CalendarToday sx={{ fontSize: 20 }} />}
-                  </Box>
-                )}
-                sx={{
-                  '& .MuiStepLabel-label': {
-                    fontWeight: 600,
-                    fontSize: '1rem',
-                    color: activeStep >= 1 ? service.color : 'text.secondary'
-                  }
-                }}
-              >
-                Confirm Schedule
-              </StepLabel>
-              <StepContent ref={step1Ref} sx={{ mt: 2 }}>
-                <ScheduleConfirmationStep
-                  service={service}
-                  schedulingData={schedulingData}
-                  onNext={handleNext}
-                  isConfirmed={activeStep >= 2}
-                />
-              </StepContent>
-            </Step>
+                      fontSize: '1rem',
+                      color: activeStep >= 1 ? service.color : 'text.secondary'
+                    }
+                  }}
+                >
+                  Confirm Schedule
+                </StepLabel>
+                <StepContent ref={step1Ref} sx={{ mt: 2 }}>
+                  <ScheduleConfirmationStep
+                    service={service}
+                    schedulingData={schedulingData}
+                    onNext={handleNext}
+                    isConfirmed={activeStep >= 2}
+                  />
+                </StepContent>
+              </Step>
+            </>
+          )}
 
-            {/* Step 3: Confirm Booking & Payment */}
-            <Step expanded={activeStep >= 2} ref={step2Ref}>
-              <StepLabel
-                StepIconComponent={({ active, completed }) => (
-                  <Box
-                    sx={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: completed || active ? service.color : 'grey.200',
-                      color: completed || active ? 'white' : 'grey.500',
-                      fontWeight: 600,
-                      fontSize: '0.875rem',
-                      transition: 'all 0.3s ease-in-out',
-                      boxShadow: active || completed 
-                        ? `0 3px 8px ${service.color}30` 
-                        : '0 2px 4px rgba(0,0,0,0.1)',
-                    }}
-                  >
-                    {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <Payment sx={{ fontSize: 20 }} />}
-                  </Box>
-                )}
-                sx={{
-                  '& .MuiStepLabel-label': {
+          {/* Step 3: Additional Notes (Optional) */}
+          <Step expanded={activeStep >= (isBookingRequired ? 2 : 0)} ref={step2Ref}>
+            <StepLabel
+              StepIconComponent={({ active, completed }) => (
+                <Box
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: completed || active ? service.color : 'grey.200',
+                    color: completed || active ? 'white' : 'grey.500',
                     fontWeight: 600,
-                    fontSize: '1rem',
-                    color: activeStep >= 1 ? service.color : 'text.secondary'
-                  }
-                }}
-              >
-                Confirm Booking & Payment
-              </StepLabel>
-              <StepContent ref={step2Ref} sx={{ mt: 2 }}>
-                <PaymentStep
-                  service={service}
-                  schedulingData={schedulingData}
-                  isSubmitting={isSubmitting}
-                  onSubmit={handleSubmit}
-                />
-              </StepContent>
-            </Step>
-          </Stepper>
-        ) : (
-          /* Single step for services that don't require booking */
-          <Fade in={true} timeout={500}>
-            <PaymentStep
-              service={service}
-              schedulingData={null}
-              isSubmitting={isSubmitting}
-              onSubmit={handleSubmit}
-            />
-          </Fade>
-        )}
+                    fontSize: '0.875rem',
+                    transition: 'all 0.3s ease-in-out',
+                    boxShadow: active || completed 
+                      ? `0 3px 8px ${service.color}30` 
+                      : '0 2px 4px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <Note sx={{ fontSize: 20 }} />}
+                </Box>
+              )}
+              sx={{
+                '& .MuiStepLabel-label': {
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  color: (isBookingRequired ? activeStep >= 2 : activeStep >= 0) ? service.color : 'text.secondary'
+                }
+              }}
+            >
+              Additional Notes (Optional)
+            </StepLabel>
+            <StepContent ref={step2Ref} sx={{ mt: 2 }}>
+              <AdditionalNotesStep
+                service={service}
+                notes={additionalNotes}
+                onNotesChange={setAdditionalNotes}
+                onNext={handleNext}
+                activeStep={isBookingRequired ? activeStep : activeStep + 2}
+                stepTransition={stepTransition}
+              />
+            </StepContent>
+          </Step>
+
+          {/* Step 4: Confirm Booking & Payment */}
+          <Step expanded={activeStep >= (isBookingRequired ? 3 : 1)} ref={step3Ref}>
+            <StepLabel
+              StepIconComponent={({ active, completed }) => (
+                <Box
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: completed || active ? service.color : 'grey.200',
+                    color: completed || active ? 'white' : 'grey.500',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    transition: 'all 0.3s ease-in-out',
+                    boxShadow: active || completed 
+                      ? `0 3px 8px ${service.color}30` 
+                      : '0 2px 4px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  {completed ? <CheckCircle sx={{ fontSize: 20 }} /> : <Payment sx={{ fontSize: 20 }} />}
+                </Box>
+              )}
+              sx={{
+                '& .MuiStepLabel-label': {
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  color: (isBookingRequired ? activeStep >= 3 : activeStep >= 1) ? service.color : 'text.secondary'
+                }
+              }}
+            >
+              Confirm Booking & Payment
+            </StepLabel>
+            <StepContent ref={step3Ref} sx={{ mt: 2 }}>
+              <PaymentStep
+                service={service}
+                schedulingData={schedulingData}
+                isSubmitting={isSubmitting}
+                onSubmit={handleSubmit}
+              />
+            </StepContent>
+          </Step>
+        </Stepper>
       </DialogContent>
 
       

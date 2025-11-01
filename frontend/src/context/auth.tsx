@@ -6,6 +6,7 @@ import { useLoading } from './loading';
 import { userService, type UserProfile } from '../api/userService';
 import { inviteService } from '../api/inviteService';
 import { useNavigate } from 'react-router-dom';
+import { syncTokensToCookies, clearAuthCookies } from '../utils/cookieAuth';
 type SetupData = {
   creative?: any;
   client?: any;
@@ -70,13 +71,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(data.session);
       const isAuthed = !!data.session;
       console.log('[Auth] initial state:', { isAuthenticated: isAuthed, userId: data.session?.user.id });
+      
+      // Sync tokens to HttpOnly cookies if session exists
+      if (data.session?.access_token && data.session?.refresh_token) {
+        syncTokensToCookies(data.session.access_token, data.session.refresh_token).catch(err => {
+          console.warn('[Auth] Failed to sync initial tokens to cookies:', err);
+        });
+      }
     });
 
     // Subscribe to changes
-    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
       const isAuthed = !!newSession;
       console.log('[Auth] state changed:', { event, isAuthenticated: isAuthed, userId: newSession?.user.id });
+      
+      // Sync tokens to HttpOnly cookies for XSS protection
+      if (newSession?.access_token && newSession?.refresh_token) {
+        // Sync tokens to backend HttpOnly cookies (non-blocking)
+        syncTokensToCookies(newSession.access_token, newSession.refresh_token).catch(err => {
+          console.warn('[Auth] Failed to sync tokens to cookies:', err);
+        });
+      }
       
       // Reset user profile when session becomes null (logout, token expiry, etc.)
       if (!newSession) {
@@ -112,6 +128,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Reset user profile when signing out
         setUserProfile(null);
         setUserAuthLoading(false);
+        
+        // Clear HttpOnly cookies via backend
+        clearAuthCookies().catch(err => {
+          console.warn('[Auth] Failed to clear cookies:', err);
+        });
+        
         // Don't show auth popover on landing page - just show the toast
         const isOnLandingPage = window.location.pathname === '/';
         if (!isOnLandingPage) {
@@ -125,6 +147,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           variant: 'info',
           duration: 4000
         });
+      }
+      
+      // Also sync on token refresh
+      if (newSession && event === 'TOKEN_REFRESHED') {
+        if (newSession.access_token && newSession.refresh_token) {
+          syncTokensToCookies(newSession.access_token, newSession.refresh_token).catch(err => {
+            console.warn('[Auth] Failed to sync refreshed tokens to cookies:', err);
+          });
+        }
       }
     });
 

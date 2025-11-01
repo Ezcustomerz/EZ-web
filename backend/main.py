@@ -14,6 +14,10 @@ from api import auth
 from core.verify import jwt_auth_middleware
 # Import database module to trigger connection test
 from db import db_session
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -21,10 +25,19 @@ app.middleware("http")(jwt_auth_middleware)
 app.add_middleware(SlowAPIMiddleware)
 app.state.limiter = limiter
 
+# CORS configuration
+# Note: When allow_credentials=True, we cannot use allow_origins=["*"]
+# We must specify explicit origins
+# Get allowed origins from environment or use defaults for development
+ALLOWED_ORIGINS = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,https://localhost:3000,https://127.0.0.1:3000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,  # Explicit origins required when credentials=True
+    allow_credentials=True,  # Required for HttpOnly cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )

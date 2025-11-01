@@ -10,15 +10,29 @@ SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
     
 async def jwt_auth_middleware(request: Request, call_next):
-    auth = request.headers.get("Authorization")
+    """
+    Authentication middleware that checks for JWT tokens in:
+    1. HttpOnly cookies (preferred for security)
+    2. Authorization header (fallback for compatibility)
+    """
+    token = None
     user = None
 
-    if auth and auth.startswith("Bearer "):
-        token = auth.split(" ")[1]
+    # First, try to get token from HttpOnly cookie (more secure)
+    token = request.cookies.get("sb-access-token")
+    
+    # Fallback to Authorization header for backward compatibility
+    if not token:
+        auth = request.headers.get("Authorization")
+        if auth and auth.startswith("Bearer "):
+            token = auth.split(" ")[1]
+
+    if token:
         try:
             user = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
         except JWTError:
-            return JSONResponse(status_code=401, content={"detail": "Invalid or expired token"})
+            # Token is invalid or expired - don't set user
+            pass
 
-    request.state.user = user  # Always set it
+    request.state.user = user  # Always set it (None if no valid token)
     return await call_next(request)
