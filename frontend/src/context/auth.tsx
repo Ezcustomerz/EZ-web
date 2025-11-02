@@ -6,7 +6,7 @@ import { useLoading } from './loading';
 import { userService, type UserProfile } from '../api/userService';
 import { inviteService } from '../api/inviteService';
 import { useNavigate } from 'react-router-dom';
-import { syncTokensToCookies, clearAuthCookies } from '../utils/cookieAuth';
+import { syncTokensToCookies, clearAuthCookies } from '../api/cookieAuth';
 type SetupData = {
   creative?: any;
   client?: any;
