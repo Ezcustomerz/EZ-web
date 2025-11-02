@@ -29,11 +29,41 @@ app.state.limiter = limiter
 # CORS configuration
 # Note: When allow_credentials=True, we cannot use allow_origins=["*"]
 # We must specify explicit origins
-# Get allowed origins from environment or use defaults for development
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,https://localhost:3000,https://127.0.0.1:3000,https://ez-web.onrender.com",
-).split(",")
+# Get environment type from environment variable (dev, dev_deploy, etc.)
+ENV = os.getenv("ENV", "dev").lower()
+
+# Define origins for each environment
+DEV_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://localhost:3000",
+    "https://127.0.0.1:3000",
+]
+
+DEV_DEPLOY_ORIGINS = [
+    "https://ez-web-iota.vercel.app",
+    "https://ez-web.onrender.com",
+]
+
+# Set default origins based on environment
+if ENV == "dev_deploy":
+    # Deployed dev environment uses Vercel and Render URLs
+    DEFAULT_ORIGINS = DEV_DEPLOY_ORIGINS
+elif ENV == "dev":
+    # Local development uses localhost origins only
+    DEFAULT_ORIGINS = DEV_ORIGINS
+else:
+    # Fallback: include both for safety if ENV is not recognized
+    DEFAULT_ORIGINS = DEV_ORIGINS + DEV_DEPLOY_ORIGINS
+
+# Allow override via ALLOWED_ORIGINS environment variable (comma-separated)
+ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS")
+if ALLOWED_ORIGINS_STR:
+    # If ALLOWED_ORIGINS is explicitly set, use it and split by comma
+    ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
+else:
+    # Otherwise use the defaults based on ENV
+    ALLOWED_ORIGINS = DEFAULT_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
