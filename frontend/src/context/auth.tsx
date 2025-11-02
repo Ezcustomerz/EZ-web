@@ -316,17 +316,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // First, clear backend cookies (this always succeeds)
+      // This ensures HttpOnly cookies are cleared even if Supabase signOut fails
+      await clearAuthCookies().catch(err => {
+        console.warn('[Auth] Error clearing backend cookies (non-critical):', err);
+      });
+
+      // Try to sign out from Supabase, but don't fail if session is already gone
+      // This can fail if the session_id in the JWT doesn't exist in Supabase anymore
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Sign out error:', error);
-        errorToast('Sign Out Failed', 'Unable to sign out. Please try again.');
+        // If signOut fails, log it but don't show error to user
+        // This can happen when session is already expired/deleted
+        // The important part (clearing cookies) already succeeded above
+        console.warn('[Auth] Supabase signOut error (session may already be invalid):', error);
+        
+        // Force clear local session state even if Supabase signOut failed
+        // This ensures the user is logged out on the frontend
+        setSession(null);
+        setUserProfile(null);
+        setUserAuthLoading(false);
+        
+        // Show auth popover
+        const isOnLandingPage = window.location.pathname === '/';
+        if (!isOnLandingPage) {
+          setAuthOpen(true);
+        }
+        
+        // Show success toast - logout succeeded locally
+        toast({
+          title: 'Signed out',
+          description: 'You have been successfully signed out.',
+          variant: 'info',
+          duration: 4000
+        });
       } else {
         console.log('[Auth] User signed out successfully');
         // Auth popover will be shown by the auth state change handler
       }
     } catch (err) {
-      console.error('Unexpected sign out error:', err);
-      errorToast('Unexpected Error', 'An unexpected error occurred during sign out');
+      // Even if everything fails, clear local state and cookies
+      console.warn('[Auth] Unexpected sign out error, forcing local logout:', err);
+      
+      // Force clear local session state
+      setSession(null);
+      setUserProfile(null);
+      setUserAuthLoading(false);
+      
+      // Clear backend cookies as fallback
+      await clearAuthCookies().catch(() => {
+        // Ignore errors here - we're already handling a failure case
+      });
+      
+      // Show auth popover
+      const isOnLandingPage = window.location.pathname === '/';
+      if (!isOnLandingPage) {
+        setAuthOpen(true);
+      }
+      
+      // Show success toast - user is logged out locally
+      toast({
+        title: 'Signed out',
+        description: 'You have been successfully signed out.',
+        variant: 'info',
+        duration: 4000
+      });
     }
   };
 
