@@ -237,6 +237,7 @@ class ClientController:
                     'updated_at': service_data['updated_at'],
                     'creative_user_id': service_data['creative_user_id'],
                     'creative_name': service_data['creative_name'] or 'Unknown Creative',
+                    'requires_booking': service_data['requires_booking'],
                     'photos': service_data['photos'] if service_data['photos'] else []
                 }
                 services.append(service)
@@ -266,7 +267,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id'
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id, requires_booking'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).order('created_at', desc=True).execute()
             
             if not services_result.data:
@@ -325,6 +326,7 @@ class ClientController:
                     'updated_at': service_data['updated_at'],
                     'creative_user_id': creative_user_id,
                     'creative_name': creative_name,
+                    'requires_booking': service_data['requires_booking'],
                     'photos': photos_by_service.get(service_data['id'], [])
                 }
                 services.append(service)
@@ -350,7 +352,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id'
+                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id, requires_booking'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             # Get all bundles from these creatives
@@ -430,6 +432,7 @@ class ClientController:
                         'creative_display_name': creative_data.get('display_name'),
                         'creative_title': creative_data.get('title'),
                         'creative_avatar_url': creative_data.get('profile_banner_url'),
+                        'requires_booking': service_data['requires_booking'],
                         'photos': photos_by_service.get(service_data['id'], [])
                     }
                     services.append(service)

@@ -584,7 +584,7 @@ export function PastOrdersTable({
             <TableBody>
               {filteredOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} sx={{ border: 0, p: 0, height: '100%', verticalAlign: 'middle' }}>
+                  <TableCell colSpan={5} sx={{ border: 0, p: 0, height: '100%', verticalAlign: 'middle', textAlign: 'center', width: '100%' }}>
                     <Box
                       sx={{
                         width: '100%',
@@ -595,6 +595,7 @@ export function PastOrdersTable({
                         alignItems: 'center',
                         justifyContent: 'center',
                         py: { xs: 6, md: 8 },
+                        px: { xs: 2, md: 3 },
                         textAlign: 'center',
                         minHeight: { xs: '350px', md: '400px' },
                         position: 'relative',

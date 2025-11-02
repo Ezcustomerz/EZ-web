@@ -8,11 +8,17 @@ from api.client import client_router
 from api.creative import creative_router
 from api.user import user_router
 from api import invite
+from api import bookings
+from routers import booking
 from core.limiter import limiter
 from api import auth
 from core.verify import jwt_auth_middleware
 # Import database module to trigger connection test
 from db import db_session
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -20,10 +26,49 @@ app.middleware("http")(jwt_auth_middleware)
 app.add_middleware(SlowAPIMiddleware)
 app.state.limiter = limiter
 
+# CORS configuration
+# Note: When allow_credentials=True, we cannot use allow_origins=["*"]
+# We must specify explicit origins
+# Get environment type from environment variable (dev, dev_deploy, etc.)
+ENV = os.getenv("ENV", "dev").lower()
+
+# Define origins for each environment
+DEV_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://localhost:3000",
+    "https://127.0.0.1:3000",
+]
+
+DEV_DEPLOY_ORIGINS = [
+    "https://ez-web-iota.vercel.app",
+    "https://ez-web.onrender.com",
+]
+
+# Set default origins based on environment
+if ENV == "dev_deploy":
+    # Deployed dev environment uses Vercel and Render URLs
+    DEFAULT_ORIGINS = DEV_DEPLOY_ORIGINS
+elif ENV == "dev":
+    # Local development uses localhost origins only
+    DEFAULT_ORIGINS = DEV_ORIGINS
+else:
+    # Fallback: include both for safety if ENV is not recognized
+    DEFAULT_ORIGINS = DEV_ORIGINS + DEV_DEPLOY_ORIGINS
+
+# Allow override via ALLOWED_ORIGINS environment variable (comma-separated)
+ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS")
+if ALLOWED_ORIGINS_STR:
+    # If ALLOWED_ORIGINS is explicitly set, use it and split by comma
+    ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
+else:
+    # Otherwise use the defaults based on ENV
+    ALLOWED_ORIGINS = DEFAULT_ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,  # Explicit origins required when credentials=True
+    allow_credentials=True,  # Required for HttpOnly cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -34,6 +79,8 @@ app.include_router(creative_router.router)
 app.include_router(client_router.router)
 app.include_router(advocate_router.router)
 app.include_router(invite.router)
+app.include_router(bookings.router, prefix="/api/bookings", tags=["bookings"])
+app.include_router(booking.router)
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

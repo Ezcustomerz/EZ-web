@@ -750,6 +750,7 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                                   color={item.data.color}
                                   creative={creativeProfile.display_name}
                                   onBook={() => handleServiceClick(item.data as CreativeService)}
+                                  requires_booking={(item.data as CreativeService).requires_booking}
                                 />
                               ) : (
                                 <BundleCard
@@ -784,7 +785,8 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
           price: service.price,
           delivery: service.delivery_time,
           color: service.color,
-          creative: creativeProfile?.display_name || 'Creative'
+          creative: creativeProfile?.display_name || 'Creative',
+          requires_booking: service.requires_booking
         }))}
         bundles={bundles}
       />

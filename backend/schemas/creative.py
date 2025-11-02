@@ -39,6 +39,7 @@ class CreativeServiceResponse(BaseModel):
     is_active: bool
     created_at: str
     updated_at: str
+    requires_booking: bool
     photos: Optional[List["ServicePhotoRequest"]] = []
 
 class CreativeServicesListResponse(BaseModel):
@@ -62,13 +63,12 @@ class WeeklyScheduleRequest(BaseModel):
 
 class CalendarSettingsRequest(BaseModel):
     is_scheduling_enabled: bool = False
-    use_time_slots: bool = False
-    session_durations: List[int] = [60]  # Duration in minutes
+    session_duration: int = 60  # Duration in minutes
     default_session_length: int = 60
     min_notice_amount: int = 24
-    min_notice_unit: str = 'hours'  # 'hours' or 'days'
+    min_notice_unit: str = 'hours'  # 'minutes', 'hours' or 'days'
     max_advance_amount: int = 30
-    max_advance_unit: str = 'days'  # 'days', 'weeks', or 'months'
+    max_advance_unit: str = 'days'  # 'hours', 'days', 'weeks', or 'months'
     buffer_time_amount: int = 15
     buffer_time_unit: str = 'minutes'  # 'minutes' or 'hours'
     weekly_schedule: List[WeeklyScheduleRequest] = []

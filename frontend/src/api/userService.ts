@@ -195,6 +195,7 @@ export interface CreativeService {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  requires_booking: boolean;
   photos?: ServicePhoto[];
 }
 
@@ -223,13 +224,12 @@ export interface WeeklySchedule {
 
 export interface CalendarSettings {
   is_scheduling_enabled: boolean;
-  use_time_slots: boolean;
-  session_durations: number[]; // Duration in minutes
+  session_duration: number; // Duration in minutes
   default_session_length: number;
   min_notice_amount: number;
-  min_notice_unit: 'hours' | 'days';
+  min_notice_unit: 'minutes' | 'hours' | 'days';
   max_advance_amount: number;
-  max_advance_unit: 'days' | 'weeks' | 'months';
+  max_advance_unit: 'hours' | 'days' | 'weeks' | 'months';
   buffer_time_amount: number;
   buffer_time_unit: 'minutes' | 'hours';
   weekly_schedule: WeeklySchedule[];
@@ -597,6 +597,12 @@ export const userService = {
     formData.append('delivery_time', serviceData.delivery_time);
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
+    formData.append('payment_option', serviceData.payment_option);
+    
+    // Add calendar settings if provided
+    if (serviceData.calendar_settings) {
+      formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
+    }
     
     // Add photos
     photos.forEach((photo) => {
@@ -646,6 +652,7 @@ export const userService = {
     formData.append('delivery_time', serviceData.delivery_time);
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
+    formData.append('payment_option', serviceData.payment_option);
     
     // Add calendar settings if provided
     if (serviceData.calendar_settings) {
@@ -718,7 +725,7 @@ export const userService = {
     const filename = `service-photos/${serviceId || 'temp'}/${timestamp}-${randomString}.${fileExtension}`;
     
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('creative-assets')
       .upload(filename, file, {
         cacheControl: '3600',
@@ -798,6 +805,18 @@ export const userService = {
     const headers = await getAuthHeaders();
     const response = await axios.get<{services: any[], bundles: any[], total_count: number}>(
       `${API_BASE_URL}/client/services`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get calendar settings for a specific service
+   */
+  async getServiceCalendarSettings(serviceId: string): Promise<{success: boolean, calendar_settings: CalendarSettings | null}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<{success: boolean, calendar_settings: CalendarSettings | null}>(
+      `${API_BASE_URL}/creative/services/${serviceId}/calendar`,
       { headers }
     );
     return response.data;

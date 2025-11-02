@@ -563,6 +563,7 @@ export function InvitePage() {
                                   color={item.data.color}
                                   creative={creative?.display_name || 'Creative'}
                                   onBook={() => handleServiceClick(item.data as CreativeService)}
+                                  requires_booking={(item.data as CreativeService).requires_booking}
                                 />
                               ) : (
                                 <BundleCard
@@ -598,7 +599,8 @@ export function InvitePage() {
           price: service.price,
           delivery: service.delivery_time,
           color: service.color,
-          creative: creative?.display_name || 'Creative'
+          creative: creative?.display_name || 'Creative',
+          requires_booking: service.requires_booking
         }))}
         bundles={bundles}
       />

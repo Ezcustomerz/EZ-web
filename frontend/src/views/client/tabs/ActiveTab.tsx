@@ -14,138 +14,11 @@ import { Search, DateRange } from '@mui/icons-material';
 import { useState } from 'react';
 import { InProgressOrderCard } from '../../../components/cards/client/InProgressOrderCard';
 
-// Dummy data for connected creatives
-const dummyConnectedCreatives = [
-  { id: '1', name: 'DJ Producer' },
-  { id: '2', name: 'Beat Master' },
-  { id: '3', name: 'Vocal Coach Pro' },
-  { id: '4', name: 'Sound Designer X' },
-  { id: '5', name: 'Engineer Elite' },
-];
+// Connected creatives - will be populated from API
+const connectedCreatives: Array<{ id: string; name: string }> = [];
 
-// Dummy order data - filtered to only in-progress orders
-const dummyInProgressOrders = [
-  {
-    id: '3',
-    serviceName: 'Vocal Recording Session',
-    creativeName: 'Vocal Coach Pro',
-    orderDate: '2025-10-02',
-    status: 'in-progress' as const,
-    calendarDate: null,
-    description: 'Creative is working on your service',
-    price: 200.00,
-    approvedDate: '2025-10-03',
-    completedDate: null,
-    fileCount: null,
-    fileSize: null,
-    paymentOption: 'split_payment' as const,
-    amountPaid: 100.00,
-    amountRemaining: 100.00,
-    serviceId: 'svc_3',
-    serviceDescription: 'Professional vocal recording session in a premium studio',
-    serviceDeliveryTime: '2-3 days',
-    serviceColor: '#fd79a8',
-    creativeId: 'creative_3',
-    creativeDisplayName: 'Vocal Coach Pro',
-    creativeTitle: 'Vocal Coach & Recording Engineer',
-    creativeEmail: 'vocalcoach@ez.com',
-    creativeRating: 5.0,
-    creativeReviewCount: 12,
-    creativeServicesCount: 8,
-    creativeColor: '#fd79a8',
-    creativeAvatarUrl: undefined,
-  },
-  {
-    id: '6',
-    serviceName: 'Beat Production',
-    creativeName: 'Beat Master',
-    orderDate: '2025-09-30',
-    status: 'in-progress' as const,
-    calendarDate: '2025-10-05T13:00:00',
-    description: 'Creative is working on your service',
-    price: 220.00,
-    approvedDate: '2025-10-01',
-    completedDate: null,
-    fileCount: null,
-    fileSize: null,
-    paymentOption: 'payment_upfront' as const,
-    amountPaid: 220.00,
-    amountRemaining: 0.00,
-    serviceId: 'svc_6',
-    serviceDescription: 'Custom beat production tailored to your style',
-    serviceDeliveryTime: '7-10 days',
-    serviceColor: '#6c5ce7',
-    creativeId: 'creative_2',
-    creativeDisplayName: 'Beat Master',
-    creativeTitle: 'Producer & Beat Maker',
-    creativeEmail: 'beatmaster@ez.com',
-    creativeRating: 4.7,
-    creativeReviewCount: 31,
-    creativeServicesCount: 15,
-    creativeColor: '#6c5ce7',
-    creativeAvatarUrl: undefined,
-  },
-  {
-    id: '8',
-    serviceName: 'Sound Design',
-    creativeName: 'Sound Designer X',
-    orderDate: '2025-09-28',
-    status: 'in-progress' as const,
-    calendarDate: null,
-    description: 'Creative is working on your service',
-    price: 275.00,
-    approvedDate: '2025-09-29',
-    completedDate: null,
-    fileCount: null,
-    fileSize: null,
-    paymentOption: 'payment_later' as const,
-    amountPaid: 0.00,
-    amountRemaining: 275.00,
-    serviceId: 'svc_8',
-    serviceDescription: 'Custom sound design for your project',
-    serviceDeliveryTime: '10-14 days',
-    serviceColor: '#74b9ff',
-    creativeId: 'creative_4',
-    creativeDisplayName: 'Sound Designer X',
-    creativeTitle: 'Audio Engineer & Sound Designer',
-    creativeEmail: 'sounddesigner@ez.com',
-    creativeRating: 4.8,
-    creativeReviewCount: 16,
-    creativeServicesCount: 11,
-    creativeColor: '#74b9ff',
-    creativeAvatarUrl: undefined,
-  },
-  {
-    id: '19',
-    serviceName: 'Portfolio Review Session',
-    creativeName: 'Beat Master',
-    orderDate: '2025-09-28',
-    status: 'in-progress' as const,
-    calendarDate: '2025-09-29T15:00:00',
-    description: 'Creative is working on your service',
-    price: 0.00,
-    approvedDate: '2025-09-28',
-    completedDate: null,
-    fileCount: null,
-    fileSize: null,
-    paymentOption: 'free' as const,
-    amountPaid: 0.00,
-    amountRemaining: 0.00,
-    serviceId: 'svc_19',
-    serviceDescription: 'Free portfolio review and feedback session',
-    serviceDeliveryTime: '1 hour',
-    serviceColor: '#a29bfe',
-    creativeId: 'creative_2',
-    creativeDisplayName: 'Beat Master',
-    creativeTitle: 'Producer & Beat Maker',
-    creativeEmail: 'beatmaster@ez.com',
-    creativeRating: 4.7,
-    creativeReviewCount: 31,
-    creativeServicesCount: 15,
-    creativeColor: '#a29bfe',
-    creativeAvatarUrl: undefined,
-  },
-];
+// Order data - will be populated from API (filtered to only in-progress orders)
+const inProgressOrders: Array<any> = [];
 
 export function ActiveTab() {
   const theme = useTheme();
@@ -167,7 +40,7 @@ export function ActiveTab() {
   };
 
   // Filter and sort logic
-  let filteredOrders = [...dummyInProgressOrders];
+  let filteredOrders = [...inProgressOrders];
 
   // Apply search filter
   if (searchQuery) {
@@ -284,7 +157,7 @@ export function ActiveTab() {
             }}>
               All Creatives
             </MenuItem>
-            {dummyConnectedCreatives.map((creative) => (
+            {connectedCreatives.map((creative) => (
               <MenuItem key={creative.id} value={creative.name} sx={{
                 transition: 'all 0.2s ease',
                 '&:hover': {
@@ -535,11 +408,11 @@ export function ActiveTab() {
             py: 8,
             gap: 1
           }}>
-            <Search sx={{ fontSize: 64, color: 'text.disabled', opacity: 0.3 }} />
-            <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+            <Search sx={{ fontSize: 64, color: 'primary.main', opacity: 0.4 }} />
+            <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 500 }}>
               No in progress orders found
       </Typography>
-            <Typography variant="body2" sx={{ color: 'text.disabled'}}>
+            <Typography variant="body2" sx={{ color: 'primary.main', opacity: 0.8 }}>
               Try adjusting your filters or search query
       </Typography>
           </Box>

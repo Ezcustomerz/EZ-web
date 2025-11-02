@@ -6,6 +6,7 @@ import { useLoading } from './loading';
 import { userService, type UserProfile } from '../api/userService';
 import { inviteService } from '../api/inviteService';
 import { useNavigate } from 'react-router-dom';
+import { syncTokensToCookies, clearAuthCookies } from '../api/cookieAuth';
 type SetupData = {
   creative?: any;
   client?: any;
@@ -63,20 +64,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [tempSetupData, setTempSetupData] = useState<SetupData>({});
   const [originalSelectedRoles, setOriginalSelectedRoles] = useState<string[]>([]);
   const [isSetupInProgress, setIsSetupInProgress] = useState(false);
+  
+  // Track last synced tokens to prevent duplicate syncs
+  const lastSyncedTokensRef = React.useRef<{ access: string; refresh: string } | null>(null);
 
   useEffect(() => {
-    // Initial read
+    // Initial read (just set session state, don't sync tokens yet)
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       const isAuthed = !!data.session;
       console.log('[Auth] initial state:', { isAuthenticated: isAuthed, userId: data.session?.user.id });
+      
+      // Don't sync tokens here - let onAuthStateChange handle it
+      // to avoid duplicate calls on initial load
     });
 
     // Subscribe to changes
-    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
       const isAuthed = !!newSession;
       console.log('[Auth] state changed:', { event, isAuthenticated: isAuthed, userId: newSession?.user.id });
+      
+      // Sync tokens to HttpOnly cookies for XSS protection
+      // This handles: INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, etc.
+      if (newSession?.access_token && newSession?.refresh_token) {
+        // Check if tokens have actually changed to avoid duplicate syncs
+        const lastSynced = lastSyncedTokensRef.current;
+        const tokensChanged = !lastSynced || 
+          lastSynced.access !== newSession.access_token || 
+          lastSynced.refresh !== newSession.refresh_token;
+        
+        if (tokensChanged) {
+          // Update last synced tokens
+          lastSyncedTokensRef.current = {
+            access: newSession.access_token,
+            refresh: newSession.refresh_token
+          };
+          
+          // Sync tokens to backend HttpOnly cookies (non-blocking)
+          syncTokensToCookies(newSession.access_token, newSession.refresh_token).catch(err => {
+            console.warn('[Auth] Failed to sync tokens to cookies:', err);
+          });
+        } else {
+          console.log('[Auth] Tokens unchanged, skipping sync');
+        }
+      } else {
+        // Clear last synced tokens when session is null
+        lastSyncedTokensRef.current = null;
+      }
       
       // Reset user profile when session becomes null (logout, token expiry, etc.)
       if (!newSession) {
@@ -112,6 +147,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Reset user profile when signing out
         setUserProfile(null);
         setUserAuthLoading(false);
+        
+        // Clear HttpOnly cookies via backend
+        clearAuthCookies().catch(err => {
+          console.warn('[Auth] Failed to clear cookies:', err);
+        });
+        
         // Don't show auth popover on landing page - just show the toast
         const isOnLandingPage = window.location.pathname === '/';
         if (!isOnLandingPage) {
@@ -126,6 +167,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           duration: 4000
         });
       }
+      
+      // Note: TOKEN_REFRESHED events are already handled by the sync above
+      // No need to sync again here
     });
 
     return () => {
@@ -272,17 +316,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // First, clear backend cookies (this always succeeds)
+      // This ensures HttpOnly cookies are cleared even if Supabase signOut fails
+      await clearAuthCookies().catch(err => {
+        console.warn('[Auth] Error clearing backend cookies (non-critical):', err);
+      });
+
+      // Try to sign out from Supabase, but don't fail if session is already gone
+      // This can fail if the session_id in the JWT doesn't exist in Supabase anymore
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('Sign out error:', error);
-        errorToast('Sign Out Failed', 'Unable to sign out. Please try again.');
+        // If signOut fails, log it but don't show error to user
+        // This can happen when session is already expired/deleted
+        // The important part (clearing cookies) already succeeded above
+        console.warn('[Auth] Supabase signOut error (session may already be invalid):', error);
+        
+        // Force clear local session state even if Supabase signOut failed
+        // This ensures the user is logged out on the frontend
+        setSession(null);
+        setUserProfile(null);
+        setUserAuthLoading(false);
+        
+        // Show auth popover
+        const isOnLandingPage = window.location.pathname === '/';
+        if (!isOnLandingPage) {
+          setAuthOpen(true);
+        }
+        
+        // Show success toast - logout succeeded locally
+        toast({
+          title: 'Signed out',
+          description: 'You have been successfully signed out.',
+          variant: 'info',
+          duration: 4000
+        });
       } else {
         console.log('[Auth] User signed out successfully');
         // Auth popover will be shown by the auth state change handler
       }
     } catch (err) {
-      console.error('Unexpected sign out error:', err);
-      errorToast('Unexpected Error', 'An unexpected error occurred during sign out');
+      // Even if everything fails, clear local state and cookies
+      console.warn('[Auth] Unexpected sign out error, forcing local logout:', err);
+      
+      // Force clear local session state
+      setSession(null);
+      setUserProfile(null);
+      setUserAuthLoading(false);
+      
+      // Clear backend cookies as fallback
+      await clearAuthCookies().catch(() => {
+        // Ignore errors here - we're already handling a failure case
+      });
+      
+      // Show auth popover
+      const isOnLandingPage = window.location.pathname === '/';
+      if (!isOnLandingPage) {
+        setAuthOpen(true);
+      }
+      
+      // Show success toast - user is logged out locally
+      toast({
+        title: 'Signed out',
+        description: 'You have been successfully signed out.',
+        variant: 'info',
+        duration: 4000
+      });
     }
   };
 
