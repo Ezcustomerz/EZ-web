@@ -32,7 +32,7 @@ app.state.limiter = limiter
 # Get allowed origins from environment or use defaults for development
 ALLOWED_ORIGINS = os.getenv(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,https://localhost:3000,https://127.0.0.1:3000"
+    "http://localhost:3000,http://127.0.0.1:3000,https://localhost:3000,https://127.0.0.1:3000,https://ez-web.onrender.com",
 ).split(",")
 
 app.add_middleware(
