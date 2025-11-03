@@ -122,6 +122,23 @@ class BookingService {
     const response = await apiClient.get(`${this.bookingsUrl}/creative`);
     return response.data.orders || [];
   }
+
+  async getCreativeCurrentOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/creative/current`);
+    return response.data.orders || [];
+  }
+
+  async getCreativePastOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/creative/past`);
+    return response.data.orders || [];
+  }
+
+  async rejectOrder(bookingId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post(`${this.bookingsUrl}/reject`, {
+      booking_id: bookingId
+    });
+    return response.data;
+  }
 }
 
 export interface Order {
@@ -143,6 +160,7 @@ export interface Order {
   creative_color?: string;
   order_date: string;
   booking_date?: string;
+  canceled_date?: string;
   price: number;
   payment_option?: string;
   description?: string;

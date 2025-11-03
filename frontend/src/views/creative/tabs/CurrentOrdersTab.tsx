@@ -1,8 +1,7 @@
 import { Box, CircularProgress } from '@mui/material';
 import { RequestsTable } from '../../../components/tables/RequestsTable';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { bookingService, type Order } from '../../../api/bookingService';
-import { getUserTimezone } from '../../../utils/timezoneUtils';
 
 // Module-level cache to prevent duplicate fetches across remounts
 // This persists across StrictMode remounts to prevent duplicate API calls
@@ -24,17 +23,19 @@ const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remount
 
 // Helper function to transform orders
 function transformOrders(fetchedOrders: Order[]) {
+  // No need to filter - backend endpoint already filters for current orders
   return fetchedOrders.map((order: Order) => {
-    // Map creative_status to display status
-    const statusMap: Record<string, string> = {
-      'pending_approval': 'Pending Approval',
-      'awaiting_payment': 'Awaiting Payment',
-      'in_progress': 'In Progress',
-      'complete': 'Complete',
-      'canceled': 'Canceled',
-    };
-    
-    const displayStatus = statusMap[order.creative_status || 'pending_approval'] || 'Pending Approval';
+      // Map creative_status to display status
+      const statusMap: Record<string, string> = {
+        'pending_approval': 'Pending Approval',
+        'awaiting_payment': 'Awaiting Payment',
+        'in_progress': 'In Progress',
+        'complete': 'Complete',
+        'canceled': 'Canceled',
+        'rejected': 'Canceled',
+      };
+      
+      const displayStatus = statusMap[order.creative_status || 'pending_approval'] || 'Pending Approval';
 
     // Format booking date - backend sends UTC ISO string, keep as is for proper timezone conversion
     let bookingDateDisplay = null;
@@ -89,6 +90,38 @@ export function CurrentOrdersTab() {
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
+  // Function to refresh orders
+  const refreshOrders = useCallback(async () => {
+    // Clear cache to force fresh fetch
+    fetchCache.promise = null;
+    fetchCache.data = null;
+    fetchCache.resolved = false;
+    fetchCache.isFetching = false;
+    
+    setLoading(true);
+    try {
+      const fetchedOrders = await bookingService.getCreativeCurrentOrders();
+      const transformedOrders = transformOrders(fetchedOrders);
+      
+      if (mountedRef.current) {
+        setOrders(transformedOrders);
+        setLoading(false);
+      }
+      
+      // Update cache
+      fetchCache.data = fetchedOrders;
+      fetchCache.isFetching = false;
+      fetchCache.resolved = true;
+      fetchCache.timestamp = Date.now();
+    } catch (error) {
+      console.error('Failed to refresh orders:', error);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
+      throw error;
+    }
+  }, []);
+
   // Fetch orders on mount - only once
   useEffect(() => {
     mountedRef.current = true;
@@ -131,7 +164,7 @@ export function CurrentOrdersTab() {
 
     const fetchOrders = async () => {
       try {
-        const fetchedOrders = await bookingService.getCreativeOrders();
+        const fetchedOrders = await bookingService.getCreativeCurrentOrders();
         
         // Transform orders to match RequestsTable expected format
         const transformedOrders = transformOrders(fetchedOrders);
@@ -200,7 +233,9 @@ export function CurrentOrdersTab() {
       py: 1,
       overflow: 'visible',
     }}>
-      <RequestsTable requests={orders} context="orders" />
+      <RequestsTable requests={orders} context="orders" onRefresh={refreshOrders} />
     </Box>
   );
 }
+
+

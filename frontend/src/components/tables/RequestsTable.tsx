@@ -37,6 +37,9 @@ import { AwaitingPaymentPopover, type AwaitingPaymentOrder } from '../popovers/c
 import { InProgressPopover, type InProgressOrder } from '../popovers/creative/InProgressPopover';
 import { CompletePopover, type CompleteOrder } from '../popovers/creative/CompletePopover';
 import { CancelledPopover, type CancelledOrder } from '../popovers/creative/CancelledPopover';
+import { bookingService } from '../../api/bookingService';
+import { ConfirmActionDialog, type ActionType } from '../dialogs/ConfirmActionDialog';
+import { successToast, errorToast } from '../toast/toast';
 
 
 type SortField = 'client' | 'service' | 'amount' | 'date' | 'bookingDate' | undefined;
@@ -81,10 +84,12 @@ function formatBookingDate(bookingDateStr: string | null) {
 
 export function RequestsTable({ 
   requests = [], 
-  context = 'requests' 
+  context = 'requests',
+  onRefresh
 }: { 
   requests?: any[];
   context?: 'orders' | 'payments' | 'requests';
+  onRefresh?: () => Promise<void> | void;
 }) {
   const theme = useTheme();
   
@@ -127,6 +132,12 @@ export function RequestsTable({
   const [cancelledPopoverOpen, setCancelledPopoverOpen] = useState(false);
   const [selectedCancelledOrder, setSelectedCancelledOrder] = useState<CancelledOrder | null>(null);
   const [showFinalizationStep, setShowFinalizationStep] = useState(false);
+  
+  // Confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmActionType, setConfirmActionType] = useState<ActionType>('approve');
+  const [confirmOrderId, setConfirmOrderId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
@@ -309,19 +320,66 @@ export function RequestsTable({
     setSelectedCancelledOrder(null);
   };
 
-  // Approval handlers
+  // Approval handlers - open confirmation dialog
   const handleApprove = (orderId: string) => {
-    console.log('Approving order:', orderId);
-    // TODO: Implement approval logic - update order status to 'Approved' or 'Waiting'
-    // This would typically involve an API call to update the order status
-    handleClosePendingApprovalPopover();
+    setConfirmActionType('approve');
+    setConfirmOrderId(orderId);
+    setConfirmDialogOpen(true);
   };
 
   const handleReject = (orderId: string) => {
-    console.log('Rejecting order:', orderId);
-    // TODO: Implement rejection logic - update order status to 'Rejected' or remove from list
-    // This would typically involve an API call to update the order status
-    handleClosePendingApprovalPopover();
+    setConfirmActionType('reject');
+    setConfirmOrderId(orderId);
+    setConfirmDialogOpen(true);
+  };
+
+  // Confirmation dialog handlers
+  const handleCloseConfirmDialog = () => {
+    if (!isProcessing) {
+      setConfirmDialogOpen(false);
+      setConfirmOrderId(null);
+    }
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmOrderId) return;
+
+    setIsProcessing(true);
+    try {
+      if (confirmActionType === 'approve') {
+        console.log('Approving order:', confirmOrderId);
+        // TODO: Implement approval logic - update order status to 'Approved' or 'Waiting'
+        // This would typically involve an API call to update the order status
+        handleClosePendingApprovalPopover();
+        successToast('Order approved', 'The order has been approved successfully.');
+      } else {
+        // Reject action
+        console.log('Rejecting order:', confirmOrderId);
+        const response = await bookingService.rejectOrder(confirmOrderId);
+        
+        // Close the popover
+        handleClosePendingApprovalPopover();
+        
+        // Show success toast
+        successToast('Order rejected', response.message || 'The order has been rejected successfully.');
+        
+        // Refresh orders data instead of reloading the page
+        if (onRefresh) {
+          await onRefresh();
+        }
+      }
+      
+      // Close confirmation dialog
+      setConfirmDialogOpen(false);
+      setConfirmOrderId(null);
+    } catch (error: any) {
+      console.error(`Failed to ${confirmActionType} order:`, error);
+      const errorMessage = error.response?.data?.detail || error.message || `Failed to ${confirmActionType} order. Please try again.`;
+      errorToast(`Failed to ${confirmActionType} order`, errorMessage);
+      handleClosePendingApprovalPopover();
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleComplete = (orderId: string) => {
@@ -920,6 +978,15 @@ export function RequestsTable({
                 tabIndex={0}
                 aria-label={`Request for ${inv.client}, ${inv.status}, ${formatCurrency(inv.amount)}, ${formatDate(inv.date)}`}
                 onClick={inv.status === 'Pending Approval' ? (e) => {
+                  // Don't open popover if clicking a button, icon button, or action buttons
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button') || 
+                      target.closest('[role="button"]') ||
+                      target.closest('[data-action-button]') ||
+                      target.tagName === 'BUTTON' ||
+                      target.closest('svg')?.closest('button')) {
+                    return;
+                  }
                   e.preventDefault();
                   e.stopPropagation();
                   handleOpenPendingApprovalPopover(inv);
@@ -960,14 +1027,16 @@ export function RequestsTable({
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Typography variant="subtitle1" fontWeight={600}>{inv.client}</Typography>
                     {inv.status === 'Pending Approval' && (
-                      <PendingApprovalRow 
-                        status={inv.status} 
-                        onApprove={handleApprove} 
-                        onReject={handleReject} 
-                        orderId={inv.id} 
-                        isMobile={true}
-                        showActions={false}
-                      />
+                      <Box onClick={(e) => e.stopPropagation()}>
+                        <PendingApprovalRow 
+                          status={inv.status} 
+                          onApprove={handleApprove} 
+                          onReject={handleReject} 
+                          orderId={inv.id} 
+                          isMobile={true}
+                          showActions={true}
+                        />
+                      </Box>
                     )}
                     {inv.status === 'Awaiting Payment' && (
                       <AwaitingPaymentRow 
@@ -1653,6 +1722,15 @@ export function RequestsTable({
                     key={inv.id}
                     hover
                     onClick={inv.status === 'Pending Approval' ? (e) => {
+                      // Don't open popover if clicking a button, icon button, or action buttons
+                      const target = e.target as HTMLElement;
+                      if (target.closest('button') || 
+                          target.closest('[role="button"]') ||
+                          target.closest('[data-action-button]') ||
+                          target.tagName === 'BUTTON' ||
+                          target.closest('svg')?.closest('button')) {
+                        return;
+                      }
                       e.preventDefault();
                       e.stopPropagation();
                       handleOpenPendingApprovalPopover(inv);
@@ -1696,14 +1774,16 @@ export function RequestsTable({
                     {/* Status */}
                     <TableCell>
                       {inv.status === 'Pending Approval' && (
-                        <PendingApprovalRow 
-                          status={inv.status} 
-                          onApprove={handleApprove} 
-                          onReject={handleReject} 
-                          orderId={inv.id} 
-                          isMobile={false}
-                          showActions={false}
-                        />
+                        <Box onClick={(e) => e.stopPropagation()}>
+                          <PendingApprovalRow 
+                            status={inv.status} 
+                            onApprove={handleApprove} 
+                            onReject={handleReject} 
+                            orderId={inv.id} 
+                            isMobile={false}
+                            showActions={false}
+                          />
+                        </Box>
                       )}
                       {inv.status === 'Awaiting Payment' && (
                         <AwaitingPaymentRow 
@@ -1942,6 +2022,15 @@ export function RequestsTable({
         open={cancelledPopoverOpen}
         onClose={handleCloseCancelledPopover}
         order={selectedCancelledOrder}
+      />
+
+      {/* Confirm Action Dialog */}
+      <ConfirmActionDialog
+        open={confirmDialogOpen}
+        onClose={handleCloseConfirmDialog}
+        onConfirm={handleConfirmAction}
+        actionType={confirmActionType}
+        isProcessing={isProcessing}
       />
     </Box>
   );

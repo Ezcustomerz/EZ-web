@@ -691,7 +691,7 @@ export function PendingApprovalPopover({
         open={serviceDetailOpen}
         onClose={handleServiceDetailClose}
         service={serviceDetail}
-        context="services-tab"
+        context="creative-view"
       />
 
       {/* Booking Detail Popover */}
