@@ -163,7 +163,7 @@ export function PaymentApprovalOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Payment required to begin
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
@@ -172,7 +172,7 @@ export function PaymentApprovalOrderCard({
           </Box>
           
           <Chip
-            label="Payment Approval"
+            label="Payment Required"
             size="small"
             sx={{
               bgcolor: statusColor,

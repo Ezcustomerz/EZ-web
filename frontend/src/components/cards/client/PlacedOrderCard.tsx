@@ -150,7 +150,7 @@ export function PlacedOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Awaiting creative approval
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>

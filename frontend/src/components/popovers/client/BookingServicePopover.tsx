@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { convertUTCToLocalTime, getUserTimezone } from '../../../utils/timezoneUtils';
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BookingSchedulePopover, type BookingScheduleData } from './BookingSchedulePopover';
 import { successToast, errorToast } from '../../toast/toast';
 import { bookingService } from '../../../api/bookingService';
@@ -760,6 +761,7 @@ export function BookingServicePopover({
 }: BookingServicePopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -904,7 +906,7 @@ export function BookingServicePopover({
       let startTime: string | undefined;
       let endTime: string | undefined;
       let sessionDuration: number | undefined;
-      let bookingAvailabilityId: string | undefined;
+      // booking_availability_id is no longer used - removed
 
       // Add scheduling data if booking was required and scheduled
       if (isBookingRequired && schedulingData?.selectedDate && schedulingData?.selectedTime) {
@@ -925,7 +927,6 @@ export function BookingServicePopover({
           
           bookingDate = schedulingData.selectedDate.toISOString().split('T')[0];
           sessionDuration = durationMinutes;
-          bookingAvailabilityId = schedulingData.bookingAvailabilityId;
         }
       }
 
@@ -936,7 +937,6 @@ export function BookingServicePopover({
         start_time: startTime,
         end_time: endTime,
         session_duration: sessionDuration,
-        booking_availability_id: bookingAvailabilityId,
         notes: additionalNotes.trim() || undefined
       });
 
@@ -972,6 +972,8 @@ export function BookingServicePopover({
       // Add a small delay for better UX and reset state properly
       setTimeout(() => {
         handleClose();
+        // Navigate to orders page after closing the popover
+        navigate('/client/orders');
       }, 500);
     } catch (error: any) {
       console.error('Failed to submit booking:', error);

@@ -156,7 +156,7 @@ export function InProgressOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Service in progress
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>

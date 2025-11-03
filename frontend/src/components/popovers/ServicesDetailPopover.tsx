@@ -70,7 +70,7 @@ export interface ServicesDetailPopoverProps {
   open: boolean;
   onClose: () => void;
   service: ServiceDetail | null;
-  context: 'client-connected' | 'invite-page' | 'services-tab' | 'profile-tab';
+  context: 'client-connected' | 'invite-page' | 'services-tab' | 'profile-tab' | 'creative-view';
   onBook?: () => void;
   onCreativeClick?: (creativeData: any) => void;
 }
@@ -97,7 +97,8 @@ export function ServicesDetailPopover({
 
   if (!service) return null;
 
-  const showBookButton = context === 'client-connected';
+  // Only show booking button for client context - never for creative views
+  const showBookButton = context === 'client-connected' && context !== 'creative-view';
 
   const handleBook = () => {
     if (onBook) {

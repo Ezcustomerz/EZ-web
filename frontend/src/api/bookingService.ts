@@ -51,7 +51,6 @@ export interface CreateBookingRequest {
   start_time?: string;
   end_time?: string;
   session_duration?: number;
-  booking_availability_id?: string;
   notes?: string;
 }
 
@@ -113,6 +112,69 @@ class BookingService {
     const response = await apiClient.post(`${this.bookingsUrl}/create`, bookingData);
     return response.data;
   }
+
+  async getClientOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/client`);
+    return response.data.orders || [];
+  }
+
+  async getCreativeOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/creative`);
+    return response.data.orders || [];
+  }
+
+  async getCreativeCurrentOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/creative/current`);
+    return response.data.orders || [];
+  }
+
+  async getCreativePastOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/creative/past`);
+    return response.data.orders || [];
+  }
+
+  async rejectOrder(bookingId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post(`${this.bookingsUrl}/reject`, {
+      booking_id: bookingId
+    });
+    return response.data;
+  }
+
+  async approveOrder(bookingId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post(`${this.bookingsUrl}/approve`, {
+      booking_id: bookingId
+    });
+    return response.data;
+  }
+}
+
+export interface Order {
+  id: string;
+  service_id: string;
+  service_name: string;
+  service_description?: string;
+  service_delivery_time?: string;
+  service_color?: string;
+  creative_id: string;
+  creative_name: string;
+  creative_display_name?: string;
+  creative_title?: string;
+  creative_avatar_url?: string;
+  creative_email?: string;
+  creative_rating?: number;
+  creative_review_count?: number;
+  creative_services_count?: number;
+  creative_color?: string;
+  order_date: string;
+  booking_date?: string;
+  canceled_date?: string;
+  approved_at?: string;
+  price: number;
+  payment_option?: string;
+  description?: string;
+  status: string;
+  client_status?: string;
+  creative_status?: string;
 }
 
 export const bookingService = new BookingService();

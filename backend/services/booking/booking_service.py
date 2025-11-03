@@ -161,51 +161,11 @@ class BookingService:
             return []
 
     def get_available_time_slots(self, service_id: str, booking_date: date) -> List[Dict[str, Any]]:
-        """Get available time slots for a specific date from booking_availability table"""
+        """
+        Get available time slots for a specific date.
+        Uses time_slots (template) and filters out already-booked times from bookings table.
+        """
         try:
-            # First check if booking_availability records exist for this date
-            response = self.db.table('booking_availability')\
-                .select('*')\
-                .eq('service_id', service_id)\
-                .eq('available_date', booking_date.isoformat())\
-                .eq('is_available', True)\
-                .execute()
-            
-            if response.data:
-                # Return actual booking_availability instances with capacity tracking
-                # Also double-check against actual bookings for data integrity
-                existing_bookings_response = self.db.table('bookings')\
-                    .select('start_time')\
-                    .eq('service_id', service_id)\
-                    .eq('booking_date', booking_date.isoformat())\
-                    .in_('client_status', ['placed', 'confirmed', 'in_progress'])\
-                    .execute()
-                
-                booked_times = set()
-                if existing_bookings_response.data:
-                    for booking in existing_bookings_response.data:
-                        booked_times.add(booking['start_time'])
-                
-                available_slots = []
-                for slot in response.data:
-                    slot_time = slot["start_time"]
-                    # Only show slots that:
-                    # 1. Aren't fully booked according to current_bookings counter
-                    # 2. Don't have an existing booking (double-check for data integrity)
-                    if (slot.get('current_bookings', 0) < slot.get('max_bookings', 1) 
-                        and slot_time not in booked_times):
-                        available_slots.append({
-                            "id": slot["id"],  # This is booking_availability.id
-                            "slot_time": slot_time,
-                            "is_enabled": True,
-                            "day_of_week": booking_date.strftime('%A'),
-                            "current_bookings": slot.get('current_bookings', 0),
-                            "max_bookings": slot.get('max_bookings', 1)
-                        })
-                return available_slots
-            
-            # If no booking_availability exists, fall back to generating from time_slots
-            # BUT check existing bookings to filter out already-booked times
             calendar_settings = self.get_calendar_settings(service_id)
             if not calendar_settings or not calendar_settings.get("is_scheduling_enabled"):
                 return []
@@ -245,8 +205,7 @@ class BookingService:
                             "id": slot["id"],
                             "slot_time": slot["slot_time"],
                             "is_enabled": slot["is_enabled"],
-                            "day_of_week": slot["day_of_week"],
-                            "is_template": True  # Flag to indicate this is from time_slots, not booking_availability
+                            "day_of_week": slot["day_of_week"]
                         })
 
             return available_slots

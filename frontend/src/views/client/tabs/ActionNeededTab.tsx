@@ -21,7 +21,7 @@ import { DownloadOrderCard } from '../../../components/cards/client/DownloadOrde
 // Helper function to get status color
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'payment-approval':
+    case 'payment-required':
       return '#00bcd4';
     case 'locked':
       return '#9c27b0';
@@ -364,7 +364,7 @@ export function ActionNeededTab() {
                 All Statuses
               </Box>
             </MenuItem>
-            <MenuItem value="payment-approval" sx={{
+            <MenuItem value="payment-required" sx={{
               transition: 'all 0.2s ease',
               '&:hover': {
                 transform: 'translateX(4px)',
@@ -384,9 +384,9 @@ export function ActionNeededTab() {
                   width: 8, 
                   height: 8, 
                   borderRadius: '50%', 
-                  bgcolor: getStatusColor('payment-approval') 
+                  bgcolor: getStatusColor('payment-required') 
                 }} />
-                Payment Approval
+                Payment Required
               </Box>
             </MenuItem>
             <MenuItem value="locked" sx={{
@@ -520,7 +520,7 @@ export function ActionNeededTab() {
               };
 
               switch (order.status) {
-                case 'payment-approval':
+                case 'payment-required':
                   return (
                     <PaymentApprovalOrderCard
                       {...commonProps}
