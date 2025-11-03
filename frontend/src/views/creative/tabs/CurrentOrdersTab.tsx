@@ -30,6 +30,7 @@ function transformOrders(fetchedOrders: Order[]) {
         'pending_approval': 'Pending Approval',
         'awaiting_payment': 'Awaiting Payment',
         'in_progress': 'In Progress',
+        'completed': 'Complete',
         'complete': 'Complete',
         'canceled': 'Canceled',
         'rejected': 'Canceled',

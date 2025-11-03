@@ -129,6 +129,7 @@ class OrderResponse(BaseModel):
     order_date: str
     booking_date: Optional[str]
     canceled_date: Optional[str]
+    approved_at: Optional[str]
     price: float
     payment_option: Optional[str]
     description: Optional[str]
@@ -159,7 +160,7 @@ async def get_client_orders(request: Request):
         
         # Fetch bookings for this client
         bookings_response = db_admin.table('bookings')\
-            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date')\
+            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
             .eq('client_user_id', user_id)\
             .order('order_date', desc=True)\
             .execute()
@@ -225,6 +226,17 @@ async def get_client_orders(request: Request):
                     logger.warning(f"Error formatting booking date: {e}")
                     booking_date_display = None
             
+            # Determine the status for client view
+            # If creative rejected the order, show as 'canceled' to the client
+            creative_status = booking.get('creative_status')
+            client_status = booking.get('client_status', 'placed')
+            
+            # If creative rejected the order, the client should see it as canceled
+            if creative_status == 'rejected':
+                display_status = 'canceled'
+            else:
+                display_status = client_status
+            
             order = OrderResponse(
                 id=booking['id'],
                 service_id=booking['service_id'],
@@ -245,12 +257,13 @@ async def get_client_orders(request: Request):
                 order_date=booking['order_date'],
                 booking_date=booking_date_display,
                 canceled_date=booking.get('canceled_date'),
+                approved_at=booking.get('approved_at'),
                 price=float(booking['price']) if booking.get('price') else 0.0,
                 payment_option=booking.get('payment_option', 'later'),
                 description=booking.get('notes'),
-                status=booking.get('client_status', 'placed'),
-                client_status=booking.get('client_status'),
-                creative_status=booking.get('creative_status')
+                status=display_status,
+                client_status=client_status,
+                creative_status=creative_status
             )
             orders.append(order)
         
@@ -280,7 +293,7 @@ async def get_creative_orders(request: Request):
         
         # Fetch bookings for this creative
         bookings_response = db_admin.table('bookings')\
-            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date')\
+            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at')\
             .eq('creative_user_id', user_id)\
             .order('order_date', desc=True)\
             .execute()
@@ -358,6 +371,7 @@ async def get_creative_orders(request: Request):
                 order_date=booking['order_date'],
                 booking_date=booking_date_display,
                 canceled_date=booking.get('canceled_date'),
+                approved_at=booking.get('approved_at'),
                 price=float(booking['price']) if booking.get('price') else 0.0,
                 payment_option=booking.get('payment_option', 'later'),
                 description=booking.get('notes'),
@@ -393,7 +407,7 @@ async def get_creative_current_orders(request: Request):
         
         # Fetch bookings for this creative, excluding completed/canceled/rejected orders
         bookings_response = db_admin.table('bookings')\
-            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date')\
+            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at')\
             .eq('creative_user_id', user_id)\
             .not_.in_('creative_status', ['complete', 'rejected', 'canceled'])\
             .order('order_date', desc=True)\
@@ -472,6 +486,7 @@ async def get_creative_current_orders(request: Request):
                 order_date=booking['order_date'],
                 booking_date=booking_date_display,
                 canceled_date=booking.get('canceled_date'),
+                approved_at=booking.get('approved_at'),
                 price=float(booking['price']) if booking.get('price') else 0.0,
                 payment_option=booking.get('payment_option', 'later'),
                 description=booking.get('notes'),
@@ -507,7 +522,7 @@ async def get_creative_past_orders(request: Request):
         
         # Fetch bookings for this creative, only completed/canceled/rejected orders
         bookings_response = db_admin.table('bookings')\
-            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date')\
+            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at')\
             .eq('creative_user_id', user_id)\
             .in_('creative_status', ['complete', 'rejected', 'canceled'])\
             .order('order_date', desc=True)\
@@ -586,6 +601,7 @@ async def get_creative_past_orders(request: Request):
                 order_date=booking['order_date'],
                 booking_date=booking_date_display,
                 canceled_date=booking.get('canceled_date'),
+                approved_at=booking.get('approved_at'),
                 price=float(booking['price']) if booking.get('price') else 0.0,
                 payment_option=booking.get('payment_option', 'later'),
                 description=booking.get('notes'),
@@ -602,6 +618,108 @@ async def get_creative_past_orders(request: Request):
     except Exception as e:
         logger.error(f"Error fetching creative past orders: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch creative past orders: {str(e)}")
+
+
+class ApproveBookingRequest(BaseModel):
+    booking_id: str
+
+
+class ApproveBookingResponse(BaseModel):
+    success: bool
+    message: str
+
+
+@router.post("/approve", response_model=ApproveBookingResponse)
+@limiter.limit("10 per minute")
+async def approve_booking(
+    request: Request,
+    approve_data: ApproveBookingRequest
+):
+    """
+    Approve a booking/order
+    - Validates user authentication
+    - Verifies the booking belongs to the creative
+    - Updates status based on payment option:
+      * Free or 'later' payment: creative_status='in_progress', client_status='in_progress'
+      * 'upfront' or 'split' payment: creative_status='awaiting_payment', client_status='payment_required'
+    """
+    try:
+        # Get user ID from JWT token (set by middleware)
+        if not request.state.user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        # Fetch the booking to verify it exists and belongs to this creative
+        booking_response = db_admin.table('bookings')\
+            .select('id, creative_user_id, creative_status, price, payment_option')\
+            .eq('id', approve_data.booking_id)\
+            .single()\
+            .execute()
+        
+        if not booking_response.data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        booking = booking_response.data
+        
+        # Verify the booking belongs to this creative
+        if booking['creative_user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="You don't have permission to approve this booking")
+        
+        # Check if booking can be approved (only pending_approval can be approved)
+        current_status = booking.get('creative_status', 'pending_approval')
+        if current_status not in ['pending_approval']:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot approve booking with status '{current_status}'. Only pending approvals can be approved."
+            )
+        
+        # Determine new status based on payment option and price
+        price = float(booking.get('price', 0))
+        payment_option = booking.get('payment_option', 'later')
+        
+        # If booking is free or payment at end, both statuses become 'in_progress'
+        # If booking requires upfront or split payment, creative waits for payment
+        if price == 0 or payment_option == 'later':
+            creative_status = 'in_progress'
+            client_status = 'in_progress'
+        else:  # upfront or split payment
+            creative_status = 'awaiting_payment'
+            client_status = 'payment_required'
+        
+        # Update booking status and set approved timestamp
+        update_response = db_admin.table('bookings')\
+            .update({
+                'creative_status': creative_status,
+                'client_status': client_status,
+                'approved_at': datetime.utcnow().isoformat()
+            })\
+            .eq('id', approve_data.booking_id)\
+            .execute()
+        
+        if not update_response.data or len(update_response.data) == 0:
+            raise HTTPException(status_code=500, detail="Failed to update booking status")
+        
+        logger.info(f"Booking approved successfully: {approve_data.booking_id} by creative {user_id} - Status: creative={creative_status}, client={client_status}")
+        
+        # TODO: Future enhancements
+        # - Send email notification to client about approval
+        # - If payment required, send payment request/invoice
+        # - Add webhook for integrations
+        # - Update analytics/metrics
+        
+        return ApproveBookingResponse(
+            success=True,
+            message="Booking approved successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error approving booking: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to approve booking: {str(e)}")
 
 
 class RejectBookingRequest(BaseModel):

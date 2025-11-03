@@ -348,10 +348,18 @@ export function RequestsTable({
     try {
       if (confirmActionType === 'approve') {
         console.log('Approving order:', confirmOrderId);
-        // TODO: Implement approval logic - update order status to 'Approved' or 'Waiting'
-        // This would typically involve an API call to update the order status
+        const response = await bookingService.approveOrder(confirmOrderId);
+        
+        // Close the popover
         handleClosePendingApprovalPopover();
-        successToast('Order approved', 'The order has been approved successfully.');
+        
+        // Show success toast
+        successToast('Order approved', response.message || 'The order has been approved successfully.');
+        
+        // Refresh orders data instead of reloading the page
+        if (onRefresh) {
+          await onRefresh();
+        }
       } else {
         // Reject action
         console.log('Rejecting order:', confirmOrderId);
@@ -646,8 +654,12 @@ export function RequestsTable({
                   <MenuItem value="Pending Approval" disableRipple>Pending Approval</MenuItem>
                   <MenuItem value="Awaiting Payment" disableRipple>Awaiting Payment</MenuItem>
                   <MenuItem value="In Progress" disableRipple>In Progress</MenuItem>
-                  <MenuItem value="Complete" disableRipple>Complete</MenuItem>
-                  <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                  {context !== 'orders' && (
+                    <>
+                      <MenuItem value="Complete" disableRipple>Complete</MenuItem>
+                      <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                    </>
+                  )}
                 </Select>
               </FormControl>
               <Button
@@ -1188,8 +1200,12 @@ export function RequestsTable({
                 <MenuItem value="Pending Approval" disableRipple>Pending Approval</MenuItem>
                 <MenuItem value="Awaiting Payment" disableRipple>Awaiting Payment</MenuItem>
                 <MenuItem value="In Progress" disableRipple>In Progress</MenuItem>
-                <MenuItem value="Complete" disableRipple>Complete</MenuItem>
-                <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                {context !== 'orders' && (
+                  <>
+                    <MenuItem value="Complete" disableRipple>Complete</MenuItem>
+                    <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                  </>
+                )}
               </Select>
             </FormControl>
             <Button

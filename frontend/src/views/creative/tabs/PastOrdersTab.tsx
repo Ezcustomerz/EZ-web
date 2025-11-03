@@ -26,6 +26,7 @@ function transformOrders(fetchedOrders: Order[]) {
   return fetchedOrders.map((order: Order) => {
       // Map creative_status to display status
       const statusMap: Record<string, string> = {
+        'completed': 'Complete',
         'complete': 'Complete',
         'rejected': 'Canceled',  // Show rejected orders as Canceled in UI
         'canceled': 'Canceled',

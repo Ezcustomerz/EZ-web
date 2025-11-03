@@ -664,6 +664,30 @@ export function InProgressPopover({
             </Card>
           )}
 
+          {/* Additional Notes Section - Only show if notes exist */}
+          {order.notes && order.notes.trim() && (
+            <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2, mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, color: 'text.primary' }}>
+                  Additional Notes
+                </Typography>
+                <Box 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.notes}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
 
           </Box>
         ) : (

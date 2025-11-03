@@ -139,6 +139,13 @@ class BookingService {
     });
     return response.data;
   }
+
+  async approveOrder(bookingId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post(`${this.bookingsUrl}/approve`, {
+      booking_id: bookingId
+    });
+    return response.data;
+  }
 }
 
 export interface Order {
@@ -161,6 +168,7 @@ export interface Order {
   order_date: string;
   booking_date?: string;
   canceled_date?: string;
+  approved_at?: string;
   price: number;
   payment_option?: string;
   description?: string;

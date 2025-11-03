@@ -479,13 +479,39 @@ export function PaymentApprovalOrderDetailPopover({
                 }}
               />
               <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                {order.description}
+                Payment Required
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem', ml: 2.5 }}>
               The creative has approved your booking. Please complete the payment to proceed with your service.
             </Typography>
           </Box>
+
+          {/* Additional Notes Section - Only show if notes exist */}
+          {order.description && order.description.trim() && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, fontSize: '1rem' }}>
+                  Additional Notes
+                </Typography>
+                <Box 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.description}
+                  </Typography>
+                </Box>
+              </Box>
+            </>
+          )}
           </Box>
 
           {/* Sticky Pay Button */}

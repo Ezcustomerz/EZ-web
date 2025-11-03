@@ -325,9 +325,9 @@ class CreativeController:
             if not creative_result.data:
                 raise HTTPException(status_code=404, detail="Creative profile not found. Please complete your creative setup first.")
             
-            # Validate price is positive
-            if price <= 0:
-                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+            # Validate price is non-negative (allow free services)
+            if price < 0:
+                raise HTTPException(status_code=422, detail="Price cannot be negative")
             
             # Validate status
             if status not in ['Public', 'Private', 'Bundle-Only']:
@@ -833,8 +833,8 @@ class CreativeController:
             if not service_result.data['is_active']:
                 raise HTTPException(status_code=400, detail="Cannot edit a deleted service")
 
-            if service_request.price <= 0:
-                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+            if service_request.price < 0:
+                raise HTTPException(status_code=422, detail="Price cannot be negative")
 
             if service_request.status not in ['Public', 'Private', 'Bundle-Only']:
                 raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
@@ -888,8 +888,8 @@ class CreativeController:
             if not service_result.data['is_active']:
                 raise HTTPException(status_code=400, detail="Cannot edit a deleted service")
 
-            if service_data['price'] <= 0:
-                raise HTTPException(status_code=422, detail="Price must be greater than 0")
+            if service_data['price'] < 0:
+                raise HTTPException(status_code=422, detail="Price cannot be negative")
 
             if service_data['status'] not in ['Public', 'Private', 'Bundle-Only']:
                 raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
@@ -1213,8 +1213,8 @@ class CreativeController:
             
             # Calculate final price based on pricing option
             if bundle_request.pricing_option == 'fixed':
-                if bundle_request.fixed_price is None or bundle_request.fixed_price <= 0:
-                    raise HTTPException(status_code=422, detail="Fixed price must be greater than 0")
+                if bundle_request.fixed_price is None or bundle_request.fixed_price < 0:
+                    raise HTTPException(status_code=422, detail="Fixed price cannot be negative")
                 final_price = bundle_request.fixed_price
             else:  # discount
                 if bundle_request.discount_percentage is None or bundle_request.discount_percentage < 0 or bundle_request.discount_percentage > 100:

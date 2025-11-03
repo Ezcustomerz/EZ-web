@@ -52,10 +52,12 @@ function transformOrders(fetchedOrders: Order[]) {
     description: order.description || order.service_description || '',
     price: order.price,
     calendarDate: order.booking_date || null,
+    canceledDate: order.canceled_date,
+    approvedDate: order.approved_at || null,
     paymentOption: order.payment_option === 'upfront' ? 'payment_upfront' : 
                    order.payment_option === 'split' ? 'split_payment' : 'payment_later',
     status: order.status === 'placed' ? 'placed' :
-            order.status === 'payment_approval' ? 'payment-approval' :
+            order.status === 'payment_required' ? 'payment-required' :
             order.status === 'in_progress' ? 'in-progress' :
             order.status === 'locked' ? 'locked' :
             order.status === 'download' ? 'download' :
@@ -286,7 +288,7 @@ export function AllServicesTab() {
     switch (status) {
       case 'placed':
         return '#ff9800';
-      case 'payment-approval':
+      case 'payment-required':
         return '#00bcd4';
       case 'in-progress':
         return '#2196f3';
@@ -404,7 +406,7 @@ export function AllServicesTab() {
                 Placed
               </Box>
             </MenuItem>
-            <MenuItem value="payment-approval" sx={{
+            <MenuItem value="payment-required" sx={{
               transition: 'all 0.2s ease',
               '&:hover': {
                 transform: 'translateX(4px)',
@@ -424,9 +426,9 @@ export function AllServicesTab() {
                   width: 8, 
                   height: 8, 
                   borderRadius: '50%', 
-                  bgcolor: getStatusColor('payment-approval') 
+                  bgcolor: getStatusColor('payment-required') 
                 }} />
-                Payment Approval
+                Payment Required
               </Box>
             </MenuItem>
             <MenuItem value="in-progress" sx={{
@@ -837,7 +839,7 @@ export function AllServicesTab() {
                   serviceColor={order.serviceColor}
                 />;
               
-              case 'payment-approval':
+              case 'payment-required':
                 return <PaymentApprovalOrderCard 
                   {...commonProps} 
                   calendarDate={order.calendarDate}

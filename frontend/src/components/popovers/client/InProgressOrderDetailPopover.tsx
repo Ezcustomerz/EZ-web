@@ -554,13 +554,39 @@ export function InProgressOrderDetailPopover({
                 }}
               />
               <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                {order.description}
+                Service in progress
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem', ml: 2.5 }}>
               The creative is actively working on your service. You'll be notified once it's ready for review or delivery.
             </Typography>
           </Box>
+
+          {/* Additional Notes Section - Only show if notes exist */}
+          {order.description && order.description.trim() && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, fontSize: '1rem' }}>
+                  Additional Notes
+                </Typography>
+                <Box 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.description}
+                  </Typography>
+                </Box>
+              </Box>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

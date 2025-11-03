@@ -8,17 +8,63 @@ import {
   Select, 
   MenuItem, 
   useTheme,
+  CircularProgress,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { Search, DateRange } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { InProgressOrderCard } from '../../../components/cards/client/InProgressOrderCard';
+import { bookingService, type Order } from '../../../api/bookingService';
 
-// Connected creatives - will be populated from API
-const connectedCreatives: Array<{ id: string; name: string }> = [];
+// Cache for orders to prevent duplicate API calls
+let fetchCache: {
+  promise: Promise<Order[]> | null;
+  data: Order[] | null;
+  isFetching: boolean;
+  timestamp: number;
+  resolved: boolean;
+} = {
+  promise: null,
+  data: null,
+  isFetching: false,
+  timestamp: 0,
+  resolved: false,
+};
 
-// Order data - will be populated from API (filtered to only in-progress orders)
-const inProgressOrders: Array<any> = [];
+const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remounts
+
+// Transform API orders to component format
+function transformOrders(fetchedOrders: Order[]) {
+  return fetchedOrders
+    .filter(order => order.client_status === 'in_progress') // Filter for in-progress orders
+    .map((order: Order) => ({
+      id: order.id,
+      serviceName: order.service_name,
+      creativeName: order.creative_name,
+      orderDate: order.order_date,
+      description: order.description || order.service_description || '',
+      price: order.price,
+      calendarDate: order.booking_date || null,
+      paymentOption: order.payment_option === 'upfront' ? 'payment_upfront' : 
+                     order.payment_option === 'split' ? 'split_payment' : 'payment_later',
+      amountPaid: 0, // TODO: Get from backend when payment tracking is implemented
+      amountRemaining: order.price, // TODO: Calculate based on payment_option and amount_paid
+      approvedDate: order.approved_at || null,
+      serviceId: order.service_id,
+      serviceDescription: order.service_description,
+      serviceDeliveryTime: order.service_delivery_time,
+      serviceColor: order.service_color,
+      creativeAvatarUrl: order.creative_avatar_url,
+      creativeDisplayName: order.creative_display_name,
+      creativeTitle: order.creative_title,
+      creativeId: order.creative_id,
+      creativeEmail: order.creative_email,
+      creativeRating: order.creative_rating,
+      creativeReviewCount: order.creative_review_count,
+      creativeServicesCount: order.creative_services_count,
+      creativeColor: order.creative_color,
+    }));
+}
 
 export function ActiveTab() {
   const theme = useTheme();
@@ -26,6 +72,67 @@ export function ActiveTab() {
   const [selectedCreative, setSelectedCreative] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [priceSort, setPriceSort] = useState('none');
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch orders on component mount with caching to prevent duplicate calls
+  useEffect(() => {
+    const fetchOrders = async () => {
+      const now = Date.now();
+      
+      // Return cached data if it's still valid
+      if (fetchCache.data && (now - fetchCache.timestamp < CACHE_DURATION)) {
+        setOrders(transformOrders(fetchCache.data));
+        setLoading(false);
+        return;
+      }
+      
+      // If a fetch is already in progress, wait for it
+      if (fetchCache.isFetching && fetchCache.promise) {
+        try {
+          const fetchedOrders = await fetchCache.promise;
+          const transformedOrders = transformOrders(fetchedOrders);
+          setOrders(transformedOrders);
+          setError(null);
+        } catch (err: any) {
+          console.error('Failed to fetch orders:', err);
+          setError(err.message || 'Failed to load orders');
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Start a new fetch
+      try {
+        setLoading(true);
+        fetchCache.isFetching = true;
+        fetchCache.resolved = false;
+        fetchCache.promise = bookingService.getClientOrders();
+        
+        const fetchedOrders = await fetchCache.promise;
+        
+        // Update cache
+        fetchCache.data = fetchedOrders;
+        fetchCache.timestamp = Date.now();
+        fetchCache.resolved = true;
+        
+        const transformedOrders = transformOrders(fetchedOrders);
+        setOrders(transformedOrders);
+        setError(null);
+      } catch (err: any) {
+        console.error('Failed to fetch orders:', err);
+        setError(err.message || 'Failed to load orders');
+        fetchCache.data = null;
+      } finally {
+        setLoading(false);
+        fetchCache.isFetching = false;
+      }
+    };
+
+    fetchOrders();
+  }, []);
 
   const handleCreativeChange = (event: SelectChangeEvent) => {
     setSelectedCreative(event.target.value);
@@ -39,8 +146,13 @@ export function ActiveTab() {
     setPriceSort(event.target.value);
   };
 
+  // Extract unique creatives from orders
+  const connectedCreatives = Array.from(
+    new Set(orders.map(order => order.creativeName))
+  ).map(name => ({ id: name, name }));
+
   // Filter and sort logic
-  let filteredOrders = [...inProgressOrders];
+  let filteredOrders = [...orders];
 
   // Apply search filter
   if (searchQuery) {
@@ -399,7 +511,37 @@ export function ActiveTab() {
           },
         },
       }}>
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            py: 8,
+            gap: 2
+          }}>
+            <CircularProgress />
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Loading in progress orders...
+            </Typography>
+          </Box>
+        ) : error ? (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            py: 8,
+            gap: 1
+          }}>
+            <Typography variant="h6" sx={{ color: 'error.main', fontWeight: 500 }}>
+              Error loading orders
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {error}
+            </Typography>
+          </Box>
+        ) : filteredOrders.length === 0 ? (
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
