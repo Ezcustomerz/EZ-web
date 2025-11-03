@@ -54,7 +54,8 @@ function transformOrders(fetchedOrders: Order[]) {
     calendarDate: order.booking_date || null,
     canceledDate: order.canceled_date,
     approvedDate: order.approved_at || null,
-    paymentOption: order.payment_option === 'upfront' ? 'payment_upfront' : 
+    paymentOption: order.price === 0 || order.price === null ? 'free' :
+                   order.payment_option === 'upfront' ? 'payment_upfront' : 
                    order.payment_option === 'split' ? 'split_payment' : 'payment_later',
     status: order.status === 'placed' ? 'placed' :
             order.status === 'payment_required' ? 'payment-required' :

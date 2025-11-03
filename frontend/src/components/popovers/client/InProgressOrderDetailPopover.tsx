@@ -78,7 +78,7 @@ export function InProgressOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#4caf50'; // Green for in progress
+  const statusColor = '#2196f3'; // Blue for in progress (matching InProgressOrderCard)
 
   const getPaymentOptionLabel = (option: InProgressPaymentOption) => {
     switch (option) {
@@ -486,25 +486,6 @@ export function InProgressOrderDetailPopover({
                     </Typography>
                   </Box>
                 )}
-              </Box>
-            )}
-
-            {order.paymentOption === 'free' && (
-              <Box 
-                sx={{ 
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(158, 158, 158, 0.1)' : 'rgba(158, 158, 158, 0.05)',
-                  border: `1px solid ${theme.palette.grey[500]}30`,
-                  textAlign: 'center',
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                  No payment needed
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                  This is a complimentary service
-                </Typography>
               </Box>
             )}
           </Box>

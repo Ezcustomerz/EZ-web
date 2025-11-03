@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { convertUTCToLocalTime, getUserTimezone } from '../../../utils/timezoneUtils';
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BookingSchedulePopover, type BookingScheduleData } from './BookingSchedulePopover';
 import { successToast, errorToast } from '../../toast/toast';
 import { bookingService } from '../../../api/bookingService';
@@ -760,6 +761,7 @@ export function BookingServicePopover({
 }: BookingServicePopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -970,6 +972,8 @@ export function BookingServicePopover({
       // Add a small delay for better UX and reset state properly
       setTimeout(() => {
         handleClose();
+        // Navigate to orders page after closing the popover
+        navigate('/client/orders');
       }, 500);
     } catch (error: any) {
       console.error('Failed to submit booking:', error);
