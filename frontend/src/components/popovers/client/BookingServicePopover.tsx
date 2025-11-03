@@ -904,7 +904,7 @@ export function BookingServicePopover({
       let startTime: string | undefined;
       let endTime: string | undefined;
       let sessionDuration: number | undefined;
-      let bookingAvailabilityId: string | undefined;
+      // booking_availability_id is no longer used - removed
 
       // Add scheduling data if booking was required and scheduled
       if (isBookingRequired && schedulingData?.selectedDate && schedulingData?.selectedTime) {
@@ -925,7 +925,6 @@ export function BookingServicePopover({
           
           bookingDate = schedulingData.selectedDate.toISOString().split('T')[0];
           sessionDuration = durationMinutes;
-          bookingAvailabilityId = schedulingData.bookingAvailabilityId;
         }
       }
 
@@ -936,7 +935,6 @@ export function BookingServicePopover({
         start_time: startTime,
         end_time: endTime,
         session_duration: sessionDuration,
-        booking_availability_id: bookingAvailabilityId,
         notes: additionalNotes.trim() || undefined
       });
 

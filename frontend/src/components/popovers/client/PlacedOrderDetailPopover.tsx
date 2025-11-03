@@ -2,6 +2,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   IconButton,
   Box,
   Typography,
@@ -11,9 +12,10 @@ import {
   Divider,
   Chip,
   Avatar,
+  Button,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { DateRange, AttachMoney, Payment, CalendarMonth } from '@mui/icons-material';
+import { DateRange, AttachMoney, Payment, CalendarMonth, Cancel } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
@@ -400,7 +402,7 @@ export function PlacedOrderDetailPopover({
                 }}
               />
               <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                {order.description}
+                Awaiting Creative Approval
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem', ml: 2.5 }}>
@@ -409,7 +411,61 @@ export function PlacedOrderDetailPopover({
               {order.calendarDate && ' and confirm the scheduled time'}.
             </Typography>
           </Box>
+
+          {/* Additional Notes Section - Only show if notes exist */}
+          {order.description && order.description.trim() && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, fontSize: '1rem' }}>
+                  Additional Notes
+                </Typography>
+                <Box 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.description}
+                  </Typography>
+                </Box>
+              </Box>
+            </>
+          )}
         </DialogContent>
+
+        {/* Dialog Actions */}
+        <DialogActions sx={{ 
+          p: { xs: 2, sm: 3 }, 
+          pt: 1.5,
+          borderTop: `1px solid ${theme.palette.divider}`,
+          justifyContent: 'flex-end',
+          gap: 1.5
+        }}>
+          <Button
+            variant="outlined"
+            startIcon={<Cancel />}
+            onClick={() => {
+              // TODO: Implement cancel service functionality
+              console.log('Cancel service clicked for order:', order.id);
+            }}
+            sx={{
+              borderColor: theme.palette.error.main,
+              color: theme.palette.error.main,
+              '&:hover': {
+                borderColor: theme.palette.error.dark,
+                backgroundColor: `${theme.palette.error.main}08`,
+              },
+            }}
+          >
+            Cancel Service
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Nested Service Detail Popover */}

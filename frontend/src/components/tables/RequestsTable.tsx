@@ -31,6 +31,7 @@ import {
   CompleteRow, 
   CanceledRow 
 } from './rows';
+import { getUserTimezone } from '../../utils/timezoneUtils';
 import { PendingApprovalPopover, type PendingApprovalOrder } from '../popovers/creative/PendingApprovalPopover';
 import { AwaitingPaymentPopover, type AwaitingPaymentOrder } from '../popovers/creative/AwaitingPaymentPopover';
 import { InProgressPopover, type InProgressOrder } from '../popovers/creative/InProgressPopover';
@@ -53,15 +54,29 @@ function formatDate(dateStr: string) {
 function formatBookingDate(bookingDateStr: string | null) {
   if (!bookingDateStr) return 'Not scheduled';
   
-  const date = new Date(bookingDateStr);
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: '2-digit', 
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
+  try {
+    const date = new Date(bookingDateStr);
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid booking date string:', bookingDateStr);
+      return 'Not scheduled';
+    }
+    
+    // Use user's timezone for display
+    const userTimezone = getUserTimezone();
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: userTimezone
+    });
+  } catch (error) {
+    console.warn('Error formatting booking date:', bookingDateStr, error);
+    return 'Not scheduled';
+  }
 }
 
 export function RequestsTable({ 

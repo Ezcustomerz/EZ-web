@@ -48,13 +48,8 @@ export function DashCreative() {
           />
 
           {/* Section Divider */}
-          <Box sx={{ position: 'relative', zIndex: 1, mb: 2, animation: 'fadeIn 0.6s ease-out 0.35s both', '@keyframes fadeIn': { from: { opacity: 0 }, to: { opacity: 1 } } }}>
-            <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.12)', my: 2 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: -1.5 }}>
-              <Typography variant="overline" sx={{ color: 'text.disabled', fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', backgroundColor: 'background.default', px: 2 }}>
-                Activity Feed
-              </Typography>
-            </Box>
+          <Box sx={{ mb: 2.5 }}>
+            <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.12)' }} />
           </Box>
 
           {/* Activity Feed Card */}

@@ -9,10 +9,11 @@ import {
   MenuItem, 
   useTheme,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { Search, FilterList, DateRange, ShoppingBag } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlacedOrderCard } from '../../../components/cards/client/PlacedOrderCard';
 import { PaymentApprovalOrderCard } from '../../../components/cards/client/PaymentApprovalOrderCard';
@@ -21,12 +22,60 @@ import { LockedOrderCard } from '../../../components/cards/client/LockedOrderCar
 import { DownloadOrderCard } from '../../../components/cards/client/DownloadOrderCard';
 import { CompletedOrderCard } from '../../../components/cards/client/CompletedOrderCard';
 import { CanceledOrderCard } from '../../../components/cards/client/CanceledOrderCard';
+import { bookingService, type Order } from '../../../api/bookingService';
 
-// Connected creatives - will be populated from API
-const connectedCreatives: Array<{ id: string; name: string }> = [];
+// Module-level cache to prevent duplicate fetches across remounts
+// This persists across StrictMode remounts to prevent duplicate API calls
+let fetchCache: {
+  promise: Promise<Order[]> | null;
+  data: Order[] | null;
+  isFetching: boolean;
+  timestamp: number;
+  resolved: boolean;
+} = {
+  promise: null,
+  data: null,
+  isFetching: false,
+  timestamp: 0,
+  resolved: false,
+};
 
-// Order data - will be populated from API
-const orders: Array<any> = [];
+const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remounts
+
+// Helper function to transform orders
+function transformOrders(fetchedOrders: Order[]) {
+  return fetchedOrders.map((order: Order) => ({
+    id: order.id,
+    serviceName: order.service_name,
+    creativeName: order.creative_name,
+    orderDate: order.order_date,
+    description: order.description || order.service_description || '',
+    price: order.price,
+    calendarDate: order.booking_date || null,
+    paymentOption: order.payment_option === 'upfront' ? 'payment_upfront' : 
+                   order.payment_option === 'split' ? 'split_payment' : 'payment_later',
+    status: order.status === 'placed' ? 'placed' :
+            order.status === 'payment_approval' ? 'payment-approval' :
+            order.status === 'in_progress' ? 'in-progress' :
+            order.status === 'locked' ? 'locked' :
+            order.status === 'download' ? 'download' :
+            order.status === 'completed' ? 'completed' :
+            order.status === 'canceled' ? 'canceled' : 'placed',
+    serviceId: order.service_id,
+    serviceDescription: order.service_description,
+    serviceDeliveryTime: order.service_delivery_time,
+    serviceColor: order.service_color,
+    creativeAvatarUrl: order.creative_avatar_url,
+    creativeDisplayName: order.creative_display_name,
+    creativeTitle: order.creative_title,
+    creativeId: order.creative_id,
+    creativeEmail: order.creative_email,
+    creativeRating: order.creative_rating,
+    creativeReviewCount: order.creative_review_count,
+    creativeServicesCount: order.creative_services_count,
+    creativeColor: order.creative_color,
+  }));
+}
 
 export function AllServicesTab() {
   const theme = useTheme();
@@ -35,6 +84,132 @@ export function AllServicesTab() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [creativeFilter, setCreativeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [orders, setOrders] = useState<Array<any>>([]);
+  const [loading, setLoading] = useState(true);
+  const [connectedCreatives, setConnectedCreatives] = useState<Array<{ id: string; name: string }>>([]);
+  const mountedRef = useRef(true);
+
+  // Fetch orders on mount - only once
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    const now = Date.now();
+    const cacheAge = now - fetchCache.timestamp;
+    
+    // Check if we have cached data that's still fresh
+    if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
+      // Use cached data directly (fastest path)
+      if (mountedRef.current) {
+        const transformedOrders = transformOrders(fetchCache.data);
+        setOrders(transformedOrders);
+        
+        // Extract unique creatives
+        const creatives = Array.from(
+          new Map(
+            transformedOrders.map(order => [
+              order.creativeId,
+              { id: order.creativeId, name: order.creativeName }
+            ])
+          ).values()
+        );
+        setConnectedCreatives(creatives);
+        setLoading(false);
+      }
+      return;
+    }
+    
+    // Reuse existing promise if it's currently fetching
+    if (fetchCache.promise && fetchCache.isFetching) {
+      // Reuse existing promise (handles StrictMode remounts)
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
+        const transformedOrders = transformOrders(fetchedOrders);
+        setOrders(transformedOrders);
+        
+        // Extract unique creatives
+        const creatives = Array.from(
+          new Map(
+            transformedOrders.map(order => [
+              order.creativeId,
+              { id: order.creativeId, name: order.creativeName }
+            ])
+          ).values()
+        );
+        setConnectedCreatives(creatives);
+        setLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setLoading(false);
+      });
+      return;
+    }
+
+    // Start new fetch
+    fetchCache.isFetching = true;
+    fetchCache.resolved = false;
+    fetchCache.timestamp = now;
+    setLoading(true);
+
+    const fetchOrders = async () => {
+      try {
+        const fetchedOrders = await bookingService.getClientOrders();
+        
+        // Transform orders to match expected format
+        const transformedOrders = transformOrders(fetchedOrders);
+        
+        if (mountedRef.current) {
+          setOrders(transformedOrders);
+
+          // Extract unique creatives
+          const creatives = Array.from(
+            new Map(
+              transformedOrders.map(order => [
+                order.creativeId,
+                { id: order.creativeId, name: order.creativeName }
+              ])
+            ).values()
+          );
+          setConnectedCreatives(creatives);
+          setLoading(false);
+        }
+        
+        // Cache the resolved data
+        fetchCache.data = fetchedOrders;
+        fetchCache.isFetching = false;
+        fetchCache.resolved = true;
+        // Keep the data and promise in cache for CACHE_DURATION to handle remounts
+        setTimeout(() => {
+          const now = Date.now();
+          if (now - fetchCache.timestamp >= CACHE_DURATION) {
+            fetchCache.promise = null;
+            fetchCache.data = null;
+            fetchCache.resolved = false;
+          }
+        }, CACHE_DURATION);
+        return fetchedOrders;
+      } catch (error) {
+        console.error('Failed to fetch orders:', error);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+        fetchCache.isFetching = false;
+        // Clear cache on error
+        fetchCache.promise = null;
+        throw error;
+      }
+    };
+
+    fetchCache.promise = fetchOrders();
+    fetchCache.promise.catch(() => {
+      // Error already handled in fetchOrders
+    });
+
+    // Cleanup function
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   
 
   const handleStatusChange = (event: SelectChangeEvent) => {
@@ -592,7 +767,11 @@ export function AllServicesTab() {
           },
         },
       }}>
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : filteredOrders.length === 0 ? (
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 

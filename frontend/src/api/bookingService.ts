@@ -51,7 +51,6 @@ export interface CreateBookingRequest {
   start_time?: string;
   end_time?: string;
   session_duration?: number;
-  booking_availability_id?: string;
   notes?: string;
 }
 
@@ -113,6 +112,43 @@ class BookingService {
     const response = await apiClient.post(`${this.bookingsUrl}/create`, bookingData);
     return response.data;
   }
+
+  async getClientOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/client`);
+    return response.data.orders || [];
+  }
+
+  async getCreativeOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/creative`);
+    return response.data.orders || [];
+  }
+}
+
+export interface Order {
+  id: string;
+  service_id: string;
+  service_name: string;
+  service_description?: string;
+  service_delivery_time?: string;
+  service_color?: string;
+  creative_id: string;
+  creative_name: string;
+  creative_display_name?: string;
+  creative_title?: string;
+  creative_avatar_url?: string;
+  creative_email?: string;
+  creative_rating?: number;
+  creative_review_count?: number;
+  creative_services_count?: number;
+  creative_color?: string;
+  order_date: string;
+  booking_date?: string;
+  price: number;
+  payment_option?: string;
+  description?: string;
+  status: string;
+  client_status?: string;
+  creative_status?: string;
 }
 
 export const bookingService = new BookingService();

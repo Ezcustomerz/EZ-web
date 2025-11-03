@@ -64,7 +64,6 @@ export interface BookingScheduleData {
   selectedTime: string;
   sessionDuration: number;
   timeSlotId?: string;
-  bookingAvailabilityId?: string;
 }
 
 export function BookingSchedulePopover({ 
@@ -82,7 +81,6 @@ export function BookingSchedulePopover({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [selectedAvailabilityId, setSelectedAvailabilityId] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showProgress, setShowProgress] = useState(false);
@@ -159,7 +157,6 @@ export function BookingSchedulePopover({
         // Clear selected time if no slots are available for the selected date
         if (selectedDate && isSameDay(selectedDate, date)) {
           setSelectedTime(null);
-          setSelectedAvailabilityId(null);
         }
       } else {
         // Remove from set if slots become available
@@ -210,7 +207,6 @@ export function BookingSchedulePopover({
     setError(null);
     setShowProgress(false);
     setIsSubmitting(false);
-    setSelectedAvailabilityId(null);
     // Don't reset datesWithNoSlots - keep it for the session so dates remain marked if checked
 
     if (initialSelectedDate) {
@@ -278,8 +274,6 @@ export function BookingSchedulePopover({
 
   const handleTimeSelect = (timeSlot: { time: string; id: string; isTemplate?: boolean }) => {
     setSelectedTime(timeSlot.time);
-    // Store the availability ID (or time slot template ID if no availability exists yet)
-    setSelectedAvailabilityId(timeSlot.isTemplate ? null : timeSlot.id);
   };
 
 
@@ -298,7 +292,6 @@ export function BookingSchedulePopover({
         selectedDate,
         selectedTime,
         sessionDuration: selectedDuration,
-        bookingAvailabilityId: selectedAvailabilityId || undefined
       };
 
       if (onConfirmBooking) {
