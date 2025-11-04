@@ -14,7 +14,13 @@ async def jwt_auth_middleware(request: Request, call_next):
     Authentication middleware that checks for JWT tokens in:
     1. HttpOnly cookies (preferred for security)
     2. Authorization header (fallback for compatibility)
+    
+    Skips authentication for OPTIONS preflight requests to allow CORS to work properly.
     """
+    # Skip JWT verification for OPTIONS preflight requests (CORS handles these)
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    
     token = None
     user = None
 

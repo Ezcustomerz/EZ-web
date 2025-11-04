@@ -23,11 +23,7 @@ load_dotenv()
 
 app = FastAPI()
 
-app.middleware("http")(jwt_auth_middleware)
-app.add_middleware(SlowAPIMiddleware)
-app.state.limiter = limiter
-
-# CORS configuration
+# CORS configuration - MUST be added before other middleware
 # Note: When allow_credentials=True, we cannot use allow_origins=["*"]
 # We must specify explicit origins
 # Get environment type from environment variable (dev, dev_deploy, etc.)
@@ -66,12 +62,29 @@ else:
     # Otherwise use the defaults based on ENV
     ALLOWED_ORIGINS = DEFAULT_ORIGINS
 
+# Log CORS configuration for debugging (only in non-production)
+import logging
+logger = logging.getLogger(__name__)
+if ENV != "production":
+    logger.info(f"CORS Configuration - ENV: {ENV}, Allowed Origins: {ALLOWED_ORIGINS}")
+
+# Add other middleware first (JWT, SlowAPI)
+# These will run AFTER CORS due to FastAPI's reverse middleware order
+app.middleware("http")(jwt_auth_middleware)
+app.add_middleware(SlowAPIMiddleware)
+app.state.limiter = limiter
+
+# Add CORS middleware LAST - In FastAPI, middleware runs in reverse order
+# (last added runs first), so adding CORS last ensures it runs FIRST
+# This is critical for handling OPTIONS preflight requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,  # Explicit origins required when credentials=True
     allow_credentials=True,  # Required for HttpOnly cookies
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all HTTP methods including OPTIONS
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 app.include_router(auth.router)
