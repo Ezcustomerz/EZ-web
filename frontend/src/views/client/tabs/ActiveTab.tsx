@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { Search, DateRange } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { InProgressOrderCard } from '../../../components/cards/client/InProgressOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
 
@@ -35,9 +35,8 @@ const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remount
 
 // Transform API orders to component format
 function transformOrders(fetchedOrders: Order[]) {
-  return fetchedOrders
-    .filter(order => order.client_status === 'in_progress') // Filter for in-progress orders
-    .map((order: Order) => ({
+  // Backend already filters for in-progress orders, so we just transform
+  return fetchedOrders.map((order: Order) => ({
       id: order.id,
       serviceName: order.service_name,
       creativeName: order.creative_name,
@@ -45,7 +44,8 @@ function transformOrders(fetchedOrders: Order[]) {
       description: order.description || order.service_description || '',
       price: order.price,
       calendarDate: order.booking_date || null,
-      paymentOption: order.payment_option === 'upfront' ? 'payment_upfront' : 
+      paymentOption: order.price === 0 || order.price === null ? 'free' :
+                     order.payment_option === 'upfront' ? 'payment_upfront' : 
                      order.payment_option === 'split' ? 'split_payment' : 'payment_later',
       amountPaid: 0, // TODO: Get from backend when payment tracking is implemented
       amountRemaining: order.price, // TODO: Calculate based on payment_option and amount_paid
@@ -75,63 +75,120 @@ export function ActiveTab() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
   // Fetch orders on component mount with caching to prevent duplicate calls
   useEffect(() => {
-    const fetchOrders = async () => {
-      const now = Date.now();
-      
-      // Return cached data if it's still valid
-      if (fetchCache.data && (now - fetchCache.timestamp < CACHE_DURATION)) {
-        setOrders(transformOrders(fetchCache.data));
+    mountedRef.current = true;
+    
+    const now = Date.now();
+    const cacheAge = now - fetchCache.timestamp;
+    
+    // Check if we have cached data that's still fresh
+    if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
+      // Use cached data directly (fastest path)
+      if (mountedRef.current) {
+        const transformedOrders = transformOrders(fetchCache.data);
+        setOrders(transformedOrders);
         setLoading(false);
-        return;
       }
-      
-      // If a fetch is already in progress, wait for it
-      if (fetchCache.isFetching && fetchCache.promise) {
-        try {
-          const fetchedOrders = await fetchCache.promise;
-          const transformedOrders = transformOrders(fetchedOrders);
-          setOrders(transformedOrders);
-          setError(null);
-        } catch (err: any) {
-          console.error('Failed to fetch orders:', err);
-          setError(err.message || 'Failed to load orders');
-        } finally {
-          setLoading(false);
-        }
-        return;
-      }
-
-      // Start a new fetch
-      try {
-        setLoading(true);
-        fetchCache.isFetching = true;
-        fetchCache.resolved = false;
-        fetchCache.promise = bookingService.getClientOrders();
-        
-        const fetchedOrders = await fetchCache.promise;
-        
-        // Update cache
-        fetchCache.data = fetchedOrders;
-        fetchCache.timestamp = Date.now();
-        fetchCache.resolved = true;
-        
+      return;
+    }
+    
+    // Check if a promise already exists - reuse it immediately
+    // This must be checked BEFORE creating a new one to prevent race conditions
+    if (fetchCache.promise) {
+      // Reuse existing promise (handles StrictMode remounts)
+      setLoading(true);
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
         const transformedOrders = transformOrders(fetchedOrders);
         setOrders(transformedOrders);
         setError(null);
-      } catch (err: any) {
-        console.error('Failed to fetch orders:', err);
-        setError(err.message || 'Failed to load orders');
-        fetchCache.data = null;
-      } finally {
         setLoading(false);
-        fetchCache.isFetching = false;
-      }
-    };
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setError(error.message || 'Failed to load orders');
+        setLoading(false);
+      });
+      return;
+    }
+    
+    // No promise exists - create one
+    // This should only execute for the first mount
+    // Set flags BEFORE creating promise to prevent race conditions
+        fetchCache.isFetching = true;
+        fetchCache.resolved = false;
+        fetchCache.timestamp = now;
+        
+        // Create promise synchronously - assign immediately
+        const fetchOrders = async () => {
+        try {
+          const fetchedOrders = await bookingService.getClientInProgressOrders();
+          
+          // Transform orders to match expected format
+          const transformedOrders = transformOrders(fetchedOrders);
+          
+          if (mountedRef.current) {
+            setOrders(transformedOrders);
+            setError(null);
+            setLoading(false);
+          }
+          
+          // Cache the resolved data
+          fetchCache.data = fetchedOrders;
+          fetchCache.isFetching = false;
+          fetchCache.resolved = true;
+          // Keep the data and promise in cache for CACHE_DURATION to handle remounts
+          setTimeout(() => {
+            const now = Date.now();
+            if (now - fetchCache.timestamp >= CACHE_DURATION) {
+              fetchCache.promise = null;
+              fetchCache.data = null;
+              fetchCache.resolved = false;
+            }
+          }, CACHE_DURATION);
+          return fetchedOrders;
+        } catch (error) {
+          console.error('Failed to fetch orders:', error);
+          if (mountedRef.current) {
+            setError((error as any).message || 'Failed to load orders');
+            setLoading(false);
+          }
+          fetchCache.isFetching = false;
+          // Clear cache on error
+          fetchCache.promise = null;
+          throw error;
+        }
+      };
 
-    fetchOrders();
+      // Assign promise synchronously - this happens immediately
+      // This must happen synchronously so subsequent mounts see it
+      fetchCache.promise = fetchOrders();
+      fetchCache.promise.catch(() => {
+        // Error already handled in fetchOrders
+      });
+      
+      // Set loading and attach promise handler
+      setLoading(true);
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
+        const transformedOrders = transformOrders(fetchedOrders);
+        setOrders(transformedOrders);
+        setError(null);
+        setLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setError(error.message || 'Failed to load orders');
+        setLoading(false);
+      });
+
+    // Cleanup function
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   const handleCreativeChange = (event: SelectChangeEvent) => {
@@ -148,8 +205,13 @@ export function ActiveTab() {
 
   // Extract unique creatives from orders
   const connectedCreatives = Array.from(
-    new Set(orders.map(order => order.creativeName))
-  ).map(name => ({ id: name, name }));
+    new Map(
+      orders.map(order => [
+        order.creativeId,
+        { id: order.creativeId, name: order.creativeName }
+      ])
+    ).values()
+  );
 
   // Filter and sort logic
   let filteredOrders = [...orders];
@@ -165,7 +227,7 @@ export function ActiveTab() {
 
   // Apply creative filter
   if (selectedCreative !== 'all') {
-    filteredOrders = filteredOrders.filter(order => order.creativeName === selectedCreative);
+    filteredOrders = filteredOrders.filter(order => order.creativeId === selectedCreative);
   }
 
   // Apply date filter
@@ -270,7 +332,7 @@ export function ActiveTab() {
               All Creatives
             </MenuItem>
             {connectedCreatives.map((creative) => (
-              <MenuItem key={creative.id} value={creative.name} sx={{
+              <MenuItem key={creative.id} value={creative.id} sx={{
                 transition: 'all 0.2s ease',
                 '&:hover': {
                   transform: 'translateX(4px)',

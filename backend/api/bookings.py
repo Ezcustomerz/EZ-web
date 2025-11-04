@@ -234,6 +234,9 @@ async def get_client_orders(request: Request):
             # If creative rejected the order, the client should see it as canceled
             if creative_status == 'rejected':
                 display_status = 'canceled'
+            elif client_status == 'cancelled':
+                # Map database 'cancelled' (British spelling) to frontend 'canceled' (American spelling)
+                display_status = 'canceled'
             else:
                 display_status = client_status
             
@@ -274,6 +277,277 @@ async def get_client_orders(request: Request):
     except Exception as e:
         logger.error(f"Error fetching client orders: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch client orders: {str(e)}")
+
+
+# Helper function to build order response from booking data
+def build_order_response(booking, services_dict, creatives_dict, users_dict):
+    """Helper function to build an OrderResponse from booking data"""
+    service = services_dict.get(booking['service_id'], {})
+    creative = creatives_dict.get(booking['creative_user_id'], {})
+    user = users_dict.get(booking['creative_user_id'], {})
+    
+    # Format booking date for display
+    booking_date_display = None
+    if booking.get('booking_date'):
+        try:
+            date_str = booking['booking_date']
+            start_time = booking.get('start_time', '')
+            
+            if start_time:
+                time_str = start_time.split('+')[0].split(' ')[0]
+                if time_str and len(time_str.split(':')) >= 2:
+                    time_parts = time_str.split(':')
+                    if len(time_parts) == 2:
+                        time_str = f"{time_parts[0]}:{time_parts[1]}:00"
+                    booking_date_display = f"{date_str}T{time_str}Z"
+                else:
+                    booking_date_display = f"{date_str}T00:00:00Z"
+            else:
+                booking_date_display = f"{date_str}T00:00:00Z"
+        except Exception as e:
+            logger.warning(f"Error formatting booking date: {e}")
+            booking_date_display = None
+    
+    # Determine the status for client view
+    creative_status = booking.get('creative_status')
+    client_status = booking.get('client_status', 'placed')
+    
+    if creative_status == 'rejected':
+        display_status = 'canceled'
+    elif client_status == 'cancelled':
+        display_status = 'canceled'
+    else:
+        display_status = client_status
+    
+    return OrderResponse(
+        id=booking['id'],
+        service_id=booking['service_id'],
+        service_name=service.get('title', 'Unknown Service'),
+        service_description=service.get('description'),
+        service_delivery_time=service.get('delivery_time'),
+        service_color=service.get('color'),
+        creative_id=booking['creative_user_id'],
+        creative_name=user.get('name', 'Unknown Creative'),
+        creative_display_name=creative.get('display_name'),
+        creative_title=creative.get('title'),
+        creative_avatar_url=user.get('profile_picture_url'),
+        creative_email=user.get('email'),
+        creative_rating=None,
+        creative_review_count=None,
+        creative_services_count=None,
+        creative_color=None,
+        order_date=booking['order_date'],
+        booking_date=booking_date_display,
+        canceled_date=booking.get('canceled_date'),
+        approved_at=booking.get('approved_at'),
+        price=float(booking['price']) if booking.get('price') else 0.0,
+        payment_option=booking.get('payment_option', 'later'),
+        description=booking.get('notes'),
+        status=display_status,
+        client_status=client_status,
+        creative_status=creative_status
+    )
+
+
+@router.get("/client/in-progress", response_model=OrdersListResponse)
+@limiter.limit("20 per minute")
+async def get_client_in_progress_orders(request: Request):
+    """
+    Get in-progress orders for the current client user
+    Returns orders with client_status = 'in_progress'
+    """
+    try:
+        if not request.state.user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        # Fetch bookings for this client with in_progress status
+        bookings_response = db_admin.table('bookings')\
+            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+            .eq('client_user_id', user_id)\
+            .eq('client_status', 'in_progress')\
+            .order('order_date', desc=True)\
+            .execute()
+        
+        if not bookings_response.data:
+            return OrdersListResponse(success=True, orders=[])
+        
+        # Get unique service IDs and creative user IDs
+        service_ids = list(set([b['service_id'] for b in bookings_response.data]))
+        creative_user_ids = list(set([b['creative_user_id'] for b in bookings_response.data]))
+        
+        # Fetch services, creatives, and users
+        services_response = db_admin.table('creative_services')\
+            .select('id, title, description, delivery_time, color')\
+            .in_('id', service_ids)\
+            .execute()
+        services_dict = {s['id']: s for s in (services_response.data or [])}
+        
+        creatives_response = db_admin.table('creatives')\
+            .select('user_id, display_name, title')\
+            .in_('user_id', creative_user_ids)\
+            .execute()
+        creatives_dict = {c['user_id']: c for c in (creatives_response.data or [])}
+        
+        users_response = db_admin.table('users')\
+            .select('user_id, name, email, profile_picture_url')\
+            .in_('user_id', creative_user_ids)\
+            .execute()
+        users_dict = {u['user_id']: u for u in (users_response.data or [])}
+        
+        orders = []
+        for booking in bookings_response.data:
+            order = build_order_response(booking, services_dict, creatives_dict, users_dict)
+            orders.append(order)
+        
+        return OrdersListResponse(success=True, orders=orders)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching client in-progress orders: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch client in-progress orders: {str(e)}")
+
+
+@router.get("/client/action-needed", response_model=OrdersListResponse)
+@limiter.limit("20 per minute")
+async def get_client_action_needed_orders(request: Request):
+    """
+    Get action-needed orders for the current client user
+    Returns orders with statuses: payment_required, locked, download
+    """
+    try:
+        if not request.state.user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        # Fetch bookings for this client
+        bookings_response = db_admin.table('bookings')\
+            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+            .eq('client_user_id', user_id)\
+            .in_('client_status', ['payment_required', 'locked', 'download'])\
+            .order('order_date', desc=True)\
+            .execute()
+        
+        if not bookings_response.data:
+            return OrdersListResponse(success=True, orders=[])
+        
+        # Get unique service IDs and creative user IDs
+        service_ids = list(set([b['service_id'] for b in bookings_response.data]))
+        creative_user_ids = list(set([b['creative_user_id'] for b in bookings_response.data]))
+        
+        # Fetch services, creatives, and users
+        services_response = db_admin.table('creative_services')\
+            .select('id, title, description, delivery_time, color')\
+            .in_('id', service_ids)\
+            .execute()
+        services_dict = {s['id']: s for s in (services_response.data or [])}
+        
+        creatives_response = db_admin.table('creatives')\
+            .select('user_id, display_name, title')\
+            .in_('user_id', creative_user_ids)\
+            .execute()
+        creatives_dict = {c['user_id']: c for c in (creatives_response.data or [])}
+        
+        users_response = db_admin.table('users')\
+            .select('user_id, name, email, profile_picture_url')\
+            .in_('user_id', creative_user_ids)\
+            .execute()
+        users_dict = {u['user_id']: u for u in (users_response.data or [])}
+        
+        orders = []
+        for booking in bookings_response.data:
+            order = build_order_response(booking, services_dict, creatives_dict, users_dict)
+            orders.append(order)
+        
+        return OrdersListResponse(success=True, orders=orders)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching client action-needed orders: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch client action-needed orders: {str(e)}")
+
+
+@router.get("/client/history", response_model=OrdersListResponse)
+@limiter.limit("20 per minute")
+async def get_client_history_orders(request: Request):
+    """
+    Get history orders for the current client user
+    Returns orders with statuses: completed, canceled
+    """
+    try:
+        if not request.state.user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        # Fetch bookings for this client with completed or canceled status
+        # Also include cancelled (British spelling) and rejected creative status (shown as canceled)
+        bookings_response = db_admin.table('bookings')\
+            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+            .eq('client_user_id', user_id)\
+            .in_('client_status', ['completed', 'cancelled'])\
+            .order('order_date', desc=True)\
+            .execute()
+        
+        # Also get orders where creative rejected (these show as canceled to client)
+        rejected_bookings_response = db_admin.table('bookings')\
+            .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+            .eq('client_user_id', user_id)\
+            .eq('creative_status', 'rejected')\
+            .order('order_date', desc=True)\
+            .execute()
+        
+        # Combine both queries
+        all_bookings = (bookings_response.data or []) + (rejected_bookings_response.data or [])
+        
+        if not all_bookings:
+            return OrdersListResponse(success=True, orders=[])
+        
+        # Get unique service IDs and creative user IDs
+        service_ids = list(set([b['service_id'] for b in all_bookings]))
+        creative_user_ids = list(set([b['creative_user_id'] for b in all_bookings]))
+        
+        # Fetch services, creatives, and users
+        services_response = db_admin.table('creative_services')\
+            .select('id, title, description, delivery_time, color')\
+            .in_('id', service_ids)\
+            .execute()
+        services_dict = {s['id']: s for s in (services_response.data or [])}
+        
+        creatives_response = db_admin.table('creatives')\
+            .select('user_id, display_name, title')\
+            .in_('user_id', creative_user_ids)\
+            .execute()
+        creatives_dict = {c['user_id']: c for c in (creatives_response.data or [])}
+        
+        users_response = db_admin.table('users')\
+            .select('user_id, name, email, profile_picture_url')\
+            .in_('user_id', creative_user_ids)\
+            .execute()
+        users_dict = {u['user_id']: u for u in (users_response.data or [])}
+        
+        orders = []
+        for booking in all_bookings:
+            order = build_order_response(booking, services_dict, creatives_dict, users_dict)
+            orders.append(order)
+        
+        return OrdersListResponse(success=True, orders=orders)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching client history orders: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch client history orders: {str(e)}")
 
 
 @router.get("/creative", response_model=OrdersListResponse)
@@ -809,3 +1083,95 @@ async def reject_booking(
         logger.error(f"Error rejecting booking: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to reject booking: {str(e)}")
 
+
+class CancelBookingRequest(BaseModel):
+    booking_id: str
+
+
+class CancelBookingResponse(BaseModel):
+    success: bool
+    message: str
+
+
+@router.post("/cancel", response_model=CancelBookingResponse)
+@limiter.limit("10 per minute")
+async def cancel_booking(
+    request: Request,
+    cancel_data: CancelBookingRequest
+):
+    """
+    Cancel a booking/order (client-initiated)
+    - Validates user authentication
+    - Verifies the booking belongs to the client
+    - Updates both client_status and creative_status to 'canceled'
+    - Sets canceled_date to track when the booking was canceled
+    """
+    try:
+        # Get user ID from JWT token (set by middleware)
+        if not request.state.user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        # Fetch the booking to verify it exists and belongs to this client
+        booking_response = db_admin.table('bookings')\
+            .select('id, client_user_id, client_status, creative_status')\
+            .eq('id', cancel_data.booking_id)\
+            .single()\
+            .execute()
+        
+        if not booking_response.data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        booking = booking_response.data
+        
+        # Verify the booking belongs to this client
+        if booking['client_user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="You don't have permission to cancel this booking")
+        
+        # Check if booking can be canceled (only 'placed' status can be canceled by client)
+        current_client_status = booking.get('client_status', 'placed')
+        current_creative_status = booking.get('creative_status', 'pending_approval')
+        
+        # Allow cancellation if status is 'placed' (awaiting approval) or if creative hasn't approved yet
+        if current_client_status not in ['placed'] or current_creative_status not in ['pending_approval']:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot cancel booking with status '{current_client_status}'. Only placed orders awaiting approval can be canceled."
+            )
+        
+        # Update both client_status and creative_status
+        # client_status uses 'cancelled' (British spelling) to match database constraint
+        # creative_status uses 'rejected' since 'cancelled' is not in the allowed values
+        # Set canceled_date to track when the booking was canceled
+        update_response = db_admin.table('bookings')\
+            .update({
+                'client_status': 'cancelled',
+                'creative_status': 'rejected',
+                'canceled_date': datetime.utcnow().isoformat()
+            })\
+            .eq('id', cancel_data.booking_id)\
+            .execute()
+        
+        if not update_response.data or len(update_response.data) == 0:
+            raise HTTPException(status_code=500, detail="Failed to update booking status")
+        
+        logger.info(f"Booking canceled successfully: {cancel_data.booking_id} by client {user_id}")
+        
+        # TODO: Future enhancements
+        # - Send email notification to creative about cancellation
+        # - Add webhook for integrations
+        # - Update analytics/metrics
+        
+        return CancelBookingResponse(
+            success=True,
+            message="Booking canceled successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error canceling booking: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel booking: {str(e)}")

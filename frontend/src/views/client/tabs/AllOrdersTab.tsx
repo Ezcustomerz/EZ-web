@@ -227,6 +227,45 @@ export function AllServicesTab() {
     setDateFilter(event.target.value);
   };
 
+  // Function to refresh orders after cancellation
+  const handleRefreshOrders = async () => {
+    // Clear the cache to force a fresh fetch
+    fetchCache.promise = null;
+    fetchCache.data = null;
+    fetchCache.resolved = false;
+    fetchCache.isFetching = false;
+    fetchCache.timestamp = 0;
+
+    // Trigger a re-fetch
+    setLoading(true);
+    try {
+      const fetchedOrders = await bookingService.getClientOrders();
+      const transformedOrders = transformOrders(fetchedOrders);
+      
+      setOrders(transformedOrders);
+      
+      // Extract unique creatives
+      const creatives = Array.from(
+        new Map(
+          transformedOrders.map(order => [
+            order.creativeId,
+            { id: order.creativeId, name: order.creativeName }
+          ])
+        ).values()
+      );
+      setConnectedCreatives(creatives);
+      
+      // Update cache
+      fetchCache.data = fetchedOrders;
+      fetchCache.resolved = true;
+      fetchCache.timestamp = Date.now();
+    } catch (error) {
+      console.error('Failed to refresh orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Filter logic
   const getFilteredOrders = () => {
     return orders.filter(order => {
@@ -838,6 +877,7 @@ export function AllServicesTab() {
                   serviceDescription={order.serviceDescription}
                   serviceDeliveryTime={order.serviceDeliveryTime}
                   serviceColor={order.serviceColor}
+                  onOrderCanceled={handleRefreshOrders}
                 />;
               
               case 'payment-required':

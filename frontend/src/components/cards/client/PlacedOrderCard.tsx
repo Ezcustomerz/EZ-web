@@ -34,6 +34,7 @@ interface PlacedOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  onOrderCanceled?: () => void;
 }
 
 export function PlacedOrderCard({
@@ -57,7 +58,8 @@ export function PlacedOrderCard({
   creativeRating,
   creativeReviewCount,
   creativeServicesCount,
-  creativeColor
+  creativeColor,
+  onOrderCanceled
 }: PlacedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#ff9800';
@@ -246,6 +248,7 @@ export function PlacedOrderCard({
       open={popoverOpen}
       onClose={handlePopoverClose}
       order={orderDetail}
+      onOrderCanceled={onOrderCanceled}
     />
   </>
   );

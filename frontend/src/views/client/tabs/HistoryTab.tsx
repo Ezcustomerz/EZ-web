@@ -104,56 +104,43 @@ export function HistoryTab() {
     const now = Date.now();
     const cacheAge = now - fetchCache.timestamp;
     
+    // Helper function to set history orders (backend already filters)
+    const setHistoryOrders = (transformedOrders: any[]) => {
+      if (mountedRef.current) {
+        setOrders(transformedOrders);
+
+        // Extract unique creatives from history orders
+        const creatives = Array.from(
+          new Map(
+            transformedOrders.map(order => [
+              order.creativeId,
+              { id: order.creativeId, name: order.creativeName }
+            ])
+          ).values()
+        );
+        setConnectedCreatives(creatives);
+      }
+    };
+    
     // Check if we have cached data that's still fresh
     if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
       // Use cached data directly (fastest path)
       if (mountedRef.current) {
         const transformedOrders = transformOrders(fetchCache.data);
-        
-        // Filter to only show completed and canceled orders
-        const historyOrders = transformedOrders.filter(
-          order => order.status === 'completed' || order.status === 'canceled'
-        );
-        setOrders(historyOrders);
-
-        // Extract unique creatives from history orders
-        const creatives = Array.from(
-          new Map(
-            historyOrders.map(order => [
-              order.creativeId,
-              { id: order.creativeId, name: order.creativeName }
-            ])
-          ).values()
-        );
-        setConnectedCreatives(creatives);
+        setHistoryOrders(transformedOrders);
         setLoading(false);
       }
       return;
     }
     
-    // Reuse existing promise if it's currently fetching
-    if (fetchCache.promise && fetchCache.isFetching) {
+    // Check if a promise already exists - reuse it immediately
+    if (fetchCache.promise) {
       // Reuse existing promise (handles StrictMode remounts)
+      setLoading(true);
       fetchCache.promise.then(fetchedOrders => {
         if (!mountedRef.current) return;
         const transformedOrders = transformOrders(fetchedOrders);
-        
-        // Filter to only show completed and canceled orders
-        const historyOrders = transformedOrders.filter(
-          order => order.status === 'completed' || order.status === 'canceled'
-        );
-        setOrders(historyOrders);
-
-        // Extract unique creatives from history orders
-        const creatives = Array.from(
-          new Map(
-            historyOrders.map(order => [
-              order.creativeId,
-              { id: order.creativeId, name: order.creativeName }
-            ])
-          ).values()
-        );
-        setConnectedCreatives(creatives);
+        setHistoryOrders(transformedOrders);
         setLoading(false);
       }).catch(error => {
         if (!mountedRef.current) return;
@@ -171,29 +158,13 @@ export function HistoryTab() {
 
     const fetchOrders = async () => {
       try {
-        const fetchedOrders = await bookingService.getClientOrders();
+        const fetchedOrders = await bookingService.getClientHistoryOrders();
         
         // Transform orders to match expected format
         const transformedOrders = transformOrders(fetchedOrders);
         
-        // Filter to only show completed and canceled orders
-        const historyOrders = transformedOrders.filter(
-          order => order.status === 'completed' || order.status === 'canceled'
-        );
-        
         if (mountedRef.current) {
-          setOrders(historyOrders);
-
-          // Extract unique creatives from history orders
-          const creatives = Array.from(
-            new Map(
-              historyOrders.map(order => [
-                order.creativeId,
-                { id: order.creativeId, name: order.creativeName }
-              ])
-            ).values()
-          );
-          setConnectedCreatives(creatives);
+          setHistoryOrders(transformedOrders);
           setLoading(false);
         }
         

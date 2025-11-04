@@ -118,6 +118,21 @@ class BookingService {
     return response.data.orders || [];
   }
 
+  async getClientInProgressOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/client/in-progress`);
+    return response.data.orders || [];
+  }
+
+  async getClientActionNeededOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/client/action-needed`);
+    return response.data.orders || [];
+  }
+
+  async getClientHistoryOrders(): Promise<Order[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/client/history`);
+    return response.data.orders || [];
+  }
+
   async getCreativeOrders(): Promise<Order[]> {
     const response = await apiClient.get(`${this.bookingsUrl}/creative`);
     return response.data.orders || [];
@@ -142,6 +157,13 @@ class BookingService {
 
   async approveOrder(bookingId: string): Promise<{ success: boolean; message: string }> {
     const response = await apiClient.post(`${this.bookingsUrl}/approve`, {
+      booking_id: bookingId
+    });
+    return response.data;
+  }
+
+  async cancelOrder(bookingId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post(`${this.bookingsUrl}/cancel`, {
       booking_id: bookingId
     });
     return response.data;
