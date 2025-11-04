@@ -71,25 +71,27 @@ class CreativeController:
             profile_picture_url = user_data.get('profile_picture_url')
             avatar_source = user_data.get('avatar_source', 'google')
             
-            # Set storage limit based on subscription tier
-            storage_limits = {
-                'basic': 10 * 1024 * 1024 * 1024,    # 10GB in bytes
-                'growth': 100 * 1024 * 1024 * 1024,  # 100GB in bytes  
-                'pro': 1024 * 1024 * 1024 * 1024,    # 1TB in bytes
-            }
-            storage_limit = storage_limits.get(setup_request.subscription_tier, storage_limits['basic'])
+            # Validate subscription_tier_id and get storage limit from subscription_tier
+            subscription_result = db_admin.table('subscription_tiers').select(
+                'id, storage_amount_bytes, is_active'
+            ).eq('id', setup_request.subscription_tier_id).single().execute()
+            
+            if not subscription_result.data:
+                raise HTTPException(status_code=404, detail="Subscription tier not found")
+            
+            if not subscription_result.data.get('is_active', True):
+                raise HTTPException(status_code=400, detail="Subscription tier is not active")
             
             creative_data = {
                 'user_id': user_id,
                 'display_name': setup_request.display_name,
                 'title': title_to_use,
                 'bio': setup_request.bio,
-                'subscription_tier': setup_request.subscription_tier,
+                'subscription_tier_id': setup_request.subscription_tier_id,
                 'primary_contact': setup_request.primary_contact,
                 'secondary_contact': setup_request.secondary_contact,
                 'profile_banner_url': profile_picture_url,  # Copy profile picture as banner
                 'profile_source': avatar_source,  # Copy avatar source as profile source
-                'storage_limit_bytes': storage_limit,  # Set storage limit based on plan
             }
             
             # Insert or update creative profile (upsert)
@@ -110,15 +112,32 @@ class CreativeController:
 
     @staticmethod
     async def get_creative_profile(user_id: str) -> dict:
-        """Get the current user's creative profile"""
+        """Get the current user's creative profile with subscription tier data"""
         try:
             # Query the creatives table
-            result = db_admin.table('creatives').select('*').eq('user_id', user_id).single().execute()
+            creative_result = db_admin.table('creatives').select('*').eq('user_id', user_id).single().execute()
             
-            if not result.data:
+            if not creative_result.data:
                 raise HTTPException(status_code=404, detail="Creative profile not found")
             
-            return result.data
+            profile_data = creative_result.data
+            
+            # Fetch subscription tier to get storage_limit_bytes and name for backward compatibility
+            subscription_tier_id = profile_data.get('subscription_tier_id')
+            if subscription_tier_id:
+                subscription_result = db_admin.table('subscription_tiers').select(
+                    'storage_amount_bytes, name'
+                ).eq('id', subscription_tier_id).single().execute()
+                
+                if subscription_result.data:
+                    tier_name = subscription_result.data.get('name', 'basic')
+                    # Capitalize first letter for display
+                    tier_name_display = tier_name.capitalize() if tier_name else 'Basic'
+                    profile_data['storage_limit_bytes'] = subscription_result.data.get('storage_amount_bytes', 0)
+                    profile_data['subscription_tier'] = tier_name_display  # For backward compatibility (capitalized)
+                    profile_data['subscription_tier_name'] = tier_name_display  # Capitalized for display
+            
+            return profile_data
             
         except HTTPException:
             raise

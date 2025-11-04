@@ -10,6 +10,47 @@ router = APIRouter(
     tags=["users"],
 )
 
+@router.get("/subscription-tiers")
+@limiter.limit("10 per second")
+async def get_subscription_tiers(request: Request):
+    """Get all active subscription tiers"""
+    try:
+        result = db_admin.table('subscription_tiers').select(
+            'id, name, price, storage_amount_bytes, description, fee_percentage'
+        ).eq('is_active', True).order('price', desc=False).execute()
+        
+        if not result.data:
+            return []
+        
+        # Format the response
+        tiers = []
+        for tier in result.data:
+            # Convert storage from bytes to human-readable format
+            storage_bytes = tier['storage_amount_bytes']
+            if storage_bytes >= 1024 * 1024 * 1024 * 1024:  # 1TB or more
+                storage_display = f"{storage_bytes / (1024 * 1024 * 1024 * 1024):.0f}TB"
+            elif storage_bytes >= 100 * 1024 * 1024 * 1024:  # 100GB or more
+                storage_display = f"{storage_bytes / (1024 * 1024 * 1024):.0f}GB"
+            elif storage_bytes >= 50 * 1024 * 1024 * 1024:  # 50GB or more
+                storage_display = f"50-100GB"
+            else:  # Less than 50GB
+                storage_display = f"{storage_bytes / (1024 * 1024 * 1024):.0f}GB"
+            
+            tiers.append({
+                'id': tier['id'],
+                'name': tier['name'],
+                'price': float(tier['price']),
+                'storage_amount_bytes': tier['storage_amount_bytes'],
+                'storage_display': storage_display,
+                'description': tier['description'],
+                'fee_percentage': float(tier['fee_percentage']),
+            })
+        
+        return tiers
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch subscription tiers: {str(e)}")
+
 def validate_email(email: str) -> bool:
     """Validate email format"""
     email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -190,25 +231,27 @@ async def setup_producer_profile(request: Request, setup_request: CreativeSetupR
         profile_picture_url = user_data.get('profile_picture_url')
         avatar_source = user_data.get('avatar_source', 'google')
         
-        # Set storage limit based on subscription tier
-        storage_limits = {
-            'basic': 10 * 1024 * 1024 * 1024,    # 10GB in bytes
-            'growth': 100 * 1024 * 1024 * 1024,  # 100GB in bytes  
-            'pro': 1024 * 1024 * 1024 * 1024,    # 1TB in bytes
-        }
-        storage_limit = storage_limits.get(setup_request.subscription_tier, storage_limits['basic'])
+        # Validate subscription_tier_id and get storage limit from subscription_tier
+        subscription_result = db_admin.table('subscription_tiers').select(
+            'id, storage_amount_bytes, is_active'
+        ).eq('id', setup_request.subscription_tier_id).single().execute()
+        
+        if not subscription_result.data:
+            raise HTTPException(status_code=404, detail="Subscription tier not found")
+        
+        if not subscription_result.data.get('is_active', True):
+            raise HTTPException(status_code=400, detail="Subscription tier is not active")
         
         creative_data = {
             'user_id': user_id,
             'display_name': setup_request.display_name,
             'title': title_to_use,
             'bio': setup_request.bio,
-            'subscription_tier': setup_request.subscription_tier,
+            'subscription_tier_id': setup_request.subscription_tier_id,
             'primary_contact': setup_request.primary_contact,
             'secondary_contact': setup_request.secondary_contact,
             'profile_banner_url': profile_picture_url,  # Copy profile picture as banner
             'profile_source': avatar_source,  # Copy avatar source as profile source
-            'storage_limit_bytes': storage_limit,  # Set storage limit based on plan
         }
         
         # Insert or update creative profile (upsert)
@@ -449,25 +492,32 @@ async def batch_setup_profiles(request: Request, setup_request: BatchSetupReques
         if setup_request.creative_data is not None and 'creative' in user_roles:
             creative_data = setup_request.creative_data
             
-            # Set storage limit based on subscription tier
-            storage_limits = {
-                'basic': 10 * 1024 * 1024 * 1024,  # 10GB in bytes
-                'growth': 100 * 1024 * 1024 * 1024,  # 100GB in bytes
-                'pro': 1024 * 1024 * 1024 * 1024,  # 1TB in bytes
-            }
-            storage_limit = storage_limits.get(creative_data.get('subscription_tier', 'basic'), storage_limits['basic'])
+            # Get subscription_tier_id from creative_data (should be UUID)
+            subscription_tier_id = creative_data.get('subscription_tier_id')
+            if not subscription_tier_id:
+                raise HTTPException(status_code=422, detail="subscription_tier_id is required")
+            
+            # Validate subscription_tier_id and get storage limit from subscription_tier
+            subscription_result = db_admin.table('subscription_tiers').select(
+                'id, storage_amount_bytes, is_active'
+            ).eq('id', subscription_tier_id).single().execute()
+            
+            if not subscription_result.data:
+                raise HTTPException(status_code=404, detail="Subscription tier not found")
+            
+            if not subscription_result.data.get('is_active', True):
+                raise HTTPException(status_code=400, detail="Subscription tier is not active")
             
             creative_row = {
                 'user_id': user_id,
                 'display_name': creative_data.get('display_name'),
                 'title': creative_data.get('title'),
                 'bio': creative_data.get('bio'),
-                'subscription_tier': creative_data.get('subscription_tier', 'basic'),
+                'subscription_tier_id': subscription_tier_id,
                 'primary_contact': creative_data.get('primary_contact'),
                 'secondary_contact': creative_data.get('secondary_contact'),
                 'profile_banner_url': profile_picture_url,
                 'profile_source': avatar_source,
-                'storage_limit_bytes': storage_limit,
             }
             
             result = db_admin.table('creatives').upsert(creative_row).execute()

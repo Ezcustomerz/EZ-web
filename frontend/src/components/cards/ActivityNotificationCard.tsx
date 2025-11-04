@@ -1,6 +1,7 @@
 import { Box, Typography, Chip, useTheme, Button } from '@mui/material';
 import { WarningAmberOutlined, ErrorOutline } from '@mui/icons-material';
 import type { ActivityItem } from '../../types/activity';
+import React, { useMemo, memo } from 'react';
 
 interface ActivityNotificationProps {
   item?: ActivityItem;
@@ -21,7 +22,172 @@ interface ActivityNotificationProps {
   index?: number;
 }
 
-export function ActivityNotificationCard({
+// Highlight component extracted for better performance
+const HighlightText = memo(({ text, color }: { text: string; color: string }) => (
+  <Box
+    component="span"
+    sx={{
+      fontWeight: 600,
+      color: color,
+      position: 'relative',
+      display: 'inline-block',
+      verticalAlign: 'middle',
+      px: 1,
+      py: 0.25,
+      mx: 0.25,
+      borderRadius: 2,
+      background: `linear-gradient(135deg, ${color}15 0%, ${color}08 100%)`,
+      border: `1px solid ${color}30`,
+      boxShadow: `0 2px 8px ${color}15`,
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+      overflow: 'hidden',
+      zIndex: 1,
+      animation: 'shimmer 3s ease-in-out infinite',
+      '@keyframes shimmer': {
+        '0%': {
+          boxShadow: `0 2px 8px ${color}15`,
+        },
+        '50%': {
+          boxShadow: `0 2px 12px ${color}25, 0 0 20px ${color}15`,
+        },
+        '100%': {
+          boxShadow: `0 2px 8px ${color}15`,
+        },
+      },
+      transition: 'all 0.3s ease',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: '-100%',
+        width: '100%',
+        height: '100%',
+        background: `linear-gradient(90deg, transparent, ${color}40, transparent)`,
+        animation: 'shine 3s ease-in-out infinite',
+        '@keyframes shine': {
+          '0%': {
+            left: '-100%',
+          },
+          '50%': {
+            left: '100%',
+          },
+          '100%': {
+            left: '100%',
+          },
+        },
+      },
+    }}
+  >
+    {text}
+  </Box>
+));
+HighlightText.displayName = 'HighlightText';
+
+// Helper function to render description with highlights
+function renderDescriptionWithHighlights(
+  description: string,
+  notificationType?: string,
+  metadata?: Record<string, any>,
+  defaultBorderColor?: string
+): React.ReactNode {
+  if (!notificationType || !metadata) {
+    return description;
+  }
+
+  const serviceName = metadata.service_title;
+  const serviceColor = metadata.service_color;
+  const creativeName = metadata.creative_display_name;
+  const clientName = metadata.client_display_name;
+  const creativeAvatarColor = metadata.creative_avatar_background_color;
+
+  // Helper to split and highlight
+  const highlightText = (text: string, highlight: string, color?: string) => {
+    const parts = text.split(highlight);
+    if (parts.length === 2) {
+      return (
+        <>
+          {parts[0]}
+          <HighlightText text={highlight} color={color || defaultBorderColor || '#1976d2'} />
+          {parts[1]}
+        </>
+      );
+    }
+    return null;
+  };
+
+  const highlightTwoTexts = (
+    text: string,
+    firstText: string,
+    firstColor: string | undefined,
+    secondText: string,
+    secondColor: string | undefined
+  ) => {
+    const firstParts = text.split(firstText);
+    if (firstParts.length === 2) {
+      const secondParts = firstParts[1].split(secondText);
+      if (secondParts.length === 2) {
+        return (
+          <>
+            <HighlightText text={firstText} color={firstColor || defaultBorderColor || '#1976d2'} />
+            {firstParts[0]}
+            {secondParts[0]}
+            <HighlightText text={secondText} color={secondColor || defaultBorderColor || '#1976d2'} />
+            {secondParts[1]}
+          </>
+        );
+      }
+    }
+    return null;
+  };
+
+  // Handle different notification types
+  switch (notificationType) {
+    case 'booking_created':
+      if (serviceName) {
+        if (clientName) {
+          const result = highlightTwoTexts(description, clientName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        return highlightText(description, serviceName, serviceColor) || description;
+      }
+      break;
+
+    case 'new_client_added':
+      if (clientName) {
+        return highlightText(description, clientName, creativeAvatarColor) || description;
+      }
+      break;
+
+    case 'booking_placed':
+      if (serviceName) {
+        return highlightText(description, serviceName, serviceColor) || description;
+      }
+      break;
+
+    case 'booking_approved':
+    case 'payment_required':
+    case 'booking_rejected':
+      if (serviceName) {
+        if (creativeName) {
+          const result = highlightTwoTexts(description, creativeName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        return highlightText(description, serviceName, serviceColor) || description;
+      }
+      break;
+
+    case 'booking_canceled':
+      if (serviceName) {
+        return highlightText(description, serviceName, serviceColor) || description;
+      }
+      break;
+  }
+
+  return description;
+}
+
+export const ActivityNotificationCard = memo(function ActivityNotificationCard({
   item,
   icon,
   label,
@@ -38,7 +204,7 @@ export function ActivityNotificationCard({
 }: ActivityNotificationProps) {
   const theme = useTheme();
 
-  const normalized: ActivityItem = item ?? {
+  const normalized: ActivityItem = useMemo(() => item ?? {
     icon,
     label: label ?? '',
     description,
@@ -46,24 +212,24 @@ export function ActivityNotificationCard({
     date: date ?? '',
     status: status ?? '',
     isNew,
-  };
+  }, [item, icon, label, description, client, creative, date, status, isNew]);
 
-  const statusLower = (normalized.status || '').toLowerCase();
+  const statusLower = useMemo(() => (normalized.status || '').toLowerCase(), [normalized.status]);
 
-  const borderColor = (() => {
-    if (statusLower === 'payment' || statusLower === 'rejected') return theme.palette.error.main; // Keep for cancelled/payment errors and rejected bookings
-    if (statusLower === 'payment_needed') return theme.palette.info.main; // Blue for payment required
+  const borderColor = useMemo(() => {
+    if (statusLower === 'payment' || statusLower === 'rejected') return theme.palette.error.main;
+    if (statusLower === 'payment_needed') return theme.palette.info.main;
     if (statusLower === 'completed' || statusLower === 'booking' || statusLower === 'review') return theme.palette.success.main;
     if (statusLower === 'revision' || statusLower === 'connection' || statusLower === 'waiting' || statusLower === 'warning') return theme.palette.warning.main;
     return theme.palette.info.main;
-  })();
+  }, [statusLower, theme.palette]);
 
-  const isWarning = statusLower === 'warning' || statusLower === 'waiting';
-  const isUrgent = statusLower === 'urgent' || statusLower === 'payment';
+  const isWarning = useMemo(() => statusLower === 'warning' || statusLower === 'waiting', [statusLower]);
+  const isUrgent = useMemo(() => statusLower === 'urgent' || statusLower === 'payment', [statusLower]);
 
   const IconComponent: any = normalized.icon;
 
-  function renderIcon() {
+  const iconElement = useMemo(() => {
     if (isWarning) {
       return <WarningAmberOutlined sx={{ width: 18, height: 18, color: borderColor }} />;
     }
@@ -82,7 +248,17 @@ export function ActivityNotificationCard({
       );
     }
     return null;
-  }
+  }, [isWarning, isUrgent, IconComponent, borderColor]);
+
+  const renderedDescription = useMemo(() => {
+    if (!normalized.description) return null;
+    return renderDescriptionWithHighlights(
+      normalized.description,
+      normalized.notificationType,
+      normalized.metadata,
+      borderColor
+    );
+  }, [normalized.description, normalized.notificationType, normalized.metadata, borderColor]);
 
   return (
     <Box
@@ -175,7 +351,7 @@ export function ActivityNotificationCard({
               },
             }}
           >
-            {renderIcon()}
+            {iconElement}
           </Box>
           <Box sx={{ flex: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.75, gap: 1 }}>
@@ -211,7 +387,7 @@ export function ActivityNotificationCard({
                 />
               )}
             </Box>
-            {normalized.description && (
+            {renderedDescription && (
               <Typography
                 variant="body2"
                 component="div"
@@ -223,269 +399,7 @@ export function ActivityNotificationCard({
                   opacity: 0.85,
                 }}
               >
-                {(() => {
-                  // Helper function to render highlighted text
-                  const renderHighlight = (text: string) => (
-                    <Box
-                      component="span"
-                      sx={{
-                        fontWeight: 600,
-                        color: borderColor,
-                        position: 'relative',
-                        display: 'inline-block',
-                        verticalAlign: 'middle',
-                        px: 1,
-                        py: 0.25,
-                        mx: 0.25,
-                        borderRadius: 2,
-                        background: `linear-gradient(135deg, ${borderColor}15 0%, ${borderColor}08 100%)`,
-                        border: `1px solid ${borderColor}30`,
-                        boxShadow: `0 2px 8px ${borderColor}15`,
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                        overflow: 'hidden',
-                        zIndex: 1,
-                        animation: 'shimmer 3s ease-in-out infinite',
-                        '@keyframes shimmer': {
-                          '0%': {
-                            boxShadow: `0 2px 8px ${borderColor}15`,
-                          },
-                          '50%': {
-                            boxShadow: `0 2px 12px ${borderColor}25, 0 0 20px ${borderColor}15`,
-                          },
-                          '100%': {
-                            boxShadow: `0 2px 8px ${borderColor}15`,
-                          },
-                        },
-                        transition: 'all 0.3s ease',
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          top: 0,
-                          left: '-100%',
-                          width: '100%',
-                          height: '100%',
-                          background: `linear-gradient(90deg, transparent, ${borderColor}40, transparent)`,
-                          animation: 'shine 3s ease-in-out infinite',
-                          '@keyframes shine': {
-                            '0%': {
-                              left: '-100%',
-                            },
-                            '50%': {
-                              left: '100%',
-                            },
-                            '100%': {
-                              left: '100%',
-                            },
-                          },
-                        },
-                      }}
-                    >
-                      {text}
-                    </Box>
-                  );
-
-                  // Special rendering for booking_created (highlight client name and service name)
-                  if (normalized.notificationType === 'booking_created' && normalized.metadata?.service_title) {
-                    const serviceName = normalized.metadata.service_title;
-                    const clientName = normalized.metadata?.client_display_name;
-                    let description = normalized.description;
-                    
-                    // If we have both client name and service name, highlight both
-                    if (clientName && serviceName) {
-                      // Split by client name first
-                      const clientParts = description.split(clientName);
-                      if (clientParts.length === 2) {
-                        // Now split the second part by service name
-                        const serviceParts = clientParts[1].split(serviceName);
-                        if (serviceParts.length === 2) {
-                          return (
-                            <>
-                              {renderHighlight(clientName)}
-                              {clientParts[0]}
-                              {serviceParts[0]}
-                              {renderHighlight(serviceName)}
-                              {serviceParts[1]}
-                            </>
-                          );
-                        }
-                      }
-                    }
-                    
-                    // Fallback: just highlight service name if client name not found or format is different
-                    const parts = description.split(serviceName);
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          {parts[0]}
-                          {renderHighlight(serviceName)}
-                          {parts[1]}
-                        </>
-                      );
-                    }
-                  }
-                  // Special rendering for new_client_added (highlight client name)
-                  if (normalized.notificationType === 'new_client_added' && normalized.metadata?.client_display_name) {
-                    const clientName = normalized.metadata.client_display_name;
-                    const parts = normalized.description.split(clientName);
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          {parts[0]}
-                          {renderHighlight(clientName)}
-                          {parts[1]}
-                        </>
-                      );
-                    }
-                  }
-                  // Special rendering for booking_placed (highlight service name)
-                  if (normalized.notificationType === 'booking_placed' && normalized.metadata?.service_title) {
-                    const serviceName = normalized.metadata.service_title;
-                    const parts = normalized.description.split(serviceName);
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          {parts[0]}
-                          {renderHighlight(serviceName)}
-                          {parts[1]}
-                        </>
-                      );
-                    }
-                  }
-                  // Special rendering for booking_approved (highlight creative name and service name)
-                  if (normalized.notificationType === 'booking_approved' && normalized.metadata?.service_title) {
-                    const serviceName = normalized.metadata.service_title;
-                    const creativeName = normalized.metadata?.creative_display_name;
-                    let description = normalized.description;
-                    
-                    // If we have both creative name and service name, highlight both
-                    if (creativeName && serviceName) {
-                      // Split by creative name first
-                      const creativeParts = description.split(creativeName);
-                      if (creativeParts.length === 2) {
-                        // Now split the second part by service name
-                        const serviceParts = creativeParts[1].split(serviceName);
-                        if (serviceParts.length === 2) {
-                          return (
-                            <>
-                              {renderHighlight(creativeName)}
-                              {creativeParts[0]}
-                              {serviceParts[0]}
-                              {renderHighlight(serviceName)}
-                              {serviceParts[1]}
-                            </>
-                          );
-                        }
-                      }
-                    }
-                    
-                    // Fallback: just highlight service name if creative name not found or format is different
-                    const parts = description.split(serviceName);
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          {parts[0]}
-                          {renderHighlight(serviceName)}
-                          {parts[1]}
-                        </>
-                      );
-                    }
-                  }
-                  // Special rendering for payment_required (highlight creative name and service name)
-                  if (normalized.notificationType === 'payment_required' && normalized.metadata?.service_title) {
-                    const serviceName = normalized.metadata.service_title;
-                    const creativeName = normalized.metadata?.creative_display_name;
-                    let description = normalized.description;
-                    
-                    // If we have both creative name and service name, highlight both
-                    if (creativeName && serviceName) {
-                      // Split by creative name first
-                      const creativeParts = description.split(creativeName);
-                      if (creativeParts.length === 2) {
-                        // Now split the second part by service name
-                        const serviceParts = creativeParts[1].split(serviceName);
-                        if (serviceParts.length === 2) {
-                          return (
-                            <>
-                              {renderHighlight(creativeName)}
-                              {creativeParts[0]}
-                              {serviceParts[0]}
-                              {renderHighlight(serviceName)}
-                              {serviceParts[1]}
-                            </>
-                          );
-                        }
-                      }
-                    }
-                    
-                    // Fallback: just highlight service name if creative name not found or format is different
-                    const parts = description.split(serviceName);
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          {parts[0]}
-                          {renderHighlight(serviceName)}
-                          {parts[1]}
-                        </>
-                      );
-                    }
-                  }
-                  // Special rendering for booking_rejected (highlight creative name and service name)
-                  if (normalized.notificationType === 'booking_rejected' && normalized.metadata?.service_title) {
-                    const serviceName = normalized.metadata.service_title;
-                    const creativeName = normalized.metadata?.creative_display_name;
-                    let description = normalized.description;
-                    
-                    // If we have both creative name and service name, highlight both
-                    if (creativeName && serviceName) {
-                      // Split by creative name first
-                      const creativeParts = description.split(creativeName);
-                      if (creativeParts.length === 2) {
-                        // Now split the second part by service name
-                        const serviceParts = creativeParts[1].split(serviceName);
-                        if (serviceParts.length === 2) {
-                          return (
-                            <>
-                              {renderHighlight(creativeName)}
-                              {creativeParts[0]}
-                              {serviceParts[0]}
-                              {renderHighlight(serviceName)}
-                              {serviceParts[1]}
-                            </>
-                          );
-                        }
-                      }
-                    }
-                    
-                    // Fallback: just highlight service name if creative name not found or format is different
-                    const parts = description.split(serviceName);
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          {parts[0]}
-                          {renderHighlight(serviceName)}
-                          {parts[1]}
-                        </>
-                      );
-                    }
-                  }
-                  // Special rendering for booking_canceled (highlight service name)
-                  if (normalized.notificationType === 'booking_canceled' && normalized.metadata?.service_title) {
-                    const serviceName = normalized.metadata.service_title;
-                    const parts = normalized.description.split(serviceName);
-                    if (parts.length === 2) {
-                      return (
-                        <>
-                          {parts[0]}
-                          {renderHighlight(serviceName)}
-                          {parts[1]}
-                        </>
-                      );
-                    }
-                  }
-                  // Default rendering
-                  return normalized.description;
-                })()}
+                {renderedDescription}
               </Typography>
             )}
 {/* Counterpart pills removed - names are now highlighted in description */}
@@ -539,4 +453,4 @@ export function ActivityNotificationCard({
       </Box>
     </Box>
   );
-}
+});

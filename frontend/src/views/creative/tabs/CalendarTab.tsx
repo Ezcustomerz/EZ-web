@@ -14,6 +14,7 @@ import { CalendarSessionDetailPopover } from '../../../components/popovers/creat
 import { CalendarDayCard } from '../../../components/cards/creative/CalendarDayCard';
 import { bookingService } from '../../../api/bookingService';
 import type { CalendarSession } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
 type Session = CalendarSession;
 
@@ -33,6 +34,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
   const isIPadMini = useMediaQuery('(min-height: 1024px) and (max-width: 1024px)');
   const isIPadAir = useMediaQuery('(min-height: 1180px) and (max-width: 1180px)');
   const isIPadPro = useMediaQuery('(min-height: 1366px) and (max-width: 1366px)');
+  const { isAuthenticated } = useAuth();
   
   // Determine max sessions to show based on screen height and width
   const maxSessionsToShow = isMobile ? 2 : isIPadPro ? 9 : isIPadAir ? 8 : isIPadMini ? 6 : isTallScreen ? 4 : 2;
@@ -47,6 +49,12 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
 
   // Fetch sessions when month changes
   useEffect(() => {
+    // Don't fetch calendar sessions if user is not authenticated
+    if (!isAuthenticated) {
+      setSessions([]);
+      return;
+    }
+
     const fetchSessions = async () => {
       try {
         const year = currentMonth.getFullYear();
@@ -60,7 +68,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
     };
 
     fetchSessions();
-  }, [currentMonth]);
+  }, [currentMonth, isAuthenticated]);
 
   // Month navigation
   const [monthTransition, setMonthTransition] = useState<'left' | 'right' | null>(null);

@@ -23,6 +23,7 @@ import { DownloadOrderCard } from '../../../components/cards/client/DownloadOrde
 import { CompletedOrderCard } from '../../../components/cards/client/CompletedOrderCard';
 import { CanceledOrderCard } from '../../../components/cards/client/CanceledOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
 // Module-level cache to prevent duplicate fetches across remounts
 // This persists across StrictMode remounts to prevent duplicate API calls
@@ -83,6 +84,7 @@ function transformOrders(fetchedOrders: Order[]) {
 export function AllServicesTab() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [creativeFilter, setCreativeFilter] = useState<string>('all');
@@ -95,6 +97,16 @@ export function AllServicesTab() {
   // Fetch orders on mount - only once
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setConnectedCreatives([]);
+        setLoading(false);
+      }
+      return;
+    }
     
     const now = Date.now();
     const cacheAge = now - fetchCache.timestamp;
@@ -212,7 +224,7 @@ export function AllServicesTab() {
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [isAuthenticated]);
   
 
   const handleStatusChange = (event: SelectChangeEvent) => {
@@ -229,6 +241,14 @@ export function AllServicesTab() {
 
   // Function to refresh orders after cancellation
   const handleRefreshOrders = async () => {
+    // Don't refresh if not authenticated
+    if (!isAuthenticated) {
+      setOrders([]);
+      setConnectedCreatives([]);
+      setLoading(false);
+      return;
+    }
+
     // Clear the cache to force a fresh fetch
     fetchCache.promise = null;
     fetchCache.data = null;

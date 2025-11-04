@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
+import { useAuth } from '../../context/auth';
 
 // Mock data for upcoming bookings
 const upcomingBookings: any[] = [
@@ -70,12 +71,22 @@ const clientNotificationsCache = {
 const CACHE_DURATION = 5000; // 5 seconds cache
 
 export function ClientDashboard() {
+  const { isAuthenticated } = useAuth();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Don't fetch notifications if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setActivityItems([]);
+        setIsLoading(false);
+      }
+      return;
+    }
     
     const now = Date.now();
     const cacheAge = now - clientNotificationsCache.timestamp;
@@ -141,7 +152,7 @@ export function ClientDashboard() {
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <LayoutClient selectedNavItem="dashboard">

@@ -152,25 +152,32 @@ class UserController:
             if setup_request.creative_data is not None and 'creative' in user_roles:
                 creative_data = setup_request.creative_data
                 
-                # Set storage limit based on subscription tier
-                storage_limits = {
-                    'basic': 10 * 1024 * 1024 * 1024,  # 10GB in bytes
-                    'growth': 100 * 1024 * 1024 * 1024,  # 100GB in bytes
-                    'pro': 1024 * 1024 * 1024 * 1024,  # 1TB in bytes
-                }
-                storage_limit = storage_limits.get(creative_data.get('subscription_tier', 'basic'), storage_limits['basic'])
+                # Get subscription_tier_id from creative_data (should be UUID)
+                subscription_tier_id = creative_data.get('subscription_tier_id')
+                if not subscription_tier_id:
+                    raise HTTPException(status_code=422, detail="subscription_tier_id is required")
+                
+                # Validate subscription_tier_id and get storage limit from subscription_tier
+                subscription_result = db_admin.table('subscription_tiers').select(
+                    'id, storage_amount_bytes, is_active'
+                ).eq('id', subscription_tier_id).single().execute()
+                
+                if not subscription_result.data:
+                    raise HTTPException(status_code=404, detail="Subscription tier not found")
+                
+                if not subscription_result.data.get('is_active', True):
+                    raise HTTPException(status_code=400, detail="Subscription tier is not active")
                 
                 creative_row = {
                     'user_id': user_id,
                     'display_name': creative_data.get('display_name'),
                     'title': creative_data.get('title'),
                     'bio': creative_data.get('bio'),
-                    'subscription_tier': creative_data.get('subscription_tier', 'basic'),
+                    'subscription_tier_id': subscription_tier_id,
                     'primary_contact': creative_data.get('primary_contact'),
                     'secondary_contact': creative_data.get('secondary_contact'),
                     'profile_banner_url': profile_picture_url,
                     'profile_source': avatar_source,
-                    'storage_limit_bytes': storage_limit,
                 }
                 
                 result = db_admin.table('creatives').upsert(creative_row).execute()

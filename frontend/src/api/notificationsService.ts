@@ -3,6 +3,12 @@ import { supabase } from '../config/supabase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+// Helper function to check if user is authenticated
+const checkAuth = async (): Promise<boolean> => {
+  const { data } = await supabase.auth.getSession();
+  return !!data.session?.access_token;
+};
+
 // Helper function to get auth headers
 const getAuthHeaders = async () => {
   const { data } = await supabase.auth.getSession();
@@ -48,6 +54,13 @@ export async function getNotifications(
   unreadOnly: boolean = false,
   roleContext?: 'client' | 'creative' | 'advocate'
 ): Promise<Notification[]> {
+  // Check authentication before making API call
+  const isAuthenticated = await checkAuth();
+  if (!isAuthenticated) {
+    console.log('User not authenticated, skipping notification fetch');
+    return [];
+  }
+
   try {
     const headers = await getAuthHeaders();
     const params: Record<string, any> = {
@@ -71,7 +84,8 @@ export async function getNotifications(
   } catch (error: any) {
     console.error('Error fetching notifications:', error);
     if (error.response?.status === 401) {
-      throw new Error('Authentication required');
+      // User is no longer authenticated, return empty array
+      return [];
     }
     throw new Error(error.response?.data?.detail || 'Failed to fetch notifications');
   }
@@ -83,6 +97,13 @@ export async function getNotifications(
  *                      If provided, only counts notifications for this role context.
  */
 export async function getUnreadCount(roleContext?: 'client' | 'creative' | 'advocate'): Promise<number> {
+  // Check authentication before making API call
+  const isAuthenticated = await checkAuth();
+  if (!isAuthenticated) {
+    console.log('User not authenticated, skipping unread count fetch');
+    return 0;
+  }
+
   try {
     const headers = await getAuthHeaders();
     const params: Record<string, any> = {};
@@ -102,7 +123,8 @@ export async function getUnreadCount(roleContext?: 'client' | 'creative' | 'advo
   } catch (error: any) {
     console.error('Error fetching unread count:', error);
     if (error.response?.status === 401) {
-      throw new Error('Authentication required');
+      // User is no longer authenticated, return 0
+      return 0;
     }
     throw new Error(error.response?.data?.detail || 'Failed to fetch unread count');
   }

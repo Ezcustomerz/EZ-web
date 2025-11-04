@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import RedirectResponse
+from core.verify import require_auth
+from typing import Optional, Dict, Any
 import uuid
 import jwt
 from datetime import datetime, timedelta
 from db.db_session import db_admin
-from typing import Optional
 import os
 from core.limiter import limiter
 
@@ -15,22 +16,20 @@ INVITE_SECRET = os.getenv("INVITE_SECRET", "dev-invite-secret-change-in-producti
 
 @router.post("/generate")
 @limiter.limit("2 per second")
-async def generate_invite_link(request: Request):
+async def generate_invite_link(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Generate an invite link for a creative to invite clients
+    Requires authentication - will return 401 if not authenticated.
     """
     try:
         print("🔍 Starting invite generation...")
         
-        # Get user from request state (set by middleware)
-        print(f"🔍 Request state user: {hasattr(request.state, 'user')}")
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         print(f"🔍 User ID from token: {user_id}")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
         
         # Get user roles from database
         print("🔍 Querying user roles from database...")
@@ -102,13 +101,16 @@ async def validate_invite_token(invite_token: str, request: Request):
         creative_response = db_admin.table("creatives") \
             .select("display_name, title, user_id") \
             .eq("user_id", creative_user_id) \
-            .single() \
             .execute()
         
-        if not creative_response.data:
+        if not creative_response.data or len(creative_response.data) == 0:
             raise HTTPException(status_code=404, detail="Creative not found")
         
-        creative = creative_response.data
+        if len(creative_response.data) > 1:
+            # This shouldn't happen, but handle it gracefully
+            raise HTTPException(status_code=500, detail="Multiple creatives found with same user_id")
+        
+        creative = creative_response.data[0]
         
         # Check if there's an authenticated user and their roles
         user_info = None
@@ -116,18 +118,22 @@ async def validate_invite_token(invite_token: str, request: Request):
             user_id = request.state.user.get('sub')
             if user_id:
                 # Get user roles from database
-                user_response = db_admin.table("users") \
-                    .select("roles") \
-                    .eq("user_id", user_id) \
-                    .single() \
-                    .execute()
-                
-                if user_response.data:
-                    user_info = {
-                        "user_id": user_id,
-                        "roles": user_response.data.get('roles', []),
-                        "has_client_role": 'client' in user_response.data.get('roles', [])
-                    }
+                try:
+                    user_response = db_admin.table("users") \
+                        .select("roles") \
+                        .eq("user_id", user_id) \
+                        .single() \
+                        .execute()
+                    
+                    if user_response.data:
+                        user_info = {
+                            "user_id": user_id,
+                            "roles": user_response.data.get('roles', []),
+                            "has_client_role": 'client' in user_response.data.get('roles', [])
+                        }
+                except Exception:
+                    # User not found in database, continue without user_info
+                    pass
         
         return {
             "success": True,
@@ -159,9 +165,14 @@ async def validate_invite_token(invite_token: str, request: Request):
 
 @router.post("/accept/{invite_token}")
 @limiter.limit("2 per second")
-async def accept_invite(invite_token: str, request: Request):
+async def accept_invite(
+    invite_token: str,
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Accept an invite and create the creative-client relationship
+    Requires authentication - will return 401 if not authenticated.
     """
     try:
         print(f"[ACCEPT_INVITE] Starting invite acceptance for token: {invite_token[:20]}...")
@@ -177,13 +188,8 @@ async def accept_invite(invite_token: str, request: Request):
         if not creative_user_id:
             raise HTTPException(status_code=400, detail="Invalid invite token")
         
-        # Get user from request state (set by middleware)
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        client_user_id = request.state.user.get('sub')
-        if not client_user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        client_user_id = current_user.get('sub')
         
         print(f"[ACCEPT_INVITE] Creative user ID: {creative_user_id}, Client user ID: {client_user_id}")
         
@@ -304,7 +310,11 @@ async def accept_invite(invite_token: str, request: Request):
 
 @router.post("/accept-after-role-setup/{invite_token}")
 @limiter.limit("2 per second")
-async def accept_invite_after_role_setup(invite_token: str, request: Request):
+async def accept_invite_after_role_setup(
+    invite_token: str,
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Accept an invite after user has set up their client role
     This is called after the user completes client role setup
@@ -320,13 +330,8 @@ async def accept_invite_after_role_setup(invite_token: str, request: Request):
         if not creative_user_id:
             raise HTTPException(status_code=400, detail="Invalid invite token")
         
-        # Get user from request state (set by middleware)
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        client_user_id = request.state.user.get('sub')
-        if not client_user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        client_user_id = current_user.get('sub')
         
         # Get user roles from database to verify client role was added
         user_response = db_admin.table("users") \
@@ -371,13 +376,16 @@ async def accept_invite_after_role_setup(invite_token: str, request: Request):
         
         if result.data:
             # Get client display name for notification
-            client_response = db_admin.table("clients") \
-                .select("display_name") \
-                .eq("user_id", client_user_id) \
-                .single() \
-                .execute()
-            
-            client_display_name = client_response.data.get("display_name", "A client") if client_response.data else "A client"
+            try:
+                client_response = db_admin.table("clients") \
+                    .select("display_name") \
+                    .eq("user_id", client_user_id) \
+                    .execute()
+                
+                client_display_name = client_response.data[0].get("display_name", "A client") if client_response.data and len(client_response.data) > 0 else "A client"
+            except Exception:
+                # If client profile not found, use default name
+                client_display_name = "A client"
             
             # Create notification for creative
             notification_data = {

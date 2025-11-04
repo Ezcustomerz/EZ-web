@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 import logging
 from db.db_session import db_admin
 from core.limiter import limiter
+from core.verify import require_auth
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -30,22 +31,18 @@ class CreateBookingResponse(BaseModel):
 @limiter.limit("10 per minute")
 async def create_booking(
     request: Request,
-    booking_data: CreateBookingRequest
+    booking_data: CreateBookingRequest,
+    current_user: Dict[str, Any] = Depends(require_auth)
 ):
     """
     Create a new booking/order
-    - Validates user authentication
+    Requires authentication - will return 401 if not authenticated.
     - Fetches service details (creative_user_id, price, payment_option)
     - Creates booking with proper status tracking
     """
     try:
-        # Get user ID from JWT token (set by middleware)
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         # Get service details including creative_user_id
         service_response = db_admin.table('creative_services')\
             .select('creative_user_id, price, payment_option, title')\
@@ -214,18 +211,18 @@ class OrdersListResponse(BaseModel):
 
 @router.get("/client", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
-async def get_client_orders(request: Request):
+async def get_client_orders(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Get all orders for the current client user
+    Requires authentication - will return 401 if not authenticated.
     Returns orders with client_status = 'placed' (and other statuses)
     """
     try:
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch bookings for this client
         bookings_response = db_admin.table('bookings')\
@@ -420,18 +417,18 @@ def build_order_response(booking, services_dict, creatives_dict, users_dict):
 
 @router.get("/client/in-progress", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
-async def get_client_in_progress_orders(request: Request):
+async def get_client_in_progress_orders(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Get in-progress orders for the current client user
+    Requires authentication - will return 401 if not authenticated.
     Returns orders with client_status = 'in_progress'
     """
     try:
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch bookings for this client with in_progress status
         bookings_response = db_admin.table('bookings')\
@@ -483,18 +480,18 @@ async def get_client_in_progress_orders(request: Request):
 
 @router.get("/client/action-needed", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
-async def get_client_action_needed_orders(request: Request):
+async def get_client_action_needed_orders(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Get action-needed orders for the current client user
+    Requires authentication - will return 401 if not authenticated.
     Returns orders with statuses: payment_required, locked, download
     """
     try:
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch bookings for this client
         bookings_response = db_admin.table('bookings')\
@@ -546,18 +543,18 @@ async def get_client_action_needed_orders(request: Request):
 
 @router.get("/client/history", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
-async def get_client_history_orders(request: Request):
+async def get_client_history_orders(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Get history orders for the current client user
+    Requires authentication - will return 401 if not authenticated.
     Returns orders with statuses: completed, canceled
     """
     try:
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch bookings for this client with completed or canceled status
         # Also include cancelled (British spelling) and rejected creative status (shown as canceled)
@@ -621,18 +618,18 @@ async def get_client_history_orders(request: Request):
 
 @router.get("/creative", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
-async def get_creative_orders(request: Request):
+async def get_creative_orders(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Get all orders for the current creative user
+    Requires authentication - will return 401 if not authenticated.
     Returns orders with creative_status = 'pending_approval' (and other statuses)
     """
     try:
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch bookings for this creative
         bookings_response = db_admin.table('bookings')\
@@ -735,18 +732,18 @@ async def get_creative_orders(request: Request):
 
 @router.get("/creative/current", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
-async def get_creative_current_orders(request: Request):
+async def get_creative_current_orders(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Get current orders for the current creative user
+    Requires authentication - will return 401 if not authenticated.
     Returns orders excluding 'complete', 'rejected', and 'canceled' statuses
     """
     try:
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch bookings for this creative, excluding completed/canceled/rejected orders
         bookings_response = db_admin.table('bookings')\
@@ -869,10 +866,12 @@ class CalendarSessionsResponse(BaseModel):
 async def get_creative_calendar_sessions(
     request: Request,
     year: int,
-    month: int
+    month: int,
+    current_user: Dict[str, Any] = Depends(require_auth)
 ):
     """
     Get calendar sessions for the current creative user for a specific month
+    Requires authentication - will return 401 if not authenticated.
     Returns bookings with calendar-specific format
     Status mapping:
     - pending_approval -> pending
@@ -880,12 +879,8 @@ async def get_creative_calendar_sessions(
     - rejected -> cancelled
     """
     try:
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Calculate month start and end dates
         month_start = datetime(year, month, 1)
@@ -998,18 +993,18 @@ async def get_creative_calendar_sessions(
 
 @router.get("/creative/past", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
-async def get_creative_past_orders(request: Request):
+async def get_creative_past_orders(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
     """
     Get past orders for the current creative user
+    Requires authentication - will return 401 if not authenticated.
     Returns only orders with creative_status = 'complete', 'rejected', or 'canceled'
     """
     try:
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch bookings for this creative, only completed/canceled/rejected orders
         bookings_response = db_admin.table('bookings')\
@@ -1124,24 +1119,20 @@ class ApproveBookingResponse(BaseModel):
 @limiter.limit("10 per minute")
 async def approve_booking(
     request: Request,
-    approve_data: ApproveBookingRequest
+    approve_data: ApproveBookingRequest,
+    current_user: Dict[str, Any] = Depends(require_auth)
 ):
     """
     Approve a booking/order
-    - Validates user authentication
+    Requires authentication - will return 401 if not authenticated.
     - Verifies the booking belongs to the creative
     - Updates status based on payment option:
       * Free or 'later' payment: creative_status='in_progress', client_status='in_progress'
       * 'upfront' or 'split' payment: creative_status='awaiting_payment', client_status='payment_required'
     """
     try:
-        # Get user ID from JWT token (set by middleware)
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch the booking to verify it exists and belongs to this creative
         booking_response = db_admin.table('bookings')\
@@ -1291,23 +1282,19 @@ class RejectBookingResponse(BaseModel):
 @limiter.limit("10 per minute")
 async def reject_booking(
     request: Request,
-    reject_data: RejectBookingRequest
+    reject_data: RejectBookingRequest,
+    current_user: Dict[str, Any] = Depends(require_auth)
 ):
     """
     Reject a booking/order
-    - Validates user authentication
+    Requires authentication - will return 401 if not authenticated.
     - Verifies the booking belongs to the creative
     - Updates creative_status to 'rejected'
     - client_status remains unchanged (stays as 'placed')
     """
     try:
-        # Get user ID from JWT token (set by middleware)
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch the booking to verify it exists and belongs to this creative
         booking_response = db_admin.table('bookings')\
@@ -1419,23 +1406,19 @@ class CancelBookingResponse(BaseModel):
 @limiter.limit("10 per minute")
 async def cancel_booking(
     request: Request,
-    cancel_data: CancelBookingRequest
+    cancel_data: CancelBookingRequest,
+    current_user: Dict[str, Any] = Depends(require_auth)
 ):
     """
     Cancel a booking/order (client-initiated)
-    - Validates user authentication
+    Requires authentication - will return 401 if not authenticated.
     - Verifies the booking belongs to the client
     - Updates both client_status and creative_status to 'canceled'
     - Sets canceled_date to track when the booking was canceled
     """
     try:
-        # Get user ID from JWT token (set by middleware)
-        if not request.state.user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         # Fetch the booking to verify it exists and belongs to this client
         booking_response = db_admin.table('bookings')\

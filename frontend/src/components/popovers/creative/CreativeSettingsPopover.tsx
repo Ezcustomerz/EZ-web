@@ -26,6 +26,8 @@ import {
   Autocomplete,
   Popover,
   Divider,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
 import {
   Close,
@@ -42,6 +44,11 @@ import {
   Visibility,
   Check,
   AccountCircle,
+  AccountBalance,
+  CheckCircle,
+  Warning,
+  ArrowForward,
+  Info,
 } from '@mui/icons-material';
 import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -180,6 +187,18 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const [services, setServices] = useState<CreativeService[]>([]);
   const [bundles, setBundles] = useState<CreativeBundle[]>([]);
+  
+  // Bank account state (will be fetched from API later)
+  const [bankAccountStatus, setBankAccountStatus] = useState<{
+    connected: boolean;
+    accountId?: string;
+    payoutsEnabled: boolean;
+    accountType?: 'individual' | 'company';
+    lastPayoutDate?: string;
+  }>({
+    connected: false,
+    payoutsEnabled: false,
+  });
   
   // Form state
   const [formData, setFormData] = useState({
@@ -975,7 +994,217 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
       case 'billing':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
-      
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Bank Account Connection */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <AccountBalance color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Bank Account
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          bgcolor: bankAccountStatus.connected ? 'success.main' : 'warning.main',
+                          ...(!bankAccountStatus.connected && {
+                            animation: 'pulse-dot 2s ease-in-out infinite',
+                            '@keyframes pulse-dot': {
+                              '0%, 100%': {
+                                transform: 'translateY(0) scale(1)',
+                                opacity: 1,
+                              },
+                              '50%': {
+                                transform: 'translateY(-3px) scale(1.1)',
+                                opacity: 0.8,
+                              },
+                            },
+                          }),
+                        }}
+                      />
+                      <Typography variant="body1" fontWeight={500}>
+                        {bankAccountStatus.connected ? 'Connected' : 'Not Connected'}
+                      </Typography>
+                      {bankAccountStatus.connected && (
+                        <Chip
+                          label="Active"
+                          size="small"
+                          color="success"
+                          sx={{ ml: 'auto', fontWeight: 600 }}
+                        />
+                      )}
+                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      {bankAccountStatus.connected
+                        ? 'Your bank account is connected and ready to receive payments from clients.'
+                        : 'Connect a bank account to accept paid bookings and receive payments.'}
+                    </Typography>
+                  </Box>
+
+                  {bankAccountStatus.connected && (
+                    <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Account Type:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={500}>
+                          {bankAccountStatus.accountType === 'company' ? 'Business' : 'Individual'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Payout Status:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={500}>
+                          {bankAccountStatus.payoutsEnabled ? 'Enabled' : 'Pending Verification'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+
+                  <Button
+                    variant={bankAccountStatus.connected ? "outlined" : "contained"}
+                    fullWidth
+                    startIcon={bankAccountStatus.connected ? <Settings /> : <AccountBalance />}
+                    onClick={() => {
+                      // TODO: Handle bank account connection/management
+                      console.log('Bank account action clicked');
+                    }}
+                    sx={{
+                      position: 'relative',
+                      overflow: 'visible',
+                      ...(!bankAccountStatus.connected && {
+                        background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                        animation: 'gentle-breathe 2.5s ease-in-out infinite',
+                        boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)',
+                        '@keyframes gentle-breathe': {
+                          '0%, 100%': {
+                            transform: 'scale(1)',
+                          },
+                          '50%': {
+                            transform: 'scale(1.02)',
+                          },
+                        },
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          inset: -2,
+                          borderRadius: 'inherit',
+                          padding: '2px',
+                          background: 'linear-gradient(135deg, #60a5fa, #3b82f6, #1d4ed8)',
+                          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                          WebkitMaskComposite: 'xor',
+                          maskComposite: 'exclude',
+                          opacity: 0,
+                          animation: 'border-glow 2.5s ease-in-out infinite',
+                        },
+                        '@keyframes border-glow': {
+                          '0%, 100%': {
+                            opacity: 0,
+                          },
+                          '50%': {
+                            opacity: 0.6,
+                          },
+                        },
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 6px 16px rgba(59, 130, 246, 0.35)',
+                          animation: 'none',
+                          '&::before': {
+                            opacity: 0.8,
+                            animation: 'none',
+                          },
+                        },
+                        '&:active': {
+                          transform: 'translateY(0)',
+                          boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                        },
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                      }),
+                    }}
+                  >
+                    {bankAccountStatus.connected ? 'Manage Account' : 'Connect Bank Account'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Payout Information */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <CreditCard color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Payout Information
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Payouts are processed within 2-3 business days after a client completes payment.
+                  </Typography>
+                  {bankAccountStatus.connected && bankAccountStatus.lastPayoutDate && (
+                    <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Last Payout:
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {new Date(bankAccountStatus.lastPayoutDate).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </Typography>
+                    </Box>
+                  )}
+                  {!bankAccountStatus.connected && (
+                    <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        Connect your bank account to view payout information.
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Important Information */}
+              {!bankAccountStatus.connected && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <Info color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Important Information
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
+                      A bank account is required to accept paid bookings. Your banking information is securely 
+                      processed by Stripe and we never store your account details.
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 500 }}>
+                      You'll need to provide:
+                    </Typography>
+                    <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Bank account details
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Business information (if applicable)
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary">
+                        Identity verification documents
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                      The setup process takes approximately 5-10 minutes.
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+            </Box>
           </Box>
         );
       case 'userAccount':

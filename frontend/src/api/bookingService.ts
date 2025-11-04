@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { supabase } from '../config/supabase';
 
 export interface CalendarSettings {
   id: string;
@@ -125,23 +126,87 @@ class BookingService {
   }
 
   async getClientOrders(): Promise<Order[]> {
-    const response = await apiClient.get(`${this.bookingsUrl}/client`);
-    return response.data.orders || [];
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping client orders fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/client`);
+      return response.data.orders || [];
+    } catch (error: any) {
+      console.error('Error fetching client orders:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getClientInProgressOrders(): Promise<Order[]> {
-    const response = await apiClient.get(`${this.bookingsUrl}/client/in-progress`);
-    return response.data.orders || [];
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping client in-progress orders fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/client/in-progress`);
+      return response.data.orders || [];
+    } catch (error: any) {
+      console.error('Error fetching client in-progress orders:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getClientActionNeededOrders(): Promise<Order[]> {
-    const response = await apiClient.get(`${this.bookingsUrl}/client/action-needed`);
-    return response.data.orders || [];
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping client action-needed orders fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/client/action-needed`);
+      return response.data.orders || [];
+    } catch (error: any) {
+      console.error('Error fetching client action-needed orders:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getClientHistoryOrders(): Promise<Order[]> {
-    const response = await apiClient.get(`${this.bookingsUrl}/client/history`);
-    return response.data.orders || [];
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping client history orders fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/client/history`);
+      return response.data.orders || [];
+    } catch (error: any) {
+      console.error('Error fetching client history orders:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getCreativeOrders(): Promise<Order[]> {
@@ -150,20 +215,68 @@ class BookingService {
   }
 
   async getCreativeCurrentOrders(): Promise<Order[]> {
-    const response = await apiClient.get(`${this.bookingsUrl}/creative/current`);
-    return response.data.orders || [];
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping current orders fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/creative/current`);
+      return response.data.orders || [];
+    } catch (error: any) {
+      console.error('Error fetching current orders:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getCreativePastOrders(): Promise<Order[]> {
-    const response = await apiClient.get(`${this.bookingsUrl}/creative/past`);
-    return response.data.orders || [];
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping past orders fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/creative/past`);
+      return response.data.orders || [];
+    } catch (error: any) {
+      console.error('Error fetching past orders:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
   }
 
   async getCreativeCalendarSessions(year: number, month: number): Promise<CalendarSession[]> {
-    const response = await apiClient.get(`${this.bookingsUrl}/creative/calendar`, {
-      params: { year, month }
-    });
-    return response.data.sessions || [];
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping calendar sessions fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/creative/calendar`, {
+        params: { year, month }
+      });
+      return response.data.sessions || [];
+    } catch (error: any) {
+      console.error('Error fetching calendar sessions:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
   }
 
   async rejectOrder(bookingId: string): Promise<{ success: boolean; message: string }> {

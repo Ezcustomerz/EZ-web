@@ -28,7 +28,7 @@ class CreativeSetupRequest(BaseModel):
     primary_contact: Optional[str] = None
     secondary_contact: Optional[str] = None
     bio: Optional[str] = None
-    subscription_tier: str = 'basic'
+    subscription_tier_id: str  # UUID of subscription tier
 
 class CreativeSetupResponse(BaseModel):
     success: bool

@@ -1,12 +1,37 @@
-from fastapi import Request
+from fastapi import Request, HTTPException, Depends
 from jose import jwt, JWTError
 import os
 from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
+from typing import Dict, Any
 
 load_dotenv()
 
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+
+def get_current_user(request: Request) -> Dict[str, Any]:
+    """
+    Dependency function that requires authentication.
+    Raises HTTPException if user is not authenticated.
+    Use with FastAPI's Depends() to protect routes.
+    
+    Example:
+        @router.get("/protected")
+        async def protected_route(current_user: Dict = Depends(get_current_user)):
+            user_id = current_user.get('sub')
+            ...
+    """
+    if not request.state.user:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    user_id = request.state.user.get('sub')
+    if not user_id:
+        raise HTTPException(status_code=401, detail="User ID not found in token")
+    
+    return request.state.user
+
+# Alias for backward compatibility
+require_auth = get_current_user
 
     
 async def jwt_auth_middleware(request: Request, call_next):

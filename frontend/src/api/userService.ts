@@ -43,6 +43,16 @@ export interface RoleOption {
   description: string;
 }
 
+export interface SubscriptionTier {
+  id: string;
+  name: string;
+  price: number;
+  storage_amount_bytes: number;
+  storage_display: string;
+  description?: string;
+  fee_percentage: number;
+}
+
 export interface CreativeSetupRequest {
   display_name: string;
   title: string;
@@ -50,7 +60,7 @@ export interface CreativeSetupRequest {
   primary_contact?: string;
   secondary_contact?: string;
   bio?: string;
-  subscription_tier: string;
+  subscription_tier_id: string;
 }
 
 export interface CreativeSetupResponse {
@@ -96,7 +106,9 @@ export interface CreativeProfile {
   title: string;
   bio?: string;
   description?: string;
-  subscription_tier: string;
+  subscription_tier_id: string;
+  subscription_tier?: string; // Subscription tier name (e.g., 'basic', 'growth', 'pro') - for backward compatibility
+  subscription_tier_name?: string; // Explicit subscription tier name
   primary_contact?: string;
   secondary_contact?: string;
   profile_banner_url?: string;
@@ -401,6 +413,18 @@ export const userService = {
     const response = await axios.post<UpdateRolesResponse>(
       `${API_BASE_URL}/users/update-roles`,
       { selected_roles: roles },
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all available subscription tiers
+   */
+  async getSubscriptionTiers(): Promise<SubscriptionTier[]> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<SubscriptionTier[]>(
+      `${API_BASE_URL}/users/subscription-tiers`,
       { headers }
     );
     return response.data;

@@ -15,6 +15,7 @@ import { Search, DateRange } from '@mui/icons-material';
 import { useState, useEffect, useRef } from 'react';
 import { InProgressOrderCard } from '../../../components/cards/client/InProgressOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
 // Cache for orders to prevent duplicate API calls
 let fetchCache: {
@@ -68,6 +69,7 @@ function transformOrders(fetchedOrders: Order[]) {
 
 export function ActiveTab() {
   const theme = useTheme();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCreative, setSelectedCreative] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
@@ -80,6 +82,16 @@ export function ActiveTab() {
   // Fetch orders on component mount with caching to prevent duplicate calls
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setLoading(false);
+        setError(null);
+      }
+      return;
+    }
     
     const now = Date.now();
     const cacheAge = now - fetchCache.timestamp;
@@ -189,7 +201,7 @@ export function ActiveTab() {
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const handleCreativeChange = (event: SelectChangeEvent) => {
     setSelectedCreative(event.target.value);

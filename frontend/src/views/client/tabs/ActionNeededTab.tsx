@@ -19,6 +19,7 @@ import { PaymentApprovalOrderCard } from '../../../components/cards/client/Payme
 import { LockedOrderCard } from '../../../components/cards/client/LockedOrderCard';
 import { DownloadOrderCard } from '../../../components/cards/client/DownloadOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
 // Module-level cache to prevent duplicate fetches across remounts
 // This persists across StrictMode remounts to prevent duplicate API calls
@@ -93,6 +94,7 @@ function transformOrders(fetchedOrders: Order[]) {
 export function ActionNeededTab() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCreative, setSelectedCreative] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
@@ -105,6 +107,16 @@ export function ActionNeededTab() {
   // Fetch orders on mount - only once
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setConnectedCreatives([]);
+        setLoading(false);
+      }
+      return;
+    }
     
     const now = Date.now();
     const cacheAge = now - fetchCache.timestamp;
@@ -226,7 +238,7 @@ export function ActionNeededTab() {
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const handleCreativeChange = (event: SelectChangeEvent) => {
     setSelectedCreative(event.target.value);

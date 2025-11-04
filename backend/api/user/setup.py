@@ -1,17 +1,23 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from services.user.user_service import UserController
 from schemas.user import BatchSetupRequest, UpdateRolesRequest
+from core.verify import require_auth
+from typing import Dict, Any
 
 router = APIRouter()
 
 @router.post("/batch-setup")
-async def batch_setup_profiles(request: Request, setup_request: BatchSetupRequest):
-    """Create all profile data at once after all setups are completed"""
+async def batch_setup_profiles(
+    request: Request,
+    setup_request: BatchSetupRequest,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Create all profile data at once after all setups are completed
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
-        # Get user ID from JWT token
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         return await UserController.batch_setup_profiles(user_id, setup_request)
         
@@ -22,13 +28,17 @@ async def batch_setup_profiles(request: Request, setup_request: BatchSetupReques
     
 
 @router.post("/update-roles")
-async def update_user_roles(request: Request, role_request: UpdateRolesRequest):
-    """Update user roles and set first_login to false"""
+async def update_user_roles(
+    request: Request,
+    role_request: UpdateRolesRequest,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Update user roles and set first_login to false
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
-        # Get user ID from JWT token
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         return await UserController.update_user_roles(user_id, role_request)
         
@@ -39,13 +49,16 @@ async def update_user_roles(request: Request, role_request: UpdateRolesRequest):
     
     
 @router.get("/setup-status")
-async def get_setup_status(request: Request):
-    """Check which role setups are incomplete for the current user"""
+async def get_setup_status(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Check which role setups are incomplete for the current user
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
-        # Get user ID from JWT token
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         return await UserController.get_setup_status(user_id)
         

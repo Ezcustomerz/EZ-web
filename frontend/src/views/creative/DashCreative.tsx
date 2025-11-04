@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
+import { useAuth } from '../../context/auth';
 
 // Module-level cache to prevent duplicate fetches across remounts
 const notificationsCache = {
@@ -20,12 +21,22 @@ const CACHE_DURATION = 5000; // 5 seconds cache
 export function DashCreative() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
+  const { isAuthenticated } = useAuth();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Don't fetch notifications if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setActivityItems([]);
+        setIsLoading(false);
+      }
+      return;
+    }
     
     const now = Date.now();
     const cacheAge = now - notificationsCache.timestamp;
@@ -91,7 +102,7 @@ export function DashCreative() {
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <LayoutCreative selectedNavItem="dashboard">
@@ -128,7 +139,7 @@ export function DashCreative() {
 
           {/* Activity Feed Card */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <ActivityFeedCard items={activityItems} />
+            <ActivityFeedCard items={activityItems} isLoading={isLoading} />
           </Box>
         </Box>
       )}
