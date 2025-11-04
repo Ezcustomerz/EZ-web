@@ -3,8 +3,10 @@ import { LayoutClient } from '../../layout/client/LayoutClient';
 import { WelcomeCard } from '../../components/cards/client/WelcomeCard';
 import { UpcomingBookingsCard } from '../../components/cards/client/UpcomingBookingsCard';
 import { RecentActivityCard } from '../../components/cards/client/RecentActivityCard';
+import { useState, useEffect, useRef } from 'react';
+import { getNotifications } from '../../api/notificationsService';
+import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
-import { CheckCircleOutlined, Payment } from '@mui/icons-material';
 
 // Mock data for upcoming bookings
 const upcomingBookings: any[] = [
@@ -58,47 +60,88 @@ const upcomingBookings: any[] = [
   }
 ];
 
-// Unified mock data for recent activity (client side)
-const recentItems: ActivityItem[] = [
-  {
-    label: 'Booking confirmed with Mike Johnson',
-    description: 'Your booking has been confirmed.',
-    date: '1 day ago',
-    status: 'completed',
-    counterpart: 'Mike Johnson',
-    isNew: true,
-    icon: CheckCircleOutlined,
-  },
-  {
-    label: 'Session completed with Sarah Wilson',
-    description: 'Your session was completed successfully.',
-    date: '2 days ago',
-    status: 'completed',
-    counterpart: 'Sarah Wilson',
-    isNew: true,
-    icon: CheckCircleOutlined,
-  },
-  {
-    label: 'Payment received from David Chen',
-    description: 'Payment received and recorded.',
-    date: '4 days ago',
-    status: 'payment',
-    counterpart: 'David Chen',
-    isNew: false,
-    icon: Payment,
-  },
-  {
-    label: 'Review submitted for Emma Davis',
-    description: 'Thanks for leaving a review.',
-    date: '5 days ago',
-    status: 'completed',
-    counterpart: 'Emma Davis',
-    isNew: false,
-    icon: CheckCircleOutlined,
-  },
-];
+// Module-level cache to prevent duplicate fetches across remounts
+const clientNotificationsCache = {
+  promise: null as Promise<ActivityItem[]> | null,
+  data: null as ActivityItem[] | null,
+  timestamp: 0,
+};
+
+const CACHE_DURATION = 5000; // 5 seconds cache
 
 export function ClientDashboard() {
+  const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    const now = Date.now();
+    const cacheAge = now - clientNotificationsCache.timestamp;
+
+    // Check if we have cached data that's still fresh
+    if (clientNotificationsCache.data && cacheAge < CACHE_DURATION) {
+      if (mountedRef.current) {
+        setActivityItems(clientNotificationsCache.data);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // Check if a promise already exists - reuse it immediately
+    if (clientNotificationsCache.promise) {
+      setIsLoading(true);
+      clientNotificationsCache.promise.then(items => {
+        if (!mountedRef.current) return;
+        setActivityItems(items);
+        setIsLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Error fetching notifications:', error);
+        setActivityItems([]);
+        setIsLoading(false);
+      });
+      return;
+    }
+
+    // No promise exists - create one
+    setIsLoading(true);
+    
+    const fetchPromise = (async () => {
+      try {
+        const notifications = await getNotifications(50, 0, false, 'client');
+        const items = notificationsToActivityItems(notifications);
+        
+        // Cache the result
+        clientNotificationsCache.data = items;
+        clientNotificationsCache.timestamp = Date.now();
+        clientNotificationsCache.promise = null;
+        
+        return items;
+      } catch (error) {
+        clientNotificationsCache.promise = null;
+        throw error;
+      }
+    })();
+
+    clientNotificationsCache.promise = fetchPromise;
+
+    fetchPromise.then(items => {
+      if (!mountedRef.current) return;
+      setActivityItems(items);
+      setIsLoading(false);
+    }).catch(error => {
+      if (!mountedRef.current) return;
+      console.error('Error fetching notifications:', error);
+      setActivityItems([]);
+      setIsLoading(false);
+    });
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   return (
     <LayoutClient selectedNavItem="dashboard">
@@ -143,7 +186,7 @@ export function ClientDashboard() {
             <UpcomingBookingsCard bookings={upcomingBookings} />
 
             {/* Recent Activity Section */}
-            <RecentActivityCard items={recentItems} />
+            <RecentActivityCard items={activityItems} />
           </Box>
         </Box>
       )}

@@ -435,11 +435,27 @@ class CreativeController:
                             user_timezone
                         )
                         for block in utc_time_blocks:
-                            time_blocks_data.append({
-                                'weekly_schedule_id': weekly_schedule_id,
-                                'start_time': block['start'],
-                                'end_time': block['end']
-                            })
+                            # Validate that start_time < end_time (database constraint requirement)
+                            start_time_str = block['start']
+                            end_time_str = block['end']
+                            
+                            # Parse times to compare
+                            start_hour, start_min = map(int, start_time_str.split(':'))
+                            end_hour, end_min = map(int, end_time_str.split(':'))
+                            
+                            # Convert to minutes for comparison
+                            start_minutes = start_hour * 60 + start_min
+                            end_minutes = end_hour * 60 + end_min
+                            
+                            # Only add if end_time > start_time
+                            if end_minutes > start_minutes:
+                                time_blocks_data.append({
+                                    'weekly_schedule_id': weekly_schedule_id,
+                                    'start_time': start_time_str,
+                                    'end_time': end_time_str
+                                })
+                            else:
+                                print(f"WARNING: Skipping invalid time block: start={start_time_str}, end={end_time_str} (end_time must be > start_time)")
                         
                         if time_blocks_data:
                             db_admin.table('time_blocks').insert(time_blocks_data).execute()

@@ -7,5 +7,7 @@ export interface ActivityItem {
   date: string; // human readable time e.g., '2 days ago'
   status: string; // e.g., 'completed' | 'payment' | 'waiting' | 'review'
   isNew?: boolean;
+  notificationType?: string; // notification type for special rendering
+  metadata?: Record<string, any>; // metadata for highlighting specific text
 }
 

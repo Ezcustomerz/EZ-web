@@ -247,6 +247,44 @@ async def accept_invite(invite_token: str, request: Request):
         
         if result.data:
             print(f"[ACCEPT_INVITE] Successfully created relationship")
+            
+            # Get client display name for notification
+            client_response = db_admin.table("clients") \
+                .select("display_name") \
+                .eq("user_id", client_user_id) \
+                .single() \
+                .execute()
+            
+            client_display_name = client_response.data.get("display_name", "A client") if client_response.data else "A client"
+            
+            # Create notification for creative
+            notification_data = {
+                "recipient_user_id": creative_user_id,
+                "notification_type": "new_client_added",
+                "title": "New Client Added",
+                "message": f"{client_display_name} has added you as their creative",
+                "is_read": False,
+                "related_user_id": client_user_id,
+                "related_entity_id": result.data[0]["id"],
+                "related_entity_type": "relationship",
+                "target_roles": ["creative"],
+                "metadata": {
+                    "client_display_name": client_display_name,
+                    "relationship_id": str(result.data[0]["id"])
+                },
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            try:
+                notification_result = db_admin.table("notifications") \
+                    .insert(notification_data) \
+                    .execute()
+                print(f"[ACCEPT_INVITE] Notification created: {notification_result.data}")
+            except Exception as notif_error:
+                print(f"[ACCEPT_INVITE] Failed to create notification: {notif_error}")
+                # Don't fail the invite acceptance if notification creation fails
+            
             return {
                 "success": True,
                 "message": "Successfully connected with creative!",
@@ -332,6 +370,43 @@ async def accept_invite_after_role_setup(invite_token: str, request: Request):
             .execute()
         
         if result.data:
+            # Get client display name for notification
+            client_response = db_admin.table("clients") \
+                .select("display_name") \
+                .eq("user_id", client_user_id) \
+                .single() \
+                .execute()
+            
+            client_display_name = client_response.data.get("display_name", "A client") if client_response.data else "A client"
+            
+            # Create notification for creative
+            notification_data = {
+                "recipient_user_id": creative_user_id,
+                "notification_type": "new_client_added",
+                "title": "New Client Added",
+                "message": f"{client_display_name} has added you as their creative",
+                "is_read": False,
+                "related_user_id": client_user_id,
+                "related_entity_id": result.data[0]["id"],
+                "related_entity_type": "relationship",
+                "target_roles": ["creative"],
+                "metadata": {
+                    "client_display_name": client_display_name,
+                    "relationship_id": str(result.data[0]["id"])
+                },
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            try:
+                notification_result = db_admin.table("notifications") \
+                    .insert(notification_data) \
+                    .execute()
+                print(f"[ACCEPT_INVITE_AFTER_ROLE_SETUP] Notification created: {notification_result.data}")
+            except Exception as notif_error:
+                print(f"[ACCEPT_INVITE_AFTER_ROLE_SETUP] Failed to create notification: {notif_error}")
+                # Don't fail the invite acceptance if notification creation fails
+            
             return {
                 "success": True,
                 "message": "Successfully connected with creative after role setup!",

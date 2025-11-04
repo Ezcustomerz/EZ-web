@@ -64,6 +64,17 @@ export function RecentActivityCard({ items = [] }: RecentActivityCardProps) {
                   key={`${item.label}-${index}`}
                   item={item}
                   index={index}
+                  onClick={() => {
+                    // Customize behavior per notification type
+                    if (item.label === 'Placed Booking') {
+                      navigate('/client/orders'); // Navigate to orders page
+                    } else if (item.label === 'Booking Approved') {
+                      navigate('/client/orders'); // Navigate to orders page
+                    } else if (item.label === 'Payment Required') {
+                      navigate('/client/orders'); // Navigate to orders page to complete payment
+                    }
+                    // We can add more cases in the future
+                  }}
                 />
               ))}
             </Stack>

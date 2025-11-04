@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from db.db_session import db_admin
 from core.limiter import limiter
@@ -89,11 +89,80 @@ async def create_booking(
         
         logger.info(f"Booking created successfully: {booking['id']} for user {user_id}")
         
-        # TODO: Future enhancements
-        # - Send email notification to creative
-        # - Send confirmation email to client
-        # - Add webhook for integrations
-        # - Update analytics/metrics
+        # Get client and creative display names for notifications
+        client_response = db_admin.table("clients") \
+            .select("display_name") \
+            .eq("user_id", user_id) \
+            .single() \
+            .execute()
+        
+        creative_response = db_admin.table("creatives") \
+            .select("display_name") \
+            .eq("user_id", service['creative_user_id']) \
+            .single() \
+            .execute()
+        
+        client_display_name = client_response.data.get("display_name", "A client") if client_response.data else "A client"
+        creative_display_name = creative_response.data.get("display_name", "A creative") if creative_response.data else "A creative"
+        
+        # Create notification for client
+        client_notification_data = {
+            "recipient_user_id": user_id,
+            "notification_type": "booking_placed",
+            "title": "Placed Booking",
+            "message": f"Your booking for {service['title']} has been placed. Awaiting creative approval.",
+            "is_read": False,
+            "related_user_id": service['creative_user_id'],
+            "related_entity_id": booking['id'],
+            "related_entity_type": "booking",
+            "target_roles": ["client"],
+            "metadata": {
+                "service_title": service['title'],
+                "creative_display_name": creative_display_name,
+                "booking_id": str(booking['id']),
+                "price": str(service['price'])
+            },
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        # Create notification for creative
+        creative_notification_data = {
+            "recipient_user_id": service['creative_user_id'],
+            "notification_type": "booking_created",
+            "title": "New Booking Request",
+            "message": f"{client_display_name} has placed a new booking for {service['title']} payment. Approval required.",
+            "is_read": False,
+            "related_user_id": user_id,
+            "related_entity_id": booking['id'],
+            "related_entity_type": "booking",
+            "target_roles": ["creative"],
+            "metadata": {
+                "service_title": service['title'],
+                "client_display_name": client_display_name,
+                "booking_id": str(booking['id']),
+                "price": str(service['price'])
+            },
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        # Create notifications (don't fail booking creation if notification creation fails)
+        try:
+            client_notif_result = db_admin.table("notifications") \
+                .insert(client_notification_data) \
+                .execute()
+            logger.info(f"Client notification created: {client_notif_result.data}")
+        except Exception as notif_error:
+            logger.error(f"Failed to create client notification: {notif_error}")
+        
+        try:
+            creative_notif_result = db_admin.table("notifications") \
+                .insert(creative_notification_data) \
+                .execute()
+            logger.info(f"Creative notification created: {creative_notif_result.data}")
+        except Exception as notif_error:
+            logger.error(f"Failed to create creative notification: {notif_error}")
         
         return CreateBookingResponse(
             success=True,
@@ -779,6 +848,154 @@ async def get_creative_current_orders(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to fetch creative current orders: {str(e)}")
 
 
+class CalendarSessionResponse(BaseModel):
+    id: str
+    date: str  # yyyy-MM-dd format
+    time: str  # HH:MM format
+    endTime: str  # HH:MM format
+    client: str
+    type: str  # service name
+    status: str  # 'pending' | 'confirmed' | 'cancelled'
+    notes: Optional[str] = None
+
+
+class CalendarSessionsResponse(BaseModel):
+    success: bool
+    sessions: List[CalendarSessionResponse]
+
+
+@router.get("/creative/calendar", response_model=CalendarSessionsResponse)
+@limiter.limit("20 per minute")
+async def get_creative_calendar_sessions(
+    request: Request,
+    year: int,
+    month: int
+):
+    """
+    Get calendar sessions for the current creative user for a specific month
+    Returns bookings with calendar-specific format
+    Status mapping:
+    - pending_approval -> pending
+    - in_progress, awaiting_payment -> confirmed
+    - rejected -> cancelled
+    """
+    try:
+        if not request.state.user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        user_id = request.state.user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User ID not found in token")
+        
+        # Calculate month start and end dates
+        month_start = datetime(year, month, 1)
+        # Calculate next month start, then subtract 1 day to get last day of current month
+        if month == 12:
+            next_month_start = datetime(year + 1, 1, 1)
+        else:
+            next_month_start = datetime(year, month + 1, 1)
+        
+        month_start_str = month_start.strftime('%Y-%m-%d')
+        month_end_str = (next_month_start - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        # Fetch bookings for this creative in the specified month
+        bookings_response = db_admin.table('bookings')\
+            .select('id, service_id, booking_date, start_time, end_time, notes, creative_status, client_user_id')\
+            .eq('creative_user_id', user_id)\
+            .gte('booking_date', month_start_str)\
+            .lte('booking_date', month_end_str)\
+            .order('booking_date', desc=False)\
+            .order('start_time', desc=False)\
+            .execute()
+        
+        if not bookings_response.data:
+            return CalendarSessionsResponse(success=True, sessions=[])
+        
+        # Get unique service IDs and client user IDs
+        service_ids = list(set([b['service_id'] for b in bookings_response.data if b.get('service_id')]))
+        client_user_ids = list(set([b['client_user_id'] for b in bookings_response.data if b.get('client_user_id')]))
+        
+        # Fetch services
+        services_dict = {}
+        if service_ids:
+            services_response = db_admin.table('creative_services')\
+                .select('id, title')\
+                .in_('id', service_ids)\
+                .execute()
+            services_dict = {s['id']: s for s in (services_response.data or [])}
+        
+        # Fetch users (clients)
+        users_dict = {}
+        if client_user_ids:
+            users_response = db_admin.table('users')\
+                .select('user_id, name')\
+                .in_('user_id', client_user_ids)\
+                .execute()
+            users_dict = {u['user_id']: u for u in (users_response.data or [])}
+        
+        sessions = []
+        for booking in bookings_response.data:
+            # Skip bookings without booking_date
+            if not booking.get('booking_date'):
+                continue
+            
+            service = services_dict.get(booking['service_id'], {})
+            user = users_dict.get(booking['client_user_id'], {})
+            
+            # Format time (extract HH:MM from start_time and end_time)
+            start_time = booking.get('start_time', '')
+            end_time = booking.get('end_time', '')
+            
+            # Extract time portion (handle formats like "HH:MM:SS+00" or "HH:MM:SS" or "HH:MM")
+            time_str = '09:00'  # default
+            if start_time:
+                time_str = start_time.split('+')[0].split(' ')[0]
+                # Take only HH:MM part
+                if ':' in time_str:
+                    parts = time_str.split(':')
+                    time_str = f"{parts[0]}:{parts[1]}"
+            
+            end_time_str = '10:00'  # default
+            if end_time:
+                end_time_str = end_time.split('+')[0].split(' ')[0]
+                # Take only HH:MM part
+                if ':' in end_time_str:
+                    parts = end_time_str.split(':')
+                    end_time_str = f"{parts[0]}:{parts[1]}"
+            
+            # Map creative_status to calendar status
+            creative_status = booking.get('creative_status', 'pending_approval')
+            if creative_status == 'pending_approval':
+                calendar_status = 'pending'
+            elif creative_status == 'rejected':
+                calendar_status = 'cancelled'
+            elif creative_status in ['in_progress', 'awaiting_payment', 'complete']:
+                calendar_status = 'confirmed'
+            else:
+                # Default to pending for unknown statuses
+                calendar_status = 'pending'
+            
+            session = CalendarSessionResponse(
+                id=booking['id'],
+                date=booking['booking_date'],  # Already in yyyy-MM-dd format
+                time=time_str,
+                endTime=end_time_str,
+                client=user.get('name', 'Unknown Client'),
+                type=service.get('title', 'Unknown Service'),
+                status=calendar_status,
+                notes=booking.get('notes')
+            )
+            sessions.append(session)
+        
+        return CalendarSessionsResponse(success=True, sessions=sessions)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching creative calendar sessions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch calendar sessions: {str(e)}")
+
+
 @router.get("/creative/past", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
 async def get_creative_past_orders(request: Request):
@@ -928,7 +1145,7 @@ async def approve_booking(
         
         # Fetch the booking to verify it exists and belongs to this creative
         booking_response = db_admin.table('bookings')\
-            .select('id, creative_user_id, creative_status, price, payment_option')\
+            .select('id, creative_user_id, client_user_id, service_id, creative_status, price, payment_option')\
             .eq('id', approve_data.booking_id)\
             .single()\
             .execute()
@@ -978,11 +1195,76 @@ async def approve_booking(
         
         logger.info(f"Booking approved successfully: {approve_data.booking_id} by creative {user_id} - Status: creative={creative_status}, client={client_status}")
         
-        # TODO: Future enhancements
-        # - Send email notification to client about approval
-        # - If payment required, send payment request/invoice
-        # - Add webhook for integrations
-        # - Update analytics/metrics
+        # Get service and creative details for notification
+        service_response = db_admin.table('creative_services')\
+            .select('title')\
+            .eq('id', booking['service_id'])\
+            .single()\
+            .execute()
+        
+        creative_response = db_admin.table('creatives')\
+            .select('display_name')\
+            .eq('user_id', user_id)\
+            .single()\
+            .execute()
+        
+        service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
+        creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
+        
+        # Create appropriate notification for client based on payment requirement
+        if price == 0 or payment_option == 'later':
+            # Booking approved - no payment required
+            notification_data = {
+                "recipient_user_id": booking['client_user_id'],
+                "notification_type": "booking_approved",
+                "title": "Booking Approved",
+                "message": f"{creative_display_name} has approved your booking for {service_title}. Your booking is confirmed!",
+                "is_read": False,
+                "related_user_id": user_id,
+                "related_entity_id": approve_data.booking_id,
+                "related_entity_type": "booking",
+                "target_roles": ["client"],
+                "metadata": {
+                    "service_title": service_title,
+                    "creative_display_name": creative_display_name,
+                    "booking_id": approve_data.booking_id,
+                    "price": str(price),
+                    "payment_option": payment_option
+                },
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        else:
+            # Payment required notification
+            notification_data = {
+                "recipient_user_id": booking['client_user_id'],
+                "notification_type": "payment_required",
+                "title": "Payment Required",
+                "message": f"{creative_display_name} has approved your booking for {service_title}. Please complete payment to start your service.",
+                "is_read": False,
+                "related_user_id": user_id,
+                "related_entity_id": approve_data.booking_id,
+                "related_entity_type": "booking",
+                "target_roles": ["client"],
+                "metadata": {
+                    "service_title": service_title,
+                    "creative_display_name": creative_display_name,
+                    "booking_id": approve_data.booking_id,
+                    "price": str(price),
+                    "payment_option": payment_option
+                },
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        
+        # Create notification (don't fail approval if notification creation fails)
+        try:
+            notification_result = db_admin.table("notifications")\
+                .insert(notification_data)\
+                .execute()
+            logger.info(f"Approval notification created: {notification_result.data}")
+        except Exception as notif_error:
+            logger.error(f"Failed to create approval notification: {notif_error}")
         
         return ApproveBookingResponse(
             success=True,
@@ -1029,7 +1311,7 @@ async def reject_booking(
         
         # Fetch the booking to verify it exists and belongs to this creative
         booking_response = db_admin.table('bookings')\
-            .select('id, creative_user_id, creative_status')\
+            .select('id, creative_user_id, client_user_id, service_id, creative_status')\
             .eq('id', reject_data.booking_id)\
             .single()\
             .execute()
@@ -1067,10 +1349,50 @@ async def reject_booking(
         
         logger.info(f"Booking rejected successfully: {reject_data.booking_id} by creative {user_id}")
         
-        # TODO: Future enhancements
-        # - Send email notification to client about rejection
-        # - Add webhook for integrations
-        # - Update analytics/metrics
+        # Get service and creative details for notification
+        service_response = db_admin.table('creative_services')\
+            .select('title')\
+            .eq('id', booking['service_id'])\
+            .single()\
+            .execute()
+        
+        creative_response = db_admin.table('creatives')\
+            .select('display_name')\
+            .eq('user_id', user_id)\
+            .single()\
+            .execute()
+        
+        service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
+        creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
+        
+        # Create notification for client about rejection
+        notification_data = {
+            "recipient_user_id": booking['client_user_id'],
+            "notification_type": "booking_rejected",
+            "title": "Booking Rejected",
+            "message": f"{creative_display_name} has rejected your booking request for {service_title}. Your booking has been canceled.",
+            "is_read": False,
+            "related_user_id": user_id,
+            "related_entity_id": reject_data.booking_id,
+            "related_entity_type": "booking",
+            "target_roles": ["client"],
+            "metadata": {
+                "service_title": service_title,
+                "creative_display_name": creative_display_name,
+                "booking_id": reject_data.booking_id
+            },
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        # Create notification (don't fail rejection if notification creation fails)
+        try:
+            notification_result = db_admin.table("notifications")\
+                .insert(notification_data)\
+                .execute()
+            logger.info(f"Rejection notification created: {notification_result.data}")
+        except Exception as notif_error:
+            logger.error(f"Failed to create rejection notification: {notif_error}")
         
         return RejectBookingResponse(
             success=True,
@@ -1117,7 +1439,7 @@ async def cancel_booking(
         
         # Fetch the booking to verify it exists and belongs to this client
         booking_response = db_admin.table('bookings')\
-            .select('id, client_user_id, client_status, creative_status')\
+            .select('id, client_user_id, service_id, client_status, creative_status')\
             .eq('id', cancel_data.booking_id)\
             .single()\
             .execute()
@@ -1160,10 +1482,42 @@ async def cancel_booking(
         
         logger.info(f"Booking canceled successfully: {cancel_data.booking_id} by client {user_id}")
         
-        # TODO: Future enhancements
-        # - Send email notification to creative about cancellation
-        # - Add webhook for integrations
-        # - Update analytics/metrics
+        # Get service details for notification
+        service_response = db_admin.table('creative_services')\
+            .select('title')\
+            .eq('id', booking['service_id'])\
+            .single()\
+            .execute()
+        
+        service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
+        
+        # Create notification for client about cancellation
+        notification_data = {
+            "recipient_user_id": user_id,
+            "notification_type": "booking_canceled",
+            "title": "Booking Canceled",
+            "message": f"Your booking for {service_title} has been canceled successfully.",
+            "is_read": False,
+            "related_user_id": user_id,
+            "related_entity_id": cancel_data.booking_id,
+            "related_entity_type": "booking",
+            "target_roles": ["client"],
+            "metadata": {
+                "service_title": service_title,
+                "booking_id": cancel_data.booking_id
+            },
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        # Create notification (don't fail cancellation if notification creation fails)
+        try:
+            notification_result = db_admin.table("notifications")\
+                .insert(notification_data)\
+                .execute()
+            logger.info(f"Cancellation notification created: {notification_result.data}")
+        except Exception as notif_error:
+            logger.error(f"Failed to create cancellation notification: {notif_error}")
         
         return CancelBookingResponse(
             success=True,

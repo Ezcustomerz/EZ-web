@@ -61,6 +61,17 @@ export interface CreateBookingResponse {
   booking?: any;
 }
 
+export interface CalendarSession {
+  id: string;
+  date: string; // yyyy-MM-dd format
+  time: string; // HH:MM format
+  endTime: string; // HH:MM format
+  client: string;
+  type: string; // service name
+  status: 'pending' | 'confirmed' | 'cancelled';
+  notes?: string;
+}
+
 class BookingService {
   private baseUrl = '/api/booking';
   private bookingsUrl = '/api/bookings';
@@ -146,6 +157,13 @@ class BookingService {
   async getCreativePastOrders(): Promise<Order[]> {
     const response = await apiClient.get(`${this.bookingsUrl}/creative/past`);
     return response.data.orders || [];
+  }
+
+  async getCreativeCalendarSessions(year: number, month: number): Promise<CalendarSession[]> {
+    const response = await apiClient.get(`${this.bookingsUrl}/creative/calendar`, {
+      params: { year, month }
+    });
+    return response.data.sessions || [];
   }
 
   async rejectOrder(bookingId: string): Promise<{ success: boolean; message: string }> {

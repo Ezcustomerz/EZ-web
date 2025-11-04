@@ -1,5 +1,5 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, Avatar, Button, Typography, Divider, Box, Chip, IconButton as MuiIconButton, Stack } from '@mui/material';
-import { Close, Edit, Delete, Comment, ArrowBackIosNew } from '@mui/icons-material';
+import { Close, Edit, Delete, ArrowBackIosNew } from '@mui/icons-material';
 import { useTheme, useMediaQuery } from '@mui/material';
 import { Slide } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
@@ -51,6 +51,37 @@ export function CalendarSessionDetailPopover({
   // Helper: get initials
   function getInitials(name: string) {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
+  // Helper: format date to human-readable format
+  function formatDate(dateString: string) {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    } catch {
+      return dateString;
+    }
+  }
+
+  // Helper: format datetime to human-readable format
+  function formatDateTime(dateString: string) {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return dateString;
+    }
   }
 
   return (
@@ -119,7 +150,12 @@ export function CalendarSessionDetailPopover({
             <Divider />
             <Box>
               <Typography sx={{ fontWeight: 600, color: 'text.secondary', mb: 0.5 }}>Time</Typography>
-              <Typography sx={{ color: 'text.primary', fontWeight: 500 }}>{session.time} - {session.endTime} ({session.date})</Typography>
+              <Typography sx={{ color: 'text.primary', fontWeight: 500 }}>
+                {session.time} - {session.endTime}
+              </Typography>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem', mt: 0.5 }}>
+                {formatDate(session.date)}
+              </Typography>
             </Box>
             <Box>
               <Typography sx={{ fontWeight: 600, color: 'text.secondary', mb: 0.5 }}>Status</Typography>
@@ -132,9 +168,9 @@ export function CalendarSessionDetailPopover({
               </Box>
             )}
             {/* Metadata */}
-            <Box sx={{ mt: 2, color: 'text.disabled', fontSize: '0.85rem' }}>
-              <Typography>Event created: {session.date}</Typography>
-              <Typography>Date updated: {session.date}</Typography>
+            <Box sx={{ mt: 2, color: 'text.disabled', fontSize: '0.8rem' }}>
+              <Typography sx={{ fontSize: '0.8rem' }}>Created: {formatDateTime(session.date)}</Typography>
+              <Typography sx={{ fontSize: '0.8rem' }}>Updated: {formatDateTime(session.date)}</Typography>
             </Box>
           </Box>
         )}
@@ -145,16 +181,12 @@ export function CalendarSessionDetailPopover({
           <Stack spacing={1} width="100%">
             <Button fullWidth variant="outlined" startIcon={<Edit />} color="primary" sx={{ fontWeight: 700 }}>Edit</Button>
             <Button fullWidth variant="outlined" startIcon={<Delete />} color="error" sx={{ fontWeight: 700 }}>Delete</Button>
-            <Button fullWidth variant="contained" startIcon={<Comment />} color="primary" sx={{ fontWeight: 700 }}>Add Comment</Button>
           </Stack>
         </DialogActions>
       ) : (
-      <DialogActions sx={{ px: 2, pb: 2, justifyContent: 'space-between' }}>
-        <Box>
-          <Button startIcon={<Edit />} variant="outlined" color="primary" sx={{ mr: 1 }}>Edit</Button>
-          <Button startIcon={<Delete />} variant="outlined" color="error" sx={{ mr: 1 }}>Delete</Button>
-        </Box>
-        <Button startIcon={<Comment />} variant="contained" color="primary">Add Comment</Button>
+      <DialogActions sx={{ px: 2, pb: 2 }}>
+        <Button startIcon={<Edit />} variant="outlined" color="primary" sx={{ mr: 1 }}>Edit</Button>
+        <Button startIcon={<Delete />} variant="outlined" color="error">Delete</Button>
       </DialogActions>
       )}
     </Dialog>

@@ -182,25 +182,78 @@ class BookingService:
                 return []
 
             # Get existing bookings for this date to filter out booked times
-            # Include all active statuses that should block the time slot
+            # Include bookings that should block the time slot:
+            # - pending_approval (waiting for approval)
+            # - in_progress (confirmed)
+            # - awaiting_payment (confirmed, waiting for payment)
+            # - completed (past booking, but might still block depending on logic)
+            # Exclude bookings that should NOT block:
+            # - rejected (creative rejected)
+            # - cancelled (client cancelled)
             existing_bookings_response = self.db.table('bookings')\
-                .select('start_time')\
+                .select('start_time, creative_status, client_status')\
                 .eq('service_id', service_id)\
                 .eq('booking_date', booking_date.isoformat())\
-                .in_('client_status', ['placed', 'confirmed', 'in_progress'])\
+                .neq('creative_status', 'rejected')\
+                .neq('client_status', 'cancelled')\
                 .execute()
             
             booked_times = set()
             if existing_bookings_response.data:
                 for booking in existing_bookings_response.data:
-                    booked_times.add(booking['start_time'])
+                    start_time = booking.get('start_time')
+                    if start_time:
+                        # Normalize time format - extract just the time portion (HH:MM:SS)
+                        # Handle different formats: "HH:MM:SS+00", "HH:MM:SS", "HH:MM"
+                        time_str = str(start_time)
+                        # Extract time part before timezone or space
+                        if '+' in time_str:
+                            time_str = time_str.split('+')[0]
+                        elif ' ' in time_str:
+                            time_str = time_str.split(' ')[0]
+                        # Take only HH:MM:SS part (first 8 characters if format is correct)
+                        if len(time_str) >= 5:  # At least HH:MM
+                            # Ensure we have HH:MM format
+                            time_parts = time_str.split(':')
+                            if len(time_parts) >= 2:
+                                normalized_time = f"{time_parts[0]}:{time_parts[1]}"
+                                if len(time_parts) >= 3:
+                                    normalized_time += f":{time_parts[2][:2]}"  # Take only seconds part before any timezone
+                                booked_times.add(normalized_time)
+                                # Also add without seconds for comparison flexibility
+                                booked_times.add(f"{time_parts[0]}:{time_parts[1]}")
 
             # Return time slots but filter out already booked ones
             available_slots = []
             for slot in time_slots:
                 if slot["is_enabled"] and slot["day_of_week"] == day_name:
-                    # Skip this slot if it's already booked
-                    if slot["slot_time"] not in booked_times:
+                    # Normalize slot_time for comparison
+                    slot_time = str(slot["slot_time"])
+                    # Extract time part (handle formats like "HH:MM:SS" or "HH:MM")
+                    if '+' in slot_time:
+                        slot_time = slot_time.split('+')[0]
+                    elif ' ' in slot_time:
+                        slot_time = slot_time.split(' ')[0]
+                    
+                    # Normalize to HH:MM format for comparison
+                    slot_time_parts = slot_time.split(':')
+                    normalized_slot_time = None
+                    if len(slot_time_parts) >= 2:
+                        normalized_slot_time = f"{slot_time_parts[0]}:{slot_time_parts[1]}"
+                    
+                    # Skip this slot if it's already booked (check both normalized formats)
+                    is_booked = False
+                    if normalized_slot_time:
+                        # Check if any booked time matches (with or without seconds)
+                        is_booked = any(
+                            normalized_slot_time == booked_time or 
+                            normalized_slot_time == booked_time[:5] or
+                            booked_time == normalized_slot_time or
+                            booked_time[:5] == normalized_slot_time
+                            for booked_time in booked_times
+                        )
+                    
+                    if not is_booked:
                         available_slots.append({
                             "id": slot["id"],
                             "slot_time": slot["slot_time"],

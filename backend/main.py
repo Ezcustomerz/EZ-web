@@ -9,6 +9,7 @@ from api.creative import creative_router
 from api.user import user_router
 from api import invite
 from api import bookings
+from api import notifications
 from routers import booking
 from core.limiter import limiter
 from api import auth
@@ -80,6 +81,7 @@ app.include_router(client_router.router)
 app.include_router(advocate_router.router)
 app.include_router(invite.router)
 app.include_router(bookings.router, prefix="/api/bookings", tags=["bookings"])
+app.include_router(notifications.router)
 app.include_router(booking.router)
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

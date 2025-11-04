@@ -216,13 +216,22 @@ export function ServiceFormPopover({
   const removeTimeBlock = (dayIndex: number, blockIndex: number) => {
     setWeeklySchedule((prev) => prev.map((schedule, idx) => {
       if (idx === dayIndex && schedule.timeBlocks.length > 1) {
+        const newTimeBlocks = schedule.timeBlocks.filter((_, bIdx) => bIdx !== blockIndex);
+        // Regenerate time slots based on remaining time blocks
+        const newTimeSlots = useTimeSlots && schedule.enabled
+          ? generateTimeSlots(newTimeBlocks, parseInt(defaultSessionLength))
+          : schedule.timeSlots;
+        
         return {
           ...schedule,
-          timeBlocks: schedule.timeBlocks.filter((_, bIdx) => bIdx !== blockIndex)
+          timeBlocks: newTimeBlocks,
+          timeSlots: newTimeSlots
         };
       }
       return schedule;
     }));
+    // Reset the flag when time blocks are removed so time slots can be regenerated
+    setTimeSlotsLoadedFromBackend(false);
   };
 
   const toggleDay = (dayIndex: number, enabled: boolean) => {
@@ -257,6 +266,38 @@ export function ServiceFormPopover({
       }
     }
     return true;
+  };
+
+  // Validate all time blocks across all enabled days
+  const validateAllTimeBlocks = (): { isValid: boolean; errorMessage?: string } => {
+    if (!isSchedulingEnabled) {
+      return { isValid: true };
+    }
+
+    // Check each enabled day
+    for (const daySchedule of weeklySchedule) {
+      if (!daySchedule.enabled) continue;
+
+      // Check for invalid time blocks (start >= end)
+      for (const timeBlock of daySchedule.timeBlocks) {
+        if (timeBlock.start >= timeBlock.end) {
+          return {
+            isValid: false,
+            errorMessage: `Invalid time block on ${daySchedule.day}: end time must be greater than start time`
+          };
+        }
+      }
+
+      // Check for overlapping time blocks
+      if (!validateTimeBlocks(daySchedule.timeBlocks)) {
+        return {
+          isValid: false,
+          errorMessage: `Overlapping time blocks found on ${daySchedule.day}. Please fix the time ranges.`
+        };
+      }
+    }
+
+    return { isValid: true };
   };
 
   // Enhanced updateTimeBlock with validation
@@ -338,6 +379,15 @@ export function ServiceFormPopover({
 
   // Step navigation functions
   const handleNext = () => {
+    // Validate time blocks before proceeding from Calendar Scheduling step (step 3)
+    if (activeStep === 3 && isSchedulingEnabled) {
+      const validation = validateAllTimeBlocks();
+      if (!validation.isValid) {
+        errorToast(validation.errorMessage || 'Please fix invalid time blocks before proceeding');
+        return;
+      }
+    }
+
     if (activeStep < steps.length - 1) {
       setActiveStep(prev => prev + 1);
       // Reset scroll position to top when moving to next step
@@ -488,10 +538,15 @@ export function ServiceFormPopover({
         // If photos are uploaded, a primary photo must be selected
         return (formData.photos.length + formData.existingPhotos.length) === 0 || formData.primaryPhotoIndex >= 0;
       case 3:
-        // If calendar scheduling is enabled, require at least one weekly schedule event
+        // If calendar scheduling is enabled, require at least one weekly schedule event and valid time blocks
         if (isSchedulingEnabled) {
           const hasEnabledDay = weeklySchedule.some(day => day.enabled);
-          return hasEnabledDay;
+          if (!hasEnabledDay) {
+            return false;
+          }
+          // Validate all time blocks are valid (end > start and no overlaps)
+          const validation = validateAllTimeBlocks();
+          return validation.isValid;
         }
         return true; // Calendar scheduling is optional
       case 4:
@@ -1299,8 +1354,8 @@ export function ServiceFormPopover({
 
       case 3:
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Alert severity="info" sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Alert severity="info" sx={{ mb: 1 }}>
               Configure calendar scheduling options. This is optional but allows clients to book sessions directly.
             </Alert>
 
@@ -1309,7 +1364,7 @@ export function ServiceFormPopover({
               borderRadius: 2,
               backgroundColor: '#f8f9fa',
               border: '1px solid rgba(0,0,0,0.06)',
-              mb: 3
+              mb: 1.5
             }}>
               <FormControlLabel
                 control={
@@ -1334,14 +1389,14 @@ export function ServiceFormPopover({
             </Box>
 
             {isSchedulingEnabled && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {/* Time Slot Mode Info */}
                 <Box sx={{
                   p: 2.5,
                   borderRadius: 2,
                   backgroundColor: '#f0f8ff',
                   border: '1px solid rgba(59, 130, 246, 0.2)',
-                  mb: 1
+                  mb: 0.5
                 }}>
                   <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
