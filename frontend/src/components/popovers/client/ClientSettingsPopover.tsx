@@ -39,6 +39,7 @@ import {
 interface ClientSettingsPopoverProps {
   open: boolean;
   onClose: () => void;
+  onProfileUpdated?: () => void;
 }
 
 type SettingsSection = 'account' | 'billing' | 'userAccount';
@@ -82,7 +83,7 @@ const CLIENT_TITLES = [
   'Enthusiast',
 ];
 
-export function ClientSettingsPopover({ open, onClose }: ClientSettingsPopoverProps) {
+export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: ClientSettingsPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
@@ -110,6 +111,16 @@ export function ClientSettingsPopover({ open, onClose }: ClientSettingsPopoverPr
 
   const handleClose = () => {
     onClose();
+  };
+
+  const handleSaveChanges = () => {
+    // Dispatch event for other components to react
+    window.dispatchEvent(new CustomEvent('clientProfileUpdated'));
+    
+    // Call callback if provided
+    if (onProfileUpdated) {
+      onProfileUpdated();
+    }
   };
 
   const settingsSections = [
@@ -570,6 +581,7 @@ export function ClientSettingsPopover({ open, onClose }: ClientSettingsPopoverPr
                 <Button
                   variant="contained"
                   size="small"
+                  onClick={handleSaveChanges}
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
@@ -658,14 +670,10 @@ export function ClientSettingsPopover({ open, onClose }: ClientSettingsPopoverPr
             })}
           </List>
 
-          {/* Account Section Divider & Items */}
-          <Box sx={{ px: 2, py: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ px: 2, fontWeight: 600 }}>
-              User Settings
-            </Typography>
-          </Box>
+          {/* Separator */}
+          <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.1)' }} />
 
-          <List sx={{ py: 0, pb: 2 }}>
+          <List sx={{ py: 1 }}>
             {accountSections.map((section) => {
               const IconComponent = section.icon;
               const isSelected = selectedSection === section.id;

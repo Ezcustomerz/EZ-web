@@ -34,11 +34,12 @@ import {
 interface AdvocateSettingsPopoverProps {
   open: boolean;
   onClose: () => void;
+  onProfileUpdated?: () => void;
 }
 
 type SettingsSection = 'account' | 'billing' | 'userAccount';
 
-export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopoverProps) {
+export function AdvocateSettingsPopover({ open, onClose, onProfileUpdated }: AdvocateSettingsPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
@@ -64,6 +65,16 @@ export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopov
 
   const handleClose = () => {
     onClose();
+  };
+
+  const handleSaveChanges = () => {
+    // Dispatch event for other components to react
+    window.dispatchEvent(new CustomEvent('advocateProfileUpdated'));
+    
+    // Call callback if provided
+    if (onProfileUpdated) {
+      onProfileUpdated();
+    }
   };
 
   const settingsSections = [
@@ -487,6 +498,7 @@ export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopov
                 <Button
                   variant="contained"
                   size="small"
+                  onClick={handleSaveChanges}
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
@@ -575,14 +587,10 @@ export function AdvocateSettingsPopover({ open, onClose }: AdvocateSettingsPopov
             })}
           </List>
 
-          {/* Account Section Divider & Items */}
-          <Box sx={{ px: 2, py: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ px: 2, fontWeight: 600 }}>
-              User Settings
-            </Typography>
-          </Box>
+          {/* Separator */}
+          <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.1)' }} />
 
-          <List sx={{ py: 0, pb: 2 }}>
+          <List sx={{ py: 1 }}>
             {accountSections.map((section) => {
               const IconComponent = section.icon;
               const isSelected = selectedSection === section.id;
