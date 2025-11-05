@@ -130,12 +130,18 @@ export function ServicesDetailPopover({
       maxWidth="sm"
       fullWidth
       fullScreen={isMobile}
-      PaperProps={{
-        sx: {
-          borderRadius: isMobile ? 0 : 3,
-          maxHeight: isMobile ? '100vh' : '90vh',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-        }
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: isMobile ? 0 : 3,
+            maxHeight: isMobile ? '100vh' : '90vh',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          }
+        },
+        backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.32)' } }
       }}
     >
       <DialogTitle sx={{ 

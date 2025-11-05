@@ -160,11 +160,11 @@ class CreativeController:
             
             # Batch fetch client and user data to avoid N+1 queries
             clients_result = db_admin.table('clients').select(
-                'user_id, display_name, email'
+                'user_id, display_name, email, title'
             ).in_('user_id', client_user_ids).execute()
             
             users_result = db_admin.table('users').select(
-                'user_id, name'
+                'user_id, name, profile_picture_url'
             ).in_('user_id', client_user_ids).execute()
             
             # Create lookup maps
@@ -200,7 +200,9 @@ class CreativeController:
                     contactType=contact_type,
                     status=relationship.get('status', 'inactive'),
                     totalSpent=float(relationship.get('total_spent', 0)),
-                    projects=int(relationship.get('projects_count', 0))
+                    projects=int(relationship.get('projects_count', 0)),
+                    profile_picture_url=user_data.get('profile_picture_url'),
+                    title=client_data.get('title')
                 )
                 clients.append(client)
             

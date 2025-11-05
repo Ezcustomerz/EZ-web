@@ -47,7 +47,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
   const handleFabMenuOpen = (e: React.MouseEvent<HTMLElement>) => setFabMenuAnchor(e.currentTarget);
   const handleFabMenuClose = () => setFabMenuAnchor(null);
 
-  // Fetch sessions when month changes
+  // Fetch sessions when month changes (desktop) or week changes (mobile)
   useEffect(() => {
     // Don't fetch calendar sessions if user is not authenticated
     if (!isAuthenticated) {
@@ -57,10 +57,21 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
 
     const fetchSessions = async () => {
       try {
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth() + 1; // JavaScript months are 0-indexed
-        const fetchedSessions = await bookingService.getCreativeCalendarSessions(year, month);
-        setSessions(fetchedSessions);
+        if (isMobile) {
+          // Mobile view: fetch sessions for the current week using week endpoint
+          const weekEnd = addDays(mobileStartOfWeek, 6);
+          const startDateStr = format(mobileStartOfWeek, 'yyyy-MM-dd');
+          const endDateStr = format(weekEnd, 'yyyy-MM-dd');
+          
+          const fetchedSessions = await bookingService.getCreativeCalendarSessionsWeek(startDateStr, endDateStr);
+          setSessions(fetchedSessions);
+        } else {
+          // Desktop view: fetch sessions for the current month
+          const year = currentMonth.getFullYear();
+          const month = currentMonth.getMonth() + 1; // JavaScript months are 0-indexed
+          const fetchedSessions = await bookingService.getCreativeCalendarSessions(year, month);
+          setSessions(fetchedSessions);
+        }
       } catch (error) {
         console.error('Error fetching calendar sessions:', error);
         setSessions([]);
@@ -68,7 +79,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
     };
 
     fetchSessions();
-  }, [currentMonth, isAuthenticated]);
+  }, [currentMonth, mobileStartOfWeek, isMobile, isAuthenticated]);
 
   // Month navigation
   const [monthTransition, setMonthTransition] = useState<'left' | 'right' | null>(null);

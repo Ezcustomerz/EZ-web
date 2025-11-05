@@ -22,6 +22,8 @@ class CreativeClientResponse(BaseModel):
     status: str
     totalSpent: float
     projects: int
+    profile_picture_url: Optional[str] = None
+    title: Optional[str] = None
 
 class CreativeClientsListResponse(BaseModel):
     clients: List[CreativeClientResponse]

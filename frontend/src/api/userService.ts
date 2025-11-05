@@ -163,6 +163,8 @@ export interface CreativeClient {
   status: 'active' | 'inactive';
   totalSpent: number;
   projects: number;
+  profile_picture_url?: string;
+  title?: string;
 }
 
 export interface CreativeClientsListResponse {

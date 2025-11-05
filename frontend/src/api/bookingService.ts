@@ -279,6 +279,29 @@ class BookingService {
     }
   }
 
+  async getCreativeCalendarSessionsWeek(startDate: string, endDate: string): Promise<CalendarSession[]> {
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping calendar sessions fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/creative/calendar/week`, {
+        params: { start_date: startDate, end_date: endDate }
+      });
+      return response.data.sessions || [];
+    } catch (error: any) {
+      console.error('Error fetching calendar sessions for week:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
+  }
+
   async rejectOrder(bookingId: string): Promise<{ success: boolean; message: string }> {
     const response = await apiClient.post(`${this.bookingsUrl}/reject`, {
       booking_id: bookingId

@@ -991,6 +991,132 @@ async def get_creative_calendar_sessions(
         raise HTTPException(status_code=500, detail=f"Failed to fetch calendar sessions: {str(e)}")
 
 
+@router.get("/creative/calendar/week", response_model=CalendarSessionsResponse)
+@limiter.limit("20 per minute")
+async def get_creative_calendar_sessions_week(
+    request: Request,
+    start_date: str,
+    end_date: str,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """
+    Get calendar sessions for the current creative user for a specific week (date range)
+    Requires authentication - will return 401 if not authenticated.
+    Returns bookings with calendar-specific format
+    Status mapping:
+    - pending_approval -> pending
+    - in_progress, awaiting_payment -> confirmed
+    - rejected -> cancelled
+    """
+    try:
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
+        
+        # Validate date format (expecting YYYY-MM-DD)
+        try:
+            datetime.strptime(start_date, '%Y-%m-%d')
+            datetime.strptime(end_date, '%Y-%m-%d')
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Expected YYYY-MM-DD")
+        
+        # Fetch bookings for this creative in the specified date range
+        bookings_response = db_admin.table('bookings')\
+            .select('id, service_id, booking_date, start_time, end_time, notes, creative_status, client_user_id')\
+            .eq('creative_user_id', user_id)\
+            .gte('booking_date', start_date)\
+            .lte('booking_date', end_date)\
+            .order('booking_date', desc=False)\
+            .order('start_time', desc=False)\
+            .execute()
+        
+        if not bookings_response.data:
+            return CalendarSessionsResponse(success=True, sessions=[])
+        
+        # Get unique service IDs and client user IDs
+        service_ids = list(set([b['service_id'] for b in bookings_response.data if b.get('service_id')]))
+        client_user_ids = list(set([b['client_user_id'] for b in bookings_response.data if b.get('client_user_id')]))
+        
+        # Fetch services
+        services_dict = {}
+        if service_ids:
+            services_response = db_admin.table('creative_services')\
+                .select('id, title')\
+                .in_('id', service_ids)\
+                .execute()
+            services_dict = {s['id']: s for s in (services_response.data or [])}
+        
+        # Fetch users (clients)
+        users_dict = {}
+        if client_user_ids:
+            users_response = db_admin.table('users')\
+                .select('user_id, name')\
+                .in_('user_id', client_user_ids)\
+                .execute()
+            users_dict = {u['user_id']: u for u in (users_response.data or [])}
+        
+        sessions = []
+        for booking in bookings_response.data:
+            # Skip bookings without booking_date
+            if not booking.get('booking_date'):
+                continue
+            
+            service = services_dict.get(booking['service_id'], {})
+            user = users_dict.get(booking['client_user_id'], {})
+            
+            # Format time (extract HH:MM from start_time and end_time)
+            start_time = booking.get('start_time', '')
+            end_time = booking.get('end_time', '')
+            
+            # Extract time portion (handle formats like "HH:MM:SS+00" or "HH:MM:SS" or "HH:MM")
+            time_str = '09:00'  # default
+            if start_time:
+                time_str = start_time.split('+')[0].split(' ')[0]
+                # Take only HH:MM part
+                if ':' in time_str:
+                    parts = time_str.split(':')
+                    time_str = f"{parts[0]}:{parts[1]}"
+            
+            end_time_str = '10:00'  # default
+            if end_time:
+                end_time_str = end_time.split('+')[0].split(' ')[0]
+                # Take only HH:MM part
+                if ':' in end_time_str:
+                    parts = end_time_str.split(':')
+                    end_time_str = f"{parts[0]}:{parts[1]}"
+            
+            # Map creative_status to calendar status
+            creative_status = booking.get('creative_status', 'pending_approval')
+            if creative_status == 'pending_approval':
+                calendar_status = 'pending'
+            elif creative_status == 'rejected':
+                calendar_status = 'cancelled'
+            elif creative_status in ['in_progress', 'awaiting_payment', 'complete']:
+                calendar_status = 'confirmed'
+            else:
+                # Default to pending for unknown statuses
+                calendar_status = 'pending'
+            
+            session = CalendarSessionResponse(
+                id=booking['id'],
+                date=booking['booking_date'],  # Already in yyyy-MM-dd format
+                time=time_str,
+                endTime=end_time_str,
+                client=user.get('name', 'Unknown Client'),
+                type=service.get('title', 'Unknown Service'),
+                status=calendar_status,
+                notes=booking.get('notes')
+            )
+            sessions.append(session)
+        
+        return CalendarSessionsResponse(success=True, sessions=sessions)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching creative calendar sessions for week: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch calendar sessions: {str(e)}")
+
+
 @router.get("/creative/past", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
 async def get_creative_past_orders(

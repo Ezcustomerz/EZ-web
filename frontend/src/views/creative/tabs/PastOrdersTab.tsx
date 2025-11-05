@@ -54,6 +54,7 @@ function transformOrders(fetchedOrders: Order[]) {
         description: order.description || order.service_description || '',
         clientEmail: order.creative_email,
         clientPhone: undefined, // TODO: Add client phone if available
+        specialRequirements: order.description,
       };
     });
 }
