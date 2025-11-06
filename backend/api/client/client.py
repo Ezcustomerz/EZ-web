@@ -4,6 +4,7 @@ from schemas.client import ClientCreativesListResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
+from db.db_session import get_authenticated_client
 
 router = APIRouter()
 
@@ -20,7 +21,10 @@ async def get_client_profile(
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await ClientController.get_client_profile(user_id)
+        # Get authenticated Supabase client (respects RLS policies)
+        client = get_authenticated_client(request)
+        
+        return await ClientController.get_client_profile(user_id, client)
         
     except HTTPException:
         raise

@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from db.db_session import db_admin
 from schemas.client import ClientSetupRequest, ClientSetupResponse, ClientCreativesListResponse, ClientCreativeResponse
 from core.validation import validate_email
+from supabase import Client
 
 class ClientController:
     @staticmethod
@@ -62,11 +63,16 @@ class ClientController:
             raise HTTPException(status_code=500, detail=f"Failed to set up client profile: {str(e)}")
 
     @staticmethod
-    async def get_client_profile(user_id: str) -> dict:
-        """Get the current user's client profile"""
+    async def get_client_profile(user_id: str, client: Client) -> dict:
+        """Get the current user's client profile
+        
+        Args:
+            user_id: The user ID to fetch client profile for
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
-            # Query the clients table
-            result = db_admin.table('clients').select('*').eq('user_id', user_id).single().execute()
+            # Query the clients table using authenticated client (respects RLS)
+            result = client.table('clients').select('*').eq('user_id', user_id).single().execute()
             
             if not result.data:
                 raise HTTPException(status_code=404, detail="Client profile not found")

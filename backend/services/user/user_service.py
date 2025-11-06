@@ -2,14 +2,20 @@ from fastapi import HTTPException
 from db.db_session import db_admin
 from schemas.user import UserProfile, UpdateRolesRequest, UpdateRolesResponse, SetupStatusResponse, BatchSetupRequest, BatchSetupResponse, RoleProfilesResponse
 from core.validation import validate_roles
+from supabase import Client
 
 class UserController:
     @staticmethod
-    async def get_user_profile(user_id: str) -> UserProfile:
-        """Get the current user's profile from the database"""
+    async def get_user_profile(user_id: str, client: Client) -> UserProfile:
+        """Get the current user's profile from the database
+        
+        Args:
+            user_id: The user ID to fetch profile for
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
-            # Query the users table
-            result = db_admin.table('users').select('*').eq('user_id', user_id).single().execute()
+            # Query the users table using authenticated client (respects RLS)
+            result = client.table('users').select('*').eq('user_id', user_id).single().execute()
             
             if not result.data:
                 raise HTTPException(status_code=404, detail="User profile not found")
@@ -19,6 +25,14 @@ class UserController:
         except HTTPException:
             raise
         except Exception as e:
+            # Check if it's an RLS/permission error (0 rows returned)
+            error_str = str(e)
+            if 'PGRST116' in error_str or '0 rows' in error_str.lower():
+                # RLS blocked the query - likely authentication issue
+                raise HTTPException(
+                    status_code=401, 
+                    detail="Authentication failed: Unable to access user profile. Please sign in again."
+                )
             raise HTTPException(status_code=500, detail=f"Failed to fetch user profile: {str(e)}")
 
     @staticmethod

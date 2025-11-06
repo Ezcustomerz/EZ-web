@@ -75,37 +75,6 @@ async def set_cookies(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to set cookies: {str(e)}")
 
 
-@router.post("/refresh-token")
-@limiter.limit("10 per minute")
-async def refresh_token(request: Request):
-    """
-    Endpoint to refresh access token using refresh token from HttpOnly cookie.
-    Returns new access token and sets updated cookies.
-    """
-    try:
-        refresh_token_cookie = request.cookies.get("sb-refresh-token")
-        
-        if not refresh_token_cookie:
-            raise HTTPException(status_code=401, detail="No refresh token found")
-        
-        # Use Supabase client to refresh the session
-        # Note: This requires using the service role or handling refresh server-side
-        # For now, we'll return the refresh token to the client
-        # In a production setup, you'd want to exchange it server-side with Supabase
-        
-        response = JSONResponse({
-            "success": True,
-            "message": "Token refresh handled by Supabase client",
-            "refresh_token": refresh_token_cookie
-        })
-        
-        return response
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to refresh token: {str(e)}")
-
-
 @router.post("/logout")
 @limiter.limit("10 per minute")
 async def logout(request: Request):

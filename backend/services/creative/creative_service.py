@@ -2,6 +2,8 @@ from fastapi import HTTPException, UploadFile
 from db.db_session import db_admin
 from schemas.creative import CreativeSetupRequest, CreativeSetupResponse, CreativeClientsListResponse, CreativeClientResponse, CreativeServicesListResponse, CreativeServiceResponse, CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse, UpdateServiceResponse, CreativeProfileSettingsRequest, CreativeProfileSettingsResponse, ProfilePhotoUploadResponse, CreateBundleRequest, CreateBundleResponse, CreativeBundleResponse, CreativeBundlesListResponse, BundleServiceResponse, UpdateBundleRequest, UpdateBundleResponse, DeleteBundleResponse, PublicServicesAndBundlesResponse, CalendarSettingsRequest
 from core.validation import validate_contact_field
+from supabase import Client
+from typing import Optional
 import re
 import uuid
 import os
@@ -111,11 +113,20 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to set up creative profile: {str(e)}")
 
     @staticmethod
-    async def get_creative_profile(user_id: str) -> dict:
-        """Get the current user's creative profile with subscription tier data"""
+    async def get_creative_profile(user_id: str, client: Optional[Client] = None) -> dict:
+        """Get the current user's creative profile with subscription tier data
+        
+        Args:
+            user_id: The user ID to fetch creative profile for
+            client: Authenticated Supabase client (respects RLS policies). 
+                   If None, uses db_admin (for backward compatibility with public endpoints).
+        """
         try:
+            # Use provided client or fall back to db_admin for backward compatibility
+            db = client if client is not None else db_admin
+            
             # Query the creatives table
-            creative_result = db_admin.table('creatives').select('*').eq('user_id', user_id).single().execute()
+            creative_result = db.table('creatives').select('*').eq('user_id', user_id).single().execute()
             
             if not creative_result.data:
                 raise HTTPException(status_code=404, detail="Creative profile not found")
@@ -123,9 +134,10 @@ class CreativeController:
             profile_data = creative_result.data
             
             # Fetch subscription tier to get storage_limit_bytes and name for backward compatibility
+            # subscription_tiers has RLS policy allowing authenticated users to read
             subscription_tier_id = profile_data.get('subscription_tier_id')
             if subscription_tier_id:
-                subscription_result = db_admin.table('subscription_tiers').select(
+                subscription_result = db.table('subscription_tiers').select(
                     'storage_amount_bytes, name'
                 ).eq('id', subscription_tier_id).single().execute()
                 

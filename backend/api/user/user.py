@@ -4,7 +4,7 @@ from schemas.user import RoleProfilesResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
-from db.db_session import db_admin
+from db.db_session import get_authenticated_client
 
 router = APIRouter()
 
@@ -21,11 +21,25 @@ async def get_user_profile(
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await UserController.get_user_profile(user_id)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Get authenticated Supabase client (respects RLS policies)
+        try:
+            client = get_authenticated_client(request)
+        except Exception as auth_error:
+            # If we can't create authenticated client, return 401
+            raise HTTPException(status_code=401, detail="Authentication failed: Unable to create authenticated session")
+        
+        return await UserController.get_user_profile(user_id, client)
         
     except HTTPException:
         raise
     except Exception as e:
+        # Check if it's an authentication-related error
+        error_str = str(e).lower()
+        if 'auth' in error_str or 'unauthorized' in error_str or 'permission' in error_str:
+            raise HTTPException(status_code=401, detail="Authentication failed: Sign in was unsuccessful")
         raise HTTPException(status_code=500, detail=f"Failed to fetch user profile: {str(e)}")
 
 @router.get("/role-profiles", response_model=RoleProfilesResponse)
