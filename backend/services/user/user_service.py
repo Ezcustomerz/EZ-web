@@ -257,11 +257,16 @@ class UserController:
             raise HTTPException(status_code=500, detail=f"Failed to create profiles: {str(e)}")
 
     @staticmethod
-    async def get_user_role_profiles(user_id: str) -> RoleProfilesResponse:
-        """Get minimal role profile data for role switching - optimized with single query"""
+    async def get_user_role_profiles(user_id: str, client: Client) -> RoleProfilesResponse:
+        """Get minimal role profile data for role switching - optimized with single query
+        
+        Args:
+            user_id: The user ID to fetch role profiles for
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
-            # Get user's roles first
-            user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
+            # Get user's roles first using authenticated client (respects RLS)
+            user_result = client.table('users').select('roles').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
@@ -276,25 +281,25 @@ class UserController:
                 client_data = None
                 advocate_data = None
                 
-                # Fetch creative profile if user has creative role
+                # Fetch creative profile if user has creative role (using authenticated client - respects RLS)
                 if 'creative' in user_roles:
-                    creative_result = db_admin.table('creatives').select(
+                    creative_result = client.table('creatives').select(
                         'user_id, title'
                     ).eq('user_id', user_id).execute()
                     if creative_result.data and len(creative_result.data) > 0:
                         creative_data = creative_result.data[0]
                 
-                # Fetch client profile if user has client role
+                # Fetch client profile if user has client role (using authenticated client - respects RLS)
                 if 'client' in user_roles:
-                    client_result = db_admin.table('clients').select(
+                    client_result = client.table('clients').select(
                         'user_id, title'
                     ).eq('user_id', user_id).execute()
                     if client_result.data and len(client_result.data) > 0:
                         client_data = client_result.data[0]
                 
-                # Fetch advocate profile if user has advocate role
+                # Fetch advocate profile if user has advocate role (using authenticated client - respects RLS)
                 if 'advocate' in user_roles:
-                    advocate_result = db_admin.table('advocates').select(
+                    advocate_result = client.table('advocates').select(
                         'user_id, tier'
                     ).eq('user_id', user_id).execute()
                     if advocate_result.data and len(advocate_result.data) > 0:
@@ -313,4 +318,12 @@ class UserController:
         except HTTPException:
             raise
         except Exception as e:
+            # Check if it's an RLS/permission error (0 rows returned)
+            error_str = str(e)
+            if 'PGRST116' in error_str or '0 rows' in error_str.lower():
+                # RLS blocked the query - likely authentication issue
+                raise HTTPException(
+                    status_code=401, 
+                    detail="Authentication failed: Unable to access role profiles. Please sign in again."
+                )
             raise HTTPException(status_code=500, detail=f"Failed to fetch role profiles: {str(e)}")

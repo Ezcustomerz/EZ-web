@@ -1,13 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional
-from datetime import date, datetime
+from typing import Optional
+from datetime import datetime
 import logging
 
 from services.booking.booking_service import BookingService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/booking", tags=["booking"])
+router = APIRouter()
 
 @router.get("/service/{service_id}/calendar-settings")
 async def get_calendar_settings(service_id: str):
@@ -143,3 +143,4 @@ async def get_service_booking_data(service_id: str):
     except Exception as e:
         logger.error(f"Error fetching service booking data: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+

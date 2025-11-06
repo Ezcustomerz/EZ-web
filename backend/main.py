@@ -10,7 +10,7 @@ from api.user import user_router
 from api import invite
 from api import bookings
 from api import notifications
-from routers import booking
+from api.booking import booking_router
 from core.limiter import limiter
 from api import auth
 from core.verify import jwt_auth_middleware
@@ -95,7 +95,7 @@ app.include_router(advocate_router.router)
 app.include_router(invite.router)
 app.include_router(bookings.router, prefix="/api/bookings", tags=["bookings"])
 app.include_router(notifications.router)
-app.include_router(booking.router)
+app.include_router(booking_router.router)
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

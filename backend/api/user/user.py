@@ -4,7 +4,7 @@ from schemas.user import RoleProfilesResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
-from db.db_session import get_authenticated_client
+from db.db_session import get_authenticated_client, db_client
 
 router = APIRouter()
 
@@ -50,24 +50,43 @@ async def get_user_role_profiles(
 ):
     """Get minimal role profile data for role switching
     Requires authentication - will return 401 if not authenticated.
+    Uses RLS policies to ensure users can only access their own role profiles.
     """
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await UserController.get_user_role_profiles(user_id)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Get authenticated Supabase client (respects RLS policies)
+        try:
+            client = get_authenticated_client(request)
+        except Exception as auth_error:
+            # If we can't create authenticated client, return 401
+            raise HTTPException(status_code=401, detail="Authentication failed: Unable to create authenticated session")
+        
+        return await UserController.get_user_role_profiles(user_id, client)
         
     except HTTPException:
         raise
     except Exception as e:
+        # Check if it's an authentication-related error
+        error_str = str(e).lower()
+        if 'auth' in error_str or 'unauthorized' in error_str or 'permission' in error_str or 'PGRST116' in error_str:
+            raise HTTPException(status_code=401, detail="Authentication failed: Unable to access role profiles")
         raise HTTPException(status_code=500, detail=f"Failed to fetch role profiles: {str(e)}")
 
 @router.get("/subscription-tiers")
 @limiter.limit("10 per second")
 async def get_subscription_tiers(request: Request):
-    """Get all active subscription tiers"""
+    """Get all active subscription tiers
+    Public endpoint - no authentication required (for pricing/landing pages).
+    Uses RLS policies to ensure only active tiers are returned.
+    """
     try:
-        result = db_admin.table('subscription_tiers').select(
+        # Use db_client (respects RLS) - public read policy allows anonymous access
+        result = db_client.table('subscription_tiers').select(
             'id, name, price, storage_amount_bytes, description, fee_percentage'
         ).eq('is_active', True).order('price', desc=False).execute()
         
