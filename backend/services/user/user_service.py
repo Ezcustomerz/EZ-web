@@ -1,5 +1,4 @@
 from fastapi import HTTPException
-from db.db_session import db_admin
 from schemas.user import UserProfile, UpdateRolesRequest, UpdateRolesResponse, SetupStatusResponse, BatchSetupRequest, BatchSetupResponse, RoleProfilesResponse
 from core.validation import validate_roles
 from supabase import Client
@@ -36,8 +35,14 @@ class UserController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch user profile: {str(e)}")
 
     @staticmethod
-    async def update_user_roles(user_id: str, role_request: UpdateRolesRequest) -> UpdateRolesResponse:
-        """Update user roles and set first_login to false"""
+    async def update_user_roles(user_id: str, role_request: UpdateRolesRequest, client: Client) -> UpdateRolesResponse:
+        """Update user roles and set first_login to false
+        
+        Args:
+            user_id: The user ID to update roles for
+            role_request: The request containing selected roles
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
             # Validate roles
             selected_roles = role_request.selected_roles
@@ -46,25 +51,26 @@ class UserController:
             if not is_valid:
                 raise HTTPException(status_code=400, detail=error_message)
             
-            # Get current user data to check existing roles
-            current_user = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
+            # Get current user data to check existing roles (using authenticated client - respects RLS)
+            current_user = client.table('users').select('roles').eq('user_id', user_id).single().execute()
             current_roles = current_user.data['roles'] if current_user.data else []
             
-            # Clean up profile data for roles that are being removed
+            # Clean up profile data for roles that are being removed (using authenticated client - respects RLS)
             removed_roles = [role for role in current_roles if role not in selected_roles]
             for role in removed_roles:
                 if role == 'creative':
-                    # Delete creative profile if role is removed
-                    db_admin.table('creatives').delete().eq('user_id', user_id).execute()
+                    # Delete creative profile if role is removed (RLS ensures user can only delete their own)
+                    client.table('creatives').delete().eq('user_id', user_id).execute()
                 elif role == 'client':
-                    # Delete client profile if role is removed
-                    db_admin.table('clients').delete().eq('user_id', user_id).execute()
+                    # Delete client profile if role is removed (RLS ensures user can only delete their own)
+                    client.table('clients').delete().eq('user_id', user_id).execute()
                 elif role == 'advocate':
-                    # Delete advocate profile if role is removed
-                    db_admin.table('advocates').delete().eq('user_id', user_id).execute()
+                    # Delete advocate profile if role is removed (RLS ensures user can only delete their own)
+                    client.table('advocates').delete().eq('user_id', user_id).execute()
             
             # Update user roles (keep first_login as True until setup is completed)
-            update_result = db_admin.table('users').update({
+            # Using authenticated client - RLS ensures user can only update their own record
+            update_result = client.table('users').update({
                 'roles': selected_roles
             }).eq('user_id', user_id).execute()
             
@@ -79,14 +85,26 @@ class UserController:
         except HTTPException:
             raise
         except Exception as e:
+            # Check if it's an RLS/permission error
+            error_str = str(e)
+            if 'PGRST116' in error_str or '0 rows' in error_str.lower() or 'permission' in error_str.lower():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Permission denied: Unable to update user roles. Please ensure you are authenticated."
+                )
             raise HTTPException(status_code=500, detail=f"Failed to update user roles: {str(e)}")
 
     @staticmethod
-    async def get_setup_status(user_id: str) -> SetupStatusResponse:
-        """Check which role setups are incomplete for the current user"""
+    async def get_setup_status(user_id: str, client: Client) -> SetupStatusResponse:
+        """Check which role setups are incomplete for the current user
+        
+        Args:
+            user_id: The user ID to check setup status for
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
-            # Get user's roles
-            user_result = db_admin.table('users').select('roles, first_login').eq('user_id', user_id).single().execute()
+            # Get user's roles (using authenticated client - respects RLS)
+            user_result = client.table('users').select('roles, first_login').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
@@ -105,23 +123,23 @@ class UserController:
             
             incomplete_setups = []
             
-            # Check each role to see if setup is complete
+            # Check each role to see if setup is complete (using authenticated client - respects RLS)
             for role in user_roles:
                 if role == 'creative':
                     # Check if creative profile exists
-                    creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).execute()
+                    creative_result = client.table('creatives').select('user_id').eq('user_id', user_id).execute()
                     if not creative_result.data:
                         incomplete_setups.append('creative')
                 
                 elif role == 'client':
                     # Check if client profile exists
-                    client_result = db_admin.table('clients').select('user_id').eq('user_id', user_id).execute()
+                    client_result = client.table('clients').select('user_id').eq('user_id', user_id).execute()
                     if not client_result.data:
                         incomplete_setups.append('client')
                 
                 elif role == 'advocate':
                     # Check if advocate profile exists
-                    advocate_result = db_admin.table('advocates').select('user_id').eq('user_id', user_id).execute()
+                    advocate_result = client.table('advocates').select('user_id').eq('user_id', user_id).execute()
                     if not advocate_result.data:
                         incomplete_setups.append('advocate')
             
@@ -130,14 +148,27 @@ class UserController:
         except HTTPException:
             raise
         except Exception as e:
+            # Check if it's an RLS/permission error
+            error_str = str(e)
+            if 'PGRST116' in error_str or '0 rows' in error_str.lower() or 'permission' in error_str.lower():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Permission denied: Unable to check setup status. Please ensure you are authenticated."
+                )
             raise HTTPException(status_code=500, detail=f"Failed to check setup status: {str(e)}")
 
     @staticmethod
-    async def batch_setup_profiles(user_id: str, setup_request: BatchSetupRequest) -> BatchSetupResponse:
-        """Create all profile data at once after all setups are completed"""
+    async def batch_setup_profiles(user_id: str, setup_request: BatchSetupRequest, client: Client) -> BatchSetupResponse:
+        """Create all profile data at once after all setups are completed
+        
+        Args:
+            user_id: The user ID to create profiles for
+            setup_request: The request containing profile data for each role
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
-            # Get user data for profile fields
-            user_result = db_admin.table('users').select('roles, name, email, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
+            # Get user data for profile fields (using authenticated client - respects RLS)
+            user_result = client.table('users').select('roles, name, email, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
@@ -172,7 +203,8 @@ class UserController:
                     raise HTTPException(status_code=422, detail="subscription_tier_id is required")
                 
                 # Validate subscription_tier_id and get storage limit from subscription_tier
-                subscription_result = db_admin.table('subscription_tiers').select(
+                # Using authenticated client - RLS allows authenticated users to read subscription_tiers
+                subscription_result = client.table('subscription_tiers').select(
                     'id, storage_amount_bytes, is_active'
                 ).eq('id', subscription_tier_id).single().execute()
                 
@@ -194,7 +226,8 @@ class UserController:
                     'profile_source': avatar_source,
                 }
                 
-                result = db_admin.table('creatives').upsert(creative_row).execute()
+                # Using authenticated client - RLS ensures user can only create their own profile
+                result = client.table('creatives').upsert(creative_row).execute()
                 if result.data:
                     created_profiles.append('creative')
             
@@ -211,7 +244,8 @@ class UserController:
                     'profile_source': avatar_source,
                 }
                 
-                result = db_admin.table('clients').upsert(client_row).execute()
+                # Using authenticated client - RLS ensures user can only create their own profile
+                result = client.table('clients').upsert(client_row).execute()
                 if result.data:
                     created_profiles.append('client')
             
@@ -237,12 +271,14 @@ class UserController:
                     'sync_source': 'firstpromoter',
                 }
                 
-                result = db_admin.table('advocates').upsert(advocate_row).execute()
+                # Using authenticated client - RLS ensures user can only create their own profile
+                result = client.table('advocates').upsert(advocate_row).execute()
                 if result.data:
                     created_profiles.append('advocate')
             
             # Mark setup as complete by setting first_login to False
-            db_admin.table('users').update({
+            # Using authenticated client - RLS ensures user can only update their own record
+            client.table('users').update({
                 'first_login': False
             }).eq('user_id', user_id).execute()
             
@@ -254,6 +290,13 @@ class UserController:
         except HTTPException:
             raise
         except Exception as e:
+            # Check if it's an RLS/permission error
+            error_str = str(e)
+            if 'PGRST116' in error_str or '0 rows' in error_str.lower() or 'permission' in error_str.lower():
+                raise HTTPException(
+                    status_code=403,
+                    detail="Permission denied: Unable to create profiles. Please ensure you are authenticated and have the correct roles."
+                )
             raise HTTPException(status_code=500, detail=f"Failed to create profiles: {str(e)}")
 
     @staticmethod
@@ -327,3 +370,51 @@ class UserController:
                     detail="Authentication failed: Unable to access role profiles. Please sign in again."
                 )
             raise HTTPException(status_code=500, detail=f"Failed to fetch role profiles: {str(e)}")
+
+    @staticmethod
+    async def get_subscription_tiers(client: Client) -> list[dict]:
+        """Get all active subscription tiers with formatted storage display
+        
+        Args:
+            client: Supabase client (can be db_client for public access or authenticated client)
+        
+        Returns:
+            List of subscription tiers with formatted storage display
+        """
+        try:
+            # Query subscription tiers (respects RLS - public read policy allows anonymous access)
+            result = client.table('subscription_tiers').select(
+                'id, name, price, storage_amount_bytes, description, fee_percentage'
+            ).eq('is_active', True).order('price', desc=False).execute()
+            
+            if not result.data:
+                return []
+            
+            # Format the response with human-readable storage
+            tiers = []
+            for tier in result.data:
+                # Convert storage from bytes to human-readable format
+                storage_bytes = tier['storage_amount_bytes']
+                if storage_bytes >= 1024 * 1024 * 1024 * 1024:  # 1TB or more
+                    storage_display = f"{storage_bytes / (1024 * 1024 * 1024 * 1024):.0f}TB"
+                elif storage_bytes >= 100 * 1024 * 1024 * 1024:  # 100GB or more
+                    storage_display = f"{storage_bytes / (1024 * 1024 * 1024):.0f}GB"
+                elif storage_bytes >= 50 * 1024 * 1024 * 1024:  # 50GB or more
+                    storage_display = f"50-100GB"
+                else:  # Less than 50GB
+                    storage_display = f"{storage_bytes / (1024 * 1024 * 1024):.0f}GB"
+                
+                tiers.append({
+                    'id': tier['id'],
+                    'name': tier['name'],
+                    'price': float(tier['price']),
+                    'storage_amount_bytes': tier['storage_amount_bytes'],
+                    'storage_display': storage_display,
+                    'description': tier['description'],
+                    'fee_percentage': float(tier['fee_percentage']),
+                })
+            
+            return tiers
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to fetch subscription tiers: {str(e)}")

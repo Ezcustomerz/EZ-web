@@ -7,12 +7,12 @@ from api.advocate import advocate_router
 from api.client import client_router
 from api.creative import creative_router
 from api.user import user_router
-from api import invite
-from api import bookings
-from api import notifications
+from api.invite import invite_router
+from api.notifications import notifications_router
 from api.booking import booking_router
+from api.booking.booking_router import service_main_router
+from api.auth import auth_router
 from core.limiter import limiter
-from api import auth
 from core.verify import jwt_auth_middleware
 # Import database module to trigger connection test
 from db import db_session
@@ -87,15 +87,15 @@ app.add_middleware(
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-app.include_router(auth.router)
+app.include_router(auth_router.router)
 app.include_router(user_router.router)
 app.include_router(creative_router.router)
 app.include_router(client_router.router)
 app.include_router(advocate_router.router)
-app.include_router(invite.router)
-app.include_router(bookings.router, prefix="/api/bookings", tags=["bookings"])
-app.include_router(notifications.router)
+app.include_router(invite_router.router)
+app.include_router(notifications_router.router)
 app.include_router(booking_router.router)
+app.include_router(service_main_router)  # Service endpoints at /api/booking
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

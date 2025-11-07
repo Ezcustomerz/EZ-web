@@ -1,7 +1,7 @@
 import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
-from fastapi import Request
+from fastapi import Request, Depends
 from typing import Optional
 
 load_dotenv() 
@@ -21,32 +21,33 @@ def get_authenticated_client(request: Request) -> Client:
     Create an authenticated Supabase client from the JWT token in the request.
     This respects RLS policies based on the authenticated user.
     
+    OPTIMIZED: Reuses token stored in request.state.token by middleware
+    to avoid redundant token extraction.
+    
     Args:
         request: FastAPI Request object containing JWT token
         
     Returns:
         Authenticated Supabase Client
     """
-    # Ensure request is a Request object, not a dict
-    if not isinstance(request, Request) or not hasattr(request, 'cookies'):
-        # If somehow request is not a Request object, return unauthenticated client
-        return db_client
+    # Try to get token from request.state (set by middleware) - OPTIMIZED PATH
+    token = getattr(request.state, 'token', None)
     
-    # Get JWT token from cookies or Authorization header
-    token = None
-    try:
-        token = request.cookies.get("sb-access-token")
+    # Fallback: Extract token if not in state (backward compatibility)
+    if not token:
+        if not isinstance(request, Request) or not hasattr(request, 'cookies'):
+            return db_client
         
-        if not token:
-            auth = request.headers.get("Authorization")
-            if auth and auth.startswith("Bearer "):
-                token = auth.split(" ")[1]
-    except (AttributeError, TypeError):
-        # If request doesn't have expected attributes, return unauthenticated client
-        return db_client
+        try:
+            token = request.cookies.get("sb-access-token")
+            if not token:
+                auth = request.headers.get("Authorization")
+                if auth and auth.startswith("Bearer "):
+                    token = auth.split(" ")[1]
+        except (AttributeError, TypeError):
+            return db_client
     
     if not token:
-        # If no token, return unauthenticated client (will fail RLS checks)
         return db_client
     
     # Create client and authenticate with JWT token using postgrest.auth()
@@ -65,6 +66,22 @@ def get_authenticated_client(request: Request) -> Client:
         return db_client
     
     return client
+
+def get_authenticated_client_dep(request: Request) -> Client:
+    """
+    FastAPI dependency that provides an authenticated Supabase client.
+    Use this instead of calling get_authenticated_client() manually.
+    
+    Example:
+        @router.get("/endpoint")
+        async def my_endpoint(
+            client: Client = Depends(get_authenticated_client_dep),
+            current_user: Dict = Depends(require_auth)
+        ):
+            # Use client for database operations
+            ...
+    """
+    return get_authenticated_client(request)
 
 async def test_database_connection():
     """Test the database connection and print result"""

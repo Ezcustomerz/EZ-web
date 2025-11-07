@@ -61,6 +61,8 @@ async def jwt_auth_middleware(request: Request, call_next):
     if token:
         try:
             user = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
+            # Store token for reuse in dependencies (avoids redundant extraction)
+            request.state.token = token
         except JWTError:
             # Token is invalid or expired - don't set user
             pass

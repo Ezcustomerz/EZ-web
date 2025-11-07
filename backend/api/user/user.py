@@ -4,7 +4,8 @@ from schemas.user import RoleProfilesResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
-from db.db_session import get_authenticated_client, db_client
+from db.db_session import get_authenticated_client_dep, db_client
+from supabase import Client
 
 router = APIRouter()
 
@@ -12,7 +13,8 @@ router = APIRouter()
 @limiter.limit("2 per second")
 async def get_user_profile(
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Get the current user's profile from the database
     Requires authentication - will return 401 if not authenticated.
@@ -23,13 +25,6 @@ async def get_user_profile(
         
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
-        
-        # Get authenticated Supabase client (respects RLS policies)
-        try:
-            client = get_authenticated_client(request)
-        except Exception as auth_error:
-            # If we can't create authenticated client, return 401
-            raise HTTPException(status_code=401, detail="Authentication failed: Unable to create authenticated session")
         
         return await UserController.get_user_profile(user_id, client)
         
@@ -46,7 +41,8 @@ async def get_user_profile(
 @limiter.limit("2 per second")
 async def get_user_role_profiles(
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Get minimal role profile data for role switching
     Requires authentication - will return 401 if not authenticated.
@@ -58,13 +54,6 @@ async def get_user_role_profiles(
         
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
-        
-        # Get authenticated Supabase client (respects RLS policies)
-        try:
-            client = get_authenticated_client(request)
-        except Exception as auth_error:
-            # If we can't create authenticated client, return 401
-            raise HTTPException(status_code=401, detail="Authentication failed: Unable to create authenticated session")
         
         return await UserController.get_user_role_profiles(user_id, client)
         
@@ -86,38 +75,9 @@ async def get_subscription_tiers(request: Request):
     """
     try:
         # Use db_client (respects RLS) - public read policy allows anonymous access
-        result = db_client.table('subscription_tiers').select(
-            'id, name, price, storage_amount_bytes, description, fee_percentage'
-        ).eq('is_active', True).order('price', desc=False).execute()
+        return await UserController.get_subscription_tiers(db_client)
         
-        if not result.data:
-            return []
-        
-        # Format the response
-        tiers = []
-        for tier in result.data:
-            # Convert storage from bytes to human-readable format
-            storage_bytes = tier['storage_amount_bytes']
-            if storage_bytes >= 1024 * 1024 * 1024 * 1024:  # 1TB or more
-                storage_display = f"{storage_bytes / (1024 * 1024 * 1024 * 1024):.0f}TB"
-            elif storage_bytes >= 100 * 1024 * 1024 * 1024:  # 100GB or more
-                storage_display = f"{storage_bytes / (1024 * 1024 * 1024):.0f}GB"
-            elif storage_bytes >= 50 * 1024 * 1024 * 1024:  # 50GB or more
-                storage_display = f"50-100GB"
-            else:  # Less than 50GB
-                storage_display = f"{storage_bytes / (1024 * 1024 * 1024):.0f}GB"
-            
-            tiers.append({
-                'id': tier['id'],
-                'name': tier['name'],
-                'price': float(tier['price']),
-                'storage_amount_bytes': tier['storage_amount_bytes'],
-                'storage_display': storage_display,
-                'description': tier['description'],
-                'fee_percentage': float(tier['fee_percentage']),
-            })
-        
-        return tiers
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch subscription tiers: {str(e)}")

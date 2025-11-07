@@ -1,69 +1,98 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Query, Request, Depends
+from typing import Optional, Dict, Any
 from datetime import datetime
 import logging
-
+from core.verify import require_auth
+from db.db_session import get_authenticated_client_dep
 from services.booking.booking_service import BookingService
+from supabase import Client
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 @router.get("/service/{service_id}/calendar-settings")
-async def get_calendar_settings(service_id: str):
-    """Get calendar settings for a service"""
+async def get_calendar_settings(
+    service_id: str,
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """Get calendar settings for a service
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
         booking_service = BookingService()
-        settings = booking_service.get_calendar_settings(service_id)
+        settings = booking_service.get_calendar_settings(service_id, client)
         
         if not settings:
             raise HTTPException(status_code=404, detail="Calendar settings not found")
         
         return {"success": True, "data": settings}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching calendar settings: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/service/{service_id}/weekly-schedule")
-async def get_weekly_schedule(service_id: str):
-    """Get weekly schedule for a service"""
+async def get_weekly_schedule(
+    service_id: str,
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """Get weekly schedule for a service
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
         booking_service = BookingService()
         
         # First get calendar settings to get the calendar_setting_id
-        calendar_settings = booking_service.get_calendar_settings(service_id)
+        calendar_settings = booking_service.get_calendar_settings(service_id, client)
         if not calendar_settings:
             raise HTTPException(status_code=404, detail="Calendar settings not found")
         
-        schedule = booking_service.get_weekly_schedule(calendar_settings["id"])
+        schedule = booking_service.get_weekly_schedule(calendar_settings["id"], client)
         
         return {"success": True, "data": schedule}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching weekly schedule: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/service/{service_id}/time-slots")
-async def get_time_slots(service_id: str):
-    """Get all time slots for a service"""
+async def get_time_slots(
+    service_id: str,
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """Get all time slots for a service
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
         booking_service = BookingService()
         
         # First get calendar settings to get the calendar_setting_id
-        calendar_settings = booking_service.get_calendar_settings(service_id)
+        calendar_settings = booking_service.get_calendar_settings(service_id, client)
         if not calendar_settings:
             raise HTTPException(status_code=404, detail="Calendar settings not found")
         
         # Get weekly schedule
-        weekly_schedule = booking_service.get_weekly_schedule(calendar_settings["id"])
+        weekly_schedule = booking_service.get_weekly_schedule(calendar_settings["id"], client)
         
         # Get time slots for each day
         all_time_slots = []
         for day in weekly_schedule:
             if day["is_enabled"]:
-                day_slots = booking_service.get_time_slots(day["id"])
+                day_slots = booking_service.get_time_slots(day["id"], client)
                 all_time_slots.extend(day_slots)
         
         return {"success": True, "data": all_time_slots}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching time slots: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -71,10 +100,15 @@ async def get_time_slots(service_id: str):
 @router.get("/service/{service_id}/available-dates")
 async def get_available_dates(
     service_id: str,
+    request: Request,
     start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
-    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format")
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get available booking dates for a service"""
+    """Get available booking dates for a service
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
         booking_service = BookingService()
         
@@ -94,7 +128,7 @@ async def get_available_dates(
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
         
-        available_dates = booking_service.get_available_dates(service_id, start, end)
+        available_dates = booking_service.get_available_dates(service_id, start, end, client)
         
         return {"success": True, "data": available_dates}
     except HTTPException:
@@ -106,9 +140,14 @@ async def get_available_dates(
 @router.get("/service/{service_id}/available-time-slots")
 async def get_available_time_slots(
     service_id: str,
-    booking_date: str = Query(..., description="Booking date in YYYY-MM-DD format")
+    request: Request,
+    booking_date: str = Query(..., description="Booking date in YYYY-MM-DD format"),
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get available time slots for a specific date"""
+    """Get available time slots for a specific date
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
         booking_service = BookingService()
         
@@ -118,7 +157,7 @@ async def get_available_time_slots(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid booking_date format. Use YYYY-MM-DD")
         
-        time_slots = booking_service.get_available_time_slots(service_id, booking_date_obj)
+        time_slots = booking_service.get_available_time_slots(service_id, booking_date_obj, client)
         
         return {"success": True, "data": time_slots}
     except HTTPException:
@@ -128,11 +167,18 @@ async def get_available_time_slots(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/service/{service_id}/booking-data")
-async def get_service_booking_data(service_id: str):
-    """Get complete booking data for a service (calendar settings, weekly schedule, and time slots)"""
+async def get_service_booking_data(
+    service_id: str,
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """Get complete booking data for a service (calendar settings, weekly schedule, and time slots)
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
         booking_service = BookingService()
-        booking_data = booking_service.get_service_booking_data(service_id)
+        booking_data = booking_service.get_service_booking_data(service_id, client)
         
         if "error" in booking_data:
             raise HTTPException(status_code=404, detail=booking_data["error"])

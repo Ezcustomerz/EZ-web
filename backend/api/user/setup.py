@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from services.user.user_service import UserController
 from schemas.user import BatchSetupRequest, UpdateRolesRequest
 from core.verify import require_auth
+from db.db_session import get_authenticated_client
 from typing import Dict, Any
 
 router = APIRouter()
@@ -14,12 +15,22 @@ async def batch_setup_profiles(
 ):
     """Create all profile data at once after all setups are completed
     Requires authentication - will return 401 if not authenticated.
+    Uses authenticated client to respect RLS policies.
     """
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await UserController.batch_setup_profiles(user_id, setup_request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Get authenticated Supabase client (respects RLS policies)
+        try:
+            client = get_authenticated_client(request)
+        except Exception as auth_error:
+            raise HTTPException(status_code=401, detail="Authentication failed: Unable to create authenticated session")
+        
+        return await UserController.batch_setup_profiles(user_id, setup_request, client)
         
     except HTTPException:
         raise
@@ -35,12 +46,22 @@ async def update_user_roles(
 ):
     """Update user roles and set first_login to false
     Requires authentication - will return 401 if not authenticated.
+    Uses authenticated client to respect RLS policies.
     """
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await UserController.update_user_roles(user_id, role_request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Get authenticated Supabase client (respects RLS policies)
+        try:
+            client = get_authenticated_client(request)
+        except Exception as auth_error:
+            raise HTTPException(status_code=401, detail="Authentication failed: Unable to create authenticated session")
+        
+        return await UserController.update_user_roles(user_id, role_request, client)
         
     except HTTPException:
         raise
@@ -55,12 +76,22 @@ async def get_setup_status(
 ):
     """Check which role setups are incomplete for the current user
     Requires authentication - will return 401 if not authenticated.
+    Uses authenticated client to respect RLS policies.
     """
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await UserController.get_setup_status(user_id)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Get authenticated Supabase client (respects RLS policies)
+        try:
+            client = get_authenticated_client(request)
+        except Exception as auth_error:
+            raise HTTPException(status_code=401, detail="Authentication failed: Unable to create authenticated session")
+        
+        return await UserController.get_setup_status(user_id, client)
         
     except HTTPException:
         raise
