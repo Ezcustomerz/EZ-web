@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import Dict, Any, Optional
 import logging
+from supabase import Client
 from core.limiter import limiter
 from core.verify import require_auth
+from db.db_session import get_authenticated_client_dep
 from services.invite import InviteController
 from schemas.invite import (
     GenerateInviteResponse,
@@ -18,7 +20,8 @@ router = APIRouter(prefix="/invite", tags=["invite"])
 @limiter.limit("2 per second")
 async def generate_invite_link(
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """
     Generate an invite link for a creative to invite clients
@@ -29,7 +32,7 @@ async def generate_invite_link(
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        return await InviteController.generate_invite_link(user_id)
+        return await InviteController.generate_invite_link(user_id, client)
     except HTTPException:
         raise
     except Exception as e:
@@ -39,20 +42,29 @@ async def generate_invite_link(
 
 @router.get("/validate/{invite_token}", response_model=ValidateInviteResponse)
 @limiter.limit("2 per second")
-async def validate_invite_token(invite_token: str, request: Request):
+async def validate_invite_token(
+    invite_token: str, 
+    request: Request,
+    client: Client = Depends(get_authenticated_client_dep)
+):
     """
-    Validate an invite token and return creative information
+    Validate an invite token and return creative information.
+    Public endpoint - authentication is optional but will provide additional user context if available.
+    Uses authenticated client with RLS policies when user is authenticated.
     """
     try:
+        # Client is always provided via dependency - authenticated if token exists, anon otherwise
+        
         # Check if there's an authenticated user and their roles
         user_info = None
         if hasattr(request.state, 'user') and request.state.user:
             user_id = request.state.user.get('sub')
             if user_id:
-                # Get user roles from database
+                # Get user roles from database using authenticated client (respects RLS)
                 try:
-                    from db.db_session import db_admin
-                    user_response = db_admin.table("users") \
+                    # Client respects RLS policy "public_users_select_own"
+                    # This policy allows users to SELECT their own user record (user_id = auth.uid())
+                    user_response = client.table("users") \
                         .select("roles") \
                         .eq("user_id", user_id) \
                         .single() \
@@ -64,11 +76,16 @@ async def validate_invite_token(invite_token: str, request: Request):
                             "roles": user_response.data.get('roles', []),
                             "has_client_role": 'client' in user_response.data.get('roles', [])
                         }
-                except Exception:
-                    # User not found in database, continue without user_info
-                    pass
+                    else:
+                        # User authenticated but not found in database - log this as it's a data inconsistency
+                        logger.warning(f"Authenticated user {user_id} not found in users table")
+                except Exception as e:
+                    # Log the error but don't fail the request since user info is optional
+                    logger.error(f"Error fetching user info for optional auth in validate endpoint: {e}")
         
-        return await InviteController.validate_invite_token(invite_token, user_info)
+        # Pass client to service method - always set (authenticated or anon)
+        # RLS policy "Allow public to read creative profiles" allows anon users to read
+        return await InviteController.validate_invite_token(invite_token, user_info, client)
     except HTTPException:
         raise
     except Exception as e:
@@ -81,7 +98,8 @@ async def validate_invite_token(invite_token: str, request: Request):
 async def accept_invite(
     invite_token: str,
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """
     Accept an invite and create the creative-client relationship
@@ -92,7 +110,7 @@ async def accept_invite(
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        return await InviteController.accept_invite(invite_token, user_id)
+        return await InviteController.accept_invite(invite_token, user_id, client)
     except HTTPException:
         raise
     except Exception as e:
@@ -105,7 +123,8 @@ async def accept_invite(
 async def accept_invite_after_role_setup(
     invite_token: str,
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """
     Accept an invite after user has set up their client role
@@ -116,7 +135,7 @@ async def accept_invite_after_role_setup(
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        return await InviteController.accept_invite_after_role_setup(invite_token, user_id)
+        return await InviteController.accept_invite_after_role_setup(invite_token, user_id, client)
     except HTTPException:
         raise
     except Exception as e:

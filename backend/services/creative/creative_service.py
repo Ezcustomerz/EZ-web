@@ -19,11 +19,17 @@ from core.timezone_utils import (
 
 class CreativeController:
     @staticmethod
-    async def setup_creative_profile(user_id: str, setup_request: CreativeSetupRequest) -> CreativeSetupResponse:
-        """Set up creative profile in the creatives table"""
+    async def setup_creative_profile(user_id: str, setup_request: CreativeSetupRequest, client: Client) -> CreativeSetupResponse:
+        """Set up creative profile in the creatives table
+        
+        Args:
+            user_id: The user ID to set up creative profile for
+            setup_request: The request containing creative profile data
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
-            # Get user profile data
-            user_result = db_admin.table('users').select('roles, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
+            # Get user profile data (using authenticated client - respects RLS)
+            user_result = client.table('users').select('roles, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
@@ -33,8 +39,8 @@ class CreativeController:
             # If user doesn't have creative role, add it
             if 'creative' not in user_roles:
                 user_roles.append('creative')
-                # Update user's roles in the database
-                update_result = db_admin.table('users').update({'roles': user_roles}).eq('user_id', user_id).execute()
+                # Update user's roles in the database (using authenticated client - respects RLS)
+                update_result = client.table('users').update({'roles': user_roles}).eq('user_id', user_id).execute()
                 if not update_result.data:
                     raise HTTPException(status_code=500, detail="Failed to update user roles")
             
@@ -74,7 +80,8 @@ class CreativeController:
             avatar_source = user_data.get('avatar_source', 'google')
             
             # Validate subscription_tier_id and get storage limit from subscription_tier
-            subscription_result = db_admin.table('subscription_tiers').select(
+            # Using authenticated client - RLS allows authenticated users to read subscription_tiers
+            subscription_result = client.table('subscription_tiers').select(
                 'id, storage_amount_bytes, is_active'
             ).eq('id', setup_request.subscription_tier_id).single().execute()
             
@@ -96,8 +103,8 @@ class CreativeController:
                 'profile_source': avatar_source,  # Copy avatar source as profile source
             }
             
-            # Insert or update creative profile (upsert)
-            result = db_admin.table('creatives').upsert(creative_data).execute()
+            # Insert or update creative profile (upsert) (using authenticated client - respects RLS)
+            result = client.table('creatives').upsert(creative_data).execute()
             
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create creative profile")
@@ -113,20 +120,25 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to set up creative profile: {str(e)}")
 
     @staticmethod
-    async def get_creative_profile(user_id: str, client: Optional[Client] = None) -> dict:
+    async def get_creative_profile(user_id: str, client: Client) -> dict:
         """Get the current user's creative profile with subscription tier data
         
         Args:
             user_id: The user ID to fetch creative profile for
-            client: Authenticated Supabase client (respects RLS policies). 
-                   If None, uses db_admin (for backward compatibility with public endpoints).
+            client: Supabase client (required, respects RLS policies).
+                   For authenticated endpoints, use authenticated client.
+                   For public endpoints, use db_client (anon key).
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Use provided client or fall back to db_admin for backward compatibility
-            db = client if client is not None else db_admin
             
             # Query the creatives table
-            creative_result = db.table('creatives').select('*').eq('user_id', user_id).single().execute()
+            creative_result = client.table('creatives').select('*').eq('user_id', user_id).single().execute()
             
             if not creative_result.data:
                 raise HTTPException(status_code=404, detail="Creative profile not found")
@@ -137,7 +149,7 @@ class CreativeController:
             # subscription_tiers has RLS policy allowing authenticated users to read
             subscription_tier_id = profile_data.get('subscription_tier_id')
             if subscription_tier_id:
-                subscription_result = db.table('subscription_tiers').select(
+                subscription_result = client.table('subscription_tiers').select(
                     'storage_amount_bytes, name'
                 ).eq('id', subscription_tier_id).single().execute()
                 
@@ -157,11 +169,22 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch creative profile: {str(e)}")
 
     @staticmethod
-    async def get_creative_clients(user_id: str) -> CreativeClientsListResponse:
-        """Get all clients associated with the creative - optimized with batch queries"""
+    async def get_creative_clients(user_id: str, client: Client) -> CreativeClientsListResponse:
+        """Get all clients associated with the creative - optimized with batch queries
+        
+        Args:
+            user_id: The creative user ID
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
+        """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Get creative_client_relationships for this creative
-            relationships_result = db_admin.table('creative_client_relationships').select(
+            relationships_result = client.table('creative_client_relationships').select(
                 'id, status, total_spent, projects_count, client_user_id'
             ).eq('creative_user_id', user_id).order('updated_at', desc=True).execute()
             
@@ -171,11 +194,11 @@ class CreativeController:
             client_user_ids = [rel['client_user_id'] for rel in relationships_result.data]
             
             # Batch fetch client and user data to avoid N+1 queries
-            clients_result = db_admin.table('clients').select(
+            clients_result = client.table('clients').select(
                 'user_id, display_name, email, title'
             ).in_('user_id', client_user_ids).execute()
             
-            users_result = db_admin.table('users').select(
+            users_result = client.table('users').select(
                 'user_id, name, profile_picture_url'
             ).in_('user_id', client_user_ids).execute()
             
@@ -268,11 +291,21 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch creative services: {str(e)}")
 
     @staticmethod
-    async def create_service(user_id: str, service_request: CreateServiceRequest, request: Request = None) -> CreateServiceResponse:
-        """Create a new service for the creative"""
+    async def create_service(user_id: str, service_request: CreateServiceRequest, request: Request = None, client: Client = None) -> CreateServiceResponse:
+        """Create a new service for the creative
+        
+        Args:
+            user_id: The user ID to create service for
+            service_request: The service request data
+            request: FastAPI request object (for timezone detection)
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Validate that the user has a creative profile
-            creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
+            # Validate that the user has a creative profile (using authenticated client - respects RLS)
+            creative_result = client.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
             if not creative_result.data:
                 raise HTTPException(status_code=404, detail="Creative profile not found. Please complete your creative setup first.")
             
@@ -298,8 +331,8 @@ class CreativeController:
                 'requires_booking': service_request.calendar_settings is not None
             }
             
-            # Insert the service
-            result = db_admin.table('creative_services').insert(service_data).execute()
+            # Insert the service (using authenticated client - respects RLS)
+            result = client.table('creative_services').insert(service_data).execute()
             
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create service")
@@ -326,8 +359,17 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
 
     @staticmethod
-    async def create_service_with_photos(user_id: str, request) -> CreateServiceResponse:
-        """Create a new service with photos in a single request"""
+    async def create_service_with_photos(user_id: str, request, client: Client = None) -> CreateServiceResponse:
+        """Create a new service with photos in a single request
+        
+        Args:
+            user_id: The user ID to create service for
+            request: FastAPI request object (for form data and timezone detection)
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             # Parse multipart form data
             form = await request.form()
@@ -353,8 +395,8 @@ class CreativeController:
                     print(f"Warning: Failed to parse calendar settings: {e}")
                     calendar_settings = None
             
-            # Validate that the user has a creative profile
-            creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
+            # Validate that the user has a creative profile (using authenticated client - respects RLS)
+            creative_result = client.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
             if not creative_result.data:
                 raise HTTPException(status_code=404, detail="Creative profile not found. Please complete your creative setup first.")
             
@@ -380,8 +422,8 @@ class CreativeController:
                 'requires_booking': calendar_settings is not None,
             }
             
-            # Insert the service
-            result = db_admin.table('creative_services').insert(service_data).execute()
+            # Insert the service (using authenticated client - respects RLS)
+            result = client.table('creative_services').insert(service_data).execute()
             
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create service")
@@ -390,7 +432,7 @@ class CreativeController:
             
             # Handle calendar settings if provided
             if calendar_settings:
-                await CreativeController._save_calendar_settings(service_id, calendar_settings)
+                await CreativeController._save_calendar_settings(service_id, calendar_settings, request)
             
             # Handle photos if provided
             photos = form.getlist('photos')
@@ -621,6 +663,181 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to save service photos: {str(e)}")
 
     @staticmethod
+    async def _update_service_photos_selective(service_id: str, existing_photos_to_keep: list, new_photo_files):
+        """Selectively update service photos - keep some existing, delete others, add new ones
+        
+        Args:
+            service_id: The service ID
+            existing_photos_to_keep: List of photo URLs to keep
+            new_photo_files: List of new photo files to upload
+        """
+        try:
+            # Get all current photos for this service
+            current_photos_result = db_admin.table('service_photos').select(
+                'id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
+            ).eq('service_id', service_id).order('display_order', desc=False).execute()
+            
+            current_photos = current_photos_result.data or []
+            
+            # Normalize URLs for comparison (remove query parameters and trailing slashes)
+            def normalize_url(url):
+                if not url:
+                    return ""
+                # Remove query parameters
+                url = url.split('?')[0]
+                # Remove trailing slash
+                url = url.rstrip('/')
+                return url
+            
+            # Create a set of normalized URLs to keep
+            normalized_keep_urls = {normalize_url(url) for url in existing_photos_to_keep}
+            
+            # Identify photos to keep and photos to delete
+            photos_to_keep = []
+            photos_to_delete = []
+            
+            for photo in current_photos:
+                normalized_photo_url = normalize_url(photo['photo_url'])
+                
+                if normalized_photo_url in normalized_keep_urls:
+                    photos_to_keep.append(photo)
+                else:
+                    photos_to_delete.append(photo)
+            
+            # Delete photos that are not in the keep list
+            if photos_to_delete:
+                import re
+                
+                # Extract file paths and delete from storage
+                files_to_delete = []
+                photo_ids_to_delete = []
+                
+                for photo in photos_to_delete:
+                    photo_ids_to_delete.append(photo['id'])
+                    photo_url = photo['photo_url']
+                    
+                    if photo_url:
+                        # Extract the file path from the URL
+                        match = re.search(r'/storage/v1/object/public/creative-assets/(.+)', photo_url)
+                        if match:
+                            file_path = match.group(1).split('?')[0]  # Remove query params
+                            files_to_delete.append(file_path)
+                
+                # Delete files from storage
+                if files_to_delete:
+                    try:
+                        db_admin.storage.from_("creative-assets").remove(files_to_delete)
+                    except Exception as e:
+                        print(f"Failed to delete photos from storage: {str(e)}")
+                
+                # Delete photo records from database
+                if photo_ids_to_delete:
+                    db_admin.table('service_photos').delete().in_('id', photo_ids_to_delete).execute()
+            
+            # Upload new photos and get their metadata
+            new_photos_metadata = []
+            if new_photo_files:
+                import asyncio
+                from supabase import create_client, Client
+                import os
+                
+                supabase_url = os.getenv("SUPABASE_URL")
+                supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                
+                if not supabase_url or not supabase_key:
+                    raise HTTPException(status_code=500, detail="Storage configuration missing")
+                
+                supabase: Client = create_client(supabase_url, supabase_key)
+                
+                async def upload_single_photo(photo_file, index):
+                    """Upload a single photo and return metadata"""
+                    if not photo_file or not hasattr(photo_file, 'filename') or not photo_file.filename:
+                        return None
+                    
+                    try:
+                        # Read file content
+                        file_content = await photo_file.read()
+                        file_extension = photo_file.filename.split('.')[-1] if '.' in photo_file.filename else 'jpg'
+                        filename = f"service-photos/{service_id}/{index}_{photo_file.filename}"
+                        
+                        # Upload file to storage
+                        result = supabase.storage.from_("creative-assets").upload(
+                            filename, 
+                            file_content,
+                            file_options={
+                                "content-type": photo_file.content_type or "image/jpeg",
+                                "cache-control": "3600"
+                            }
+                        )
+                        
+                        if result:
+                            # Get public URL
+                            public_url = supabase.storage.from_("creative-assets").get_public_url(filename)
+                            
+                            return {
+                                'photo_url': public_url,
+                                'photo_filename': photo_file.filename,
+                                'photo_size_bytes': len(file_content),
+                            }
+                    except Exception as e:
+                        print(f"Failed to upload photo {index}: {str(e)}")
+                        return None
+                
+                # Upload all new photos in parallel
+                upload_tasks = [
+                    upload_single_photo(photo_file, len(current_photos) + i) 
+                    for i, photo_file in enumerate(new_photo_files)
+                ]
+                
+                results = await asyncio.gather(*upload_tasks, return_exceptions=True)
+                
+                # Filter out None and exceptions
+                new_photos_metadata = [
+                    photo for photo in results 
+                    if photo is not None and not isinstance(photo, Exception)
+                ]
+            
+            # Calculate new display order for all photos (kept + new)
+            all_photos = []
+            
+            # Add kept photos with updated display order
+            for i, photo in enumerate(photos_to_keep):
+                all_photos.append({
+                    'id': photo['id'],
+                    'display_order': i,
+                    'is_primary': i == 0  # First photo is primary
+                })
+            
+            # Prepare new photos for insertion
+            new_photos_to_insert = []
+            for i, photo_meta in enumerate(new_photos_metadata):
+                display_order = len(photos_to_keep) + i
+                new_photos_to_insert.append({
+                    'service_id': service_id,
+                    'photo_url': photo_meta['photo_url'],
+                    'photo_filename': photo_meta['photo_filename'],
+                    'photo_size_bytes': photo_meta['photo_size_bytes'],
+                    'is_primary': display_order == 0,  # First photo is primary
+                    'display_order': display_order
+                })
+            
+            # Update display order and is_primary for kept photos
+            if all_photos:
+                for photo_update in all_photos:
+                    db_admin.table('service_photos').update({
+                        'display_order': photo_update['display_order'],
+                        'is_primary': photo_update['is_primary']
+                    }).eq('id', photo_update['id']).execute()
+            
+            # Insert new photos
+            if new_photos_to_insert:
+                db_admin.table('service_photos').insert(new_photos_to_insert).execute()
+            
+        except Exception as e:
+            print(f"Failed to update service photos: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to update service photos: {str(e)}")
+    
+    @staticmethod
     async def _delete_service_photos(service_id: str):
         """Delete all photos associated with a service from storage and database"""
         try:
@@ -724,11 +941,20 @@ class CreativeController:
             # Don't raise exception here as service deletion should still succeed even if photo cleanup fails
 
     @staticmethod
-    async def get_calendar_settings(service_id: str, user_id: str):
-        """Get active calendar settings for a service"""
+    async def get_calendar_settings(service_id: str, user_id: str, client: Client = None):
+        """Get active calendar settings for a service
+        
+        Args:
+            service_id: The service ID to get calendar settings for
+            user_id: The user ID to verify ownership
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Verify service exists and belongs to user
-            service_result = db_admin.table('creative_services').select(
+            # Verify service exists and belongs to user (using authenticated client - respects RLS)
+            service_result = client.table('creative_services').select(
                 'id, creative_user_id, is_active'
             ).eq('id', service_id).single().execute()
             
@@ -741,8 +967,8 @@ class CreativeController:
             if not service_result.data['is_active']:
                 raise HTTPException(status_code=400, detail="Cannot access calendar settings for deleted service")
             
-            # Get calendar settings
-            calendar_result = db_admin.table('calendar_settings').select(
+            # Get calendar settings (using authenticated client - respects RLS)
+            calendar_result = client.table('calendar_settings').select(
                 '*'
             ).eq('service_id', service_id).eq('is_active', True).execute()
             
@@ -752,18 +978,18 @@ class CreativeController:
             calendar_data = calendar_result.data[0]
             calendar_setting_id = calendar_data['id']
             
-            # Get weekly schedule
-            weekly_result = db_admin.table('weekly_schedule').select(
+            # Get weekly schedule (using authenticated client - respects RLS)
+            weekly_result = client.table('weekly_schedule').select(
                 'id, day_of_week, is_enabled'
             ).eq('calendar_setting_id', calendar_setting_id).execute()
             
-            # Get time blocks for each weekly schedule entry
-            time_blocks_result = db_admin.table('time_blocks').select(
+            # Get time blocks for each weekly schedule entry (using authenticated client - respects RLS)
+            time_blocks_result = client.table('time_blocks').select(
                 'weekly_schedule_id, start_time, end_time'
             ).in_('weekly_schedule_id', [ws['id'] for ws in weekly_result.data] if weekly_result.data else []).execute()
             
-            # Get time slots for each weekly schedule entry
-            time_slots_result = db_admin.table('time_slots').select(
+            # Get time slots for each weekly schedule entry (using authenticated client - respects RLS)
+            time_slots_result = client.table('time_slots').select(
                 'weekly_schedule_id, slot_time, is_enabled'
             ).in_('weekly_schedule_id', [ws['id'] for ws in weekly_result.data] if weekly_result.data else []).execute()
             
@@ -814,11 +1040,20 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to get calendar settings: {str(e)}")
 
     @staticmethod
-    async def delete_service(user_id: str, service_id: str) -> DeleteServiceResponse:
-        """Soft delete a service by setting is_active to False"""
+    async def delete_service(user_id: str, service_id: str, client: Client = None) -> DeleteServiceResponse:
+        """Soft delete a service by setting is_active to False
+        
+        Args:
+            user_id: The user ID to delete service for
+            service_id: The service ID to delete
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # First, verify the service exists and belongs to the user
-            service_result = db_admin.table('creative_services').select(
+            # First, verify the service exists and belongs to the user (using authenticated client - respects RLS)
+            service_result = client.table('creative_services').select(
                 'id, creative_user_id, is_active, title'
             ).eq('id', service_id).single().execute()
             
@@ -835,8 +1070,8 @@ class CreativeController:
             if not service_data['is_active']:
                 raise HTTPException(status_code=400, detail="Service is already deleted")
             
-            # Soft delete by setting is_active to False and updating timestamp
-            result = db_admin.table('creative_services').update({
+            # Soft delete by setting is_active to False and updating timestamp (using authenticated client - respects RLS)
+            result = client.table('creative_services').update({
                 'is_active': False,
                 'updated_at': 'now()'
             }).eq('id', service_id).execute()
@@ -844,8 +1079,8 @@ class CreativeController:
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to delete service")
             
-            # Also deactivate calendar settings for this service
-            db_admin.table('calendar_settings').update({
+            # Also deactivate calendar settings for this service (using authenticated client - respects RLS)
+            client.table('calendar_settings').update({
                 'is_active': False,
                 'updated_at': 'now()'
             }).eq('service_id', service_id).execute()
@@ -865,11 +1100,22 @@ class CreativeController:
 
 
     @staticmethod
-    async def update_service(user_id: str, service_id: str, service_request: CreateServiceRequest, request: Request = None) -> UpdateServiceResponse:
-        """Update an existing service (same fields as create)."""
+    async def update_service(user_id: str, service_id: str, service_request: CreateServiceRequest, request: Request = None, client: Client = None) -> UpdateServiceResponse:
+        """Update an existing service (same fields as create).
+        
+        Args:
+            user_id: The user ID to update service for
+            service_id: The service ID to update
+            service_request: The service request data
+            request: FastAPI request object (for timezone detection)
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Verify the service exists and belongs to the user
-            service_result = db_admin.table('creative_services').select(
+            # Verify the service exists and belongs to the user (using authenticated client - respects RLS)
+            service_result = client.table('creative_services').select(
                 'id, creative_user_id, is_active'
             ).eq('id', service_id).single().execute()
 
@@ -900,7 +1146,8 @@ class CreativeController:
                 'requires_booking': service_request.calendar_settings is not None,
             }
 
-            result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
+            # Update the service (using authenticated client - respects RLS)
+            result = client.table('creative_services').update(update_data).eq('id', service_id).execute()
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to update service")
 
@@ -920,11 +1167,28 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
 
     @staticmethod
-    async def update_service_with_photos(user_id: str, service_id: str, service_data: dict, photo_files, calendar_settings=None) -> UpdateServiceResponse:
-        """Update an existing service with new photos"""
+    async def update_service_with_photos(user_id: str, service_id: str, service_data: dict, photo_files, calendar_settings=None, request: Request = None, client: Client = None, existing_photos_to_keep: list = None) -> UpdateServiceResponse:
+        """Update an existing service with new photos, keeping selected existing photos
+        
+        Args:
+            user_id: The user ID to update service for
+            service_id: The service ID to update
+            service_data: The service data dictionary
+            photo_files: List of photo files to upload
+            calendar_settings: Optional calendar settings
+            request: FastAPI request object (for timezone detection)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            existing_photos_to_keep: List of photo URLs to keep (photos not in this list will be deleted)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
+        if existing_photos_to_keep is None:
+            existing_photos_to_keep = []
+        
         try:
-            # Verify the service exists and belongs to the user
-            service_result = db_admin.table('creative_services').select(
+            # Verify the service exists and belongs to the user (using authenticated client - respects RLS)
+            service_result = client.table('creative_services').select(
                 'id, creative_user_id, is_active'
             ).eq('id', service_id).single().execute()
 
@@ -943,7 +1207,7 @@ class CreativeController:
             if service_data['status'] not in ['Public', 'Private', 'Bundle-Only']:
                 raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
 
-            # Update service data
+            # Update service data (using authenticated client - respects RLS)
             update_data = {
                 'title': service_data['title'].strip(),
                 'description': service_data['description'].strip(),
@@ -956,20 +1220,16 @@ class CreativeController:
                 'requires_booking': calendar_settings is not None,
             }
 
-            result = db_admin.table('creative_services').update(update_data).eq('id', service_id).execute()
+            result = client.table('creative_services').update(update_data).eq('id', service_id).execute()
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to update service")
 
             # Handle calendar settings if provided
             if calendar_settings:
-                await CreativeController._save_calendar_settings(service_id, calendar_settings)
+                await CreativeController._save_calendar_settings(service_id, calendar_settings, request)
             
-            # Always delete existing photos first, then handle new photos if provided
-            await CreativeController._delete_service_photos(service_id)
-            
-            # Handle new photos if provided
-            if photo_files:
-                await CreativeController._save_service_photos_from_files(service_id, photo_files)
+            # Handle photos: Delete photos not in the keep list, keep existing ones, add new ones
+            await CreativeController._update_service_photos_selective(service_id, existing_photos_to_keep, photo_files)
 
             return UpdateServiceResponse(success=True, message="Service updated successfully")
 
@@ -979,8 +1239,17 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
 
     @staticmethod
-    async def update_profile_settings(user_id: str, settings_request: CreativeProfileSettingsRequest) -> CreativeProfileSettingsResponse:
-        """Update creative profile settings including highlights, service display, and avatar settings"""
+    async def update_profile_settings(user_id: str, settings_request: CreativeProfileSettingsRequest, client: Client = None) -> CreativeProfileSettingsResponse:
+        """Update creative profile settings including highlights, service display, and avatar settings
+        
+        Args:
+            user_id: The user ID to update settings for
+            settings_request: The settings request data
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             # Validate contact fields if provided
             validation_errors = []
@@ -1012,17 +1281,17 @@ class CreativeController:
                 service_exists = False
                 bundle_exists = False
                 
-                # Check services
+                # Check services (using authenticated client - respects RLS)
                 try:
-                    service_result = db_admin.table('creative_services').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
+                    service_result = client.table('creative_services').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
                     service_exists = service_result.data and len(service_result.data) > 0
                 except Exception as e:
                     print(f"Service validation error: {e}")
                     service_exists = False
                 
-                # Check bundles
+                # Check bundles (using authenticated client - respects RLS)
                 try:
-                    bundle_result = db_admin.table('creative_bundles').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
+                    bundle_result = client.table('creative_bundles').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
                     bundle_exists = bundle_result.data and len(bundle_result.data) > 0
                 except Exception as e:
                     print(f"Bundle validation error: {e}")
@@ -1036,17 +1305,17 @@ class CreativeController:
                 service_exists = False
                 bundle_exists = False
                 
-                # Check services
+                # Check services (using authenticated client - respects RLS)
                 try:
-                    service_result = db_admin.table('creative_services').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
+                    service_result = client.table('creative_services').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
                     service_exists = service_result.data and len(service_result.data) > 0
                 except Exception as e:
                     print(f"Service validation error: {e}")
                     service_exists = False
                 
-                # Check bundles
+                # Check bundles (using authenticated client - respects RLS)
                 try:
-                    bundle_result = db_admin.table('creative_bundles').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
+                    bundle_result = client.table('creative_bundles').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
                     bundle_exists = bundle_result.data and len(bundle_result.data) > 0
                 except Exception as e:
                     print(f"Bundle validation error: {e}")
@@ -1110,29 +1379,29 @@ class CreativeController:
             if settings_request.avatar_background_color is not None:
                 update_data['avatar_background_color'] = settings_request.avatar_background_color
             
-            # Check if creative profile exists, if not create it
+            # Check if creative profile exists, if not create it (using authenticated client - respects RLS)
             try:
-                existing_profile = db_admin.table('creatives').select('user_id').eq('user_id', user_id).execute()
+                existing_profile = client.table('creatives').select('user_id').eq('user_id', user_id).execute()
                 profile_exists = existing_profile.data and len(existing_profile.data) > 0
             except:
                 profile_exists = False
             
             if not profile_exists:
-                # Create new creative profile with the update data
+                # Create new creative profile with the update data (using authenticated client - respects RLS)
                 create_data = {
                     'user_id': user_id,
                     **update_data
                 }
                 try:
-                    result = db_admin.table('creatives').insert(create_data).execute()
+                    result = client.table('creatives').insert(create_data).execute()
                     if not result.data:
                         raise HTTPException(status_code=500, detail="Failed to create creative profile")
                 except Exception as e:
                     raise HTTPException(status_code=500, detail=f"Failed to create creative profile: {str(e)}")
             else:
-                # Update existing creative profile
+                # Update existing creative profile (using authenticated client - respects RLS)
                 try:
-                    result = db_admin.table('creatives').update(update_data).eq('user_id', user_id).execute()
+                    result = client.table('creatives').update(update_data).eq('user_id', user_id).execute()
                     if not result.data:
                         raise HTTPException(status_code=404, detail="Creative profile not found")
                 except Exception as e:
@@ -1149,8 +1418,17 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to update profile settings: {str(e)}")
 
     @staticmethod
-    async def upload_profile_photo(user_id: str, file: UploadFile) -> ProfilePhotoUploadResponse:
-        """Upload a profile photo for the creative"""
+    async def upload_profile_photo(user_id: str, file: UploadFile, client: Client = None) -> ProfilePhotoUploadResponse:
+        """Upload a profile photo for the creative
+        
+        Args:
+            user_id: The user ID to upload photo for
+            file: The uploaded file
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             # Validate file type
             if not file.content_type or not file.content_type.startswith('image/'):
@@ -1163,8 +1441,8 @@ class CreativeController:
             if file_size > 5 * 1024 * 1024:  # 5MB
                 raise HTTPException(status_code=400, detail="File size must be less than 5MB")
             
-            # Get current profile to find old photo URL
-            current_profile = db_admin.table('creatives').select('profile_banner_url').eq('user_id', user_id).single().execute()
+            # Get current profile to find old photo URL (using authenticated client - respects RLS)
+            current_profile = client.table('creatives').select('profile_banner_url').eq('user_id', user_id).single().execute()
             old_photo_url = None
             if current_profile.data and current_profile.data.get('profile_banner_url'):
                 old_photo_url = current_profile.data['profile_banner_url']
@@ -1190,8 +1468,8 @@ class CreativeController:
             # Get the public URL
             public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
             
-            # Update the creative profile with the new photo URL
-            update_result = db_admin.table('creatives').update({
+            # Update the creative profile with the new photo URL (using authenticated client - respects RLS)
+            update_result = client.table('creatives').update({
                 'profile_banner_url': public_url,
                 'profile_source': 'custom'
             }).eq('user_id', user_id).execute()
@@ -1232,11 +1510,20 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
 
     @staticmethod
-    async def create_bundle(user_id: str, bundle_request: CreateBundleRequest) -> CreateBundleResponse:
-        """Create a new bundle for the creative"""
+    async def create_bundle(user_id: str, bundle_request: CreateBundleRequest, client: Client = None) -> CreateBundleResponse:
+        """Create a new bundle for the creative
+        
+        Args:
+            user_id: The user ID to create bundle for
+            bundle_request: The bundle request data
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Validate that the user has a creative profile
-            creative_result = db_admin.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
+            # Validate that the user has a creative profile (using authenticated client - respects RLS)
+            creative_result = client.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
             if not creative_result.data:
                 raise HTTPException(status_code=404, detail="Creative profile not found. Please complete your creative setup first.")
             
@@ -1244,8 +1531,8 @@ class CreativeController:
             if not bundle_request.service_ids or len(bundle_request.service_ids) < 2:
                 raise HTTPException(status_code=422, detail="Bundle must contain at least 2 services")
             
-            # Check that all services exist and belong to the user
-            services_result = db_admin.table('creative_services').select(
+            # Check that all services exist and belong to the user (using authenticated client - respects RLS)
+            services_result = client.table('creative_services').select(
                 'id, title, price, status'
             ).eq('creative_user_id', user_id).eq('is_active', True).in_('id', bundle_request.service_ids).execute()
             
@@ -1284,25 +1571,25 @@ class CreativeController:
                 'is_active': True
             }
             
-            # Insert the bundle
-            bundle_result = db_admin.table('creative_bundles').insert(bundle_data).execute()
+            # Insert the bundle (using authenticated client - respects RLS)
+            bundle_result = client.table('creative_bundles').insert(bundle_data).execute()
             
             if not bundle_result.data:
                 raise HTTPException(status_code=500, detail="Failed to create bundle")
             
             bundle_id = bundle_result.data[0]['id']
             
-            # Insert bundle-service relationships
+            # Insert bundle-service relationships (using authenticated client - respects RLS)
             bundle_services_data = [
                 {'bundle_id': bundle_id, 'service_id': service_id}
                 for service_id in bundle_request.service_ids
             ]
             
-            bundle_services_result = db_admin.table('bundle_services').insert(bundle_services_data).execute()
+            bundle_services_result = client.table('bundle_services').insert(bundle_services_data).execute()
             
             if not bundle_services_result.data:
-                # If bundle services insertion fails, clean up the bundle
-                db_admin.table('creative_bundles').delete().eq('id', bundle_id).execute()
+                # If bundle services insertion fails, clean up the bundle (using authenticated client - respects RLS)
+                client.table('creative_bundles').delete().eq('id', bundle_id).execute()
                 raise HTTPException(status_code=500, detail="Failed to associate services with bundle")
             
             return CreateBundleResponse(
@@ -1435,13 +1722,34 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch creative bundles: {str(e)}")
 
     @staticmethod
-    async def get_creative_services_and_bundles(user_id: str) -> PublicServicesAndBundlesResponse:
-        """Get all services and bundles associated with the creative"""
+    async def get_creative_services_and_bundles(user_id: str, client: Client, public_only: bool = False) -> PublicServicesAndBundlesResponse:
+        """Get all services and bundles associated with the creative
+        
+        Args:
+            user_id: The creative user ID
+            client: Supabase client (required, respects RLS policies).
+                   For authenticated endpoints, use authenticated client.
+                   For public endpoints, use db_client (anon key).
+            public_only: If True, only return public services and bundles. 
+                        If False, return all services and bundles (for authenticated users).
+            
+        Raises:
+            ValueError: If client is not provided
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Get services
-            services_result = db_admin.table('creative_services').select(
+            # Build services query
+            services_query = client.table('creative_services').select(
                 'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking'
-            ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
+            ).eq('creative_user_id', user_id).eq('is_active', True)
+            
+            # Filter for public only if requested
+            if public_only:
+                services_query = services_query.eq('status', 'Public')
+            
+            services_result = services_query.order('created_at', desc=True).execute()
             
             services = []
             if services_result.data:
@@ -1449,7 +1757,7 @@ class CreativeController:
                 service_ids = [service['id'] for service in services_result.data]
                 
                 # Get photos for all services
-                photos_result = db_admin.table('service_photos').select(
+                photos_result = client.table('service_photos').select(
                     'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
                 ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
                 
@@ -1486,28 +1794,34 @@ class CreativeController:
                     )
                     services.append(service)
             
-            # Get bundles
-            bundles_result = db_admin.table('creative_bundles').select(
+            # Build bundles query
+            bundles_query = client.table('creative_bundles').select(
                 'id, title, description, color, status, pricing_option, fixed_price, discount_percentage, is_active, created_at, updated_at'
-            ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
+            ).eq('creative_user_id', user_id).eq('is_active', True)
+            
+            # Filter for public only if requested
+            if public_only:
+                bundles_query = bundles_query.eq('status', 'Public')
+            
+            bundles_result = bundles_query.order('created_at', desc=True).execute()
             
             bundles = []
             if bundles_result.data:
                 for bundle_data in bundles_result.data:
                     # Get services for this bundle
-                    bundle_services_result = db_admin.table('bundle_services').select(
+                    bundle_services_result = client.table('bundle_services').select(
                         'service_id'
                     ).eq('bundle_id', bundle_data['id']).execute()
                     
                     service_ids = [bs['service_id'] for bs in bundle_services_result.data] if bundle_services_result.data else []
                     
                     # Get service details
-                    services_result = db_admin.table('creative_services').select(
+                    services_result = client.table('creative_services').select(
                         'id, title, description, price, delivery_time, status, color'
                     ).in_('id', service_ids).execute()
                     
                     # Fetch photos for bundle services
-                    bundle_photos_result = db_admin.table('service_photos').select(
+                    bundle_photos_result = client.table('service_photos').select(
                         'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
                     ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
                     
@@ -1582,11 +1896,21 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch creative services and bundles: {str(e)}")
 
     @staticmethod
-    async def update_bundle(user_id: str, bundle_id: str, bundle_request: UpdateBundleRequest) -> UpdateBundleResponse:
-        """Update an existing bundle"""
+    async def update_bundle(user_id: str, bundle_id: str, bundle_request: UpdateBundleRequest, client: Client = None) -> UpdateBundleResponse:
+        """Update an existing bundle
+        
+        Args:
+            user_id: The user ID to update bundle for
+            bundle_id: The bundle ID to update
+            bundle_request: The bundle update request data
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Verify the bundle exists and belongs to the user
-            bundle_result = db_admin.table('creative_bundles').select(
+            # Verify the bundle exists and belongs to the user (using authenticated client - respects RLS)
+            bundle_result = client.table('creative_bundles').select(
                 'id, creative_user_id, is_active'
             ).eq('id', bundle_id).single().execute()
 
@@ -1628,8 +1952,8 @@ class CreativeController:
                 if len(bundle_request.service_ids) < 2:
                     raise HTTPException(status_code=422, detail="Bundle must contain at least 2 services")
 
-                # Check that all services exist and belong to the user
-                services_result = db_admin.table('creative_services').select(
+                # Check that all services exist and belong to the user (using authenticated client - respects RLS)
+                services_result = client.table('creative_services').select(
                     'id, title, price, status'
                 ).eq('creative_user_id', user_id).eq('is_active', True).in_('id', bundle_request.service_ids).execute()
 
@@ -1641,17 +1965,17 @@ class CreativeController:
                     if service['status'] not in ['Public', 'Bundle-Only']:
                         raise HTTPException(status_code=422, detail=f"Service '{service['title']}' cannot be included in bundles (must be Public or Bundle-Only)")
 
-            # Update the bundle
+            # Update the bundle (using authenticated client - respects RLS)
             if update_data:
                 update_data['updated_at'] = 'now()'
-                result = db_admin.table('creative_bundles').update(update_data).eq('id', bundle_id).execute()
+                result = client.table('creative_bundles').update(update_data).eq('id', bundle_id).execute()
                 if not result.data:
                     raise HTTPException(status_code=500, detail="Failed to update bundle")
 
-            # Update bundle-service relationships if service_ids are provided
+            # Update bundle-service relationships if service_ids are provided (using authenticated client - respects RLS)
             if bundle_request.service_ids is not None:
                 # Delete existing bundle-service relationships
-                db_admin.table('bundle_services').delete().eq('bundle_id', bundle_id).execute()
+                client.table('bundle_services').delete().eq('bundle_id', bundle_id).execute()
 
                 # Insert new bundle-service relationships
                 bundle_services_data = [
@@ -1659,7 +1983,7 @@ class CreativeController:
                     for service_id in bundle_request.service_ids
                 ]
 
-                bundle_services_result = db_admin.table('bundle_services').insert(bundle_services_data).execute()
+                bundle_services_result = client.table('bundle_services').insert(bundle_services_data).execute()
 
                 if not bundle_services_result.data:
                     raise HTTPException(status_code=500, detail="Failed to update bundle services")
@@ -1672,11 +1996,20 @@ class CreativeController:
             raise HTTPException(status_code=500, detail=f"Failed to update bundle: {str(e)}")
 
     @staticmethod
-    async def delete_bundle(user_id: str, bundle_id: str) -> DeleteBundleResponse:
-        """Soft delete a bundle by setting is_active to False"""
+    async def delete_bundle(user_id: str, bundle_id: str, client: Client = None) -> DeleteBundleResponse:
+        """Soft delete a bundle by setting is_active to False
+        
+        Args:
+            user_id: The user ID to delete bundle for
+            bundle_id: The bundle ID to delete
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # First, verify the bundle exists and belongs to the user
-            bundle_result = db_admin.table('creative_bundles').select(
+            # First, verify the bundle exists and belongs to the user (using authenticated client - respects RLS)
+            bundle_result = client.table('creative_bundles').select(
                 'id, creative_user_id, is_active, title'
             ).eq('id', bundle_id).single().execute()
             
@@ -1693,8 +2026,8 @@ class CreativeController:
             if not bundle_data['is_active']:
                 raise HTTPException(status_code=400, detail="Bundle is already deleted")
             
-            # Soft delete by setting is_active to False and updating timestamp
-            result = db_admin.table('creative_bundles').update({
+            # Soft delete by setting is_active to False and updating timestamp (using authenticated client - respects RLS)
+            result = client.table('creative_bundles').update({
                 'is_active': False,
                 'updated_at': 'now()'
             }).eq('id', bundle_id).execute()
@@ -1712,151 +2045,3 @@ class CreativeController:
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete bundle: {str(e)}")
 
-    @staticmethod
-    async def get_public_creative_services_and_bundles(user_id: str) -> dict:
-        """Get all public services and bundles for a creative (for public viewing)"""
-        try:
-            # Get public services
-            services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking'
-            ).eq('creative_user_id', user_id).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
-            
-            services = []
-            if services_result.data:
-                # Get all service IDs for photo fetching
-                service_ids = [service['id'] for service in services_result.data]
-                
-                # Fetch photos for all services
-                photos_result = db_admin.table('service_photos').select(
-                    'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
-                ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
-                
-                # Group photos by service_id
-                photos_by_service = {}
-                if photos_result.data:
-                    for photo in photos_result.data:
-                        service_id = photo['service_id']
-                        if service_id not in photos_by_service:
-                            photos_by_service[service_id] = []
-                        photos_by_service[service_id].append({
-                            'photo_url': photo['photo_url'],
-                            'photo_filename': photo['photo_filename'],
-                            'photo_size_bytes': photo['photo_size_bytes'],
-                            'is_primary': photo['is_primary'],
-                            'display_order': photo['display_order']
-                        })
-                
-                for service_data in services_result.data:
-                    service_photos = photos_by_service.get(service_data['id'], [])
-                    
-                    service = CreativeServiceResponse(
-                        id=service_data['id'],
-                        title=service_data['title'],
-                        description=service_data['description'],
-                        price=float(service_data['price']),
-                        delivery_time=service_data['delivery_time'],
-                        status=service_data['status'],
-                        color=service_data['color'],
-                        payment_option=service_data['payment_option'],
-                        is_active=service_data['is_active'],
-                        created_at=service_data['created_at'],
-                        updated_at=service_data['updated_at'],
-                        requires_booking=service_data['requires_booking'],
-                        photos=service_photos
-                    )
-                    services.append(service)
-            
-            # Get public bundles
-            bundles_result = db_admin.table('creative_bundles').select(
-                'id, title, description, color, status, pricing_option, fixed_price, discount_percentage, is_active, created_at, updated_at'
-            ).eq('creative_user_id', user_id).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
-            
-            bundles = []
-            if bundles_result.data:
-                for bundle_data in bundles_result.data:
-                    # Get services for this bundle
-                    bundle_services_result = db_admin.table('bundle_services').select(
-                        'service_id'
-                    ).eq('bundle_id', bundle_data['id']).execute()
-                    
-                    service_ids = [bs['service_id'] for bs in bundle_services_result.data] if bundle_services_result.data else []
-                    
-                    # Get service details
-                    services_result = db_admin.table('creative_services').select(
-                        'id, title, description, price, delivery_time, status, color'
-                    ).in_('id', service_ids).execute()
-                    
-                    # Fetch photos for bundle services
-                    bundle_photos_result = db_admin.table('service_photos').select(
-                        'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
-                    ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
-                    
-                    # Group photos by service_id
-                    bundle_photos_by_service = {}
-                    if bundle_photos_result.data:
-                        for photo in bundle_photos_result.data:
-                            service_id = photo['service_id']
-                            if service_id not in bundle_photos_by_service:
-                                bundle_photos_by_service[service_id] = []
-                            bundle_photos_by_service[service_id].append({
-                                'photo_url': photo['photo_url'],
-                                'photo_filename': photo['photo_filename'],
-                                'photo_size_bytes': photo['photo_size_bytes'],
-                                'is_primary': photo['is_primary'],
-                                'display_order': photo['display_order']
-                            })
-                    
-                    bundle_services = []
-                    total_services_price = 0
-                    for service_data in services_result.data:
-                        service_photos = bundle_photos_by_service.get(service_data['id'], [])
-                        service = BundleServiceResponse(
-                            id=service_data['id'],
-                            title=service_data['title'],
-                            description=service_data['description'],
-                            price=float(service_data['price']),
-                            delivery_time=service_data['delivery_time'],
-                            status=service_data['status'],
-                            color=service_data['color'],
-                            photos=service_photos
-                        )
-                        bundle_services.append(service)
-                        total_services_price += service.price
-                    
-                    # Calculate final price
-                    if bundle_data['pricing_option'] == 'fixed':
-                        final_price = float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else total_services_price
-                    else:  # discount
-                        discount_percentage = float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else 0
-                        discount_amount = total_services_price * (discount_percentage / 100)
-                        final_price = total_services_price - discount_amount
-                    
-                    bundle = CreativeBundleResponse(
-                        id=bundle_data['id'],
-                        title=bundle_data['title'],
-                        description=bundle_data['description'],
-                        color=bundle_data['color'],
-                        status=bundle_data['status'],
-                        pricing_option=bundle_data['pricing_option'],
-                        fixed_price=float(bundle_data['fixed_price']) if bundle_data['fixed_price'] else None,
-                        discount_percentage=float(bundle_data['discount_percentage']) if bundle_data['discount_percentage'] else None,
-                        total_services_price=total_services_price,
-                        final_price=final_price,
-                        services=bundle_services,
-                        is_active=bundle_data['is_active'],
-                        created_at=bundle_data['created_at'],
-                        updated_at=bundle_data['updated_at']
-                    )
-                    bundles.append(bundle)
-            
-            return {
-                'services': services,
-                'bundles': bundles,
-                'services_count': len(services),
-                'bundles_count': len(bundles)
-            }
-            
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch public services and bundles: {str(e)}")

@@ -121,7 +121,7 @@ export function ClientDashboard() {
     
     const fetchPromise = (async () => {
       try {
-        const notifications = await getNotifications(50, 0, false, 'client');
+        const notifications = await getNotifications(25, 0, false, 'client');
         const items = notificationsToActivityItems(notifications);
         
         // Cache the result

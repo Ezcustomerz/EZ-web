@@ -10,8 +10,14 @@ class UserController:
         
         Args:
             user_id: The user ID to fetch profile for
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Query the users table using authenticated client (respects RLS)
             result = client.table('users').select('*').eq('user_id', user_id).single().execute()
@@ -41,8 +47,14 @@ class UserController:
         Args:
             user_id: The user ID to update roles for
             role_request: The request containing selected roles
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Validate roles
             selected_roles = role_request.selected_roles
@@ -100,8 +112,14 @@ class UserController:
         
         Args:
             user_id: The user ID to check setup status for
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Get user's roles (using authenticated client - respects RLS)
             user_result = client.table('users').select('roles, first_login').eq('user_id', user_id).single().execute()
@@ -164,8 +182,14 @@ class UserController:
         Args:
             user_id: The user ID to create profiles for
             setup_request: The request containing profile data for each role
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Get user data for profile fields (using authenticated client - respects RLS)
             user_result = client.table('users').select('roles, name, email, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
@@ -305,8 +329,14 @@ class UserController:
         
         Args:
             user_id: The user ID to fetch role profiles for
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Get user's roles first using authenticated client (respects RLS)
             user_result = client.table('users').select('roles').eq('user_id', user_id).single().execute()
@@ -376,11 +406,17 @@ class UserController:
         """Get all active subscription tiers with formatted storage display
         
         Args:
-            client: Supabase client (can be db_client for public access or authenticated client)
+            client: Authenticated Supabase client (required, respects RLS policies)
         
         Returns:
             List of subscription tiers with formatted storage display
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Query subscription tiers (respects RLS - public read policy allows anonymous access)
             result = client.table('subscription_tiers').select(

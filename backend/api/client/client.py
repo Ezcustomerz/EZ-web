@@ -4,7 +4,8 @@ from schemas.client import ClientCreativesListResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
-from db.db_session import get_authenticated_client
+from db.db_session import get_authenticated_client_dep
+from supabase import Client
 
 router = APIRouter()
 
@@ -12,7 +13,8 @@ router = APIRouter()
 @limiter.limit("2 per second")
 async def get_client_profile(
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Get the current user's client profile
     Requires authentication - will return 401 if not authenticated.
@@ -20,9 +22,8 @@ async def get_client_profile(
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
-        
-        # Get authenticated Supabase client (respects RLS policies)
-        client = get_authenticated_client(request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
         return await ClientController.get_client_profile(user_id, client)
         
@@ -35,7 +36,8 @@ async def get_client_profile(
 @limiter.limit("2 per second")
 async def get_client_creatives(
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Get all creatives connected to the current client
     Requires authentication - will return 401 if not authenticated.
@@ -43,8 +45,10 @@ async def get_client_creatives(
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        return await ClientController.get_client_creatives(user_id)
+        return await ClientController.get_client_creatives(user_id, client)
         
     except HTTPException:
         raise
@@ -55,7 +59,8 @@ async def get_client_creatives(
 @limiter.limit("2 per second")
 async def get_connected_services_and_bundles(
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Get all services and bundles from creatives connected to the current client
     Requires authentication - will return 401 if not authenticated.
@@ -63,8 +68,10 @@ async def get_connected_services_and_bundles(
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        return await ClientController.get_connected_services_and_bundles(user_id)
+        return await ClientController.get_connected_services_and_bundles(user_id, client)
         
     except HTTPException:
         raise

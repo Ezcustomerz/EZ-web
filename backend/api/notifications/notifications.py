@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import Optional, List, Dict, Any
 import logging
+from supabase import Client
 from core.limiter import limiter
 from core.verify import require_auth
+from db.db_session import get_authenticated_client_dep
 from services.notifications import NotificationsController
 from schemas.notifications import NotificationResponse, UnreadCountResponse
 
@@ -15,7 +17,8 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 async def get_notifications(
     request: Request,
     current_user: Dict[str, Any] = Depends(require_auth),
-    limit: Optional[int] = 50,
+    client: Client = Depends(get_authenticated_client_dep),
+    limit: Optional[int] = 25,
     offset: Optional[int] = 0,
     unread_only: Optional[bool] = False,
     role_context: Optional[str] = None
@@ -35,7 +38,7 @@ async def get_notifications(
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
         return await NotificationsController.get_notifications(
-            user_id, limit, offset, unread_only, role_context
+            user_id, limit, offset, unread_only, role_context, client
         )
     except HTTPException:
         raise
@@ -49,6 +52,7 @@ async def get_notifications(
 async def get_unread_count(
     request: Request,
     current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep),
     role_context: Optional[str] = None
 ):
     """
@@ -64,7 +68,7 @@ async def get_unread_count(
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        return await NotificationsController.get_unread_count(user_id, role_context)
+        return await NotificationsController.get_unread_count(user_id, role_context, client)
     except HTTPException:
         raise
     except Exception as e:

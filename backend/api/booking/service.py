@@ -22,8 +22,7 @@ async def get_calendar_settings(
     Requires authentication - will return 401 if not authenticated.
     """
     try:
-        booking_service = BookingService()
-        settings = booking_service.get_calendar_settings(service_id, client)
+        settings = BookingService.get_calendar_settings(service_id, client)
         
         if not settings:
             raise HTTPException(status_code=404, detail="Calendar settings not found")
@@ -46,14 +45,12 @@ async def get_weekly_schedule(
     Requires authentication - will return 401 if not authenticated.
     """
     try:
-        booking_service = BookingService()
-        
         # First get calendar settings to get the calendar_setting_id
-        calendar_settings = booking_service.get_calendar_settings(service_id, client)
+        calendar_settings = BookingService.get_calendar_settings(service_id, client)
         if not calendar_settings:
             raise HTTPException(status_code=404, detail="Calendar settings not found")
         
-        schedule = booking_service.get_weekly_schedule(calendar_settings["id"], client)
+        schedule = BookingService.get_weekly_schedule(calendar_settings["id"], client)
         
         return {"success": True, "data": schedule}
     except HTTPException:
@@ -73,21 +70,19 @@ async def get_time_slots(
     Requires authentication - will return 401 if not authenticated.
     """
     try:
-        booking_service = BookingService()
-        
         # First get calendar settings to get the calendar_setting_id
-        calendar_settings = booking_service.get_calendar_settings(service_id, client)
+        calendar_settings = BookingService.get_calendar_settings(service_id, client)
         if not calendar_settings:
             raise HTTPException(status_code=404, detail="Calendar settings not found")
         
         # Get weekly schedule
-        weekly_schedule = booking_service.get_weekly_schedule(calendar_settings["id"], client)
+        weekly_schedule = BookingService.get_weekly_schedule(calendar_settings["id"], client)
         
         # Get time slots for each day
         all_time_slots = []
         for day in weekly_schedule:
             if day["is_enabled"]:
-                day_slots = booking_service.get_time_slots(day["id"], client)
+                day_slots = BookingService.get_time_slots(day["id"], client)
                 all_time_slots.extend(day_slots)
         
         return {"success": True, "data": all_time_slots}
@@ -110,8 +105,6 @@ async def get_available_dates(
     Requires authentication - will return 401 if not authenticated.
     """
     try:
-        booking_service = BookingService()
-        
         # Parse dates
         start = None
         end = None
@@ -128,7 +121,7 @@ async def get_available_dates(
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
         
-        available_dates = booking_service.get_available_dates(service_id, start, end, client)
+        available_dates = BookingService.get_available_dates(service_id, client, start, end)
         
         return {"success": True, "data": available_dates}
     except HTTPException:
@@ -149,15 +142,13 @@ async def get_available_time_slots(
     Requires authentication - will return 401 if not authenticated.
     """
     try:
-        booking_service = BookingService()
-        
         # Parse date
         try:
             booking_date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid booking_date format. Use YYYY-MM-DD")
         
-        time_slots = booking_service.get_available_time_slots(service_id, booking_date_obj, client)
+        time_slots = BookingService.get_available_time_slots(service_id, booking_date_obj, client)
         
         return {"success": True, "data": time_slots}
     except HTTPException:
@@ -177,8 +168,7 @@ async def get_service_booking_data(
     Requires authentication - will return 401 if not authenticated.
     """
     try:
-        booking_service = BookingService()
-        booking_data = booking_service.get_service_booking_data(service_id, client)
+        booking_data = BookingService.get_service_booking_data(service_id, client)
         
         if "error" in booking_data:
             raise HTTPException(status_code=404, detail=booking_data["error"])

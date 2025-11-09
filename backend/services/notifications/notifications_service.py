@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from typing import List, Optional, Dict, Any
 import logging
-from db.db_session import db_admin
+from supabase import Client
 from schemas.notifications import NotificationResponse, UnreadCountResponse
 
 logger = logging.getLogger(__name__)
@@ -13,10 +13,11 @@ class NotificationsController:
     @staticmethod
     async def get_notifications(
         user_id: str,
-        limit: int = 50,
+        limit: int = 25,
         offset: int = 0,
         unread_only: bool = False,
-        role_context: Optional[str] = None
+        role_context: Optional[str] = None,
+        client: Client = None
     ) -> List[NotificationResponse]:
         """
         Get notifications for the current user, filtered by their role context.
@@ -29,10 +30,14 @@ class NotificationsController:
             role_context: Optional role context ('client', 'creative', 'advocate'). 
                          If provided, only notifications with this role in target_roles will be returned.
                          If not provided, returns notifications for all of the user's roles.
+            client: Authenticated Supabase client (required, respects RLS policies)
         """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Get user roles from database to filter notifications
-            user_response = db_admin.table("users") \
+            # Get user roles from database to filter notifications (using authenticated client - respects RLS)
+            user_response = client.table("users") \
                 .select("roles") \
                 .eq("user_id", user_id) \
                 .single() \
@@ -57,8 +62,8 @@ class NotificationsController:
                 # No role context provided - filter by all user roles (backward compatibility)
                 filter_role = None
             
-            # Build query - filter by recipient_user_id
-            query = db_admin.table("notifications") \
+            # Build query - filter by recipient_user_id (using authenticated client - respects RLS)
+            query = client.table("notifications") \
                 .select("*") \
                 .eq("recipient_user_id", user_id) \
                 .order("created_at", desc=True) \
@@ -110,11 +115,11 @@ class NotificationsController:
                 if related_user_id:
                     user_ids_needing_avatar_color.add(related_user_id)
             
-            # Batch fetch all bookings that we need
+            # Batch fetch all bookings that we need (using authenticated client - respects RLS)
             bookings_map = {}
             if booking_ids:
                 try:
-                    bookings_response = db_admin.table("bookings") \
+                    bookings_response = client.table("bookings") \
                         .select("id, service_id, creative_user_id") \
                         .in_("id", booking_ids) \
                         .execute()
@@ -137,7 +142,8 @@ class NotificationsController:
             
             if service_ids:
                 try:
-                    services_response = db_admin.table("creative_services") \
+                    # Batch fetch service colors (using authenticated client - respects RLS)
+                    services_response = client.table("creative_services") \
                         .select("id, color") \
                         .in_("id", service_ids) \
                         .execute()
@@ -148,11 +154,11 @@ class NotificationsController:
                 except Exception as e:
                     logger.error(f"Error batch fetching service colors: {e}")
             
-            # Batch fetch all creative avatar colors
+            # Batch fetch all creative avatar colors (using authenticated client - respects RLS)
             creatives_map = {}
             if user_ids_needing_avatar_color:
                 try:
-                    creatives_response = db_admin.table("creatives") \
+                    creatives_response = client.table("creatives") \
                         .select("user_id, avatar_background_color") \
                         .in_("user_id", list(user_ids_needing_avatar_color)) \
                         .execute()
@@ -209,7 +215,8 @@ class NotificationsController:
     @staticmethod
     async def get_unread_count(
         user_id: str,
-        role_context: Optional[str] = None
+        role_context: Optional[str] = None,
+        client: Client = None
     ) -> UnreadCountResponse:
         """
         Get count of unread notifications for the current user, filtered by role context.
@@ -218,10 +225,14 @@ class NotificationsController:
             user_id: The user ID to count unread notifications for
             role_context: Optional role context ('client', 'creative', 'advocate'). 
                          If provided, only counts notifications with this role in target_roles.
+            client: Authenticated Supabase client (required, respects RLS policies)
         """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
-            # Get user roles from database to filter notifications
-            user_response = db_admin.table("users") \
+            # Get user roles from database to filter notifications (using authenticated client - respects RLS)
+            user_response = client.table("users") \
                 .select("roles") \
                 .eq("user_id", user_id) \
                 .single() \
@@ -243,7 +254,8 @@ class NotificationsController:
             else:
                 filter_role = None
             
-            result = db_admin.table("notifications") \
+            # Query unread notifications (using authenticated client - respects RLS)
+            result = client.table("notifications") \
                 .select("id, target_roles") \
                 .eq("recipient_user_id", user_id) \
                 .eq("is_read", False) \

@@ -6,11 +6,17 @@ from supabase import Client
 
 class ClientController:
     @staticmethod
-    async def setup_client_profile(user_id: str, setup_request: ClientSetupRequest) -> ClientSetupResponse:
-        """Set up client profile in the clients table"""
+    async def setup_client_profile(user_id: str, setup_request: ClientSetupRequest, client: Client) -> ClientSetupResponse:
+        """Set up client profile in the clients table
+        
+        Args:
+            user_id: The user ID to set up client profile for
+            setup_request: The request containing client profile data
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
-            # Get user profile data
-            user_result = db_admin.table('users').select('roles, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
+            # Get user profile data (using authenticated client - respects RLS)
+            user_result = client.table('users').select('roles, profile_picture_url, avatar_source').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
@@ -20,8 +26,8 @@ class ClientController:
             # If user doesn't have client role, add it
             if 'client' not in user_roles:
                 user_roles.append('client')
-                # Update user's roles in the database
-                update_result = db_admin.table('users').update({'roles': user_roles}).eq('user_id', user_id).execute()
+                # Update user's roles in the database (using authenticated client - respects RLS)
+                update_result = client.table('users').update({'roles': user_roles}).eq('user_id', user_id).execute()
                 if not update_result.data:
                     raise HTTPException(status_code=500, detail="Failed to update user roles")
             
@@ -46,8 +52,8 @@ class ClientController:
                 'profile_source': avatar_source,  # Copy avatar source as profile source
             }
             
-            # Insert or update client profile (upsert)
-            result = db_admin.table('clients').upsert(client_data).execute()
+            # Insert or update client profile (upsert) (using authenticated client - respects RLS)
+            result = client.table('clients').upsert(client_data).execute()
             
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create client profile")
@@ -85,11 +91,16 @@ class ClientController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch client profile: {str(e)}")
 
     @staticmethod
-    async def get_client_creatives(user_id: str) -> ClientCreativesListResponse:
-        """Get all creatives connected to this client - simplified approach"""
+    async def get_client_creatives(user_id: str, client: Client) -> ClientCreativesListResponse:
+        """Get all creatives connected to this client - simplified approach
+        
+        Args:
+            user_id: The user ID to fetch creatives for
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
             # Get creative user IDs first
-            relationships_result = db_admin.table('creative_client_relationships').select(
+            relationships_result = client.table('creative_client_relationships').select(
                 'id, status, total_spent, projects_count, creative_user_id'
             ).eq('client_user_id', user_id).order('updated_at', desc=True).execute()
             
@@ -99,11 +110,11 @@ class ClientController:
             creative_user_ids = [rel['creative_user_id'] for rel in relationships_result.data]
             
             # Batch fetch all creative and user data to avoid N+1 queries
-            creatives_result = db_admin.table('creatives').select(
+            creatives_result = client.table('creatives').select(
                 'display_name, title, user_id, avatar_background_color, profile_banner_url, primary_contact, secondary_contact, description, availability_location, profile_highlights, profile_highlight_values'
             ).in_('user_id', creative_user_ids).execute()
             
-            users_result = db_admin.table('users').select(
+            users_result = client.table('users').select(
                 'name, email, profile_picture_url, user_id'
             ).in_('user_id', creative_user_ids).execute()
             
@@ -116,7 +127,7 @@ class ClientController:
             for creative_user_id in creative_user_ids:
                 try:
                     # Try using count parameter instead of counting data length
-                    service_count_result = db_admin.table('creative_services').select(
+                    service_count_result = client.table('creative_services').select(
                         'id', count='exact'
                     ).eq('creative_user_id', creative_user_id).eq('is_active', True).execute()
                     
@@ -128,7 +139,7 @@ class ClientController:
                     print(f"Error getting service count for creative {creative_user_id}: {e}")
                     # Fallback to counting data length
                     try:
-                        service_count_result = db_admin.table('creative_services').select(
+                        service_count_result = client.table('creative_services').select(
                             'id'
                         ).eq('creative_user_id', creative_user_id).eq('is_active', True).execute()
                         count = len(service_count_result.data) if service_count_result.data else 0
@@ -343,11 +354,16 @@ class ClientController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch connected services: {str(e)}")
 
     @staticmethod
-    async def get_connected_services_and_bundles(user_id: str) -> dict:
-        """Get all services and bundles from creatives connected to this client"""
+    async def get_connected_services_and_bundles(user_id: str, client: Client) -> dict:
+        """Get all services and bundles from creatives connected to this client
+        
+        Args:
+            user_id: The user ID to fetch services and bundles for
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
             # Get creative user IDs that this client is connected to
-            relationships_result = db_admin.table('creative_client_relationships').select(
+            relationships_result = client.table('creative_client_relationships').select(
                 'creative_user_id'
             ).eq('client_user_id', user_id).execute()
             
@@ -357,12 +373,12 @@ class ClientController:
             creative_user_ids = [rel['creative_user_id'] for rel in relationships_result.data]
             
             # Get all services from these creatives
-            services_result = db_admin.table('creative_services').select(
+            services_result = client.table('creative_services').select(
                 'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id, requires_booking'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             # Get all bundles from these creatives
-            bundles_result = db_admin.table('creative_bundles').select(
+            bundles_result = client.table('creative_bundles').select(
                 'id, title, description, color, status, pricing_option, fixed_price, discount_percentage, is_active, created_at, updated_at, creative_user_id'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
@@ -375,7 +391,7 @@ class ClientController:
                 *[bundle['creative_user_id'] for bundle in bundles_result.data or []]
             ]))
             
-            creatives_result = db_admin.table('creatives').select(
+            creatives_result = client.table('creatives').select(
                 'user_id, display_name, title, profile_banner_url'
             ).in_('user_id', all_creative_user_ids).execute()
             
@@ -383,7 +399,7 @@ class ClientController:
             creatives_map = {c['user_id']: c for c in creatives_result.data}
             
             # Get user details for these creatives
-            users_result = db_admin.table('users').select(
+            users_result = client.table('users').select(
                 'user_id, name'
             ).in_('user_id', all_creative_user_ids).execute()
             
@@ -397,7 +413,7 @@ class ClientController:
                 service_ids = [service['id'] for service in services_result.data]
                 
                 # Fetch photos for all services
-                photos_result = db_admin.table('service_photos').select(
+                photos_result = client.table('service_photos').select(
                     'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
                 ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
                 
@@ -452,19 +468,19 @@ class ClientController:
                     user_data = users_map.get(creative_user_id, {})
                     
                     # Get services for this bundle
-                    bundle_services_result = db_admin.table('bundle_services').select(
+                    bundle_services_result = client.table('bundle_services').select(
                         'service_id'
                     ).eq('bundle_id', bundle_data['id']).execute()
                     
                     service_ids = [bs['service_id'] for bs in bundle_services_result.data] if bundle_services_result.data else []
                     
                     # Get service details
-                    bundle_services_data = db_admin.table('creative_services').select(
+                    bundle_services_data = client.table('creative_services').select(
                         'id, title, description, price, delivery_time, status, color'
                     ).in_('id', service_ids).execute()
                     
                     # Fetch photos for bundle services
-                    bundle_photos_result = db_admin.table('service_photos').select(
+                    bundle_photos_result = client.table('service_photos').select(
                         'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
                     ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
                     

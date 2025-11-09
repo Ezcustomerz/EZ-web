@@ -49,7 +49,7 @@ export interface UnreadCountResponse {
  *                      If provided, only returns notifications for this role context.
  */
 export async function getNotifications(
-  limit: number = 50,
+  limit: number = 25,
   offset: number = 0,
   unreadOnly: boolean = false,
   roleContext?: 'client' | 'creative' | 'advocate'

@@ -636,7 +636,7 @@ export function ServiceFormPopover({
       
       const response = mode === 'edit' && initialService
         ? (hasNewPhotos || hasModifiedExistingPhotos)
-          ? await userService.updateServiceWithPhotos(initialService.id, serviceData, formData.photos, (progress) => {
+          ? await userService.updateServiceWithPhotos(initialService.id, serviceData, formData.photos, formData.existingPhotos, (progress) => {
               setUploadProgress(progress);
             })
           : await userService.updateService(initialService.id, serviceData)

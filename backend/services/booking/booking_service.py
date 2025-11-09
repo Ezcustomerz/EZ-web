@@ -16,20 +16,23 @@ from schemas.booking import (
 logger = logging.getLogger(__name__)
 
 class BookingService:
-    def __init__(self, client: Optional[Client] = None):
-        self.db = client if client else db_admin
-
-    def get_calendar_settings(self, service_id: str, client: Optional[Client] = None) -> Optional[Dict[str, Any]]:
+    @staticmethod
+    def get_calendar_settings(service_id: str, client: Client) -> Optional[Dict[str, Any]]:
         """Get calendar settings for a service
         
         Args:
             service_id: The service ID to get calendar settings for
-            client: Optional Supabase client (uses self.db if not provided)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
-            db_client = client if client else self.db
             logger.info(f"Fetching calendar settings for service_id: {service_id}")
-            response = db_client.table('calendar_settings').select('*').eq('service_id', service_id).eq('is_active', True).execute()
+            response = client.table('calendar_settings').select('*').eq('service_id', service_id).eq('is_active', True).execute()
             logger.info(f"Response: {response}")
             
             if response.data and len(response.data) > 0:
@@ -55,16 +58,22 @@ class BookingService:
             logger.error(f"Error fetching calendar settings: {e}")
             return None
 
-    def get_weekly_schedule(self, calendar_setting_id: str, client: Optional[Client] = None) -> List[Dict[str, Any]]:
+    @staticmethod
+    def get_weekly_schedule(calendar_setting_id: str, client: Client) -> List[Dict[str, Any]]:
         """Get weekly schedule for a calendar setting
         
         Args:
             calendar_setting_id: The calendar setting ID
-            client: Optional Supabase client (uses self.db if not provided)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
-            db_client = client if client else self.db
-            response = db_client.table('weekly_schedule').select('*, time_blocks(*)').eq('calendar_setting_id', calendar_setting_id).execute()
+            response = client.table('weekly_schedule').select('*, time_blocks(*)').eq('calendar_setting_id', calendar_setting_id).execute()
             
             schedule = []
             for item in response.data:
@@ -88,16 +97,22 @@ class BookingService:
             logger.error(f"Error fetching weekly schedule: {e}")
             return []
 
-    def get_time_slots(self, weekly_schedule_id: str, client: Optional[Client] = None) -> List[Dict[str, Any]]:
+    @staticmethod
+    def get_time_slots(weekly_schedule_id: str, client: Client) -> List[Dict[str, Any]]:
         """Get time slots for a weekly schedule
         
         Args:
             weekly_schedule_id: The weekly schedule ID
-            client: Optional Supabase client (uses self.db if not provided)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
-            db_client = client if client else self.db
-            response = db_client.table('time_slots').select('*, weekly_schedule!inner(day_of_week)').eq('weekly_schedule_id', weekly_schedule_id).order('slot_time').execute()
+            response = client.table('time_slots').select('*, weekly_schedule!inner(day_of_week)').eq('weekly_schedule_id', weekly_schedule_id).order('slot_time').execute()
             
             slots = []
             for item in response.data:
@@ -113,23 +128,30 @@ class BookingService:
             logger.error(f"Error fetching time slots: {e}")
             return []
 
-    def get_available_dates(self, service_id: str, start_date: Optional[date] = None, end_date: Optional[date] = None, client: Optional[Client] = None) -> List[Dict[str, Any]]:
+    @staticmethod
+    def get_available_dates(service_id: str, client: Client, start_date: Optional[date] = None, end_date: Optional[date] = None) -> List[Dict[str, Any]]:
         """Get available booking dates for a service based on calendar settings and actual slot availability
         
         Args:
             service_id: The service ID
+            client: Authenticated Supabase client (required, respects RLS policies)
             start_date: Optional start date
             end_date: Optional end date
-            client: Optional Supabase client (uses self.db if not provided)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Get calendar settings
-            calendar_settings = self.get_calendar_settings(service_id, client)
+            calendar_settings = BookingService.get_calendar_settings(service_id, client)
             if not calendar_settings or not calendar_settings.get("is_scheduling_enabled"):
                 return []
 
             # Get weekly schedule
-            weekly_schedule = self.get_weekly_schedule(calendar_settings["id"], client)
+            weekly_schedule = BookingService.get_weekly_schedule(calendar_settings["id"], client)
             if not weekly_schedule:
                 return []
 
@@ -178,7 +200,7 @@ class BookingService:
                     if current_datetime >= min_notice_time:
                         # CRITICAL CHECK: Verify there are actually available time slots for this date
                         # before marking it as available
-                        available_slots = self.get_available_time_slots(service_id, current_date, client)
+                        available_slots = BookingService.get_available_time_slots(service_id, current_date, client)
                         
                         # Only add date if it has at least one available time slot
                         if available_slots and len(available_slots) > 0:
@@ -195,7 +217,8 @@ class BookingService:
             logger.error(f"Error calculating available dates: {e}")
             return []
 
-    def get_available_time_slots(self, service_id: str, booking_date: date, client: Optional[Client] = None) -> List[Dict[str, Any]]:
+    @staticmethod
+    def get_available_time_slots(service_id: str, booking_date: date, client: Client) -> List[Dict[str, Any]]:
         """
         Get available time slots for a specific date.
         Uses time_slots (template) and filters out already-booked times from bookings table.
@@ -203,22 +226,27 @@ class BookingService:
         Args:
             service_id: The service ID
             booking_date: The date to get available slots for
-            client: Optional Supabase client (uses self.db if not provided)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
-            db_client = client if client else self.db
-            calendar_settings = self.get_calendar_settings(service_id, client)
+            calendar_settings = BookingService.get_calendar_settings(service_id, client)
             if not calendar_settings or not calendar_settings.get("is_scheduling_enabled"):
                 return []
 
             day_name = booking_date.strftime('%A')
-            weekly_schedule = self.get_weekly_schedule(calendar_settings["id"], client)
+            weekly_schedule = BookingService.get_weekly_schedule(calendar_settings["id"], client)
             day_schedule = next((day for day in weekly_schedule if day["day_of_week"] == day_name), None)
             
             if not day_schedule or not day_schedule["is_enabled"]:
                 return []
 
-            time_slots = self.get_time_slots(day_schedule["id"], client)
+            time_slots = BookingService.get_time_slots(day_schedule["id"], client)
             if not time_slots:
                 return []
 
@@ -231,7 +259,7 @@ class BookingService:
             # Exclude bookings that should NOT block:
             # - rejected (creative rejected)
             # - cancelled (client cancelled)
-            existing_bookings_response = db_client.table('bookings')\
+            existing_bookings_response = client.table('bookings')\
                 .select('start_time, creative_status, client_status')\
                 .eq('service_id', service_id)\
                 .eq('booking_date', booking_date.isoformat())\
@@ -307,27 +335,34 @@ class BookingService:
             logger.error(f"Error fetching available time slots: {e}")
             return []
 
-    def get_service_booking_data(self, service_id: str, client: Optional[Client] = None) -> Dict[str, Any]:
+    @staticmethod
+    def get_service_booking_data(service_id: str, client: Client) -> Dict[str, Any]:
         """Get complete booking data for a service
         
         Args:
             service_id: The service ID
-            client: Optional Supabase client (uses self.db if not provided)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Get calendar settings
-            calendar_settings = self.get_calendar_settings(service_id, client)
+            calendar_settings = BookingService.get_calendar_settings(service_id, client)
             if not calendar_settings:
                 return {"error": "Calendar settings not found"}
 
             # Get weekly schedule
-            weekly_schedule = self.get_weekly_schedule(calendar_settings["id"], client)
+            weekly_schedule = BookingService.get_weekly_schedule(calendar_settings["id"], client)
             
             # Get time slots for each day
             time_slots = []
             for day in weekly_schedule:
                 if day["is_enabled"]:
-                    day_slots = self.get_time_slots(day["id"], client)
+                    day_slots = BookingService.get_time_slots(day["id"], client)
                     time_slots.extend(day_slots)
 
             return {
@@ -452,8 +487,14 @@ class BookingController:
         Args:
             user_id: The user ID creating the booking
             booking_data: The booking request data
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Get service details including creative_user_id
             service_response = client.table('creative_services')\
@@ -592,8 +633,14 @@ class BookingController:
         
         Args:
             user_id: The client user ID
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch bookings for this client
             bookings_response = client.table('bookings')\
@@ -649,8 +696,14 @@ class BookingController:
         
         Args:
             user_id: The client user ID
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch bookings for this client with in_progress status
             bookings_response = client.table('bookings')\
@@ -705,8 +758,14 @@ class BookingController:
         
         Args:
             user_id: The client user ID
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch bookings for this client
             bookings_response = client.table('bookings')\
@@ -761,8 +820,14 @@ class BookingController:
         
         Args:
             user_id: The client user ID
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch bookings for this client with completed or canceled status
             bookings_response = client.table('bookings')\
@@ -828,8 +893,14 @@ class BookingController:
         
         Args:
             user_id: The creative user ID
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch bookings for this creative
             bookings_response = client.table('bookings')\
@@ -881,8 +952,14 @@ class BookingController:
         
         Args:
             user_id: The creative user ID
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch bookings for this creative, excluding completed/canceled/rejected orders
             bookings_response = client.table('bookings')\
@@ -934,8 +1011,14 @@ class BookingController:
         
         Args:
             user_id: The creative user ID
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch bookings for this creative, only completed/canceled/rejected orders
             bookings_response = client.table('bookings')\
@@ -989,8 +1072,14 @@ class BookingController:
             user_id: The creative user ID
             year: The year to fetch sessions for
             month: The month to fetch sessions for
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Calculate month start and end dates
             month_start = datetime(year, month, 1)
@@ -1103,8 +1192,14 @@ class BookingController:
             user_id: The creative user ID
             start_date: Start date in YYYY-MM-DD format
             end_date: End date in YYYY-MM-DD format
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Validate date format
             try:
@@ -1212,8 +1307,14 @@ class BookingController:
         Args:
             user_id: The creative user ID approving the booking
             booking_id: The booking ID to approve
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch the booking to verify it exists and belongs to this creative
             booking_response = client.table('bookings')\
@@ -1352,8 +1453,14 @@ class BookingController:
         Args:
             user_id: The creative user ID rejecting the booking
             booking_id: The booking ID to reject
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch the booking
             booking_response = client.table('bookings')\
@@ -1455,8 +1562,14 @@ class BookingController:
         Args:
             user_id: The client user ID canceling the booking
             booking_id: The booking ID to cancel
-            client: Authenticated Supabase client (respects RLS policies)
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
         """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
         try:
             # Fetch the booking
             booking_response = client.table('bookings')\

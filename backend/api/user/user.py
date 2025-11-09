@@ -4,7 +4,7 @@ from schemas.user import RoleProfilesResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
-from db.db_session import get_authenticated_client_dep, db_client
+from db.db_session import get_authenticated_client_dep
 from supabase import Client
 
 router = APIRouter()
@@ -68,14 +68,18 @@ async def get_user_role_profiles(
 
 @router.get("/subscription-tiers")
 @limiter.limit("10 per second")
-async def get_subscription_tiers(request: Request):
+async def get_subscription_tiers(
+    request: Request,
+    client: Client = Depends(get_authenticated_client_dep)
+):
     """Get all active subscription tiers
     Public endpoint - no authentication required (for pricing/landing pages).
     Uses RLS policies to ensure only active tiers are returned.
     """
     try:
-        # Use db_client (respects RLS) - public read policy allows anonymous access
-        return await UserController.get_subscription_tiers(db_client)
+        # Client is always provided via dependency - authenticated if token exists, anon otherwise
+        # Public read policy allows anonymous access
+        return await UserController.get_subscription_tiers(client)
         
     except HTTPException:
         raise

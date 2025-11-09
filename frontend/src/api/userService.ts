@@ -665,7 +665,7 @@ export const userService = {
     return response.data;
   },
 
-  async updateServiceWithPhotos(serviceId: string, serviceData: CreateServiceRequest, photos: File[], onProgress?: (progress: number) => void): Promise<UpdateServiceResponse> {
+  async updateServiceWithPhotos(serviceId: string, serviceData: CreateServiceRequest, photos: File[], existingPhotos: ServicePhoto[] = [], onProgress?: (progress: number) => void): Promise<UpdateServiceResponse> {
     const headers = await getAuthHeaders();
     
     // Create FormData for multipart upload
@@ -684,6 +684,10 @@ export const userService = {
     if (serviceData.calendar_settings) {
       formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
     }
+    
+    // Add existing photos to keep (URLs)
+    const existingPhotoUrls = existingPhotos.map(photo => photo.photo_url);
+    formData.append('existing_photos', JSON.stringify(existingPhotoUrls));
     
     // Add photo files
     photos.forEach((photo, index) => {

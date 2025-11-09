@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import jwt
 import os
 import logging
-from db.db_session import db_admin
+from supabase import Client
 from schemas.invite import (
     GenerateInviteResponse,
     ValidateInviteResponse,
@@ -21,13 +21,21 @@ class InviteController:
     """Controller for invite-related operations"""
     
     @staticmethod
-    async def generate_invite_link(user_id: str) -> GenerateInviteResponse:
-        """Generate an invite link for a creative to invite clients"""
+    async def generate_invite_link(user_id: str, client: Client = None) -> GenerateInviteResponse:
+        """Generate an invite link for a creative to invite clients
+        
+        Args:
+            user_id: The user ID to generate invite link for
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             logger.info(f"Starting invite generation for user: {user_id}")
             
-            # Get user roles from database
-            user_response = db_admin.table("users") \
+            # Get user roles from database (using authenticated client - respects RLS)
+            user_response = client.table("users") \
                 .select("roles") \
                 .eq("user_id", user_id) \
                 .single() \
@@ -75,8 +83,20 @@ class InviteController:
             raise HTTPException(status_code=500, detail=f"Failed to generate invite link: {str(e)}")
     
     @staticmethod
-    async def validate_invite_token(invite_token: str, user_info: Optional[Dict[str, Any]] = None) -> ValidateInviteResponse:
-        """Validate an invite token and return creative information"""
+    async def validate_invite_token(invite_token: str, user_info: Optional[Dict[str, Any]] = None, client: Client = None) -> ValidateInviteResponse:
+        """Validate an invite token and return creative information
+        
+        Args:
+            invite_token: The invite token to validate
+            user_info: Optional user information if user is authenticated
+            client: Supabase client (required, always provided from API layer)
+                    - Authenticated client if user has token
+                    - Anon client (db_client) if no token
+                    - Both respect RLS policies
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             # Decode and validate the token
             payload = jwt.decode(invite_token, INVITE_SECRET, algorithms=['HS256'])
@@ -88,8 +108,10 @@ class InviteController:
             if not creative_user_id:
                 raise HTTPException(status_code=400, detail="Invalid invite token")
             
-            # Get creative information
-            creative_response = db_admin.table("creatives") \
+            # Get creative information using provided client
+            # RLS policy "Allow public to read creative profiles" allows anon users to read
+            # If authenticated client is provided, it will use appropriate RLS policies
+            creative_response = client.table("creatives") \
                 .select("display_name, title, user_id") \
                 .eq("user_id", creative_user_id) \
                 .execute()
@@ -134,8 +156,17 @@ class InviteController:
             raise HTTPException(status_code=500, detail="Failed to validate invite token")
     
     @staticmethod
-    async def accept_invite(invite_token: str, client_user_id: str) -> AcceptInviteResponse:
-        """Accept an invite and create the creative-client relationship"""
+    async def accept_invite(invite_token: str, client_user_id: str, client: Client = None) -> AcceptInviteResponse:
+        """Accept an invite and create the creative-client relationship
+        
+        Args:
+            invite_token: The invite token to accept
+            client_user_id: The client user ID accepting the invite
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             logger.info(f"Starting invite acceptance for token: {invite_token[:20]}...")
             
@@ -152,8 +183,8 @@ class InviteController:
             
             logger.info(f"Creative user ID: {creative_user_id}, Client user ID: {client_user_id}")
             
-            # Get user roles from database
-            user_response = db_admin.table("users") \
+            # Get user roles from database (using authenticated client - respects RLS)
+            user_response = client.table("users") \
                 .select("roles") \
                 .eq("user_id", client_user_id) \
                 .single() \
@@ -176,8 +207,8 @@ class InviteController:
                     creative_user_id=creative_user_id
                 )
             
-            # Check if relationship already exists
-            existing_relationship = db_admin.table("creative_client_relationships") \
+            # Check if relationship already exists (using authenticated client - respects RLS)
+            existing_relationship = client.table("creative_client_relationships") \
                 .select("id") \
                 .eq("creative_user_id", creative_user_id) \
                 .eq("client_user_id", client_user_id) \
@@ -204,7 +235,8 @@ class InviteController:
             
             logger.info(f"Creating relationship with data: {relationship_data}")
             
-            result = db_admin.table("creative_client_relationships") \
+            # Create relationship (using authenticated client - respects RLS)
+            result = client.table("creative_client_relationships") \
                 .insert(relationship_data) \
                 .execute()
             
@@ -213,8 +245,8 @@ class InviteController:
             if result.data:
                 logger.info(f"Successfully created relationship")
                 
-                # Get client display name for notification
-                client_response = db_admin.table("clients") \
+                # Get client display name for notification (using authenticated client - respects RLS)
+                client_response = client.table("clients") \
                     .select("display_name") \
                     .eq("user_id", client_user_id) \
                     .single() \
@@ -242,7 +274,8 @@ class InviteController:
                 }
                 
                 try:
-                    notification_result = db_admin.table("notifications") \
+                    # Create notification (using authenticated client - respects RLS)
+                    notification_result = client.table("notifications") \
                         .insert(notification_data) \
                         .execute()
                     logger.info(f"Notification created: {notification_result.data}")
@@ -270,8 +303,17 @@ class InviteController:
             raise HTTPException(status_code=500, detail="Failed to accept invite")
     
     @staticmethod
-    async def accept_invite_after_role_setup(invite_token: str, client_user_id: str) -> AcceptInviteResponse:
-        """Accept an invite after user has set up their client role"""
+    async def accept_invite_after_role_setup(invite_token: str, client_user_id: str, client: Client = None) -> AcceptInviteResponse:
+        """Accept an invite after user has set up their client role
+        
+        Args:
+            invite_token: The invite token to accept
+            client_user_id: The client user ID accepting the invite
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             # Validate the token first
             payload = jwt.decode(invite_token, INVITE_SECRET, algorithms=['HS256'])
@@ -283,8 +325,8 @@ class InviteController:
             if not creative_user_id:
                 raise HTTPException(status_code=400, detail="Invalid invite token")
             
-            # Get user roles from database to verify client role was added
-            user_response = db_admin.table("users") \
+            # Get user roles from database to verify client role was added (using authenticated client - respects RLS)
+            user_response = client.table("users") \
                 .select("roles") \
                 .eq("user_id", client_user_id) \
                 .single() \
@@ -297,8 +339,8 @@ class InviteController:
             if 'client' not in user_roles:
                 raise HTTPException(status_code=400, detail="User still doesn't have client role")
             
-            # Check if relationship already exists
-            existing_relationship = db_admin.table("creative_client_relationships") \
+            # Check if relationship already exists (using authenticated client - respects RLS)
+            existing_relationship = client.table("creative_client_relationships") \
                 .select("id") \
                 .eq("creative_user_id", creative_user_id) \
                 .eq("client_user_id", client_user_id) \
@@ -320,14 +362,15 @@ class InviteController:
                 "updated_at": datetime.utcnow().isoformat()
             }
             
-            result = db_admin.table("creative_client_relationships") \
+            # Create relationship (using authenticated client - respects RLS)
+            result = client.table("creative_client_relationships") \
                 .insert(relationship_data) \
                 .execute()
             
             if result.data:
-                # Get client display name for notification
+                # Get client display name for notification (using authenticated client - respects RLS)
                 try:
-                    client_response = db_admin.table("clients") \
+                    client_response = client.table("clients") \
                         .select("display_name") \
                         .eq("user_id", client_user_id) \
                         .execute()
@@ -357,7 +400,8 @@ class InviteController:
                 }
                 
                 try:
-                    notification_result = db_admin.table("notifications") \
+                    # Create notification (using authenticated client - respects RLS)
+                    notification_result = client.table("notifications") \
                         .insert(notification_data) \
                         .execute()
                     logger.info(f"Notification created: {notification_result.data}")
