@@ -19,6 +19,35 @@ from core.timezone_utils import (
 
 class CreativeController:
     @staticmethod
+    def _validate_delivery_time(delivery_time: str) -> dict:
+        """Validate delivery time format and ensure min <= max
+        
+        Args:
+            delivery_time: Delivery time string in format like "3-5 days" or "3 days"
+            
+        Returns:
+            dict with 'valid' (bool) and 'error' (str) keys
+        """
+        if not delivery_time or not delivery_time.strip():
+            return {'valid': True}  # Empty delivery time is valid (optional)
+        
+        # Match patterns like "3-5 days", "3 days", "1 week", "2-4 months"
+        match = re.match(r'(\d+)(?:-(\d+))?\s*(day|week|month)s?', delivery_time.strip(), re.IGNORECASE)
+        if not match:
+            return {'valid': False, 'error': 'Invalid delivery time format. Expected format: "3-5 days" or "3 days"'}
+        
+        min_val = int(match.group(1))
+        max_val = int(match.group(2)) if match.group(2) else min_val
+        
+        if min_val <= 0 or max_val <= 0:
+            return {'valid': False, 'error': 'Delivery time values must be greater than 0'}
+        
+        if min_val > max_val:
+            return {'valid': False, 'error': 'Minimum delivery time must be less than or equal to maximum delivery time'}
+        
+        return {'valid': True}
+    
+    @staticmethod
     async def setup_creative_profile(user_id: str, setup_request: CreativeSetupRequest, client: Client) -> CreativeSetupResponse:
         """Set up creative profile in the creatives table
         
@@ -317,6 +346,12 @@ class CreativeController:
             if service_request.status not in ['Public', 'Private', 'Bundle-Only']:
                 raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
             
+            # Validate delivery_time if provided
+            if service_request.delivery_time and service_request.delivery_time.strip():
+                delivery_time_validation = CreativeController._validate_delivery_time(service_request.delivery_time)
+                if not delivery_time_validation['valid']:
+                    raise HTTPException(status_code=422, detail=delivery_time_validation['error'])
+            
             # Prepare service data
             service_data = {
                 'creative_user_id': user_id,
@@ -407,6 +442,12 @@ class CreativeController:
             # Validate status
             if status not in ['Public', 'Private', 'Bundle-Only']:
                 raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
+            
+            # Validate delivery_time if provided
+            if delivery_time and delivery_time.strip():
+                delivery_time_validation = CreativeController._validate_delivery_time(delivery_time)
+                if not delivery_time_validation['valid']:
+                    raise HTTPException(status_code=422, detail=delivery_time_validation['error'])
             
             # Prepare service data
             service_data = {
@@ -1134,6 +1175,12 @@ class CreativeController:
             if service_request.status not in ['Public', 'Private', 'Bundle-Only']:
                 raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
 
+            # Validate delivery_time if provided
+            if service_request.delivery_time and service_request.delivery_time.strip():
+                delivery_time_validation = CreativeController._validate_delivery_time(service_request.delivery_time)
+                if not delivery_time_validation['valid']:
+                    raise HTTPException(status_code=422, detail=delivery_time_validation['error'])
+
             update_data = {
                 'title': service_request.title.strip(),
                 'description': service_request.description.strip(),
@@ -1207,12 +1254,18 @@ class CreativeController:
             if service_data['status'] not in ['Public', 'Private', 'Bundle-Only']:
                 raise HTTPException(status_code=422, detail="Status must be either 'Public', 'Private', or 'Bundle-Only'")
 
+            # Validate delivery_time if provided
+            if service_data.get('delivery_time') and service_data['delivery_time'].strip():
+                delivery_time_validation = CreativeController._validate_delivery_time(service_data['delivery_time'])
+                if not delivery_time_validation['valid']:
+                    raise HTTPException(status_code=422, detail=delivery_time_validation['error'])
+
             # Update service data (using authenticated client - respects RLS)
             update_data = {
                 'title': service_data['title'].strip(),
                 'description': service_data['description'].strip(),
                 'price': service_data['price'],
-                'delivery_time': service_data['delivery_time'],
+                'delivery_time': service_data.get('delivery_time', ''),
                 'status': service_data['status'],
                 'color': service_data['color'],
                 'payment_option': service_data.get('payment_option', 'later'),

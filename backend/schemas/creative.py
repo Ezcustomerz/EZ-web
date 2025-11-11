@@ -86,7 +86,7 @@ class CreateServiceRequest(BaseModel):
     title: str
     description: str
     price: float
-    delivery_time: str
+    delivery_time: Optional[str] = ''
     status: Literal['Public', 'Private', 'Bundle-Only'] = 'Private'
     color: str = '#3b82f6'
     payment_option: Literal['upfront', 'split', 'later'] = 'later'

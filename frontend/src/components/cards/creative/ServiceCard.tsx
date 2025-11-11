@@ -15,7 +15,7 @@ export interface ServiceCardProps {
   title: string;
   description: string;
   price: number;
-  delivery: string;
+  delivery?: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   creative: string;
   onEdit?: () => void;
@@ -228,9 +228,11 @@ export function ServiceCard({ title, description, price, delivery, status, creat
                 {status}
               </Box>
             </Tooltip>
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5, flexShrink: 0 }}>
-              {delivery} delivery
-            </Typography>
+            {delivery && delivery.trim() && (
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5, flexShrink: 0 }}>
+                {delivery} delivery
+              </Typography>
+            )}
           </Box>
         </Box>
       </CardContent>
@@ -243,7 +245,7 @@ export interface ServiceCardSimpleProps {
   title: string;
   description: string;
   price: number;
-  delivery: string;
+  delivery?: string;
   color: string;
   creative: string;
   onBook?: () => void;
@@ -349,9 +351,11 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
               </Tooltip>
             )}
           </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            {delivery} delivery
-          </Typography>
+          {delivery && delivery.trim() && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              {delivery} delivery
+            </Typography>
+          )}
         </Box>
       </CardContent>
     </Card>

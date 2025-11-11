@@ -261,7 +261,7 @@ export interface CreateServiceRequest {
   title: string;
   description: string;
   price: number;
-  delivery_time: string;
+  delivery_time?: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   payment_option: 'upfront' | 'split' | 'later';
