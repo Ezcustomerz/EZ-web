@@ -1521,9 +1521,12 @@ class BookingController:
             service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
             creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
             
-            # Create notification
-            notification_data = {
-                "recipient_user_id": booking['client_user_id'],
+            # Get client user ID from booking
+            client_user_id = booking.get('client_user_id')
+            
+            # Create notification for client
+            client_notification_data = {
+                "recipient_user_id": client_user_id,
                 "notification_type": "booking_rejected",
                 "title": "Booking Rejected",
                 "message": f"{creative_display_name} has rejected your booking request for {service_title}. Your booking has been canceled.",
@@ -1541,13 +1544,37 @@ class BookingController:
                 "updated_at": datetime.utcnow().isoformat()
             }
             
+            # Create notification for creative
+            creative_notification_data = {
+                "recipient_user_id": user_id,
+                "notification_type": "booking_rejected",
+                "title": "Booking Rejected",
+                "message": f"You have rejected a booking request for {service_title}.",
+                "is_read": False,
+                "related_user_id": user_id,
+                "related_entity_id": booking_id,
+                "related_entity_type": "booking",
+                "target_roles": ["creative"],
+                "metadata": {
+                    "service_title": service_title,
+                    "booking_id": booking_id
+                },
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
             try:
-                notification_result = client.table("notifications")\
-                    .insert(notification_data)\
+                # Insert both notifications
+                notifications_to_insert = [client_notification_data]
+                if user_id:  # creative user ID
+                    notifications_to_insert.append(creative_notification_data)
+                
+                notification_result = db_admin.table("notifications")\
+                    .insert(notifications_to_insert)\
                     .execute()
-                logger.info(f"Rejection notification created: {notification_result.data}")
+                logger.info(f"Rejection notifications created: {notification_result.data}")
             except Exception as notif_error:
-                logger.error(f"Failed to create rejection notification: {notif_error}")
+                logger.error(f"Failed to create rejection notifications: {notif_error}")
             
             return RejectBookingResponse(
                 success=True,
@@ -1578,7 +1605,7 @@ class BookingController:
         try:
             # Fetch the booking
             booking_response = client.table('bookings')\
-                .select('id, client_user_id, service_id, client_status, creative_status')\
+                .select('id, client_user_id, creative_user_id, service_id, client_status, creative_status')\
                 .eq('id', booking_id)\
                 .single()\
                 .execute()
@@ -1626,8 +1653,11 @@ class BookingController:
             
             service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
             
-            # Create notification
-            notification_data = {
+            # Get creative user ID from booking
+            creative_user_id = booking.get('creative_user_id')
+            
+            # Create notification for client
+            client_notification_data = {
                 "recipient_user_id": user_id,
                 "notification_type": "booking_canceled",
                 "title": "Booking Canceled",
@@ -1645,13 +1675,37 @@ class BookingController:
                 "updated_at": datetime.utcnow().isoformat()
             }
             
+            # Create notification for creative
+            creative_notification_data = {
+                "recipient_user_id": creative_user_id,
+                "notification_type": "booking_canceled",
+                "title": "Booking Canceled",
+                "message": f"A client has canceled their booking for {service_title}.",
+                "is_read": False,
+                "related_user_id": user_id,
+                "related_entity_id": booking_id,
+                "related_entity_type": "booking",
+                "target_roles": ["creative"],
+                "metadata": {
+                    "service_title": service_title,
+                    "booking_id": booking_id
+                },
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
             try:
-                notification_result = client.table("notifications")\
-                    .insert(notification_data)\
+                # Insert both notifications
+                notifications_to_insert = [client_notification_data]
+                if creative_user_id:
+                    notifications_to_insert.append(creative_notification_data)
+                
+                notification_result = db_admin.table("notifications")\
+                    .insert(notifications_to_insert)\
                     .execute()
-                logger.info(f"Cancellation notification created: {notification_result.data}")
+                logger.info(f"Cancellation notifications created: {notification_result.data}")
             except Exception as notif_error:
-                logger.error(f"Failed to create cancellation notification: {notif_error}")
+                logger.error(f"Failed to create cancellation notifications: {notif_error}")
             
             return CancelBookingResponse(
                 success=True,

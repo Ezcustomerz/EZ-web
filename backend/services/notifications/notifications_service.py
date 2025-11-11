@@ -2,7 +2,9 @@ from fastapi import HTTPException
 from typing import List, Optional, Dict, Any
 import logging
 from supabase import Client
+from db.db_session import db_admin
 from schemas.notifications import NotificationResponse, UnreadCountResponse
+from postgrest.exceptions import APIError
 
 logger = logging.getLogger(__name__)
 
@@ -287,4 +289,205 @@ class NotificationsController:
         except Exception as e:
             logger.error(f"Error fetching unread count: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch unread count: {str(e)}")
+    
+    @staticmethod
+    async def mark_as_read(
+        user_id: str,
+        notification_id: str,
+        client: Client = None
+    ) -> NotificationResponse:
+        """
+        Mark a notification as read.
+        
+        Args:
+            user_id: The user ID who owns the notification
+            notification_id: The notification ID to mark as read
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
+        try:
+            # First, verify the notification exists and belongs to the user
+            # Use service role client to check existence, then verify ownership
+            notification_response = None
+            notification_data = None
+            
+            try:
+                notification_response = db_admin.table("notifications") \
+                    .select("*") \
+                    .eq("id", notification_id) \
+                    .single() \
+                    .execute()
+                notification_data = notification_response.data if notification_response else None
+            except APIError as api_error:
+                # APIError from postgrest - the exception is raised with the notification dict
+                # Based on the traceback: APIError({'id': '...', ...})
+                # The dict is passed as the exception argument, so it should be in args[0]
+                error_data = None
+                
+                # Check exception args first (the dict is passed as the first argument)
+                if hasattr(api_error, 'args') and len(api_error.args) > 0:
+                    first_arg = api_error.args[0]
+                    # The dict might be directly in args[0]
+                    if isinstance(first_arg, dict):
+                        error_data = first_arg
+                    # Or it might be a tuple/list containing the dict
+                    elif isinstance(first_arg, (tuple, list)) and len(first_arg) > 0:
+                        if isinstance(first_arg[0], dict):
+                            error_data = first_arg[0]
+                
+                # If not in args, check if we can get it from the exception's __dict__
+                if not error_data:
+                    error_dict = api_error.__dict__ if hasattr(api_error, '__dict__') else {}
+                    # Look for any dict values that might contain the notification
+                    for key, value in error_dict.items():
+                        if isinstance(value, dict) and 'id' in value:
+                            error_data = value
+                            break
+                
+                # If still not found, try to extract from string representation
+                if not error_data:
+                    error_str = str(api_error)
+                    # The error string might be the dict representation
+                    if error_str.startswith('{') and 'id' in error_str:
+                        import json
+                        try:
+                            error_data = json.loads(error_str)
+                        except:
+                            # Try ast.literal_eval as fallback
+                            import ast
+                            try:
+                                error_data = ast.literal_eval(error_str)
+                            except:
+                                pass
+                
+                if error_data and isinstance(error_data, dict) and 'id' in error_data:
+                    # The error contains notification data - use it directly
+                    notification_data = error_data
+                else:
+                    logger.error(f"Could not extract notification data from APIError", exc_info=True)
+                    raise HTTPException(status_code=404, detail="Notification not found")
+            except Exception as fetch_error:
+                logger.error(f"Error fetching notification: {fetch_error}", exc_info=True)
+                raise HTTPException(status_code=404, detail="Notification not found")
+            
+            # Get notification data from response if we have it
+            if notification_response and notification_response.data:
+                notification_data = notification_response.data
+            
+            if not notification_data:
+                raise HTTPException(status_code=404, detail="Notification not found")
+            
+            # Verify the notification belongs to this user (security check)
+            if notification_data.get("recipient_user_id") != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to update this notification")
+            
+            # Update the notification to mark it as read
+            # Use service role client to bypass RLS since we've already verified ownership
+            from datetime import datetime
+            try:
+                update_response = db_admin.table("notifications") \
+                    .update({
+                        "is_read": True,
+                        "updated_at": datetime.utcnow().isoformat()
+                    }) \
+                    .eq("id", notification_id) \
+                    .eq("recipient_user_id", user_id) \
+                    .execute()
+            except Exception as update_error:
+                logger.error(f"Error updating notification in database: {update_error}", exc_info=True)
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Failed to update notification: {str(update_error)}"
+                )
+            
+            if not update_response.data or len(update_response.data) == 0:
+                logger.error(f"Update response was empty for notification {notification_id}")
+                raise HTTPException(status_code=500, detail="Failed to update notification: no data returned")
+            
+            # Use the notification data we already have and update is_read and updated_at
+            # This avoids potential issues with the update response format
+            updated_notification = notification_data.copy()
+            updated_notification["is_read"] = True
+            updated_notification["updated_at"] = datetime.utcnow().isoformat()
+            
+            # Create response, filtering out any extra fields that aren't in the schema
+            try:
+                # Convert datetime objects to ISO format strings if needed
+                created_at = updated_notification.get("created_at")
+                updated_at = updated_notification.get("updated_at")
+                
+                if created_at and not isinstance(created_at, str):
+                    if isinstance(created_at, datetime):
+                        created_at = created_at.isoformat()
+                    else:
+                        created_at = str(created_at)
+                
+                if updated_at and not isinstance(updated_at, str):
+                    if isinstance(updated_at, datetime):
+                        updated_at = updated_at.isoformat()
+                    else:
+                        updated_at = str(updated_at)
+                
+                # Build the response dict with only the fields expected by NotificationResponse
+                response_data = {
+                    "id": str(updated_notification.get("id")),
+                    "recipient_user_id": str(updated_notification.get("recipient_user_id")),
+                    "notification_type": str(updated_notification.get("notification_type")),
+                    "title": str(updated_notification.get("title")),
+                    "message": str(updated_notification.get("message")),
+                    "is_read": True,  # We know this is True since we just set it
+                    "related_user_id": str(updated_notification.get("related_user_id")) if updated_notification.get("related_user_id") else None,
+                    "related_entity_id": str(updated_notification.get("related_entity_id")) if updated_notification.get("related_entity_id") else None,
+                    "related_entity_type": str(updated_notification.get("related_entity_type")) if updated_notification.get("related_entity_type") else None,
+                    "metadata": updated_notification.get("metadata", {}) or {},
+                    "created_at": created_at,
+                    "updated_at": updated_at,
+                }
+                
+                # Validate all required fields are present
+                required_fields = ["id", "recipient_user_id", "notification_type", "title", "message", "is_read", "created_at", "updated_at"]
+                missing_fields = [field for field in required_fields if response_data.get(field) is None]
+                if missing_fields:
+                    raise ValueError(f"Missing required fields: {missing_fields}")
+                
+                return NotificationResponse(**response_data)
+            except ValueError as validation_error:
+                logger.error(f"Validation error creating NotificationResponse: {validation_error}", exc_info=True)
+                raise HTTPException(
+                    status_code=500, 
+                    detail=f"Notification marked as read but response validation failed: {str(validation_error)}"
+                )
+            except Exception as validation_error:
+                logger.error(f"Unexpected error creating NotificationResponse: {type(validation_error).__name__}: {validation_error}", exc_info=True)
+                raise HTTPException(
+                    status_code=500, 
+                    detail="Notification marked as read but response validation failed"
+                )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            # Extract error message safely - avoid including large data structures
+            if isinstance(e, Exception):
+                error_message = str(e)
+                # If the error message contains a dict representation, truncate it
+                if error_message.startswith('{') and len(error_message) > 200:
+                    error_message = "Error occurred (details logged)"
+            elif isinstance(e, str):
+                error_message = e
+                if error_message.startswith('{') and len(error_message) > 200:
+                    error_message = "Error occurred (details logged)"
+            else:
+                error_message = "An unexpected error occurred"
+            
+            # Log the full error with exception info
+            logger.error(f"Error marking notification as read: {type(e).__name__}: {e}", exc_info=True)
+            
+            # Return a clean error message without potentially large data structures
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Failed to mark notification as read: {error_message}"
+            )
 

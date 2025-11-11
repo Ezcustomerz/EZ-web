@@ -1,7 +1,8 @@
-import { Box, Typography, Chip, useTheme, Button } from '@mui/material';
+import { Box, Typography, Chip, useTheme, Button, useMediaQuery } from '@mui/material';
 import { WarningAmberOutlined, ErrorOutline } from '@mui/icons-material';
 import type { ActivityItem } from '../../types/activity';
-import React, { useMemo, memo } from 'react';
+import React, { useMemo, memo, useState, useRef, useEffect, useCallback } from 'react';
+import { markNotificationAsRead } from '../../api/notificationsService';
 
 interface ActivityNotificationProps {
   item?: ActivityItem;
@@ -20,6 +21,7 @@ interface ActivityNotificationProps {
   actionLabel?: string;       //SMC
 
   index?: number;
+  onMarkAsRead?: (notificationId: string) => void; // Callback when notification is marked as read
 }
 
 // Highlight component extracted for better performance
@@ -201,8 +203,12 @@ export const ActivityNotificationCard = memo(function ActivityNotificationCard({
   onActionClick,
   actionLabel,
   index = 0,
+  onMarkAsRead,
 }: ActivityNotificationProps) {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasMarkedAsReadRef = useRef(false);
 
   const normalized: ActivityItem = useMemo(() => item ?? {
     icon,
@@ -213,6 +219,77 @@ export const ActivityNotificationCard = memo(function ActivityNotificationCard({
     status: status ?? '',
     isNew,
   }, [item, icon, label, description, client, creative, date, status, isNew]);
+
+  const [isRead, setIsRead] = useState(!normalized.isNew);
+
+  // Update isRead state when normalized.isNew changes
+  useEffect(() => {
+    setIsRead(!normalized.isNew);
+    hasMarkedAsReadRef.current = normalized.isNew === false;
+  }, [normalized.isNew]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Function to mark notification as read
+  const handleMarkAsRead = useCallback(async () => {
+    // Only mark as read if we have a notification ID and haven't already marked it
+    if (!normalized.notificationId || hasMarkedAsReadRef.current || isRead) {
+      return;
+    }
+
+    try {
+      hasMarkedAsReadRef.current = true;
+      await markNotificationAsRead(normalized.notificationId);
+      setIsRead(true);
+      // Notify parent component that this notification was marked as read
+      if (onMarkAsRead && normalized.notificationId) {
+        onMarkAsRead(normalized.notificationId);
+      }
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      hasMarkedAsReadRef.current = false; // Reset on error so we can try again
+    }
+  }, [normalized.notificationId, isRead, onMarkAsRead]);
+
+  // Handle click - mark as read and call onClick
+  const handleClick = useCallback(() => {
+    handleMarkAsRead();
+    if (onClick) {
+      onClick();
+    }
+  }, [handleMarkAsRead, onClick]);
+
+  // Handle mouse enter (hover) - desktop only, mark as read after 1 second
+  const handleMouseEnter = useCallback(() => {
+    if (isMobile || !normalized.notificationId || hasMarkedAsReadRef.current || isRead) {
+      return;
+    }
+
+    // Clear any existing timer
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+    }
+
+    // Set timer to mark as read after 1 second
+    hoverTimerRef.current = setTimeout(() => {
+      handleMarkAsRead();
+    }, 1000);
+  }, [isMobile, normalized.notificationId, isRead, handleMarkAsRead]);
+
+  // Handle mouse leave - clear timer
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
 
   const statusLower = useMemo(() => (normalized.status || '').toLowerCase(), [normalized.status]);
 
@@ -311,7 +388,9 @@ export const ActivityNotificationCard = memo(function ActivityNotificationCard({
           to: { opacity: 1, transform: 'translateX(0)' },
         },
       }}
-      onClick={onClick}
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flex: 1 }}>
@@ -366,7 +445,7 @@ export const ActivityNotificationCard = memo(function ActivityNotificationCard({
               >
                 {normalized.label}
               </Typography>
-              {normalized.isNew && (
+              {!isRead && (
                 <Chip
                   label="New"
                   size="small"

@@ -9,5 +9,6 @@ export interface ActivityItem {
   isNew?: boolean;
   notificationType?: string; // notification type for special rendering
   metadata?: Record<string, any>; // metadata for highlighting specific text
+  notificationId?: string; // notification ID for marking as read
 }
 

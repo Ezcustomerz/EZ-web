@@ -1,5 +1,6 @@
 import { Box, Typography, Card, Chip, useTheme, useMediaQuery, CircularProgress, Skeleton } from '@mui/material';
 import { Timeline } from '@mui/icons-material';
+import React from 'react';
 import { ActivityNotificationCard } from '../ActivityNotificationCard';
 import type { ActivityItem } from '../../../types/activity';
 //smc
@@ -17,9 +18,26 @@ export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardP
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const navigate = useNavigate(); //smc
+  const [localItems, setLocalItems] = React.useState<ActivityItem[]>(items ?? []);
 
-  const displayItems = items ?? [];
+  // Update local items when items prop changes
+  React.useEffect(() => {
+    setLocalItems(items ?? []);
+  }, [items]);
+
+  const displayItems = localItems;
   const actualNewCount = displayItems.filter(n => n.isNew).length;
+
+  // Handle when a notification is marked as read
+  const handleMarkAsRead = React.useCallback((notificationId: string) => {
+    setLocalItems(prevItems => 
+      prevItems.map(item => 
+        item.notificationId === notificationId 
+          ? { ...item, isNew: false }
+          : item
+      )
+    );
+  }, []);
 
   return (
     <Card sx={{ 
@@ -113,6 +131,7 @@ export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardP
               key={`${item.label}-${index}`}
               item={item}
               index={index}
+              onMarkAsRead={handleMarkAsRead}
               //smc
               onClick={() => {
                 // Customize behavior per notification type

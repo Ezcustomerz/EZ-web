@@ -130,3 +130,32 @@ export async function getUnreadCount(roleContext?: 'client' | 'creative' | 'advo
   }
 }
 
+/**
+ * Mark a notification as read
+ * @param notificationId - The ID of the notification to mark as read
+ */
+export async function markNotificationAsRead(notificationId: string): Promise<Notification> {
+  // Check authentication before making API call
+  const isAuthenticated = await checkAuth();
+  if (!isAuthenticated) {
+    console.log('User not authenticated, skipping mark as read');
+    throw new Error('User not authenticated');
+  }
+
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.put<Notification>(
+      `${API_BASE_URL}/notifications/${notificationId}/read`,
+      {},
+      { headers }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error marking notification as read:', error);
+    if (error.response?.status === 401) {
+      throw new Error('User not authenticated');
+    }
+    throw new Error(error.response?.data?.detail || 'Failed to mark notification as read');
+  }
+}
+

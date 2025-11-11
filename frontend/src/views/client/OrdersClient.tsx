@@ -1,6 +1,7 @@
 import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { TaskAlt, HourglassEmpty, History, CheckCircle } from '@mui/icons-material';
 import { AllServicesTab } from './tabs/AllOrdersTab';
 import { ActiveTab } from './tabs/ActiveTab';
@@ -19,6 +20,19 @@ export function ClientOrders() {
     const stored = localStorage.getItem('orders-active-tab');
     return stored !== null ? Number(stored) : 0;
   });
+
+  const location = useLocation();
+  
+  // Check localStorage when component mounts or location changes (e.g., navigating from notifications)
+  useEffect(() => {
+    const stored = localStorage.getItem('orders-active-tab');
+    if (stored !== null) {
+      const tabValue = Number(stored);
+      if (tabValue !== activeTab && tabValue >= 0 && tabValue <= 3) {
+        setActiveTab(tabValue);
+      }
+    }
+  }, [location.pathname]); // Check when route changes
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);

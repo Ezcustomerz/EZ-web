@@ -1,4 +1,4 @@
-import { PersonAddOutlined, GraphicEqOutlined, Payment, Download, CheckCircleOutlined, History, Star, Timeline, CalendarToday, CreditCard, CancelOutlined } from '@mui/icons-material';
+import { PersonAddOutlined, GraphicEqOutlined, Payment, Download, CheckCircleOutlined, Star, Timeline, CalendarToday, CreditCard, CancelOutlined } from '@mui/icons-material';
 import type { ActivityItem } from '../types/activity';
 import type { Notification } from '../api/notificationsService';
 
@@ -93,8 +93,8 @@ function getNotificationMapping(notificationType: string): {
       };
     case 'booking_canceled':
       return {
-        icon: History,
-        status: 'revision'
+        icon: CancelOutlined,
+        status: 'rejected'
       };
     default:
       return {
@@ -138,7 +138,8 @@ export function notificationToActivityItem(notification: Notification): Activity
     status: mapping.status,
     isNew: !notification.is_read,
     notificationType: notification.notification_type,
-    metadata: notification.metadata || {}
+    metadata: notification.metadata || {},
+    notificationId: notification.id // Store notification ID for marking as read
   };
 }
 

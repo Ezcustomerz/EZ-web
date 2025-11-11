@@ -75,3 +75,31 @@ async def get_unread_count(
         logger.error(f"Error fetching unread count: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch unread count: {str(e)}")
 
+
+@router.put("/{notification_id}/read", response_model=NotificationResponse)
+@limiter.limit("20 per minute")
+async def mark_notification_as_read(
+    request: Request,
+    notification_id: str,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Mark a notification as read.
+    Requires authentication - will return 401 if not authenticated.
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        return await NotificationsController.mark_as_read(user_id, notification_id, client)
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e) if isinstance(e, Exception) else repr(e)
+        # Avoid including large data structures in error messages
+        if error_msg.startswith('{') and len(error_msg) > 200:
+            error_msg = "An error occurred while marking notification as read"
+        logger.error(f"Error marking notification as read: {type(e).__name__}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to mark notification as read: {error_msg}")
