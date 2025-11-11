@@ -197,7 +197,7 @@ export function ClientDashboard() {
           <UpcomingBookingsCard bookings={upcomingBookings} />
 
           {/* Recent Activity Section */}
-          <RecentActivityCard items={recentItems} />
+          <RecentActivityCard items={activityItems} />
         </Box>
       </Box>
       )}
