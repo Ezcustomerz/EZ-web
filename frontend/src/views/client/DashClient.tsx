@@ -4,7 +4,6 @@ import { WelcomeCard } from '../../components/cards/client/WelcomeCard';
 import { UpcomingBookingsCard } from '../../components/cards/client/UpcomingBookingsCard';
 import { RecentActivityCard } from '../../components/cards/client/RecentActivityCard';
 import type { ActivityItem } from '../../types/activity';
-import type { ClientProfile } from '../../api/userService';
 import { CheckCircleOutlined, Payment } from '@mui/icons-material';
 
 // Mock data for upcoming bookings
