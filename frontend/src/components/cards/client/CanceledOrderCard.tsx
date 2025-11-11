@@ -157,7 +157,7 @@ export function CanceledOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Service canceled
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>

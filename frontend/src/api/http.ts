@@ -5,6 +5,7 @@ import axios, {
   } from 'axios';
   import { toast } from '../components/toast/toast';
   import { supabase } from '../config/supabase';
+  import { getUserTimezone } from '../utils/timezoneUtils';
   
   export interface ApiResponse extends AxiosResponse {
     data: {
@@ -14,7 +15,10 @@ import axios, {
   }
   
   export const createApiClient = (baseURL: string): AxiosInstance => {
-    const http: AxiosInstance = axios.create({ baseURL });
+    const http: AxiosInstance = axios.create({ 
+      baseURL,
+      withCredentials: true, // Include cookies (HttpOnly cookies) in requests
+    });
   
     // ✅ Request interceptor for auth
     http.interceptors.request.use(
@@ -26,6 +30,7 @@ import axios, {
           config.headers.Authorization = `Bearer ${jwtToken}`;
           config.headers['Content-Type'] = 'application/json';
           config.headers.Accept = 'application/json';
+          config.headers['x-user-timezone'] = getUserTimezone();
         }
   
         return config;

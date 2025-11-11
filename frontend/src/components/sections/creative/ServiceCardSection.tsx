@@ -15,6 +15,7 @@ export interface ServiceCardRowProps {
     delivery: string;
     color: string;
     creative: string;
+    requires_booking?: boolean;
   }>;
   arrowPosition?: 'inside';
   showSeeAll?: boolean;

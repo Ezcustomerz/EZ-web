@@ -10,6 +10,7 @@ import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import demoClientData from '../../../demoData/clientUserData.json';
 
+
 interface LayoutClientProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; clientProfile: ClientProfile | null }) => ReactNode);
   selectedNavItem?: string;

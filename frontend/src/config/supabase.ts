@@ -3,20 +3,20 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
 
-// Custom storage implementation using sessionStorage for better security
-// sessionStorage clears when browser session ends, reducing XSS attack surface
+// Custom storage implementation using localStorage for persistent authentication
+// localStorage persists across browser sessions, tabs, and days until explicitly cleared
 const customStorage = {
   getItem: (key: string): string | null => {
     if (typeof window === 'undefined') return null;
-    return sessionStorage.getItem(key);
+    return localStorage.getItem(key);
   },
   setItem: (key: string, value: string): void => {
     if (typeof window === 'undefined') return;
-    sessionStorage.setItem(key, value);
+    localStorage.setItem(key, value);
   },
   removeItem: (key: string): void => {
     if (typeof window === 'undefined') return;
-    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
   },
 };
 

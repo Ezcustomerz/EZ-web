@@ -72,6 +72,8 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
       onClick={onClick}
       sx={{
         height: '100%',
+        width: '100%',
+        maxWidth: '100%',
         minHeight: { xs: 135, sm: 170 },
         display: 'flex',
         flexDirection: 'column',
@@ -83,19 +85,21 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
         cursor: 'pointer',
         backgroundColor: theme.palette.background.paper,
         borderLeft: `4px solid ${bundle.color}`, // Left border like service cards
+        boxSizing: 'border-box',
+        overflow: 'visible',
         '&:hover': {
           boxShadow: `0 4px 16px ${bundle.color}`,
-          transform: 'scale(1.035) translateY(-2px)',
+          transform: 'translateY(-2px)',
         },
       }}
     >
-      <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, width: '100%' }}>
         {/* Top row: Title + More menu */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, minWidth: 0, width: '100%' }}>
           <Box sx={{ mb: 1, flex: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-              <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '14px', color: bundle.color }} />
-              <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, minWidth: 0 }}>
+              <FontAwesomeIcon icon={faLayerGroup} style={{ fontSize: '14px', color: bundle.color, flexShrink: 0 }} />
+              <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary', flex: 1 }}>
                 {bundle.title}
               </Typography>
             </Box>
@@ -142,6 +146,8 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
           sx={{
             mb: 1,
             minHeight: { xs: 'unset', sm: 40 },
+            minWidth: 0,
+            width: '100%',
             fontSize: '0.85rem',
             lineHeight: 1.4,
             display: '-webkit-box',
@@ -149,6 +155,7 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            wordBreak: 'break-word',
           }}
         >
           {bundle.description}
@@ -163,13 +170,15 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
         </Box>
 
         {/* Price and Status Row */}
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 2, minWidth: 0, width: '100%' }}>
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
             gap: 1,
-            flexWrap: 'wrap'
+            flexWrap: 'wrap',
+            minWidth: 0,
+            width: '100%'
           }}>
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
               <Typography fontWeight={700} color="primary" fontSize="1rem">

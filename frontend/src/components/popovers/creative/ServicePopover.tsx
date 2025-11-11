@@ -24,6 +24,7 @@ export interface SessionPopoverProps {
     delivery: string;
     color: string;
     creative: string;
+    requires_booking?: boolean;
   }>;
   bundles: Array<{
     id: string;
@@ -49,9 +50,11 @@ export interface SessionPopoverProps {
     created_at: string;
     updated_at: string;
   }>;
+  onServiceClick?: (service: any) => void;
+  onBundleClick?: (bundle: any) => void;
 }
 
-export function SessionPopover({ open, onClose, services, bundles }: SessionPopoverProps) {
+export function SessionPopover({ open, onClose, services, bundles, onServiceClick, onBundleClick }: SessionPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -135,12 +138,21 @@ export function SessionPopover({ open, onClose, services, bundles }: SessionPopo
             <>
               {services.map((s) => (
                 <Box key={`service-${s.id}`} sx={{ mb: 1 }}>
-                  <ServiceCardSimple {...s} color={s.color} />
+                  <ServiceCardSimple 
+                    {...s} 
+                    color={s.color}
+                    onBook={onServiceClick ? () => onServiceClick(s) : undefined}
+                  />
                 </Box>
               ))}
               {bundles.map((b) => (
                 <Box key={`bundle-${b.id}`} sx={{ mb: 1 }}>
-                  <BundleCard bundle={b} creative={services[0]?.creative || 'Creative'} showStatus={false} />
+                  <BundleCard 
+                    bundle={b} 
+                    creative={services[0]?.creative || 'Creative'} 
+                    showStatus={false}
+                    onClick={onBundleClick ? () => onBundleClick(b) : undefined}
+                  />
                 </Box>
               ))}
             </>

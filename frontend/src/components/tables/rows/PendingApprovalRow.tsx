@@ -18,15 +18,24 @@ export function PendingApprovalRow({
   isMobile = false,
   showActions = true
 }: PendingApprovalRowProps) {
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Stop propagation for the entire row when buttons are visible
+    if (isMobile && showActions) {
+      e.stopPropagation();
+    }
+  };
+
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: 1,
-      minHeight: isMobile ? 32 : 28,
-      height: isMobile ? 32 : 28,
-      pointerEvents: showActions ? 'auto' : 'none'
-    }}>
+    <Box 
+      onClick={handleRowClick}
+      sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 1,
+        minHeight: isMobile ? 32 : 28,
+        height: isMobile ? 32 : 28,
+        pointerEvents: showActions ? 'auto' : 'none'
+      }}>
       <Tooltip title={status} arrow placement="top">
         <Chip
           label={status}
@@ -73,15 +82,22 @@ export function PendingApprovalRow({
         </Box>
       </Tooltip>
       {isMobile && showActions && (
-        <Box sx={{ 
-          position: 'absolute', 
-          bottom: 16, 
-          right: 16, 
-          display: 'flex', 
-          flexDirection: 'column',
-          alignItems: 'flex-end',
-          gap: 0.5
-        }}>
+        <Box 
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+          sx={{ 
+            position: 'absolute', 
+            bottom: 16, 
+            right: 16, 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: 0.5,
+            zIndex: 10,
+            pointerEvents: 'auto'
+          }}>
           <Box sx={{ 
             color: 'text.secondary', 
             fontSize: '0.7rem',
@@ -95,7 +111,12 @@ export function PendingApprovalRow({
             <Tooltip title="Accept Order" arrow>
               <IconButton
                 size="small"
-                onClick={() => onApprove(orderId)}
+                data-action-button="approve"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onApprove(orderId);
+                }}
                 sx={{
                   backgroundColor: '#10b981',
                   color: 'white',
@@ -139,7 +160,12 @@ export function PendingApprovalRow({
             <Tooltip title="Reject Order" arrow>
               <IconButton
                 size="small"
-                onClick={() => onReject(orderId)}
+                data-action-button="reject"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onReject(orderId);
+                }}
                 sx={{
                   backgroundColor: '#ef4444',
                   color: 'white',

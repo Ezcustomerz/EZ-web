@@ -4,6 +4,8 @@ import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCar
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
 import { ServicesDetailPopover } from '../../../components/popovers/ServicesDetailPopover';
 import { BundleDetailPopover } from '../../../components/popovers/BundleDetailPopover';
+import { BookingServicePopover } from '../../../components/popovers/client/BookingServicePopover';
+import { CreativeDetailPopover } from '../../../components/popovers/client/CreativeDetailPopover';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown, faUser, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
@@ -27,6 +29,7 @@ interface Service {
   created_at: string;
   updated_at: string;
   creative_user_id: string;
+  requires_booking: boolean;
   photos?: Array<{
     photo_url: string;
     photo_filename?: string;
@@ -103,10 +106,26 @@ export function ConnectedServicesTab() {
   const [bundleDetailOpen, setBundleDetailOpen] = useState(false);
   const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
 
+  // Booking popover state
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [serviceToBook, setServiceToBook] = useState<Service | null>(null);
+
+  // Connected creatives state
+  const [creatives, setCreatives] = useState<any[]>([]);
+  
+  // Creative detail popover state
+  const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
+  const [selectedCreative, setSelectedCreative] = useState<any>(null);
+
   const fetchingRef = useRef(false);
   const lastAuthStateRef = useRef<boolean | null>(null);
   const cacheRef = useRef<{ data: Service[], timestamp: number } | null>(null);
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  // Refs for creatives fetching
+  const creativesFetchingRef = useRef(false);
+  const lastCreativesAuthStateRef = useRef<boolean | null>(null);
+  const creativesCacheRef = useRef<{ data: any[], timestamp: number } | null>(null);
 
   // Fetch services when component mounts and user is authenticated
   useEffect(() => {
@@ -165,6 +184,55 @@ export function ConnectedServicesTab() {
     };
 
     fetchServices();
+  }, [isAuthenticated]);
+
+  // Fetch connected creatives for creative detail popover
+  useEffect(() => {
+    const fetchCreatives = async () => {
+      // Prevent duplicate calls if already fetching or auth state hasn't changed
+      if (creativesFetchingRef.current || lastCreativesAuthStateRef.current === isAuthenticated) {
+        return;
+      }
+
+      creativesFetchingRef.current = true;
+      lastCreativesAuthStateRef.current = isAuthenticated;
+
+      if (!isAuthenticated) {
+        // In demo mode (not authenticated), use empty array
+        setCreatives([]);
+        creativesFetchingRef.current = false;
+        return;
+      }
+
+      // Check cache first
+      if (creativesCacheRef.current && (Date.now() - creativesCacheRef.current.timestamp) < CACHE_DURATION) {
+        console.log('Using cached connected creatives data');
+        setCreatives(creativesCacheRef.current.data);
+        creativesFetchingRef.current = false;
+        return;
+      }
+
+      try {
+        const response = await userService.getClientCreatives();
+        
+        console.log('Connected creatives data:', response.creatives);
+        
+        // Cache the response
+        creativesCacheRef.current = {
+          data: response.creatives,
+          timestamp: Date.now()
+        };
+        
+        setCreatives(response.creatives);
+      } catch (error) {
+        console.error('Failed to fetch connected creatives:', error);
+        setCreatives([]);
+      } finally {
+        creativesFetchingRef.current = false;
+      }
+    };
+
+    fetchCreatives();
   }, [isAuthenticated]);
 
   // Get unique creatives for filter
@@ -282,8 +350,47 @@ export function ConnectedServicesTab() {
   };
 
   const handleBookService = () => {
-    console.log('Booking service:', selectedService?.id);
-    // TODO: Implement booking logic
+    if (selectedService) {
+      setServiceToBook(selectedService);
+      setBookingOpen(true);
+      // Close the service detail popover
+      setServiceDetailOpen(false);
+      setSelectedService(null);
+    }
+  };
+
+  const handleBookingClose = () => {
+    setBookingOpen(false);
+    setServiceToBook(null);
+  };
+
+  const handleConfirmBooking = async (bookingData: { serviceId: string }) => {
+    console.log('Confirming booking for service:', bookingData.serviceId);
+    // TODO: Implement actual booking API call
+    // For now, just close the popover
+    handleBookingClose();
+  };
+
+  const handleCreativeClick = (creativeData: any) => {
+    // Find the full creative data from the connected creatives list
+    const fullCreative = creatives.find(creative => 
+      creative.name === creativeData.name || 
+      creative.id === creativeData.id
+    );
+    
+    if (fullCreative) {
+      setSelectedCreative(fullCreative);
+      setCreativeDetailOpen(true);
+    } else {
+      // Fallback to the provided data if not found in connected creatives
+      setSelectedCreative(creativeData);
+      setCreativeDetailOpen(true);
+    }
+  };
+
+  const handleCreativeDetailClose = () => {
+    setCreativeDetailOpen(false);
+    setSelectedCreative(null);
   };
 
   if (loading) {
@@ -785,6 +892,7 @@ export function ConnectedServicesTab() {
                   color={item.color}
                   creative={item.creative_display_name || item.creative_name}
                   onBook={() => handleServiceClick(item.id)}
+                  requires_booking={item.requires_booking}
                 />
               ) : (
                 <BundleCard
@@ -807,6 +915,7 @@ export function ConnectedServicesTab() {
         service={selectedService}
         context="client-connected"
         onBook={handleBookService}
+        onCreativeClick={handleCreativeClick}
       />
 
       {/* Bundle Detail Popover */}
@@ -817,6 +926,24 @@ export function ConnectedServicesTab() {
         context="client-connected"
         onBook={() => console.log('Booking bundle:', selectedBundle?.id)}
       />
+
+      {/* Booking Service Popover */}
+      <BookingServicePopover
+        open={bookingOpen}
+        onClose={handleBookingClose}
+        service={serviceToBook}
+        onConfirmBooking={handleConfirmBooking}
+        onCreativeClick={handleCreativeClick}
+      />
+
+      {/* Creative Detail Popover */}
+      {selectedCreative && (
+        <CreativeDetailPopover
+          open={creativeDetailOpen}
+          onClose={handleCreativeDetailClose}
+          creative={selectedCreative}
+        />
+      )}
     </Box>
   );
 }

@@ -43,6 +43,16 @@ export interface RoleOption {
   description: string;
 }
 
+export interface SubscriptionTier {
+  id: string;
+  name: string;
+  price: number;
+  storage_amount_bytes: number;
+  storage_display: string;
+  description?: string;
+  fee_percentage: number;
+}
+
 export interface CreativeSetupRequest {
   display_name: string;
   title: string;
@@ -50,7 +60,7 @@ export interface CreativeSetupRequest {
   primary_contact?: string;
   secondary_contact?: string;
   bio?: string;
-  subscription_tier: string;
+  subscription_tier_id: string;
 }
 
 export interface CreativeSetupResponse {
@@ -96,7 +106,9 @@ export interface CreativeProfile {
   title: string;
   bio?: string;
   description?: string;
-  subscription_tier: string;
+  subscription_tier_id: string;
+  subscription_tier?: string; // Subscription tier name (e.g., 'basic', 'growth', 'pro') - for backward compatibility
+  subscription_tier_name?: string; // Explicit subscription tier name
   primary_contact?: string;
   secondary_contact?: string;
   profile_banner_url?: string;
@@ -151,6 +163,8 @@ export interface CreativeClient {
   status: 'active' | 'inactive';
   totalSpent: number;
   projects: number;
+  profile_picture_url?: string;
+  title?: string;
 }
 
 export interface CreativeClientsListResponse {
@@ -195,6 +209,7 @@ export interface CreativeService {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  requires_booking: boolean;
   photos?: ServicePhoto[];
 }
 
@@ -223,13 +238,12 @@ export interface WeeklySchedule {
 
 export interface CalendarSettings {
   is_scheduling_enabled: boolean;
-  use_time_slots: boolean;
-  session_durations: number[]; // Duration in minutes
+  session_duration: number; // Duration in minutes
   default_session_length: number;
   min_notice_amount: number;
-  min_notice_unit: 'hours' | 'days';
+  min_notice_unit: 'minutes' | 'hours' | 'days';
   max_advance_amount: number;
-  max_advance_unit: 'days' | 'weeks' | 'months';
+  max_advance_unit: 'hours' | 'days' | 'weeks' | 'months';
   buffer_time_amount: number;
   buffer_time_unit: 'minutes' | 'hours';
   weekly_schedule: WeeklySchedule[];
@@ -401,6 +415,18 @@ export const userService = {
     const response = await axios.post<UpdateRolesResponse>(
       `${API_BASE_URL}/users/update-roles`,
       { selected_roles: roles },
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all available subscription tiers
+   */
+  async getSubscriptionTiers(): Promise<SubscriptionTier[]> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<SubscriptionTier[]>(
+      `${API_BASE_URL}/users/subscription-tiers`,
       { headers }
     );
     return response.data;
@@ -597,6 +623,12 @@ export const userService = {
     formData.append('delivery_time', serviceData.delivery_time);
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
+    formData.append('payment_option', serviceData.payment_option);
+    
+    // Add calendar settings if provided
+    if (serviceData.calendar_settings) {
+      formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
+    }
     
     // Add photos
     photos.forEach((photo) => {
@@ -633,7 +665,7 @@ export const userService = {
     return response.data;
   },
 
-  async updateServiceWithPhotos(serviceId: string, serviceData: CreateServiceRequest, photos: File[], onProgress?: (progress: number) => void): Promise<UpdateServiceResponse> {
+  async updateServiceWithPhotos(serviceId: string, serviceData: CreateServiceRequest, photos: File[], existingPhotos: ServicePhoto[] = [], onProgress?: (progress: number) => void): Promise<UpdateServiceResponse> {
     const headers = await getAuthHeaders();
     
     // Create FormData for multipart upload
@@ -646,11 +678,16 @@ export const userService = {
     formData.append('delivery_time', serviceData.delivery_time);
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
+    formData.append('payment_option', serviceData.payment_option);
     
     // Add calendar settings if provided
     if (serviceData.calendar_settings) {
       formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
     }
+    
+    // Add existing photos to keep (URLs)
+    const existingPhotoUrls = existingPhotos.map(photo => photo.photo_url);
+    formData.append('existing_photos', JSON.stringify(existingPhotoUrls));
     
     // Add photo files
     photos.forEach((photo, index) => {
@@ -718,7 +755,7 @@ export const userService = {
     const filename = `service-photos/${serviceId || 'temp'}/${timestamp}-${randomString}.${fileExtension}`;
     
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('creative-assets')
       .upload(filename, file, {
         cacheControl: '3600',
@@ -798,6 +835,136 @@ export const userService = {
     const headers = await getAuthHeaders();
     const response = await axios.get<{services: any[], bundles: any[], total_count: number}>(
       `${API_BASE_URL}/client/services`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get calendar settings for a specific service
+   */
+  async getServiceCalendarSettings(serviceId: string): Promise<{success: boolean, calendar_settings: CalendarSettings | null}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<{success: boolean, calendar_settings: CalendarSettings | null}>(
+      `${API_BASE_URL}/creative/services/${serviceId}/calendar`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Create a Stripe Connect account for the creative
+   */
+  async createStripeConnectAccount(): Promise<{account_id: string; onboarding_url: string}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{account_id: string; onboarding_url: string}>(
+      `${API_BASE_URL}/stripe/connect/create-account`,
+      {},
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get Stripe account status for the creative
+   */
+  async getStripeAccountStatus(): Promise<{
+    connected: boolean;
+    account_id?: string;
+    payouts_enabled: boolean;
+    onboarding_complete: boolean;
+    account_type?: string;
+    last_payout_date?: number;
+    payout_disable_reason?: string;
+    currently_due_requirements?: string[];
+    error?: string;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<{
+      connected: boolean;
+      account_id?: string;
+      payouts_enabled: boolean;
+      onboarding_complete: boolean;
+      account_type?: string;
+      last_payout_date?: number;
+      payout_disable_reason?: string;
+      currently_due_requirements?: string[];
+      error?: string;
+    }>(
+      `${API_BASE_URL}/stripe/connect/account-status`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Create a login link for the Stripe Express account dashboard
+   */
+  async createStripeLoginLink(): Promise<{login_url: string | null; needs_onboarding?: boolean; error?: string}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{login_url: string | null; needs_onboarding?: boolean; error?: string}>(
+      `${API_BASE_URL}/stripe/connect/create-login-link`,
+      {},
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Process a payment for a booking - creates a Stripe Checkout Session
+   */
+  async processPayment(bookingId: string, amount: number): Promise<{
+    checkout_url: string;
+    session_id: string;
+    amount: number;
+    platform_fee: number;
+    creative_amount: number;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{
+      checkout_url: string;
+      session_id: string;
+      amount: number;
+      platform_fee: number;
+      creative_amount: number;
+    }>(
+      `${API_BASE_URL}/stripe/payment/process`,
+      {
+        booking_id: bookingId,
+        amount: amount
+      },
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Verify a payment session and update booking status
+   */
+  async verifyPayment(sessionId: string, bookingId: string): Promise<{
+    success: boolean;
+    message: string;
+    booking_id: string;
+    amount_paid: number;
+    payment_status: string;
+    client_status: string;
+    creative_status: string;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{
+      success: boolean;
+      message: string;
+      booking_id: string;
+      amount_paid: number;
+      payment_status: string;
+      client_status: string;
+      creative_status: string;
+    }>(
+      `${API_BASE_URL}/stripe/payment/verify`,
+      {
+        session_id: sessionId,
+        booking_id: bookingId
+      },
       { headers }
     );
     return response.data;

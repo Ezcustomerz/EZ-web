@@ -27,7 +27,7 @@ import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
 
 import { errorToast, successToast } from '../../toast/toast';
-import { userService } from '../../../api/userService';
+import { userService, type SubscriptionTier } from '../../../api/userService';
 import { useAuth } from '../../../context/auth';
 
 export interface CreativeSetupPopoverProps {
@@ -130,50 +130,43 @@ const CREATIVE_TITLES = [
   'Tutor',
 ] as const;
 
-const SUBSCRIPTION_TIERS = [
-  {
-    id: 'basic',
-    name: 'Basic',
-    subtitle: 'Free Forever',
-    price: '$0',
-    priceNum: 0,
-    storage: '10GB',
-    platformFee: '3.5%',
-    color: '#10B981',
+// Helper function to map subscription tier name to icon and color
+const getTierMetadata = (name: string) => {
+  const nameLower = name.toLowerCase();
+  if (nameLower === 'basic') {
+    return {
+      icon: Star,
+      color: '#10B981',
+      gradient: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+      subtitle: 'Free Forever',
+      popular: false,
+    };
+  } else if (nameLower === 'growth') {
+    return {
+      icon: TrendingUp,
+      color: '#3B82F6',
+      gradient: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+      subtitle: 'Most Popular',
+      popular: true,
+    };
+  } else if (nameLower === 'pro') {
+    return {
+      icon: Diamond,
+      color: '#8B5CF6',
+      gradient: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+      subtitle: 'Professional',
+      popular: false,
+    };
+  }
+  // Default fallback
+  return {
     icon: Star,
-    features: ['10GB Storage', '3.5% Platform Fee', 'Basic Support', 'Standard Analytics'],
-    popular: false,
+    color: '#10B981',
     gradient: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-  },
-  {
-    id: 'growth',
-    name: 'Growth',
-    subtitle: 'Most Popular',
-    price: '$25',
-    priceNum: 25,
-    storage: '50-100GB',
-    platformFee: '2.0%',
-    color: '#3B82F6',
-    icon: TrendingUp,
-    features: ['50-100GB Storage', '2.0% Platform Fee', 'Priority Support', 'Advanced Analytics', 'Custom Branding'],
-    popular: true,
-    gradient: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    subtitle: 'Professional',
-    price: '$125',
-    priceNum: 125,
-    storage: '200GB-1TB',
-    platformFee: '0.5%',
-    color: '#8B5CF6',
-    icon: Diamond,
-    features: ['200GB-1TB Storage', '0.5% Platform Fee', '24/7 Premium Support', 'Enterprise Analytics', 'White-label Options', 'API Access'],
+    subtitle: '',
     popular: false,
-    gradient: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-  },
-] as const;
+  };
+};
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -198,6 +191,10 @@ export function CreativeSetupPopover({
   const [isLoading, setIsLoading] = useState(false);
   const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
 
+  // Subscription tiers state
+  const [subscriptionTiers, setSubscriptionTiers] = useState<SubscriptionTier[]>([]);
+  const [loadingTiers, setLoadingTiers] = useState(true);
+
   // Form state
   const [formData, setFormData] = useState({
     displayName: userProfile?.name || userName,
@@ -205,14 +202,43 @@ export function CreativeSetupPopover({
     customTitle: '',
     primaryContact: userProfile?.email || userEmail || '',
     secondaryContact: '',
-    subscriptionTier: 'basic',
+    subscriptionTierId: '', // Will be set after tiers are loaded
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Fetch subscription tiers on mount
+  useEffect(() => {
+    const fetchTiers = async () => {
+      try {
+        setLoadingTiers(true);
+        const tiers = await userService.getSubscriptionTiers();
+        setSubscriptionTiers(tiers);
+        
+        // Set default to basic tier (first one or the one named 'basic')
+        const basicTier = tiers.find(t => t.name.toLowerCase() === 'basic') || tiers[0];
+        if (basicTier) {
+          setFormData(prev => ({
+            ...prev,
+            subscriptionTierId: prev.subscriptionTierId || basicTier.id,
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch subscription tiers:', err);
+        errorToast('Error', 'Failed to load subscription options');
+      } finally {
+        setLoadingTiers(false);
+      }
+    };
+
+    if (open) {
+      fetchTiers();
+    }
+  }, [open]);
+
   // Update form data when userProfile loads or restore from temp data
   useEffect(() => {
-    if (open) {
+    if (open && subscriptionTiers.length > 0) {
       if (tempSetupData.creative) {
         // Restore from temp data if available
         const tempData = tempSetupData.creative;
@@ -222,17 +248,18 @@ export function CreativeSetupPopover({
           customTitle: tempData.custom_title || '',
           primaryContact: tempData.primary_contact || userProfile?.email || userEmail || '',
           secondaryContact: tempData.secondary_contact || '',
-          subscriptionTier: tempData.subscription_tier || 'basic',
+          subscriptionTierId: tempData.subscription_tier_id || subscriptionTiers.find(t => t.name.toLowerCase() === 'basic')?.id || subscriptionTiers[0]?.id || '',
         });
       } else if (userProfile) {
         setFormData(prev => ({
           ...prev,
           displayName: userProfile.name || prev.displayName,
           primaryContact: userProfile.email || prev.primaryContact,
+          subscriptionTierId: prev.subscriptionTierId || subscriptionTiers.find(t => t.name.toLowerCase() === 'basic')?.id || subscriptionTiers[0]?.id || '',
         }));
       }
     }
-  }, [userProfile, open, tempSetupData.creative, userName, userEmail]);
+  }, [userProfile, open, tempSetupData.creative, userName, userEmail, subscriptionTiers]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -289,7 +316,7 @@ export function CreativeSetupPopover({
         custom_title: formData.title === 'Other' ? formData.customTitle : undefined,
         primary_contact: formData.primaryContact || undefined,
         secondary_contact: formData.secondaryContact || undefined,
-        subscription_tier: formData.subscriptionTier,
+        subscription_tier_id: formData.subscriptionTierId,
       };
 
       // If onComplete is provided, this is individual setup - call individual endpoint
@@ -342,7 +369,8 @@ export function CreativeSetupPopover({
     }
   };
 
-  const selectedTier = SUBSCRIPTION_TIERS.find(tier => tier.id === formData.subscriptionTier);
+  const selectedTier = subscriptionTiers.find(tier => tier.id === formData.subscriptionTierId);
+  const selectedTierMetadata = selectedTier ? getTierMetadata(selectedTier.name) : null;
 
   return (
     <Dialog
@@ -682,14 +710,17 @@ export function CreativeSetupPopover({
             
             {/* Mobile View - Stacked Cards */}
             <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
-              {SUBSCRIPTION_TIERS.map((tier) => {
-                const IconComponent = tier.icon;
-                const isSelected = formData.subscriptionTier === tier.id;
+              {loadingTiers ? (
+                <Typography>Loading subscription options...</Typography>
+              ) : subscriptionTiers.map((tier) => {
+                const metadata = getTierMetadata(tier.name);
+                const IconComponent = metadata.icon;
+                const isSelected = formData.subscriptionTierId === tier.id;
                 
                 return (
                   <Box key={tier.id} sx={{ mb: 2 }}>
                     <Box sx={{ position: 'relative' }}>
-                      {tier.popular && (
+                      {metadata.popular && (
                         <Chip
                           label="Popular"
                           size="small"
@@ -708,37 +739,37 @@ export function CreativeSetupPopover({
                       )}
                       <Card
                         sx={{
-                          cursor: 'pointer',
-                          border: isSelected ? `2px solid ${tier.color}` : '1px solid #e0e0e0',
-                          borderRadius: 3,
-                          transition: 'all 0.2s ease',
-                          background: '#fff',
-                          '&:hover': {
-                            border: `2px solid ${tier.color}`,
-                            boxShadow: `0 4px 20px ${tier.color}20`,
-                          }
+                      cursor: 'pointer',
+                      border: isSelected ? `2px solid ${metadata.color}` : '1px solid #e0e0e0',
+                      borderRadius: 3,
+                      transition: 'all 0.2s ease',
+                      background: '#fff',
+                      '&:hover': {
+                        border: `2px solid ${metadata.color}`,
+                        boxShadow: `0 4px 20px ${metadata.color}20`,
+                      }
                         }}
-                        onClick={() => handleInputChange('subscriptionTier', tier.id)}
+                        onClick={() => handleInputChange('subscriptionTierId', tier.id)}
                       >
                       <CardContent sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 50 }}>
                           <IconComponent 
                             sx={{ 
                               fontSize: 32, 
-                              color: tier.color,
+                              color: metadata.color,
                             }} 
                           />
                         </Box>
                         
                         <Box sx={{ flex: 1 }}>
-                          <Typography variant="h6" fontWeight={700} sx={{ color: tier.color, mb: 0.5 }}>
+                          <Typography variant="h6" fontWeight={700} sx={{ color: metadata.color, mb: 0.5 }}>
                             {tier.name}
                           </Typography>
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            {tier.storage} • {tier.platformFee} fee
+                            {tier.storage_display} • {(tier.fee_percentage * 100).toFixed(1)}% fee
                           </Typography>
-                          <Typography variant="h5" fontWeight={800} sx={{ color: tier.color }}>
-                            {tier.price}
+                          <Typography variant="h5" fontWeight={800} sx={{ color: metadata.color }}>
+                            ${tier.price}
                             <Typography component="span" variant="body2" sx={{ opacity: 0.7, fontWeight: 400 }}>
                               /month
                             </Typography>
@@ -749,11 +780,11 @@ export function CreativeSetupPopover({
                           width: 24, 
                           height: 24, 
                           borderRadius: '50%', 
-                          border: `2px solid ${tier.color}`,
+                          border: `2px solid ${metadata.color}`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          bgcolor: isSelected ? tier.color : 'transparent'
+                          bgcolor: isSelected ? metadata.color : 'transparent'
                         }}>
                           {isSelected && (
                             <Box sx={{ 
@@ -778,9 +809,12 @@ export function CreativeSetupPopover({
               gap: 2,
               width: '100%'
             }}>
-              {SUBSCRIPTION_TIERS.map((tier) => {
-                const IconComponent = tier.icon;
-                const isSelected = formData.subscriptionTier === tier.id;
+              {loadingTiers ? (
+                <Typography>Loading subscription options...</Typography>
+              ) : subscriptionTiers.map((tier) => {
+                const metadata = getTierMetadata(tier.name);
+                const IconComponent = metadata.icon;
+                const isSelected = formData.subscriptionTierId === tier.id;
                 
                 return (
                   <Box 
@@ -792,7 +826,7 @@ export function CreativeSetupPopover({
                       position: 'relative'
                     }}
                   >
-                    {tier.popular && (
+                    {metadata.popular && (
                       <Chip
                         label="🔥 Most Popular"
                         size="small"
@@ -812,8 +846,8 @@ export function CreativeSetupPopover({
                     <Card
                       sx={{
                         cursor: 'pointer',
-                        border: isSelected ? `3px solid ${tier.color}` : '3px solid #e0e0e0',
-                        boxShadow: isSelected ? `0 8px 32px ${tier.color}30` : '0 2px 12px rgba(0,0,0,0.08)',
+                        border: isSelected ? `3px solid ${metadata.color}` : '3px solid #e0e0e0',
+                        boxShadow: isSelected ? `0 8px 32px ${metadata.color}30` : '0 2px 12px rgba(0,0,0,0.08)',
                         transition: 'box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border 0.1s ease-out',
                         position: 'relative',
                         background: '#fff',
@@ -822,11 +856,11 @@ export function CreativeSetupPopover({
                         minHeight: 280,
                         borderRadius: 3,
                         '&:hover': {
-                          boxShadow: `0 6px 25px ${tier.color}25`,
-                          border: `3px solid ${tier.color}`,
+                          boxShadow: `0 6px 25px ${metadata.color}25`,
+                          border: `3px solid ${metadata.color}`,
                         }
                       }}
-                      onClick={() => handleInputChange('subscriptionTier', tier.id)}
+                      onClick={() => handleInputChange('subscriptionTierId', tier.id)}
                     >
                       
                       <CardContent sx={{ 
@@ -840,7 +874,7 @@ export function CreativeSetupPopover({
                           <IconComponent 
                             sx={{ 
                               fontSize: 36, 
-                              color: tier.color,
+                              color: metadata.color,
                               mb: 1,
                               filter: isSelected ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' : 'none',
                             }} 
@@ -849,12 +883,12 @@ export function CreativeSetupPopover({
                             {tier.name}
                           </Typography>
                           <Typography variant="body2" sx={{ opacity: 0.8, fontSize: '0.8rem' }}>
-                            {tier.subtitle}
+                            {metadata.subtitle}
                           </Typography>
                         </Box>
 
                         <Typography variant="h4" fontWeight={900} sx={{ mb: 1.5, fontSize: '1.8rem' }}>
-                          {tier.price}
+                          ${tier.price}
                           <Typography component="span" variant="body2" sx={{ opacity: 0.7 }}>
                             /mo
                           </Typography>
@@ -875,36 +909,26 @@ export function CreativeSetupPopover({
                             justifyContent: 'center'
                           }}>
                             <Storage sx={{ fontSize: 14, mr: 0.5 }} />
-                            {tier.storage}
+                            {tier.storage_display}
                           </Typography>
                           <Typography variant="body2" fontWeight={600} sx={{ 
                             fontSize: '0.8rem',
                             opacity: 0.8
                           }}>
-                            {tier.platformFee} Platform Fee
+                            {(tier.fee_percentage * 100).toFixed(1)}% Platform Fee
                           </Typography>
                         </Box>
 
-                        <Box sx={{ textAlign: 'left', mt: 'auto' }}>
-                          {tier.features.slice(0, 3).map((feature, index) => (
-                            <Typography key={index} component="div" variant="body2" sx={{ 
-                              mb: 0.3, 
-                              display: 'flex', 
-                              alignItems: 'center',
-                              fontSize: '0.75rem'
+                        {tier.description && (
+                          <Box sx={{ textAlign: 'left', mt: 'auto' }}>
+                            <Typography variant="body2" sx={{ 
+                              fontSize: '0.75rem',
+                              color: 'text.secondary'
                             }}>
-                              <Box sx={{ 
-                                width: 4, 
-                                height: 4, 
-                                borderRadius: '50%', 
-                                bgcolor: tier.color,
-                                mr: 0.8,
-                                flexShrink: 0
-                              }} />
-                              {feature}
+                              {tier.description}
                             </Typography>
-                          ))}
-                        </Box>
+                          </Box>
+                        )}
                       </CardContent>
                     </Card>
                   </Box>
@@ -970,17 +994,17 @@ export function CreativeSetupPopover({
             fontSize: isMobile ? '1rem' : isTablet ? '1.05rem' : '1.1rem',
             fontWeight: 700,
             borderRadius: 2,
-            background: selectedTier?.gradient || 'linear-gradient(45deg, #3B82F6, #1D4ED8)',
-            boxShadow: selectedTier ? `0 8px 25px ${selectedTier.color}40` : '0 8px 25px rgba(59, 130, 246, 0.4)',
+            background: selectedTierMetadata?.gradient || 'linear-gradient(45deg, #3B82F6, #1D4ED8)',
+            boxShadow: selectedTierMetadata ? `0 8px 25px ${selectedTierMetadata.color}40` : '0 8px 25px rgba(59, 130, 246, 0.4)',
             '&:hover': {
-              background: selectedTier?.gradient || 'linear-gradient(45deg, #1D4ED8, #1E40AF)',
+              background: selectedTierMetadata?.gradient || 'linear-gradient(45deg, #1D4ED8, #1E40AF)',
               transform: 'translateY(-2px)',
-              boxShadow: selectedTier ? `0 12px 35px ${selectedTier.color}50` : '0 12px 35px rgba(59, 130, 246, 0.5)',
+              boxShadow: selectedTierMetadata ? `0 12px 35px ${selectedTierMetadata.color}50` : '0 12px 35px rgba(59, 130, 246, 0.5)',
             },
             transition: 'all 0.3s ease',
           }}
         >
-          {isLoading ? 'Setting Up Your Profile...' : `🚀 Complete Creative Setup with ${selectedTier?.name} Plan`}
+          {isLoading ? 'Setting Up Your Profile...' : `🚀 Complete Creative Setup${selectedTier ? ` with ${selectedTier.name} Plan` : ''}`}
         </Button>
       </DialogActions>
     </Dialog>

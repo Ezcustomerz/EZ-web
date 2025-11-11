@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   MenuItem,
   ListItemIcon,
@@ -21,6 +22,7 @@ import { CreativeSettingsPopover } from '../popovers/creative/CreativeSettingsPo
 import { ClientSettingsPopover } from '../popovers/client/ClientSettingsPopover';
 import { AdvocateSettingsPopover } from '../popovers/advocate/AdvocateSettingsPopover';
 import { useAuth } from '../../context/auth';
+import { successToast } from '../toast/toast';
 
 interface UserDropdownMenuProps {
   anchorEl: HTMLElement | null;
@@ -32,7 +34,10 @@ interface UserDropdownMenuProps {
 export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: UserDropdownMenuProps) {
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<'account' | 'billing' | 'userAccount'>('account');
   const { isAuthenticated, signOut, openAuth } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Determine current role based on URL path
   const getCurrentRole = () => {
@@ -44,6 +49,38 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
   };
 
   const currentRole = getCurrentRole();
+
+  // Handle Stripe return/refresh query parameters
+  useEffect(() => {
+    const stripeSuccess = searchParams.get('stripe_success');
+    const stripeRefresh = searchParams.get('stripe_refresh');
+    
+    if ((stripeSuccess || stripeRefresh) && currentRole === 'creative' && isAuthenticated) {
+      // Show success message
+      if (stripeSuccess) {
+        successToast('Stripe account connected successfully!');
+      } else if (stripeRefresh) {
+        successToast('Please complete your Stripe account setup');
+      }
+      
+      // Open settings popover to billing section
+      setSettingsInitialSection('billing');
+      setSettingsOpen(true);
+      
+      // Clean up URL by removing query parameters
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('stripe_success');
+      newSearchParams.delete('stripe_refresh');
+      
+      const newSearch = newSearchParams.toString();
+      const newUrl = newSearch 
+        ? `${window.location.pathname}?${newSearch}` 
+        : window.location.pathname;
+      
+      // Use replace to avoid adding to history
+      navigate(newUrl, { replace: true });
+    }
+  }, [searchParams, currentRole, isAuthenticated, navigate]);
 
   const menuItems = [
     {
@@ -309,6 +346,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       <CreativeSettingsPopover
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        initialSection={settingsInitialSection}
       />
     )}
 

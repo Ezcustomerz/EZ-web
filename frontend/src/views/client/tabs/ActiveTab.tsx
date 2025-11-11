@@ -8,151 +8,213 @@ import {
   Select, 
   MenuItem, 
   useTheme,
+  useMediaQuery,
+  CircularProgress,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
-import { Search, DateRange } from '@mui/icons-material';
-import { useState } from 'react';
+import { Search, DateRange, FilterList, AttachMoney } from '@mui/icons-material';
+import { useState, useEffect, useRef } from 'react';
 import { InProgressOrderCard } from '../../../components/cards/client/InProgressOrderCard';
+import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
-// Dummy data for connected creatives
-const dummyConnectedCreatives = [
-  { id: '1', name: 'DJ Producer' },
-  { id: '2', name: 'Beat Master' },
-  { id: '3', name: 'Vocal Coach Pro' },
-  { id: '4', name: 'Sound Designer X' },
-  { id: '5', name: 'Engineer Elite' },
-];
+// Cache for orders to prevent duplicate API calls
+let fetchCache: {
+  promise: Promise<Order[]> | null;
+  data: Order[] | null;
+  isFetching: boolean;
+  timestamp: number;
+  resolved: boolean;
+} = {
+  promise: null,
+  data: null,
+  isFetching: false,
+  timestamp: 0,
+  resolved: false,
+};
 
-// Dummy order data - filtered to only in-progress orders
-const dummyInProgressOrders = [
-  {
-    id: '3',
-    serviceName: 'Vocal Recording Session',
-    creativeName: 'Vocal Coach Pro',
-    orderDate: '2025-10-02',
-    status: 'in-progress' as const,
-    calendarDate: null,
-    description: 'Creative is working on your service',
-    price: 200.00,
-    approvedDate: '2025-10-03',
-    completedDate: null,
-    fileCount: null,
-    fileSize: null,
-    paymentOption: 'split_payment' as const,
-    amountPaid: 100.00,
-    amountRemaining: 100.00,
-    serviceId: 'svc_3',
-    serviceDescription: 'Professional vocal recording session in a premium studio',
-    serviceDeliveryTime: '2-3 days',
-    serviceColor: '#fd79a8',
-    creativeId: 'creative_3',
-    creativeDisplayName: 'Vocal Coach Pro',
-    creativeTitle: 'Vocal Coach & Recording Engineer',
-    creativeEmail: 'vocalcoach@ez.com',
-    creativeRating: 5.0,
-    creativeReviewCount: 12,
-    creativeServicesCount: 8,
-    creativeColor: '#fd79a8',
-    creativeAvatarUrl: undefined,
-  },
-  {
-    id: '6',
-    serviceName: 'Beat Production',
-    creativeName: 'Beat Master',
-    orderDate: '2025-09-30',
-    status: 'in-progress' as const,
-    calendarDate: '2025-10-05T13:00:00',
-    description: 'Creative is working on your service',
-    price: 220.00,
-    approvedDate: '2025-10-01',
-    completedDate: null,
-    fileCount: null,
-    fileSize: null,
-    paymentOption: 'payment_upfront' as const,
-    amountPaid: 220.00,
-    amountRemaining: 0.00,
-    serviceId: 'svc_6',
-    serviceDescription: 'Custom beat production tailored to your style',
-    serviceDeliveryTime: '7-10 days',
-    serviceColor: '#6c5ce7',
-    creativeId: 'creative_2',
-    creativeDisplayName: 'Beat Master',
-    creativeTitle: 'Producer & Beat Maker',
-    creativeEmail: 'beatmaster@ez.com',
-    creativeRating: 4.7,
-    creativeReviewCount: 31,
-    creativeServicesCount: 15,
-    creativeColor: '#6c5ce7',
-    creativeAvatarUrl: undefined,
-  },
-  {
-    id: '8',
-    serviceName: 'Sound Design',
-    creativeName: 'Sound Designer X',
-    orderDate: '2025-09-28',
-    status: 'in-progress' as const,
-    calendarDate: null,
-    description: 'Creative is working on your service',
-    price: 275.00,
-    approvedDate: '2025-09-29',
-    completedDate: null,
-    fileCount: null,
-    fileSize: null,
-    paymentOption: 'payment_later' as const,
-    amountPaid: 0.00,
-    amountRemaining: 275.00,
-    serviceId: 'svc_8',
-    serviceDescription: 'Custom sound design for your project',
-    serviceDeliveryTime: '10-14 days',
-    serviceColor: '#74b9ff',
-    creativeId: 'creative_4',
-    creativeDisplayName: 'Sound Designer X',
-    creativeTitle: 'Audio Engineer & Sound Designer',
-    creativeEmail: 'sounddesigner@ez.com',
-    creativeRating: 4.8,
-    creativeReviewCount: 16,
-    creativeServicesCount: 11,
-    creativeColor: '#74b9ff',
-    creativeAvatarUrl: undefined,
-  },
-  {
-    id: '19',
-    serviceName: 'Portfolio Review Session',
-    creativeName: 'Beat Master',
-    orderDate: '2025-09-28',
-    status: 'in-progress' as const,
-    calendarDate: '2025-09-29T15:00:00',
-    description: 'Creative is working on your service',
-    price: 0.00,
-    approvedDate: '2025-09-28',
-    completedDate: null,
-    fileCount: null,
-    fileSize: null,
-    paymentOption: 'free' as const,
-    amountPaid: 0.00,
-    amountRemaining: 0.00,
-    serviceId: 'svc_19',
-    serviceDescription: 'Free portfolio review and feedback session',
-    serviceDeliveryTime: '1 hour',
-    serviceColor: '#a29bfe',
-    creativeId: 'creative_2',
-    creativeDisplayName: 'Beat Master',
-    creativeTitle: 'Producer & Beat Maker',
-    creativeEmail: 'beatmaster@ez.com',
-    creativeRating: 4.7,
-    creativeReviewCount: 31,
-    creativeServicesCount: 15,
-    creativeColor: '#a29bfe',
-    creativeAvatarUrl: undefined,
-  },
-];
+const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remounts
+
+// Transform API orders to component format
+function transformOrders(fetchedOrders: Order[]) {
+  // Backend already filters for in-progress orders, so we just transform
+  return fetchedOrders.map((order: Order) => {
+      const amountPaid = order.amount_paid || 0;
+      const amountRemaining = Math.max(0, order.price - amountPaid);
+      
+      return {
+        id: order.id,
+        serviceName: order.service_name,
+        creativeName: order.creative_name,
+        orderDate: order.order_date,
+        description: order.description || order.service_description || '',
+        price: order.price,
+        calendarDate: order.booking_date || null,
+        paymentOption: order.price === 0 || order.price === null ? 'free' :
+                       order.payment_option === 'upfront' ? 'payment_upfront' : 
+                       order.payment_option === 'split' ? 'split_payment' : 'payment_later',
+        amountPaid: amountPaid,
+        amountRemaining: amountRemaining,
+        approvedDate: order.approved_at || null,
+        serviceId: order.service_id,
+        serviceDescription: order.service_description,
+        serviceDeliveryTime: order.service_delivery_time,
+        serviceColor: order.service_color,
+        creativeAvatarUrl: order.creative_avatar_url,
+        creativeDisplayName: order.creative_display_name,
+        creativeTitle: order.creative_title,
+        creativeId: order.creative_id,
+        creativeEmail: order.creative_email,
+        creativeRating: order.creative_rating,
+        creativeReviewCount: order.creative_review_count,
+        creativeServicesCount: order.creative_services_count,
+        creativeColor: order.creative_color,
+      };
+    });
+}
 
 export function ActiveTab() {
   const theme = useTheme();
+  const { isAuthenticated } = useAuth();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCreative, setSelectedCreative] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [priceSort, setPriceSort] = useState('none');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  // Fetch orders on component mount with caching to prevent duplicate calls
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setLoading(false);
+        setError(null);
+      }
+      return;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - fetchCache.timestamp;
+    
+    // Check if we have cached data that's still fresh
+    if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
+      // Use cached data directly (fastest path)
+      if (mountedRef.current) {
+        const transformedOrders = transformOrders(fetchCache.data);
+        setOrders(transformedOrders);
+        setLoading(false);
+      }
+      return;
+    }
+    
+    // Check if a promise already exists - reuse it immediately
+    // This must be checked BEFORE creating a new one to prevent race conditions
+    if (fetchCache.promise) {
+      // Reuse existing promise (handles StrictMode remounts)
+      setLoading(true);
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
+        const transformedOrders = transformOrders(fetchedOrders);
+        setOrders(transformedOrders);
+        setError(null);
+        setLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setError(error.message || 'Failed to load orders');
+        setLoading(false);
+      });
+      return;
+    }
+    
+    // No promise exists - create one
+    // This should only execute for the first mount
+    // Set flags BEFORE creating promise to prevent race conditions
+        fetchCache.isFetching = true;
+        fetchCache.resolved = false;
+        fetchCache.timestamp = now;
+        
+        // Create promise synchronously - assign immediately
+        const fetchOrders = async () => {
+        try {
+          const fetchedOrders = await bookingService.getClientInProgressOrders();
+          
+          // Transform orders to match expected format
+          const transformedOrders = transformOrders(fetchedOrders);
+          
+          if (mountedRef.current) {
+            setOrders(transformedOrders);
+            setError(null);
+            setLoading(false);
+          }
+          
+          // Cache the resolved data
+          fetchCache.data = fetchedOrders;
+          fetchCache.isFetching = false;
+          fetchCache.resolved = true;
+          // Keep the data and promise in cache for CACHE_DURATION to handle remounts
+          setTimeout(() => {
+            const now = Date.now();
+            if (now - fetchCache.timestamp >= CACHE_DURATION) {
+              fetchCache.promise = null;
+              fetchCache.data = null;
+              fetchCache.resolved = false;
+            }
+          }, CACHE_DURATION);
+          return fetchedOrders;
+        } catch (error) {
+          console.error('Failed to fetch orders:', error);
+          if (mountedRef.current) {
+            setError((error as any).message || 'Failed to load orders');
+            setLoading(false);
+          }
+          fetchCache.isFetching = false;
+          // Clear cache on error
+          fetchCache.promise = null;
+          throw error;
+        }
+      };
+
+      // Assign promise synchronously - this happens immediately
+      // This must happen synchronously so subsequent mounts see it
+      fetchCache.promise = fetchOrders();
+      fetchCache.promise.catch(() => {
+        // Error already handled in fetchOrders
+      });
+      
+      // Set loading and attach promise handler
+      setLoading(true);
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
+        const transformedOrders = transformOrders(fetchedOrders);
+        setOrders(transformedOrders);
+        setError(null);
+        setLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setError(error.message || 'Failed to load orders');
+        setLoading(false);
+      });
+
+    // Cleanup function
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isAuthenticated]);
 
   const handleCreativeChange = (event: SelectChangeEvent) => {
     setSelectedCreative(event.target.value);
@@ -166,8 +228,18 @@ export function ActiveTab() {
     setPriceSort(event.target.value);
   };
 
+  // Extract unique creatives from orders
+  const connectedCreatives = Array.from(
+    new Map(
+      orders.map(order => [
+        order.creativeId,
+        { id: order.creativeId, name: order.creativeName }
+      ])
+    ).values()
+  );
+
   // Filter and sort logic
-  let filteredOrders = [...dummyInProgressOrders];
+  let filteredOrders = [...orders];
 
   // Apply search filter
   if (searchQuery) {
@@ -180,7 +252,7 @@ export function ActiveTab() {
 
   // Apply creative filter
   if (selectedCreative !== 'all') {
-    filteredOrders = filteredOrders.filter(order => order.creativeName === selectedCreative);
+    filteredOrders = filteredOrders.filter(order => order.creativeId === selectedCreative);
   }
 
   // Apply date filter
@@ -250,15 +322,34 @@ export function ActiveTab() {
           }}
         />
 
-        {/* Connected Creative Filter */}
-        <FormControl 
-          sx={{ 
-            minWidth: { xs: '100%', md: 200 },
-            '& .MuiOutlinedInput-root': {
+        {isMobile ? (
+          <Button
+            variant="outlined"
+            startIcon={<FilterList />}
+            onClick={() => setFilterModalOpen(true)}
+            sx={{ 
+              width: '100%',
+              minWidth: 0,
+              py: 1,
+              px: 2,
               borderRadius: 2,
-            }
-          }}
-        >
+              fontWeight: 600,
+              textTransform: 'none',
+            }}
+          >
+            Filters
+          </Button>
+        ) : (
+          <>
+            {/* Connected Creative Filter */}
+            <FormControl 
+              sx={{ 
+                minWidth: { xs: '100%', md: 200 },
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
+            >
           <InputLabel id="creative-filter-label">Connected Creative</InputLabel>
           <Select
             labelId="creative-filter-label"
@@ -284,8 +375,8 @@ export function ActiveTab() {
             }}>
               All Creatives
             </MenuItem>
-            {dummyConnectedCreatives.map((creative) => (
-              <MenuItem key={creative.id} value={creative.name} sx={{
+            {connectedCreatives.map((creative) => (
+              <MenuItem key={creative.id} value={creative.id} sx={{
                 transition: 'all 0.2s ease',
                 '&:hover': {
                   transform: 'translateX(4px)',
@@ -503,7 +594,262 @@ export function ActiveTab() {
             </MenuItem>
           </Select>
         </FormControl>
+          </>
+        )}
       </Box>
+
+      {/* Filter Modal for Mobile */}
+      <Dialog
+        open={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        disableEnforceFocus
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1, background: 'rgba(255,255,255,0.98)' }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', pb: 1.5 }}>Filters</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2.5, px: 4, overflow: 'visible' }}>
+          {/* Connected Creative Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-creative-filter-label" shrink={true}>Connected Creative</InputLabel>
+            <Select
+              labelId="modal-creative-filter-label"
+              value={selectedCreative}
+              label="Connected Creative"
+              onChange={handleCreativeChange}
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                All Creatives
+              </MenuItem>
+              {connectedCreatives.map((creative) => (
+                <MenuItem key={creative.id} value={creative.id} sx={{
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    transform: 'translateX(4px)',
+                    color: theme.palette.primary.main,
+                    backgroundColor: 'transparent !important',
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: 'transparent',
+                    fontWeight: 600,
+                  },
+                  '&.Mui-selected:hover': {
+                    backgroundColor: 'transparent !important',
+                  },
+                }}>
+                  {creative.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Date Range Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-date-filter-label" shrink={true}>Time Period</InputLabel>
+            <Select
+              labelId="modal-date-filter-label"
+              value={dateFilter}
+              label="Time Period"
+              onChange={handleDateFilterChange}
+              startAdornment={
+                <InputAdornment position="start">
+                  <DateRange sx={{ fontSize: 20, ml: 0.5 }} />
+                </InputAdornment>
+              }
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                All Time
+              </MenuItem>
+              <MenuItem value="week" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Week
+              </MenuItem>
+              <MenuItem value="month" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Month
+              </MenuItem>
+              <MenuItem value="3months" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past 3 Months
+              </MenuItem>
+              <MenuItem value="6months" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past 6 Months
+              </MenuItem>
+              <MenuItem value="year" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Year
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Price Sort */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-price-sort-label" shrink={true}>Price</InputLabel>
+            <Select
+              labelId="modal-price-sort-label"
+              value={priceSort}
+              label="Price"
+              onChange={handlePriceSortChange}
+              startAdornment={
+                <InputAdornment position="start">
+                  <AttachMoney sx={{ fontSize: 20, ml: 0.5 }} />
+                </InputAdornment>
+              }
+            >
+              <MenuItem value="none" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                No Sort
+              </MenuItem>
+              <MenuItem value="low-high" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Low to High
+              </MenuItem>
+              <MenuItem value="high-low" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                High to Low
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFilterModalOpen(false)} variant="contained" color="primary" sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}>Apply</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Orders List */}
       <Box sx={{ 
@@ -526,7 +872,21 @@ export function ActiveTab() {
           },
         },
       }}>
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            py: 8,
+            gap: 2
+          }}>
+            <CircularProgress />
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Loading in progress orders...
+            </Typography>
+          </Box>
+        ) : error ? (
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -535,11 +895,27 @@ export function ActiveTab() {
             py: 8,
             gap: 1
           }}>
-            <Search sx={{ fontSize: 64, color: 'text.disabled', opacity: 0.3 }} />
-            <Typography variant="h6" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+            <Typography variant="h6" sx={{ color: 'error.main', fontWeight: 500 }}>
+              Error loading orders
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {error}
+            </Typography>
+          </Box>
+        ) : filteredOrders.length === 0 ? (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            py: 8,
+            gap: 1
+          }}>
+            <Search sx={{ fontSize: 64, color: 'primary.main', opacity: 0.4 }} />
+            <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 500 }}>
               No in progress orders found
       </Typography>
-            <Typography variant="body2" sx={{ color: 'text.disabled'}}>
+            <Typography variant="body2" sx={{ color: 'primary.main', opacity: 0.8 }}>
               Try adjusting your filters or search query
       </Typography>
           </Box>
@@ -547,7 +923,6 @@ export function ActiveTab() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 3 }}>
             {filteredOrders.map((order) => {
               const commonProps = {
-                key: order.id,
                 id: order.id,
                 serviceName: order.serviceName,
                 creativeName: order.creativeName,
@@ -558,6 +933,7 @@ export function ActiveTab() {
 
               return (
                 <InProgressOrderCard
+                  key={order.id}
                   {...commonProps}
                   approvedDate={order.approvedDate}
                   calendarDate={order.calendarDate}

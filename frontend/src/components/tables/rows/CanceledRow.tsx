@@ -7,6 +7,9 @@ interface CanceledRowProps {
 }
 
 export function CanceledRow({ status, isMobile = false }: CanceledRowProps) {
+  // Always display "Canceled" for both "Canceled" and "Rejected" statuses
+  const displayStatus = status === 'Rejected' ? 'Canceled' : status;
+  
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -15,9 +18,9 @@ export function CanceledRow({ status, isMobile = false }: CanceledRowProps) {
       minHeight: isMobile ? 32 : 28,
       height: isMobile ? 32 : 28
     }}>
-      <Tooltip title={status} arrow placement="top">
+      <Tooltip title={displayStatus} arrow placement="top">
         <Chip
-          label={status}
+          label={displayStatus}
           size="small"
           sx={{
             backgroundColor: '#ef4444',

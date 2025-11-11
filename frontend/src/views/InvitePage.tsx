@@ -563,6 +563,7 @@ export function InvitePage() {
                                   color={item.data.color}
                                   creative={creative?.display_name || 'Creative'}
                                   onBook={() => handleServiceClick(item.data as CreativeService)}
+                                  requires_booking={(item.data as CreativeService).requires_booking}
                                 />
                               ) : (
                                 <BundleCard
@@ -598,9 +599,26 @@ export function InvitePage() {
           price: service.price,
           delivery: service.delivery_time,
           color: service.color,
-          creative: creative?.display_name || 'Creative'
+          creative: creative?.display_name || 'Creative',
+          requires_booking: service.requires_booking
         }))}
         bundles={bundles}
+        onServiceClick={(service) => {
+          // Find the full service object from services array
+          const fullService = services.find(s => s.id === service.id);
+          if (fullService) {
+            handleServiceClick(fullService);
+            // Keep SessionPopover open
+          }
+        }}
+        onBundleClick={(bundle) => {
+          // Find the full bundle object from bundles array
+          const fullBundle = bundles.find(b => b.id === bundle.id);
+          if (fullBundle) {
+            handleBundleClick(fullBundle);
+            // Keep SessionPopover open
+          }
+        }}
       />
 
       <ReviewPopover

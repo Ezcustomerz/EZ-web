@@ -32,6 +32,7 @@ import React, { useState } from 'react';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { CalendarSessionDetailPopover } from './CalendarSessionDetailPopover';
+import { getUserTimezone } from '../../../utils/timezoneUtils';
 
 // Define Session interface locally since it's not exported
 interface Session {
@@ -81,7 +82,7 @@ export interface PendingApprovalPopoverProps {
   open: boolean;
   onClose: () => void;
   order: PendingApprovalOrder | null;
-  onApprove: (orderId: string) => void;
+  onApprove: (orderId: string) => void | Promise<void>;
   onReject: (orderId: string) => void;
 }
 
@@ -205,15 +206,29 @@ export function PendingApprovalPopover({
   const formatBookingDate = (bookingDateStr: string | null) => {
     if (!bookingDateStr) return 'Not scheduled';
     
-    const date = new Date(bookingDateStr);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: '2-digit', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    try {
+      const date = new Date(bookingDateStr);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid booking date string:', bookingDateStr);
+        return 'Not scheduled';
+      }
+      
+      // Use user's timezone for display
+      const userTimezone = getUserTimezone();
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: userTimezone
+      });
+    } catch (error) {
+      console.warn('Error formatting booking date:', bookingDateStr, error);
+      return 'Not scheduled';
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -399,6 +414,90 @@ export function PendingApprovalPopover({
           </CardContent>
         </Card>
 
+        {/* Notes from Client - Only show if notes exist */}
+        {(order.description || order.specialRequirements) && (
+          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+                Notes from Client
+              </Typography>
+              
+              <Box 
+                sx={{ 
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.05)' 
+                    : 'rgba(0, 0, 0, 0.02)',
+                  border: `1px solid ${theme.palette.divider}`,
+                }}
+              >
+                {(order.description || order.specialRequirements) && (
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.description || order.specialRequirements || ''}
+                  </Typography>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Booking Date Card */}
+        {order.bookingDate && (
+          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+                Booking Details
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <AccessTime sx={{ color: 'text.secondary', fontSize: 20 }} />
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Scheduled Session
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    {formatBookingDate(order.bookingDate)}
+                  </Typography>
+                </Box>
+                <Box
+                  component="button"
+                  onClick={handleViewBooking}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: 2,
+                    py: 1,
+                    backgroundColor: 'transparent',
+                    border: '1px solid #3b82f6',
+                    borderRadius: 1.5,
+                    color: '#3b82f6',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textDecoration: 'none',
+                    '&:hover': {
+                      backgroundColor: '#3b82f6',
+                      color: '#fff',
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                    },
+                    '&:active': {
+                      transform: 'translateY(0)',
+                    }
+                  }}
+                >
+                  View Details
+                  <Typography component="span" sx={{ fontSize: '0.75rem', ml: 0.5 }}>
+                    →
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Payment Information */}
         <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
           <CardContent>
@@ -547,94 +646,6 @@ export function PendingApprovalPopover({
           </CardContent>
         </Card>
 
-        {/* Booking Date Card */}
-        {order.bookingDate && (
-          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
-                Booking Details
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <AccessTime sx={{ color: 'text.secondary', fontSize: 20 }} />
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Scheduled Session
-                  </Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                    {formatBookingDate(order.bookingDate)}
-                  </Typography>
-                </Box>
-                <Box
-                  component="button"
-                  onClick={handleViewBooking}
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    px: 2,
-                    py: 1,
-                    backgroundColor: 'transparent',
-                    border: '1px solid #3b82f6',
-                    borderRadius: 1.5,
-                    color: '#3b82f6',
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    textDecoration: 'none',
-                    '&:hover': {
-                      backgroundColor: '#3b82f6',
-                      color: '#fff',
-                      transform: 'translateY(-1px)',
-                      boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
-                    },
-                    '&:active': {
-                      transform: 'translateY(0)',
-                    }
-                  }}
-                >
-                  View Details
-                  <Typography component="span" sx={{ fontSize: '0.75rem', ml: 0.5 }}>
-                    →
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Additional Information */}
-        {(order.description || order.specialRequirements) && (
-          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
-                Additional Information
-              </Typography>
-              
-              {order.description && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Description
-                  </Typography>
-                  <Typography variant="body1">
-                    {order.description}
-                  </Typography>
-                </Box>
-              )}
-
-              {order.specialRequirements && (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Special Requirements
-                  </Typography>
-                  <Typography variant="body1">
-                    {order.specialRequirements}
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        )}
         </Box>
       </DialogContent>
 
@@ -663,7 +674,9 @@ export function PendingApprovalPopover({
         <Button
           variant="contained"
           startIcon={<Check />}
-          onClick={() => onApprove(order.id)}
+          onClick={async () => {
+            await onApprove(order.id);
+          }}
           sx={{
             backgroundColor: '#10b981',
             '&:hover': {
@@ -680,7 +693,7 @@ export function PendingApprovalPopover({
         open={serviceDetailOpen}
         onClose={handleServiceDetailClose}
         service={serviceDetail}
-        context="services-tab"
+        context="creative-view"
       />
 
       {/* Booking Detail Popover */}

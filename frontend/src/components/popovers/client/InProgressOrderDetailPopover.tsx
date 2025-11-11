@@ -78,7 +78,7 @@ export function InProgressOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#4caf50'; // Green for in progress
+  const statusColor = '#2196f3'; // Blue for in progress (matching InProgressOrderCard)
 
   const getPaymentOptionLabel = (option: InProgressPaymentOption) => {
     switch (option) {
@@ -141,9 +141,9 @@ export function InProgressOrderDetailPopover({
     setCreativeDetailOpen(false);
   };
 
-  // Calculate payment amounts
-  const amountPaid = order.amountPaid || (order.paymentOption === 'payment_upfront' ? order.price : (order.paymentOption === 'split_payment' ? order.price * 0.5 : 0));
-  const amountRemaining = order.amountRemaining || (order.paymentOption === 'payment_later' ? order.price : (order.paymentOption === 'split_payment' ? order.price - amountPaid : 0));
+  // Calculate payment amounts - use actual values from order, fallback to calculated if not provided
+  const amountPaid = order.amountPaid !== undefined ? order.amountPaid : (order.paymentOption === 'payment_upfront' ? order.price : (order.paymentOption === 'split_payment' ? order.price * 0.5 : 0));
+  const amountRemaining = order.amountRemaining !== undefined ? order.amountRemaining : Math.max(0, order.price - amountPaid);
 
   // Create service detail object for the nested popover
   const serviceDetail: ServiceDetail = {
@@ -488,25 +488,6 @@ export function InProgressOrderDetailPopover({
                 )}
               </Box>
             )}
-
-            {order.paymentOption === 'free' && (
-              <Box 
-                sx={{ 
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(158, 158, 158, 0.1)' : 'rgba(158, 158, 158, 0.05)',
-                  border: `1px solid ${theme.palette.grey[500]}30`,
-                  textAlign: 'center',
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                  No payment needed
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                  This is a complimentary service
-                </Typography>
-              </Box>
-            )}
           </Box>
 
           <Divider sx={{ my: 2 }} />
@@ -554,13 +535,39 @@ export function InProgressOrderDetailPopover({
                 }}
               />
               <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                {order.description}
+                Service in progress
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem', ml: 2.5 }}>
               The creative is actively working on your service. You'll be notified once it's ready for review or delivery.
             </Typography>
           </Box>
+
+          {/* Additional Notes Section - Only show if notes exist */}
+          {order.description && order.description.trim() && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, fontSize: '1rem' }}>
+                  Additional Notes
+                </Typography>
+                <Box 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.description}
+                  </Typography>
+                </Box>
+              </Box>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

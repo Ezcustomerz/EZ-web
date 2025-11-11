@@ -1,295 +1,251 @@
-import { Box } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import { RequestsTable } from '../../../components/tables/RequestsTable';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
+
+// Module-level cache to prevent duplicate fetches across remounts
+// This persists across StrictMode remounts to prevent duplicate API calls
+let fetchCache: {
+  promise: Promise<Order[]> | null;
+  data: Order[] | null;
+  isFetching: boolean;
+  timestamp: number;
+  resolved: boolean;
+} = {
+  promise: null,
+  data: null,
+  isFetching: false,
+  timestamp: 0,
+  resolved: false,
+};
+
+const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remounts
+
+// Helper function to transform orders
+function transformOrders(fetchedOrders: Order[]) {
+  // No need to filter - backend endpoint already filters for current orders
+  return fetchedOrders.map((order: Order) => {
+      // Map creative_status to display status
+      const statusMap: Record<string, string> = {
+        'pending_approval': 'Pending Approval',
+        'awaiting_payment': 'Awaiting Payment',
+        'in_progress': 'In Progress',
+        'completed': 'Complete',
+        'complete': 'Complete',
+        'canceled': 'Canceled',
+        'rejected': 'Canceled',
+      };
+      
+      const displayStatus = statusMap[order.creative_status || 'pending_approval'] || 'Pending Approval';
+
+    // Format booking date - backend sends UTC ISO string, keep as is for proper timezone conversion
+    let bookingDateDisplay = null;
+    if (order.booking_date) {
+      try {
+        // Backend sends ISO string format (YYYY-MM-DDTHH:MM:SSZ), parse it
+        const parsedDate = new Date(order.booking_date);
+        
+        // Validate the date is valid
+        if (!isNaN(parsedDate.getTime())) {
+          // Keep as ISO string - timezone conversion will happen in display components
+          bookingDateDisplay = parsedDate.toISOString();
+        } else {
+          console.warn('Invalid booking date:', order.booking_date);
+          bookingDateDisplay = null;
+        }
+      } catch (error) {
+        console.warn('Error parsing booking date:', order.booking_date, error);
+        bookingDateDisplay = null;
+      }
+    }
+
+    return {
+      id: order.id,
+      client: order.creative_name, // For creative, this is the client name
+      service: {
+        id: order.service_id,
+        title: order.service_name,
+        description: order.service_description || '',
+        delivery_time: order.service_delivery_time || '',
+        color: order.service_color || '#667eea',
+        payment_option: order.payment_option || 'later',
+        photos: [], // TODO: Add service photos if needed
+      },
+      amount: order.price,
+      status: displayStatus,
+      date: order.order_date,
+      bookingDate: bookingDateDisplay,
+      description: order.description || order.service_description || '',
+      clientEmail: order.creative_email,
+      clientPhone: undefined, // TODO: Add client phone if available
+      specialRequirements: order.description,
+      amountPaid: 0, // TODO: Calculate from payment records
+      amountRemaining: order.price,
+      depositPaid: false,
+    };
+  });
+}
  
 export function CurrentOrdersTab() {
-  // Sample data with pending approval and awaiting payment orders
-  const sampleOrders = [
-    {
-      id: '1',
-      client: 'Acme Corp',
-      service: { 
-        title: 'Logo Design',
-        description: 'Professional logo design with 3 concepts',
-        delivery_time: '3-5 days',
-        color: '#667eea',
-        payment_option: 'upfront'
-      },
-      amount: 500,
-      status: 'Pending Approval',
-      date: '2024-01-15',
-      bookingDate: '2024-01-20T10:00:00Z',
-      description: 'Need a modern logo for our tech startup',
-      clientEmail: 'contact@acmecorp.com',
-      clientPhone: '+1-555-0123'
-    },
-    {
-      id: '2',
-      client: 'TechStart Inc',
-      service: { 
-        title: 'Website Development',
-        description: 'Full-stack web application development',
-        delivery_time: '2-3 weeks',
-        color: '#f093fb',
-        payment_option: 'split'
-      },
-      amount: 2500,
-      status: 'Pending Approval',
-      date: '2024-01-14',
-      bookingDate: null,
-      description: 'Building a SaaS platform for project management',
-      clientEmail: 'hello@techstart.com',
-      clientPhone: '+1-555-0456'
-    },
-    {
-      id: '3',
-      client: 'Design Studio LLC',
-      service: { 
-        title: 'Brand Identity Package',
-        description: 'Complete brand identity including logo, colors, and guidelines',
-        delivery_time: '1-2 weeks',
-        color: '#4ecdc4',
-        payment_option: 'later'
-      },
-      amount: 1200,
-      status: 'Pending Approval',
-      date: '2024-01-13',
-      bookingDate: '2024-01-18T14:30:00Z',
-      description: 'Rebranding our design agency',
-      clientEmail: 'info@designstudio.com',
-      clientPhone: '+1-555-0789'
-    },
-    {
-      id: '4',
-      client: 'Local Nonprofit',
-      service: { 
-        title: 'Free Consultation Call',
-        description: '30-minute strategy session to discuss your project needs',
-        delivery_time: '1 day',
-        color: '#96ceb4',
-        payment_option: 'later'
-      },
-      amount: 0,
-      status: 'Pending Approval',
-      date: '2024-01-12',
-      bookingDate: '2024-01-15T16:00:00Z',
-      description: 'Looking for guidance on our upcoming campaign',
-      clientEmail: 'director@localnonprofit.org',
-      clientPhone: '+1-555-0321'
-    },
-    {
-      id: '5',
-      client: 'Marketing Agency',
-      service: { 
-        title: 'Social Media Graphics',
-        description: 'Custom social media graphics for campaigns',
-        delivery_time: '1 week',
-        color: '#feca57',
-        payment_option: 'upfront'
-      },
-      amount: 800,
-      status: 'Awaiting Payment',
-      date: '2024-01-11',
-      bookingDate: null,
-      description: 'Need graphics for our Q1 campaign',
-      clientEmail: 'marketing@agency.com',
-      clientPhone: '+1-555-0654',
-      amountPaid: 0,
-      amountRemaining: 800,
-      depositPaid: false
-    },
-    {
-      id: '5b',
-      client: 'Tech Startup',
-      service: { 
-        title: 'App Development',
-        description: 'Full-stack mobile application development',
-        delivery_time: '4-6 weeks',
-        color: '#667eea',
-        payment_option: 'split'
-      },
-      amount: 5000,
-      status: 'Awaiting Payment',
-      date: '2024-01-10',
-      bookingDate: '2024-01-20T09:00:00Z',
-      description: 'Building a productivity app for remote teams',
-      clientEmail: 'founder@techstartup.com',
-      clientPhone: '+1-555-0987',
-      amountPaid: 2500,
-      amountRemaining: 2500,
-      depositPaid: true
-    },
-    {
-      id: '5c',
-      client: 'Music Producer',
-      service: { 
-        title: 'Album Mixing & Mastering',
-        description: 'Professional mixing and mastering for 12-track album',
-        delivery_time: '2-3 weeks',
-        color: '#4ecdc4',
-        payment_option: 'later'
-      },
-      amount: 2000,
-      status: 'Awaiting Payment',
-      date: '2024-01-09',
-      bookingDate: null,
-      description: 'Need professional mixing for my debut album',
-      clientEmail: 'producer@music.com',
-      clientPhone: '+1-555-0123',
-      amountPaid: 0,
-      amountRemaining: 2000,
-      depositPaid: false
-    },
-    {
-      id: '6',
-      client: 'Creative Studio',
-      service: { 
-        title: 'Video Production',
-        description: 'Professional video editing and post-production',
-        delivery_time: '2 weeks',
-        color: '#ff6b6b',
-        payment_option: 'split'
-      },
-      amount: 1500,
-      status: 'In Progress',
-      date: '2024-01-10',
-      bookingDate: '2024-01-16T09:00:00Z',
-      description: 'Corporate video for our company',
-      clientEmail: 'studio@creative.com',
-      clientPhone: '+1-555-0987'
-    },
-    {
-      id: '7',
-      client: 'Tech Solutions',
-      service: { 
-        title: 'Mobile App Design',
-        description: 'UI/UX design for mobile application',
-        delivery_time: '3 weeks',
-        color: '#a55eea',
-        payment_option: 'later'
-      },
-      amount: 2200,
-      status: 'In Progress',
-      date: '2024-01-09',
-      bookingDate: '2024-01-17T11:30:00Z',
-      description: 'Designing a fitness tracking app',
-      clientEmail: 'dev@techsolutions.com',
-      clientPhone: '+1-555-0123'
-    },
-    {
-      id: '8',
-      client: 'Digital Agency',
-      service: { 
-        title: 'Website Redesign',
-        description: 'Complete website redesign and development',
-        delivery_time: '4 weeks',
-        color: '#6c5ce7',
-        payment_option: 'upfront'
-      },
-      amount: 1800,
-      status: 'Complete',
-      date: '2024-01-08',
-      bookingDate: '2024-01-15T13:00:00Z',
-      description: 'Modernizing our agency website',
-      clientEmail: 'contact@digitalagency.com',
-      clientPhone: '+1-555-0456'
-    },
-    {
-      id: '9',
-      client: 'Startup Co',
-      service: { 
-        title: 'Brand Guidelines',
-        description: 'Comprehensive brand guidelines document',
-        delivery_time: '1 week',
-        color: '#fd79a8',
-        payment_option: 'split'
-      },
-      amount: 950,
-      status: 'Complete',
-      date: '2024-01-07',
-      bookingDate: null,
-      description: 'Creating brand guidelines for our startup',
-      clientEmail: 'founder@startupco.com',
-      clientPhone: '+1-555-0789'
-    },
-    {
-      id: '10',
-      client: 'Local Business',
-      service: { 
-        title: 'Print Design',
-        description: 'Business cards and flyer design',
-        delivery_time: '3 days',
-        color: '#00b894',
-        payment_option: 'later'
-      },
-      amount: 600,
-      status: 'Canceled',
-      date: '2024-01-06',
-      bookingDate: null,
-      description: 'Need marketing materials for grand opening',
-      clientEmail: 'owner@localbusiness.com',
-      clientPhone: '+1-555-0321'
-    },
-    {
-      id: '11',
-      client: 'E-commerce Store',
-      service: { 
-        title: 'Product Photography',
-        description: 'Professional product photography session',
-        delivery_time: '1 week',
-        color: '#0984e3',
-        payment_option: 'upfront'
-      },
-      amount: 1200,
-      status: 'Canceled',
-      date: '2024-01-05',
-      bookingDate: '2024-01-12T16:00:00Z',
-      cancelledDate: '2024-01-08T10:30:00Z',
-      cancelledBy: 'client',
-      description: 'Photography for our new product line',
-      clientEmail: 'store@ecommerce.com',
-      clientPhone: '+1-555-0654'
-    },
-    {
-      id: '12',
-      client: 'Marketing Agency',
-      service: { 
-        title: 'Social Media Management',
-        description: 'Complete social media strategy and content creation',
-        delivery_time: '2 weeks',
-        color: '#e17055',
-        payment_option: 'split'
-      },
-      amount: 1800,
-      status: 'Canceled',
-      date: '2024-01-10',
-      bookingDate: null,
-      cancelledDate: '2024-01-12T14:15:00Z',
-      cancelledBy: 'creative',
-      description: 'Need comprehensive social media strategy for Q1 campaign',
-      clientEmail: 'contact@marketingagency.com',
-      clientPhone: '+1-555-0987'
-    },
-    {
-      id: '13',
-      client: 'Restaurant Chain',
-      service: { 
-        title: 'Menu Design',
-        description: 'Complete menu redesign with photography',
-        delivery_time: '1-2 weeks',
-        color: '#00b894',
-        payment_option: 'later'
-      },
-      amount: 800,
-      status: 'Canceled',
-      date: '2024-01-08',
-      bookingDate: '2024-01-15T11:00:00Z',
-      cancelledDate: '2024-01-09T09:45:00Z',
-      cancelledBy: 'system',
-      description: 'Redesign menu for our new seasonal items',
-      clientEmail: 'info@restaurantchain.com',
-      clientPhone: '+1-555-0123'
+  const { isAuthenticated } = useAuth();
+  const [orders, setOrders] = useState<Array<any>>([]);
+  const [loading, setLoading] = useState(true);
+  const mountedRef = useRef(true);
+
+  // Function to refresh orders
+  const refreshOrders = useCallback(async () => {
+    // Don't refresh if not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setLoading(false);
+      }
+      return;
     }
-  ];
+
+    // Clear cache to force fresh fetch
+    fetchCache.promise = null;
+    fetchCache.data = null;
+    fetchCache.resolved = false;
+    fetchCache.isFetching = false;
+    
+    setLoading(true);
+    try {
+      const fetchedOrders = await bookingService.getCreativeCurrentOrders();
+      const transformedOrders = transformOrders(fetchedOrders);
+      
+      if (mountedRef.current) {
+        setOrders(transformedOrders);
+        setLoading(false);
+      }
+      
+      // Update cache
+      fetchCache.data = fetchedOrders;
+      fetchCache.isFetching = false;
+      fetchCache.resolved = true;
+      fetchCache.timestamp = Date.now();
+    } catch (error) {
+      console.error('Failed to refresh orders:', error);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
+      throw error;
+    }
+  }, [isAuthenticated]);
+
+  // Fetch orders on mount - only once
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setLoading(false);
+      }
+      return;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - fetchCache.timestamp;
+    
+    // Check if we have cached data that's still fresh
+    if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
+      // Use cached data directly (fastest path)
+      if (mountedRef.current) {
+        const transformedOrders = transformOrders(fetchCache.data);
+        setOrders(transformedOrders);
+        setLoading(false);
+      }
+      return;
+    }
+    
+    // Reuse existing promise if it's currently fetching
+    if (fetchCache.promise && fetchCache.isFetching) {
+      // Reuse existing promise (handles StrictMode remounts)
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
+        const transformedOrders = transformOrders(fetchedOrders);
+        setOrders(transformedOrders);
+        setLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setLoading(false);
+      });
+      return;
+    }
+
+    // Start new fetch
+    fetchCache.isFetching = true;
+    fetchCache.resolved = false;
+    fetchCache.timestamp = now;
+    setLoading(true);
+
+    const fetchOrders = async () => {
+      try {
+        const fetchedOrders = await bookingService.getCreativeCurrentOrders();
+        
+        // Transform orders to match RequestsTable expected format
+        const transformedOrders = transformOrders(fetchedOrders);
+        
+        if (mountedRef.current) {
+          setOrders(transformedOrders);
+          setLoading(false);
+        }
+        // Cache the resolved data
+        fetchCache.data = fetchedOrders;
+        fetchCache.isFetching = false;
+        fetchCache.resolved = true;
+        // Keep the data and promise in cache for CACHE_DURATION to handle remounts
+        setTimeout(() => {
+          const now = Date.now();
+          if (now - fetchCache.timestamp >= CACHE_DURATION) {
+            fetchCache.promise = null;
+            fetchCache.data = null;
+            fetchCache.resolved = false;
+          }
+        }, CACHE_DURATION);
+        return fetchedOrders;
+      } catch (error) {
+        console.error('Failed to fetch orders:', error);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+        fetchCache.isFetching = false;
+        // Clear cache on error
+        fetchCache.promise = null;
+        throw error;
+      }
+    };
+
+    fetchCache.promise = fetchOrders();
+    fetchCache.promise.catch(() => {
+      // Error already handled in fetchOrders
+    });
+
+    // Cleanup function
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isAuthenticated]); // Re-run when authentication changes
+
+  if (loading) {
+    return (
+      <Box sx={{
+        width: '100%',
+        flexGrow: 1,
+        py: 1,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: 400,
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{
@@ -298,7 +254,9 @@ export function CurrentOrdersTab() {
       py: 1,
       overflow: 'visible',
     }}>
-      <RequestsTable requests={sampleOrders} context="orders" />
+      <RequestsTable requests={orders} context="orders" onRefresh={refreshOrders} />
     </Box>
   );
-} 
+}
+
+

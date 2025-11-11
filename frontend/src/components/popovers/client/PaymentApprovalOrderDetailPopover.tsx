@@ -20,6 +20,7 @@ import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
+import { StripePaymentDialog } from '../../dialogs/StripePaymentDialog';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -77,6 +78,7 @@ export function PaymentApprovalOrderDetailPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   if (!order) return null;
 
@@ -132,13 +134,19 @@ export function PaymentApprovalOrderDetailPopover({
   };
 
   const handlePay = () => {
-    const amountToPay = order.paymentOption === 'split_payment' 
-      ? (order.depositAmount || order.price * 0.5)
-      : order.price;
-    
+    // Open payment dialog instead of calling onPay directly
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setPaymentDialogOpen(false);
     if (onPay) {
+      const amountToPay = order.paymentOption === 'split_payment' 
+        ? (order.depositAmount || order.price * 0.5)
+        : order.price;
       onPay(order.id, amountToPay);
     }
+    onClose();
   };
 
   // Calculate payment amounts
@@ -479,13 +487,39 @@ export function PaymentApprovalOrderDetailPopover({
                 }}
               />
               <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                {order.description}
+                Payment Required
               </Typography>
             </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem', ml: 2.5 }}>
               The creative has approved your booking. Please complete the payment to proceed with your service.
             </Typography>
           </Box>
+
+          {/* Additional Notes Section - Only show if notes exist */}
+          {order.description && order.description.trim() && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, fontSize: '1rem' }}>
+                  Additional Notes
+                </Typography>
+                <Box 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.description}
+                  </Typography>
+                </Box>
+              </Box>
+            </>
+          )}
           </Box>
 
           {/* Sticky Pay Button */}
@@ -548,6 +582,15 @@ export function PaymentApprovalOrderDetailPopover({
         open={creativeDetailOpen}
         onClose={handleCreativeDetailClose}
         creative={creativeDetail}
+      />
+
+      {/* Stripe Payment Dialog */}
+      <StripePaymentDialog
+        open={paymentDialogOpen}
+        onClose={() => setPaymentDialogOpen(false)}
+        bookingId={order.id}
+        amount={amountDueNow}
+        onSuccess={handlePaymentSuccess}
       />
     </>
   );

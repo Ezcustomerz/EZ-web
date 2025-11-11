@@ -31,11 +31,18 @@ import {
   CompleteRow, 
   CanceledRow 
 } from './rows';
+import { getUserTimezone } from '../../utils/timezoneUtils';
 import { PendingApprovalPopover, type PendingApprovalOrder } from '../popovers/creative/PendingApprovalPopover';
 import { AwaitingPaymentPopover, type AwaitingPaymentOrder } from '../popovers/creative/AwaitingPaymentPopover';
 import { InProgressPopover, type InProgressOrder } from '../popovers/creative/InProgressPopover';
 import { CompletePopover, type CompleteOrder } from '../popovers/creative/CompletePopover';
 import { CancelledPopover, type CancelledOrder } from '../popovers/creative/CancelledPopover';
+import { bookingService } from '../../api/bookingService';
+import { ConfirmActionDialog, type ActionType } from '../dialogs/ConfirmActionDialog';
+import { StripeAccountRequiredDialog } from '../dialogs/StripeAccountRequiredDialog';
+import { CreativeSettingsPopover } from '../popovers/creative/CreativeSettingsPopover';
+import { userService } from '../../api/userService';
+import { successToast, errorToast } from '../toast/toast';
 
 
 type SortField = 'client' | 'service' | 'amount' | 'date' | 'bookingDate' | undefined;
@@ -53,23 +60,39 @@ function formatDate(dateStr: string) {
 function formatBookingDate(bookingDateStr: string | null) {
   if (!bookingDateStr) return 'Not scheduled';
   
-  const date = new Date(bookingDateStr);
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: '2-digit', 
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true
-  });
+  try {
+    const date = new Date(bookingDateStr);
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid booking date string:', bookingDateStr);
+      return 'Not scheduled';
+    }
+    
+    // Use user's timezone for display
+    const userTimezone = getUserTimezone();
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: userTimezone
+    });
+  } catch (error) {
+    console.warn('Error formatting booking date:', bookingDateStr, error);
+    return 'Not scheduled';
+  }
 }
 
 export function RequestsTable({ 
   requests = [], 
-  context = 'requests' 
+  context = 'requests',
+  onRefresh
 }: { 
   requests?: any[];
   context?: 'orders' | 'payments' | 'requests';
+  onRefresh?: () => Promise<void> | void;
 }) {
   const theme = useTheme();
   
@@ -112,6 +135,16 @@ export function RequestsTable({
   const [cancelledPopoverOpen, setCancelledPopoverOpen] = useState(false);
   const [selectedCancelledOrder, setSelectedCancelledOrder] = useState<CancelledOrder | null>(null);
   const [showFinalizationStep, setShowFinalizationStep] = useState(false);
+  
+  // Confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmActionType, setConfirmActionType] = useState<ActionType>('approve');
+  const [confirmOrderId, setConfirmOrderId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [stripeAccountRequiredOpen, setStripeAccountRequiredOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pendingApprovalOrderId, setPendingApprovalOrderId] = useState<string | null>(null);
+  const [pendingApprovalOrderAmount, setPendingApprovalOrderAmount] = useState<number | undefined>(undefined);
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
@@ -294,19 +327,110 @@ export function RequestsTable({
     setSelectedCancelledOrder(null);
   };
 
-  // Approval handlers
-  const handleApprove = (orderId: string) => {
-    console.log('Approving order:', orderId);
-    // TODO: Implement approval logic - update order status to 'Approved' or 'Waiting'
-    // This would typically involve an API call to update the order status
-    handleClosePendingApprovalPopover();
+  // Approval handlers - check Stripe account first, then open confirmation dialog
+  const handleApprove = async (orderId: string) => {
+    // Find the order to check if payment is required
+    const order = requests.find(req => req.id === orderId);
+    if (!order) {
+      errorToast('Order not found', 'Unable to find the order. Please try again.');
+      return;
+    }
+
+    const price = order.amount || 0;
+    
+    // Check if payment is required - any paid service (price > 0) requires Stripe account
+    // Payment option only determines WHEN payment happens, not IF payment is required
+    const requiresPayment = price > 0;
+    
+    if (requiresPayment) {
+      // Check if Stripe account is connected
+      try {
+        const stripeStatus = await userService.getStripeAccountStatus();
+        
+        if (!stripeStatus.connected || !stripeStatus.payouts_enabled) {
+          // Account not connected or payouts not enabled - show dialog
+          setPendingApprovalOrderId(orderId);
+          setPendingApprovalOrderAmount(price);
+          setStripeAccountRequiredOpen(true);
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to check Stripe account status:', error);
+        // If check fails, still show the requirement dialog to be safe
+        setPendingApprovalOrderId(orderId);
+        setPendingApprovalOrderAmount(price);
+        setStripeAccountRequiredOpen(true);
+        return;
+      }
+    }
+    
+    // If no payment required or account is connected, proceed with normal approval
+    setConfirmActionType('approve');
+    setConfirmOrderId(orderId);
+    setConfirmDialogOpen(true);
   };
 
   const handleReject = (orderId: string) => {
-    console.log('Rejecting order:', orderId);
-    // TODO: Implement rejection logic - update order status to 'Rejected' or remove from list
-    // This would typically involve an API call to update the order status
-    handleClosePendingApprovalPopover();
+    setConfirmActionType('reject');
+    setConfirmOrderId(orderId);
+    setConfirmDialogOpen(true);
+  };
+
+  // Confirmation dialog handlers
+  const handleCloseConfirmDialog = () => {
+    if (!isProcessing) {
+      setConfirmDialogOpen(false);
+      setConfirmOrderId(null);
+    }
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmOrderId) return;
+
+    setIsProcessing(true);
+    try {
+      if (confirmActionType === 'approve') {
+        console.log('Approving order:', confirmOrderId);
+        const response = await bookingService.approveOrder(confirmOrderId);
+        
+        // Close the popover
+        handleClosePendingApprovalPopover();
+        
+        // Show success toast
+        successToast('Order approved', response.message || 'The order has been approved successfully.');
+        
+        // Refresh orders data instead of reloading the page
+        if (onRefresh) {
+          await onRefresh();
+        }
+      } else {
+        // Reject action
+        console.log('Rejecting order:', confirmOrderId);
+        const response = await bookingService.rejectOrder(confirmOrderId);
+        
+        // Close the popover
+        handleClosePendingApprovalPopover();
+        
+        // Show success toast
+        successToast('Order rejected', response.message || 'The order has been rejected successfully.');
+        
+        // Refresh orders data instead of reloading the page
+        if (onRefresh) {
+          await onRefresh();
+        }
+      }
+      
+      // Close confirmation dialog
+      setConfirmDialogOpen(false);
+      setConfirmOrderId(null);
+    } catch (error: any) {
+      console.error(`Failed to ${confirmActionType} order:`, error);
+      const errorMessage = error.response?.data?.detail || error.message || `Failed to ${confirmActionType} order. Please try again.`;
+      errorToast(`Failed to ${confirmActionType} order`, errorMessage);
+      handleClosePendingApprovalPopover();
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleComplete = (orderId: string) => {
@@ -573,8 +697,12 @@ export function RequestsTable({
                   <MenuItem value="Pending Approval" disableRipple>Pending Approval</MenuItem>
                   <MenuItem value="Awaiting Payment" disableRipple>Awaiting Payment</MenuItem>
                   <MenuItem value="In Progress" disableRipple>In Progress</MenuItem>
-                  <MenuItem value="Complete" disableRipple>Complete</MenuItem>
-                  <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                  {context !== 'orders' && (
+                    <>
+                      <MenuItem value="Complete" disableRipple>Complete</MenuItem>
+                      <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                    </>
+                  )}
                 </Select>
               </FormControl>
               <Button
@@ -905,6 +1033,15 @@ export function RequestsTable({
                 tabIndex={0}
                 aria-label={`Request for ${inv.client}, ${inv.status}, ${formatCurrency(inv.amount)}, ${formatDate(inv.date)}`}
                 onClick={inv.status === 'Pending Approval' ? (e) => {
+                  // Don't open popover if clicking a button, icon button, or action buttons
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button') || 
+                      target.closest('[role="button"]') ||
+                      target.closest('[data-action-button]') ||
+                      target.tagName === 'BUTTON' ||
+                      target.closest('svg')?.closest('button')) {
+                    return;
+                  }
                   e.preventDefault();
                   e.stopPropagation();
                   handleOpenPendingApprovalPopover(inv);
@@ -945,14 +1082,16 @@ export function RequestsTable({
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Typography variant="subtitle1" fontWeight={600}>{inv.client}</Typography>
                     {inv.status === 'Pending Approval' && (
-                      <PendingApprovalRow 
-                        status={inv.status} 
-                        onApprove={handleApprove} 
-                        onReject={handleReject} 
-                        orderId={inv.id} 
-                        isMobile={true}
-                        showActions={false}
-                      />
+                      <Box onClick={(e) => e.stopPropagation()}>
+                        <PendingApprovalRow 
+                          status={inv.status} 
+                          onApprove={handleApprove} 
+                          onReject={handleReject} 
+                          orderId={inv.id} 
+                          isMobile={true}
+                          showActions={true}
+                        />
+                      </Box>
                     )}
                     {inv.status === 'Awaiting Payment' && (
                       <AwaitingPaymentRow 
@@ -1104,8 +1243,12 @@ export function RequestsTable({
                 <MenuItem value="Pending Approval" disableRipple>Pending Approval</MenuItem>
                 <MenuItem value="Awaiting Payment" disableRipple>Awaiting Payment</MenuItem>
                 <MenuItem value="In Progress" disableRipple>In Progress</MenuItem>
-                <MenuItem value="Complete" disableRipple>Complete</MenuItem>
-                <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                {context !== 'orders' && (
+                  <>
+                    <MenuItem value="Complete" disableRipple>Complete</MenuItem>
+                    <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                  </>
+                )}
               </Select>
             </FormControl>
             <Button
@@ -1638,6 +1781,15 @@ export function RequestsTable({
                     key={inv.id}
                     hover
                     onClick={inv.status === 'Pending Approval' ? (e) => {
+                      // Don't open popover if clicking a button, icon button, or action buttons
+                      const target = e.target as HTMLElement;
+                      if (target.closest('button') || 
+                          target.closest('[role="button"]') ||
+                          target.closest('[data-action-button]') ||
+                          target.tagName === 'BUTTON' ||
+                          target.closest('svg')?.closest('button')) {
+                        return;
+                      }
                       e.preventDefault();
                       e.stopPropagation();
                       handleOpenPendingApprovalPopover(inv);
@@ -1681,14 +1833,16 @@ export function RequestsTable({
                     {/* Status */}
                     <TableCell>
                       {inv.status === 'Pending Approval' && (
-                        <PendingApprovalRow 
-                          status={inv.status} 
-                          onApprove={handleApprove} 
-                          onReject={handleReject} 
-                          orderId={inv.id} 
-                          isMobile={false}
-                          showActions={false}
-                        />
+                        <Box onClick={(e) => e.stopPropagation()}>
+                          <PendingApprovalRow 
+                            status={inv.status} 
+                            onApprove={handleApprove} 
+                            onReject={handleReject} 
+                            orderId={inv.id} 
+                            isMobile={false}
+                            showActions={false}
+                          />
+                        </Box>
                       )}
                       {inv.status === 'Awaiting Payment' && (
                         <AwaitingPaymentRow 
@@ -1927,6 +2081,57 @@ export function RequestsTable({
         open={cancelledPopoverOpen}
         onClose={handleCloseCancelledPopover}
         order={selectedCancelledOrder}
+      />
+
+      {/* Confirm Action Dialog */}
+      <ConfirmActionDialog
+        open={confirmDialogOpen}
+        onClose={handleCloseConfirmDialog}
+        onConfirm={handleConfirmAction}
+        actionType={confirmActionType}
+        isProcessing={isProcessing}
+      />
+
+      {/* Stripe Account Required Dialog */}
+      <StripeAccountRequiredDialog
+        open={stripeAccountRequiredOpen}
+        onClose={() => {
+          setStripeAccountRequiredOpen(false);
+          setPendingApprovalOrderId(null);
+          setPendingApprovalOrderAmount(undefined);
+        }}
+        onOpenSettings={() => {
+          setSettingsOpen(true);
+        }}
+        orderAmount={pendingApprovalOrderAmount}
+      />
+
+      {/* Creative Settings Popover - opened from Stripe account required dialog */}
+      <CreativeSettingsPopover
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+          // After closing settings, check if account is now connected and retry approval
+          if (pendingApprovalOrderId) {
+            // Small delay to allow settings to close
+            setTimeout(async () => {
+              try {
+                const stripeStatus = await userService.getStripeAccountStatus();
+                if (stripeStatus.connected && stripeStatus.payouts_enabled) {
+                  // Account is now connected, proceed with approval
+                  setConfirmActionType('approve');
+                  setConfirmOrderId(pendingApprovalOrderId);
+                  setConfirmDialogOpen(true);
+                  setPendingApprovalOrderId(null);
+                  setPendingApprovalOrderAmount(undefined);
+                }
+              } catch (error) {
+                console.error('Failed to check Stripe account status after settings close:', error);
+              }
+            }, 500);
+          }
+        }}
+        initialSection="billing"
       />
     </Box>
   );

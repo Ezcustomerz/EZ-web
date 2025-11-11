@@ -15,16 +15,15 @@ import {
   useTheme,
   Chip,
   Tooltip,
-  Button,
   TextField,
   InputAdornment,
   Stack,
-  IconButton,
 } from '@mui/material';
-import { ArrowDropUp, ArrowDropDown, SwapVert, Search as SearchIcon, Payment as PaymentIcon, ReceiptLong, FilterList as FilterIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon } from '@mui/icons-material';
+import { ArrowDropUp, ArrowDropDown, SwapVert, Search as SearchIcon, ReceiptLong, FilterList as FilterIcon, CheckCircle as CheckCircleIcon, Cancel as CancelIcon } from '@mui/icons-material';
 import Card from '@mui/material/Card';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import EventIcon from '@mui/icons-material/Event';
+import { CancelledPopover, type CancelledOrder } from '../popovers/creative/CancelledPopover';
 
 type SortField = 'client' | 'service' | 'amount' | 'date' | undefined;
 type SortDirection = 'asc' | 'desc' | undefined;
@@ -50,9 +49,15 @@ export function PastOrdersTable({
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [hoveredSort, setHoveredSort] = useState<SortField | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<CancelledOrder | null>(null);
 
   const filteredOrders = useMemo(() => {
-    let data = filter === 'All' ? orders : orders.filter((order) => order.status === filter);
+    let data = filter === 'All' 
+      ? orders 
+      : filter === 'Canceled'
+        ? orders.filter((order) => order.status === 'Canceled' || order.status === 'Rejected')
+        : orders.filter((order) => order.status === filter);
     if (searchTerm.trim()) {
       const lower = searchTerm.toLowerCase();
       data = data.filter(order =>
@@ -134,6 +139,46 @@ export function PastOrdersTable({
       );
     }
   }
+
+  const handleCardClick = (order: any) => {
+    // Only open popover for Canceled/Rejected orders
+    if (order.status === 'Canceled' || order.status === 'Rejected') {
+      const cancelledOrder: CancelledOrder = {
+        id: order.id,
+        client: order.client,
+        service: {
+          id: order.service.id,
+          title: order.service.title,
+          description: order.service.description || '',
+          price: order.amount,
+          delivery_time: order.service.delivery_time || '3-5 days',
+          color: order.service.color || '#667eea',
+          payment_option: order.service.payment_option === 'upfront' ? 'upfront' :
+                         order.service.payment_option === 'split' ? 'split' :
+                         order.service.payment_option === 'later' ? 'later' : 'later',
+          photos: [], // TODO: Add if available in order data
+        },
+        amount: order.amount,
+        status: order.status === 'Rejected' ? 'Canceled' : order.status,
+        date: order.date,
+        bookingDate: order.bookingDate || null,
+        cancelledDate: order.canceledDate || order.date,
+        cancelledBy: 'creative', // For creative view, orders are cancelled by the creative (when rejected) or client/system
+        cancellationReason: undefined, // TODO: Add if available
+        description: order.description || '',
+        clientEmail: undefined, // TODO: Add if available
+        clientPhone: undefined, // TODO: Add if available
+        specialRequirements: order.description,
+      };
+      setSelectedOrder(cancelledOrder);
+      setPopoverOpen(true);
+    }
+  };
+
+  const handlePopoverClose = () => {
+    setPopoverOpen(false);
+    setSelectedOrder(null);
+  };
 
   return (
     <Box
@@ -282,11 +327,12 @@ export function PastOrdersTable({
                 elevation={1}
                 tabIndex={0}
                 aria-label={`Past order for ${order.client}, ${order.status}, ${formatCurrency(order.amount)}, ${formatDate(order.date)}`}
+                onClick={() => handleCardClick(order)}
                 sx={{
                   borderRadius: 2,
                   p: 2,
                   mb: 2,
-                  cursor: 'pointer',
+                  cursor: (order.status === 'Canceled' || order.status === 'Rejected') ? 'pointer' : 'default',
                   position: 'relative',
                   transition: 'box-shadow 0.2s, border 0.2s',
                   '&:hover, &:focus': {
@@ -302,13 +348,13 @@ export function PastOrdersTable({
                     <Typography variant="subtitle1" fontWeight={600}>{order.client}</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Chip 
-                        label={order.status} 
+                        label={order.status === 'Rejected' ? 'Canceled' : order.status} 
                         color="info"
                         size="small" 
                         sx={{ 
                           backgroundColor: order.status === 'Complete' ? '#10b981' : 
-                                          order.status === 'Canceled' ? '#ef4444' : undefined,
-                          color: (order.status === 'Complete' || order.status === 'Canceled') ? '#fff' : undefined,
+                                          (order.status === 'Rejected' || order.status === 'Canceled') ? '#ef4444' : undefined,
+                          color: (order.status === 'Complete' || order.status === 'Rejected' || order.status === 'Canceled') ? '#fff' : undefined,
                           fontWeight: 500, 
                           px: 1.5, 
                           height: 22, 
@@ -333,7 +379,7 @@ export function PastOrdersTable({
                           </Box>
                         </Tooltip>
                       )}
-                      {order.status === 'Canceled' && (
+                      {(order.status === 'Rejected' || order.status === 'Canceled') && (
                         <Tooltip title="Order canceled" arrow placement="top">
                           <Box sx={{ 
                             display: 'flex', 
@@ -584,7 +630,7 @@ export function PastOrdersTable({
             <TableBody>
               {filteredOrders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} sx={{ border: 0, p: 0, height: '100%', verticalAlign: 'middle' }}>
+                  <TableCell colSpan={5} sx={{ border: 0, p: 0, height: '100%', verticalAlign: 'middle', textAlign: 'center', width: '100%' }}>
                     <Box
                       sx={{
                         width: '100%',
@@ -595,6 +641,7 @@ export function PastOrdersTable({
                         alignItems: 'center',
                         justifyContent: 'center',
                         py: { xs: 6, md: 8 },
+                        px: { xs: 2, md: 3 },
                         textAlign: 'center',
                         minHeight: { xs: '350px', md: '400px' },
                         position: 'relative',
@@ -653,11 +700,12 @@ export function PastOrdersTable({
                   <TableRow
                     key={order.id}
                     hover
+                    onClick={() => handleCardClick(order)}
                     sx={{
                       transition: 'background 0.18s',
-                      cursor: 'pointer',
+                      cursor: (order.status === 'Canceled' || order.status === 'Rejected') ? 'pointer' : 'default',
                       '&:hover': {
-                        backgroundColor: 'grey.50',
+                        backgroundColor: (order.status === 'Canceled' || order.status === 'Rejected') ? 'grey.50' : undefined,
                       },
                     }}
                   >
@@ -677,11 +725,11 @@ export function PastOrdersTable({
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Chip
-                          label={order.status}
+                          label={order.status === 'Rejected' ? 'Canceled' : order.status}
                           size="small"
                           sx={{
                             backgroundColor: order.status === 'Complete' ? '#10b981' : 
-                                            order.status === 'Canceled' ? '#ef4444' : theme.palette.info.main,
+                                            (order.status === 'Rejected' || order.status === 'Canceled') ? '#ef4444' : theme.palette.info.main,
                             color: '#fff',
                             fontSize: '0.75rem',
                             fontWeight: 500,
@@ -707,7 +755,7 @@ export function PastOrdersTable({
                             </Box>
                           </Tooltip>
                         )}
-                        {order.status === 'Canceled' && (
+                        {(order.status === 'Rejected' || order.status === 'Canceled') && (
                           <Tooltip title="Order canceled" arrow placement="top">
                             <Box sx={{ 
                               display: 'flex', 
@@ -736,6 +784,13 @@ export function PastOrdersTable({
           </Table>
         </TableContainer>
       </Box>
+      
+      {/* Cancelled Order Popover */}
+      <CancelledPopover
+        open={popoverOpen}
+        onClose={handlePopoverClose}
+        order={selectedOrder}
+      />
     </Box>
   );
 }

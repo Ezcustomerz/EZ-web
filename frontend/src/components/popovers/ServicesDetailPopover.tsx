@@ -18,15 +18,17 @@ import {
   Modal,
   Backdrop,
   Fade,
+  Tooltip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import BookOnlineIcon from '@mui/icons-material/BookOnline';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import Visibility from '@mui/icons-material/Visibility';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGem } from '@fortawesome/free-solid-svg-icons';
+import { faGem, faCalendar } from '@fortawesome/free-solid-svg-icons';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -49,6 +51,7 @@ export interface ServiceDetail {
   created_at?: string;
   updated_at?: string;
   creative_user_id?: string;
+  requires_booking?: boolean;
   // Creative profile information
   creative_display_name?: string;
   creative_title?: string;
@@ -67,8 +70,9 @@ export interface ServicesDetailPopoverProps {
   open: boolean;
   onClose: () => void;
   service: ServiceDetail | null;
-  context: 'client-connected' | 'invite-page' | 'services-tab' | 'profile-tab';
+  context: 'client-connected' | 'invite-page' | 'services-tab' | 'profile-tab' | 'creative-view';
   onBook?: () => void;
+  onCreativeClick?: (creativeData: any) => void;
 }
 
 export function ServicesDetailPopover({ 
@@ -76,7 +80,8 @@ export function ServicesDetailPopover({
   onClose, 
   service, 
   context,
-  onBook 
+  onBook,
+  onCreativeClick
 }: ServicesDetailPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -92,7 +97,8 @@ export function ServicesDetailPopover({
 
   if (!service) return null;
 
-  const showBookButton = context === 'client-connected';
+  // Only show booking button for client context - never for creative views
+  const showBookButton = context === 'client-connected' && context !== 'creative-view';
 
   const handleBook = () => {
     if (onBook) {
@@ -124,12 +130,18 @@ export function ServicesDetailPopover({
       maxWidth="sm"
       fullWidth
       fullScreen={isMobile}
-      PaperProps={{
-        sx: {
-          borderRadius: isMobile ? 0 : 3,
-          maxHeight: isMobile ? '100vh' : '90vh',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-        }
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: isMobile ? 0 : 3,
+            maxHeight: isMobile ? '100vh' : '90vh',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          }
+        },
+        backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.32)' } }
       }}
     >
       <DialogTitle sx={{ 
@@ -168,6 +180,34 @@ export function ServicesDetailPopover({
                }}>
                  {service.title}
                </Typography>
+               {service.requires_booking && (
+                 <Tooltip title="This service requires booking a session" arrow>
+                   <Box
+                     sx={{
+                       display: 'inline-flex',
+                       alignItems: 'center',
+                       gap: 0.5,
+                       px: 1,
+                       py: 0.3,
+                       borderRadius: 1.5,
+                       backgroundColor: '#fef3c7',
+                       border: '1px solid #f59e0b',
+                       color: '#92400e',
+                       fontWeight: 600,
+                       fontSize: '0.7rem',
+                       letterSpacing: '0.01em',
+                       flexShrink: 0,
+                       cursor: 'help',
+                     }}
+                   >
+                     <FontAwesomeIcon
+                       icon={faCalendar}
+                       style={{ fontSize: 10, color: 'inherit' }}
+                     />
+                     Book
+                   </Box>
+                 </Tooltip>
+               )}
                {service.status && (context === 'services-tab' || context === 'profile-tab') && (
                  <Chip 
                    label={service.status} 
@@ -240,6 +280,43 @@ export function ServicesDetailPopover({
                    {service.creative_title || 'Creative Professional'}
                  </Typography>
                </Box>
+               {onCreativeClick && (
+                 <IconButton
+                   onClick={() => {
+                     if (onCreativeClick && service) {
+                       const creativeData = {
+                         id: service.creative_name, // Using creative_name as ID for now
+                         name: service.creative_display_name || service.creative_name,
+                         avatar: service.creative_avatar_url,
+                         specialty: service.creative_title || 'Creative Professional',
+                         email: '', // Not available in service data
+                         rating: 4.5, // Default rating
+                         reviewCount: 0, // Default review count
+                         servicesCount: 0, // Default services count
+                         isOnline: true, // Default online status
+                         color: service.color,
+                         status: 'active', // Default status
+                         description: `Professional creative offering ${service.title}`,
+                         primary_contact: '',
+                         secondary_contact: '',
+                         availability_location: '',
+                         profile_highlights: [],
+                         profile_highlight_values: {}
+                       };
+                       onCreativeClick(creativeData);
+                     }
+                   }}
+                   sx={{
+                     color: 'text.secondary',
+                     '&:hover': {
+                       backgroundColor: 'rgba(0,0,0,0.04)',
+                       color: 'text.primary'
+                     }
+                   }}
+                 >
+                   <Visibility sx={{ fontSize: 20 }} />
+                 </IconButton>
+               )}
              </Box>
            </Box>
 
@@ -347,7 +424,7 @@ export function ServicesDetailPopover({
             <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: 'text.primary' }}>
               Service Details
             </Typography>
-             <Box sx={{ display: 'flex', gap: 2 }}>
+             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                {/* Price */}
                <Box sx={{ 
                  display: 'flex', 
@@ -357,7 +434,8 @@ export function ServicesDetailPopover({
                  borderRadius: 2,
                  backgroundColor: 'rgba(76, 175, 80, 0.08)',
                  border: '1px solid rgba(76, 175, 80, 0.2)',
-                 flex: 1
+                 flex: 1,
+                 minWidth: '200px'
                }}>
                  <Box sx={{ 
                    display: 'flex', 
@@ -390,7 +468,8 @@ export function ServicesDetailPopover({
                  borderRadius: 2,
                  backgroundColor: 'rgba(33, 150, 243, 0.08)',
                  border: '1px solid rgba(33, 150, 243, 0.2)',
-                 flex: 1
+                 flex: 1,
+                 minWidth: '200px'
                }}>
                  <Box sx={{ 
                    display: 'flex', 
@@ -413,6 +492,8 @@ export function ServicesDetailPopover({
                    </Typography>
                  </Box>
                </Box>
+
+              {/* Booking Type removed: single booking flow now */}
 
             </Box>
            </Box>

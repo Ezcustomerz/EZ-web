@@ -26,8 +26,7 @@ import {
   AccountBalanceWallet,
   CheckCircle,
   PendingActions,
-  Schedule,
-  Payment
+  Schedule
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
@@ -258,12 +257,6 @@ export function AwaitingPaymentPopover({
     }
   };
 
-  const handlePaymentConfirmed = () => {
-    if (onPaymentConfirmed) {
-      onPaymentConfirmed(order.id);
-    }
-  };
-
 
   // Create service detail data for the popover
   const serviceDetail: ServiceDetail = {
@@ -435,6 +428,88 @@ export function AwaitingPaymentPopover({
             </CardContent>
           </Card>
 
+          {/* Notes from Client - Only show if notes exist */}
+          {(order.description || order.specialRequirements) && (
+            <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+                  Notes from Client
+                </Typography>
+                
+                <Box 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.description || order.specialRequirements || ''}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Booking Date Card */}
+          {order.bookingDate && (
+            <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+                  Booking Details
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <AccessTime sx={{ color: 'text.secondary', fontSize: 20 }} />
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Scheduled Session
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      {formatBookingDate(order.bookingDate)}
+                    </Typography>
+                  </Box>
+                  <Box
+                    component="button"
+                    onClick={handleViewBooking}
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      px: 2,
+                      py: 1,
+                      backgroundColor: 'transparent',
+                      border: '1px solid #3b82f6',
+                      borderRadius: 1.5,
+                      color: '#3b82f6',
+                      fontSize: '0.875rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      textDecoration: 'none',
+                      '&:hover': {
+                        backgroundColor: '#3b82f6',
+                        color: '#fff',
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                      },
+                      '&:active': {
+                        transform: 'translateY(0)',
+                      }
+                    }}
+                  >
+                    View Details
+                    <Typography component="span" sx={{ fontSize: '0.75rem', ml: 0.5 }}>
+                      →
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Payment Information */}
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <CardContent>
@@ -568,7 +643,6 @@ export function AwaitingPaymentPopover({
             </Card>
           )}
 
-
           {/* Service Card */}
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <CardContent>
@@ -588,62 +662,6 @@ export function AwaitingPaymentPopover({
               />
             </CardContent>
           </Card>
-
-          {/* Booking Date Card */}
-          {order.bookingDate && (
-            <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
-              <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
-                  Booking Details
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <AccessTime sx={{ color: 'text.secondary', fontSize: 20 }} />
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Scheduled Session
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {formatBookingDate(order.bookingDate)}
-                    </Typography>
-                  </Box>
-                  <Box
-                    component="button"
-                    onClick={handleViewBooking}
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      px: 2,
-                      py: 1,
-                      backgroundColor: 'transparent',
-                      border: '1px solid #3b82f6',
-                      borderRadius: 1.5,
-                      color: '#3b82f6',
-                      fontSize: '0.875rem',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      textDecoration: 'none',
-                      '&:hover': {
-                        backgroundColor: '#3b82f6',
-                        color: '#fff',
-                        transform: 'translateY(-1px)',
-                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
-                      },
-                      '&:active': {
-                        transform: 'translateY(0)',
-                      }
-                    }}
-                  >
-                    View Details
-                    <Typography component="span" sx={{ fontSize: '0.75rem', ml: 0.5 }}>
-                      →
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          )}
 
         </Box>
       </DialogContent>
@@ -670,19 +688,6 @@ export function AwaitingPaymentPopover({
         >
           Send Reminder
         </Button>
-        <Button
-          variant="contained"
-          startIcon={<Payment />}
-          onClick={handlePaymentConfirmed}
-          sx={{
-            backgroundColor: '#10b981',
-            '&:hover': {
-              backgroundColor: '#059669',
-            },
-          }}
-        >
-          Already Paid
-        </Button>
       </DialogActions>
 
       {/* Service Detail Popover */}
@@ -690,7 +695,7 @@ export function AwaitingPaymentPopover({
         open={serviceDetailOpen}
         onClose={handleServiceDetailClose}
         service={serviceDetail}
-        context="services-tab"
+        context="creative-view"
       />
 
       {/* Booking Detail Popover */}

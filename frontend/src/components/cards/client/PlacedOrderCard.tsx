@@ -34,6 +34,7 @@ interface PlacedOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  onOrderCanceled?: () => void;
 }
 
 export function PlacedOrderCard({
@@ -57,7 +58,8 @@ export function PlacedOrderCard({
   creativeRating,
   creativeReviewCount,
   creativeServicesCount,
-  creativeColor
+  creativeColor,
+  onOrderCanceled
 }: PlacedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#ff9800';
@@ -150,7 +152,7 @@ export function PlacedOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Awaiting creative approval
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
@@ -246,6 +248,7 @@ export function PlacedOrderCard({
       open={popoverOpen}
       onClose={handlePopoverClose}
       order={orderDetail}
+      onOrderCanceled={onOrderCanceled}
     />
   </>
   );
