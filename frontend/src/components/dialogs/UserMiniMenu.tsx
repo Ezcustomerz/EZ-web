@@ -19,6 +19,8 @@ import {
 } from '@mui/icons-material';
 import { RoleSwitcherPopover } from '../popovers/RoleSwitcherPopover';
 import { CreativeSettingsPopover } from '../popovers/creative/CreativeSettingsPopover';
+import { ClientSettingsPopover } from '../popovers/client/ClientSettingsPopover';
+import { AdvocateSettingsPopover } from '../popovers/advocate/AdvocateSettingsPopover';
 import { useAuth } from '../../context/auth';
 import { successToast } from '../toast/toast';
 
@@ -81,20 +83,12 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
   }, [searchParams, currentRole, isAuthenticated, navigate]);
 
   const menuItems = [
-    { 
+    {
       id: 'settings', 
       label: 'Settings', 
       icon: Settings,
       action: () => {
-        if (currentRole === 'creative') {
-          if (isAuthenticated) {
-            setSettingsOpen(true);
-          } else {
-            openAuth();
-          }
-        } else {
-          console.log('Settings clicked for non-creative role');
-        }
+        setSettingsOpen(true);
         onClose();
       }
     },
@@ -347,12 +341,26 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       onClose={() => setRoleSwitcherOpen(false)}
     />
 
-    {/* Creative Settings Popover */}
+    {/* Settings Popovers - Show based on current role */}
     {currentRole === 'creative' && (
       <CreativeSettingsPopover
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         initialSection={settingsInitialSection}
+      />
+    )}
+
+    {currentRole === 'client' && (
+      <ClientSettingsPopover
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+    )}
+
+    {currentRole === 'advocate' && (
+      <AdvocateSettingsPopover
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
       />
     )}
     </>
