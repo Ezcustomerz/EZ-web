@@ -852,4 +852,122 @@ export const userService = {
     return response.data;
   },
 
+  /**
+   * Create a Stripe Connect account for the creative
+   */
+  async createStripeConnectAccount(): Promise<{account_id: string; onboarding_url: string}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{account_id: string; onboarding_url: string}>(
+      `${API_BASE_URL}/stripe/connect/create-account`,
+      {},
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get Stripe account status for the creative
+   */
+  async getStripeAccountStatus(): Promise<{
+    connected: boolean;
+    account_id?: string;
+    payouts_enabled: boolean;
+    onboarding_complete: boolean;
+    account_type?: string;
+    last_payout_date?: number;
+    payout_disable_reason?: string;
+    currently_due_requirements?: string[];
+    error?: string;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<{
+      connected: boolean;
+      account_id?: string;
+      payouts_enabled: boolean;
+      onboarding_complete: boolean;
+      account_type?: string;
+      last_payout_date?: number;
+      payout_disable_reason?: string;
+      currently_due_requirements?: string[];
+      error?: string;
+    }>(
+      `${API_BASE_URL}/stripe/connect/account-status`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Create a login link for the Stripe Express account dashboard
+   */
+  async createStripeLoginLink(): Promise<{login_url: string | null; needs_onboarding?: boolean; error?: string}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{login_url: string | null; needs_onboarding?: boolean; error?: string}>(
+      `${API_BASE_URL}/stripe/connect/create-login-link`,
+      {},
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Process a payment for a booking - creates a Stripe Checkout Session
+   */
+  async processPayment(bookingId: string, amount: number): Promise<{
+    checkout_url: string;
+    session_id: string;
+    amount: number;
+    platform_fee: number;
+    creative_amount: number;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{
+      checkout_url: string;
+      session_id: string;
+      amount: number;
+      platform_fee: number;
+      creative_amount: number;
+    }>(
+      `${API_BASE_URL}/stripe/payment/process`,
+      {
+        booking_id: bookingId,
+        amount: amount
+      },
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Verify a payment session and update booking status
+   */
+  async verifyPayment(sessionId: string, bookingId: string): Promise<{
+    success: boolean;
+    message: string;
+    booking_id: string;
+    amount_paid: number;
+    payment_status: string;
+    client_status: string;
+    creative_status: string;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{
+      success: boolean;
+      message: string;
+      booking_id: string;
+      amount_paid: number;
+      payment_status: string;
+      client_status: string;
+      creative_status: string;
+    }>(
+      `${API_BASE_URL}/stripe/payment/verify`,
+      {
+        session_id: sessionId,
+        booking_id: bookingId
+      },
+      { headers }
+    );
+    return response.data;
+  },
+
 };

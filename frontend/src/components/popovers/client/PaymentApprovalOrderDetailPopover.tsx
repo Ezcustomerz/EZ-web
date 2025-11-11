@@ -20,6 +20,7 @@ import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
+import { StripePaymentDialog } from '../../dialogs/StripePaymentDialog';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -77,6 +78,7 @@ export function PaymentApprovalOrderDetailPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   if (!order) return null;
 
@@ -132,13 +134,19 @@ export function PaymentApprovalOrderDetailPopover({
   };
 
   const handlePay = () => {
-    const amountToPay = order.paymentOption === 'split_payment' 
-      ? (order.depositAmount || order.price * 0.5)
-      : order.price;
-    
+    // Open payment dialog instead of calling onPay directly
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setPaymentDialogOpen(false);
     if (onPay) {
+      const amountToPay = order.paymentOption === 'split_payment' 
+        ? (order.depositAmount || order.price * 0.5)
+        : order.price;
       onPay(order.id, amountToPay);
     }
+    onClose();
   };
 
   // Calculate payment amounts
@@ -574,6 +582,15 @@ export function PaymentApprovalOrderDetailPopover({
         open={creativeDetailOpen}
         onClose={handleCreativeDetailClose}
         creative={creativeDetail}
+      />
+
+      {/* Stripe Payment Dialog */}
+      <StripePaymentDialog
+        open={paymentDialogOpen}
+        onClose={() => setPaymentDialogOpen(false)}
+        bookingId={order.id}
+        amount={amountDueNow}
+        onSuccess={handlePaymentSuccess}
       />
     </>
   );

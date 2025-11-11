@@ -82,7 +82,7 @@ export interface PendingApprovalPopoverProps {
   open: boolean;
   onClose: () => void;
   order: PendingApprovalOrder | null;
-  onApprove: (orderId: string) => void;
+  onApprove: (orderId: string) => void | Promise<void>;
   onReject: (orderId: string) => void;
 }
 
@@ -674,7 +674,9 @@ export function PendingApprovalPopover({
         <Button
           variant="contained"
           startIcon={<Check />}
-          onClick={() => onApprove(order.id)}
+          onClick={async () => {
+            await onApprove(order.id);
+          }}
           sx={{
             backgroundColor: '#10b981',
             '&:hover': {

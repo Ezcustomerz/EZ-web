@@ -12,6 +12,7 @@ from api.notifications import notifications_router
 from api.booking import booking_router
 from api.booking.booking_router import service_main_router
 from api.auth import auth_router
+from api.stripe import stripe_router
 from core.limiter import limiter
 from core.verify import jwt_auth_middleware
 # Import database module to trigger connection test
@@ -96,6 +97,7 @@ app.include_router(invite_router.router)
 app.include_router(notifications_router.router)
 app.include_router(booking_router.router)
 app.include_router(service_main_router)  # Service endpoints at /api/booking
+app.include_router(stripe_router.router, prefix="/stripe", tags=["stripe"])
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

@@ -141,9 +141,9 @@ export function InProgressOrderDetailPopover({
     setCreativeDetailOpen(false);
   };
 
-  // Calculate payment amounts
-  const amountPaid = order.amountPaid || (order.paymentOption === 'payment_upfront' ? order.price : (order.paymentOption === 'split_payment' ? order.price * 0.5 : 0));
-  const amountRemaining = order.amountRemaining || (order.paymentOption === 'payment_later' ? order.price : (order.paymentOption === 'split_payment' ? order.price - amountPaid : 0));
+  // Calculate payment amounts - use actual values from order, fallback to calculated if not provided
+  const amountPaid = order.amountPaid !== undefined ? order.amountPaid : (order.paymentOption === 'payment_upfront' ? order.price : (order.paymentOption === 'split_payment' ? order.price * 0.5 : 0));
+  const amountRemaining = order.amountRemaining !== undefined ? order.amountRemaining : Math.max(0, order.price - amountPaid);
 
   // Create service detail object for the nested popover
   const serviceDetail: ServiceDetail = {

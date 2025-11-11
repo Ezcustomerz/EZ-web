@@ -39,6 +39,9 @@ import { CompletePopover, type CompleteOrder } from '../popovers/creative/Comple
 import { CancelledPopover, type CancelledOrder } from '../popovers/creative/CancelledPopover';
 import { bookingService } from '../../api/bookingService';
 import { ConfirmActionDialog, type ActionType } from '../dialogs/ConfirmActionDialog';
+import { StripeAccountRequiredDialog } from '../dialogs/StripeAccountRequiredDialog';
+import { CreativeSettingsPopover } from '../popovers/creative/CreativeSettingsPopover';
+import { userService } from '../../api/userService';
 import { successToast, errorToast } from '../toast/toast';
 
 
@@ -138,6 +141,10 @@ export function RequestsTable({
   const [confirmActionType, setConfirmActionType] = useState<ActionType>('approve');
   const [confirmOrderId, setConfirmOrderId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [stripeAccountRequiredOpen, setStripeAccountRequiredOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pendingApprovalOrderId, setPendingApprovalOrderId] = useState<string | null>(null);
+  const [pendingApprovalOrderAmount, setPendingApprovalOrderAmount] = useState<number | undefined>(undefined);
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
@@ -320,8 +327,44 @@ export function RequestsTable({
     setSelectedCancelledOrder(null);
   };
 
-  // Approval handlers - open confirmation dialog
-  const handleApprove = (orderId: string) => {
+  // Approval handlers - check Stripe account first, then open confirmation dialog
+  const handleApprove = async (orderId: string) => {
+    // Find the order to check if payment is required
+    const order = requests.find(req => req.id === orderId);
+    if (!order) {
+      errorToast('Order not found', 'Unable to find the order. Please try again.');
+      return;
+    }
+
+    const price = order.amount || 0;
+    
+    // Check if payment is required - any paid service (price > 0) requires Stripe account
+    // Payment option only determines WHEN payment happens, not IF payment is required
+    const requiresPayment = price > 0;
+    
+    if (requiresPayment) {
+      // Check if Stripe account is connected
+      try {
+        const stripeStatus = await userService.getStripeAccountStatus();
+        
+        if (!stripeStatus.connected || !stripeStatus.payouts_enabled) {
+          // Account not connected or payouts not enabled - show dialog
+          setPendingApprovalOrderId(orderId);
+          setPendingApprovalOrderAmount(price);
+          setStripeAccountRequiredOpen(true);
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to check Stripe account status:', error);
+        // If check fails, still show the requirement dialog to be safe
+        setPendingApprovalOrderId(orderId);
+        setPendingApprovalOrderAmount(price);
+        setStripeAccountRequiredOpen(true);
+        return;
+      }
+    }
+    
+    // If no payment required or account is connected, proceed with normal approval
     setConfirmActionType('approve');
     setConfirmOrderId(orderId);
     setConfirmDialogOpen(true);
@@ -2047,6 +2090,48 @@ export function RequestsTable({
         onConfirm={handleConfirmAction}
         actionType={confirmActionType}
         isProcessing={isProcessing}
+      />
+
+      {/* Stripe Account Required Dialog */}
+      <StripeAccountRequiredDialog
+        open={stripeAccountRequiredOpen}
+        onClose={() => {
+          setStripeAccountRequiredOpen(false);
+          setPendingApprovalOrderId(null);
+          setPendingApprovalOrderAmount(undefined);
+        }}
+        onOpenSettings={() => {
+          setSettingsOpen(true);
+        }}
+        orderAmount={pendingApprovalOrderAmount}
+      />
+
+      {/* Creative Settings Popover - opened from Stripe account required dialog */}
+      <CreativeSettingsPopover
+        open={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+          // After closing settings, check if account is now connected and retry approval
+          if (pendingApprovalOrderId) {
+            // Small delay to allow settings to close
+            setTimeout(async () => {
+              try {
+                const stripeStatus = await userService.getStripeAccountStatus();
+                if (stripeStatus.connected && stripeStatus.payouts_enabled) {
+                  // Account is now connected, proceed with approval
+                  setConfirmActionType('approve');
+                  setConfirmOrderId(pendingApprovalOrderId);
+                  setConfirmDialogOpen(true);
+                  setPendingApprovalOrderId(null);
+                  setPendingApprovalOrderAmount(undefined);
+                }
+              } catch (error) {
+                console.error('Failed to check Stripe account status after settings close:', error);
+              }
+            }, 500);
+          }
+        }}
+        initialSection="billing"
       />
     </Box>
   );

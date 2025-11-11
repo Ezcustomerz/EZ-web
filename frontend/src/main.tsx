@@ -44,6 +44,8 @@ import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { InvitePage } from './views/InvitePage'
 import { AuthCallback } from './views/AuthCallback'
 import { NoAccess } from './views/NoAccess'
+import { PaymentSuccess } from './views/PaymentSuccess'
+import { PaymentCancelled } from './views/PaymentCancelled'
 import { ToastProvider } from './components/toast/toast'
 import { LoadingProvider } from './context/loading'
 
@@ -136,6 +138,8 @@ function AppContent() {
         <Route path="/auth-callback" element={<AuthCallback />} />
         <Route path="/no-access" element={<NoAccess />} />
         <Route path="/contact" element={<ContactUs />} />
+        <Route path="/payment-success" element={<PaymentSuccess />} />
+        <Route path="/payment-cancelled" element={<PaymentCancelled />} />
       </Routes>
       <AuthPopover 
         open={authOpen} 

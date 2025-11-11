@@ -421,6 +421,9 @@ class BookingController:
             else:
                 display_status = client_status
         
+        # Get amount_paid from booking
+        amount_paid = float(booking.get('amount_paid', 0)) if booking.get('amount_paid') else 0.0
+        
         if is_creative_view:
             return OrderResponse(
                 id=booking['id'],
@@ -445,6 +448,7 @@ class BookingController:
                 approved_at=booking.get('approved_at'),
                 price=float(booking['price']) if booking.get('price') else 0.0,
                 payment_option=booking.get('payment_option', 'later'),
+                amount_paid=amount_paid,
                 description=booking.get('notes'),
                 status=display_status,
                 client_status=client_status,
@@ -474,6 +478,7 @@ class BookingController:
                 approved_at=booking.get('approved_at'),
                 price=float(booking['price']) if booking.get('price') else 0.0,
                 payment_option=booking.get('payment_option', 'later'),
+                amount_paid=amount_paid,
                 description=booking.get('notes'),
                 status=display_status,
                 client_status=client_status,
@@ -644,7 +649,7 @@ class BookingController:
         try:
             # Fetch bookings for this client
             bookings_response = client.table('bookings')\
-                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('client_user_id', user_id)\
                 .order('order_date', desc=True)\
                 .execute()
@@ -707,7 +712,7 @@ class BookingController:
         try:
             # Fetch bookings for this client with in_progress status
             bookings_response = client.table('bookings')\
-                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('client_user_id', user_id)\
                 .eq('client_status', 'in_progress')\
                 .order('order_date', desc=True)\
@@ -769,7 +774,7 @@ class BookingController:
         try:
             # Fetch bookings for this client
             bookings_response = client.table('bookings')\
-                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('client_user_id', user_id)\
                 .in_('client_status', ['payment_required', 'locked', 'download'])\
                 .order('order_date', desc=True)\
@@ -831,7 +836,7 @@ class BookingController:
         try:
             # Fetch bookings for this client with completed or canceled status
             bookings_response = client.table('bookings')\
-                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('client_user_id', user_id)\
                 .in_('client_status', ['completed', 'cancelled'])\
                 .order('order_date', desc=True)\
@@ -839,7 +844,7 @@ class BookingController:
             
             # Also get orders where creative rejected (these show as canceled to client)
             rejected_bookings_response = client.table('bookings')\
-                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at')\
+                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('client_user_id', user_id)\
                 .eq('creative_status', 'rejected')\
                 .order('order_date', desc=True)\
@@ -904,7 +909,7 @@ class BookingController:
         try:
             # Fetch bookings for this creative
             bookings_response = client.table('bookings')\
-                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at')\
+                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('creative_user_id', user_id)\
                 .order('order_date', desc=True)\
                 .execute()
@@ -963,7 +968,7 @@ class BookingController:
         try:
             # Fetch bookings for this creative, excluding completed/canceled/rejected orders
             bookings_response = client.table('bookings')\
-                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at')\
+                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('creative_user_id', user_id)\
                 .not_.in_('creative_status', ['complete', 'rejected', 'canceled'])\
                 .order('order_date', desc=True)\
@@ -1022,7 +1027,7 @@ class BookingController:
         try:
             # Fetch bookings for this creative, only completed/canceled/rejected orders
             bookings_response = client.table('bookings')\
-                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at')\
+                .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('creative_user_id', user_id)\
                 .in_('creative_status', ['complete', 'rejected', 'canceled'])\
                 .order('order_date', desc=True)\

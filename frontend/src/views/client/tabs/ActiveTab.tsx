@@ -43,34 +43,39 @@ const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remount
 // Transform API orders to component format
 function transformOrders(fetchedOrders: Order[]) {
   // Backend already filters for in-progress orders, so we just transform
-  return fetchedOrders.map((order: Order) => ({
-      id: order.id,
-      serviceName: order.service_name,
-      creativeName: order.creative_name,
-      orderDate: order.order_date,
-      description: order.description || order.service_description || '',
-      price: order.price,
-      calendarDate: order.booking_date || null,
-      paymentOption: order.price === 0 || order.price === null ? 'free' :
-                     order.payment_option === 'upfront' ? 'payment_upfront' : 
-                     order.payment_option === 'split' ? 'split_payment' : 'payment_later',
-      amountPaid: 0, // TODO: Get from backend when payment tracking is implemented
-      amountRemaining: order.price, // TODO: Calculate based on payment_option and amount_paid
-      approvedDate: order.approved_at || null,
-      serviceId: order.service_id,
-      serviceDescription: order.service_description,
-      serviceDeliveryTime: order.service_delivery_time,
-      serviceColor: order.service_color,
-      creativeAvatarUrl: order.creative_avatar_url,
-      creativeDisplayName: order.creative_display_name,
-      creativeTitle: order.creative_title,
-      creativeId: order.creative_id,
-      creativeEmail: order.creative_email,
-      creativeRating: order.creative_rating,
-      creativeReviewCount: order.creative_review_count,
-      creativeServicesCount: order.creative_services_count,
-      creativeColor: order.creative_color,
-    }));
+  return fetchedOrders.map((order: Order) => {
+      const amountPaid = order.amount_paid || 0;
+      const amountRemaining = Math.max(0, order.price - amountPaid);
+      
+      return {
+        id: order.id,
+        serviceName: order.service_name,
+        creativeName: order.creative_name,
+        orderDate: order.order_date,
+        description: order.description || order.service_description || '',
+        price: order.price,
+        calendarDate: order.booking_date || null,
+        paymentOption: order.price === 0 || order.price === null ? 'free' :
+                       order.payment_option === 'upfront' ? 'payment_upfront' : 
+                       order.payment_option === 'split' ? 'split_payment' : 'payment_later',
+        amountPaid: amountPaid,
+        amountRemaining: amountRemaining,
+        approvedDate: order.approved_at || null,
+        serviceId: order.service_id,
+        serviceDescription: order.service_description,
+        serviceDeliveryTime: order.service_delivery_time,
+        serviceColor: order.service_color,
+        creativeAvatarUrl: order.creative_avatar_url,
+        creativeDisplayName: order.creative_display_name,
+        creativeTitle: order.creative_title,
+        creativeId: order.creative_id,
+        creativeEmail: order.creative_email,
+        creativeRating: order.creative_rating,
+        creativeReviewCount: order.creative_review_count,
+        creativeServicesCount: order.creative_services_count,
+        creativeColor: order.creative_color,
+      };
+    });
 }
 
 export function ActiveTab() {

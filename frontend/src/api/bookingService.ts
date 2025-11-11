@@ -347,6 +347,7 @@ export interface Order {
   approved_at?: string;
   price: number;
   payment_option?: string;
+  amount_paid?: number;
   description?: string;
   status: string;
   client_status?: string;

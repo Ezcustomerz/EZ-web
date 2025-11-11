@@ -45,21 +45,19 @@ import {
   Check,
   AccountCircle,
   AccountBalance,
-  CheckCircle,
-  Warning,
-  ArrowForward,
   Info,
 } from '@mui/icons-material';
 import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
-import { errorToast } from '../../../components/toast/toast';
+import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
   onClose: () => void;
   onProfileUpdated?: () => void; // Callback to refresh parent components
+  initialSection?: SettingsSection; // Optional section to open to
 }
 
 type SettingsSection = 'account' | 'billing' | 'userAccount';
@@ -177,28 +175,41 @@ const PROFILE_HIGHLIGHTS_OPTIONS = [
   'Client Types',
 ] as const;
 
-export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: CreativeSettingsPopoverProps) {
+export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initialSection = 'account' }: CreativeSettingsPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuthenticated } = useAuth();
-  const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
+  const [selectedSection, setSelectedSection] = useState<SettingsSection>(initialSection);
+  
+  // Update selected section when initialSection prop changes
+  useEffect(() => {
+    if (open && initialSection) {
+      setSelectedSection(initialSection);
+    }
+  }, [open, initialSection]);
   
   // Data state
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const [services, setServices] = useState<CreativeService[]>([]);
   const [bundles, setBundles] = useState<CreativeBundle[]>([]);
   
-  // Bank account state (will be fetched from API later)
+  // Bank account state (fetched from Stripe)
   const [bankAccountStatus, setBankAccountStatus] = useState<{
     connected: boolean;
     accountId?: string;
     payoutsEnabled: boolean;
     accountType?: 'individual' | 'company';
     lastPayoutDate?: string;
+    payoutDisableReason?: string;
+    currentlyDueRequirements?: string[];
+    onboardingComplete?: boolean;
   }>({
     connected: false,
     payoutsEnabled: false,
+    onboardingComplete: false,
   });
+  const [loadingStripeStatus, setLoadingStripeStatus] = useState(false);
+  const [connectingAccount, setConnectingAccount] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -246,6 +257,13 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
       fetchData();
     }
   }, [open, isAuthenticated]);
+
+  // Fetch Stripe account status when billing section is selected
+  useEffect(() => {
+    if (open && isAuthenticated && selectedSection === 'billing') {
+      fetchStripeAccountStatus();
+    }
+  }, [open, isAuthenticated, selectedSection]);
   
   // Update form data when creative profile loads
   useEffect(() => {
@@ -298,6 +316,84 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
       setBundles(publicBundles);
     } catch (error) {
       console.error('Failed to fetch creative data:', error);
+    }
+  };
+
+  const fetchStripeAccountStatus = async () => {
+    try {
+      setLoadingStripeStatus(true);
+      const status = await userService.getStripeAccountStatus();
+      setBankAccountStatus({
+        connected: status.connected,
+        accountId: status.account_id,
+        payoutsEnabled: status.payouts_enabled,
+        accountType: status.account_type as 'individual' | 'company' | undefined,
+        lastPayoutDate: status.last_payout_date 
+          ? new Date(status.last_payout_date * 1000).toISOString() 
+          : undefined,
+        onboardingComplete: status.onboarding_complete,
+        payoutDisableReason: status.payout_disable_reason,
+        currentlyDueRequirements: status.currently_due_requirements,
+      });
+    } catch (error) {
+      console.error('Failed to fetch Stripe account status:', error);
+      errorToast('Failed to load account status');
+    } finally {
+      setLoadingStripeStatus(false);
+    }
+  };
+
+  const handleConnectStripeAccount = async () => {
+    try {
+      setConnectingAccount(true);
+      const result = await userService.createStripeConnectAccount();
+      
+      // Redirect to Stripe onboarding
+      if (result.onboarding_url) {
+        window.location.href = result.onboarding_url;
+      } else {
+        errorToast('Failed to get onboarding URL');
+      }
+    } catch (error: any) {
+      console.error('Failed to create Stripe account:', error);
+      errorToast(error.response?.data?.detail || 'Failed to connect Stripe account');
+    } finally {
+      setConnectingAccount(false);
+    }
+  };
+
+  const handleManageStripeAccount = async () => {
+    try {
+      setConnectingAccount(true);
+      const result: {login_url: string | null; needs_onboarding?: boolean; error?: string} = await userService.createStripeLoginLink();
+      
+      // Check if onboarding is needed
+      if (result.needs_onboarding) {
+        // Redirect to onboarding instead
+        handleConnectStripeAccount();
+        return;
+      }
+      
+      // Redirect to Stripe Express Dashboard
+      if (result.login_url) {
+        window.open(result.login_url, '_blank');
+        successToast('Opening Stripe dashboard...');
+      } else {
+        errorToast('Failed to get login URL');
+      }
+    } catch (error: any) {
+      console.error('Failed to create login link:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to open Stripe dashboard';
+      
+      // Check if error indicates onboarding is needed
+      if (errorMessage.toLowerCase().includes('onboarding') || errorMessage.toLowerCase().includes('not completed')) {
+        // Redirect to onboarding instead
+        handleConnectStripeAccount();
+      } else {
+        errorToast(errorMessage);
+      }
+    } finally {
+      setConnectingAccount(false);
     }
   };
 
@@ -1012,8 +1108,25 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                           width: 12,
                           height: 12,
                           borderRadius: '50%',
-                          bgcolor: bankAccountStatus.connected ? 'success.main' : 'warning.main',
+                          bgcolor: !bankAccountStatus.connected 
+                            ? 'error.main' 
+                            : bankAccountStatus.payoutsEnabled 
+                              ? 'success.main' 
+                              : 'warning.main',
                           ...(!bankAccountStatus.connected && {
+                            animation: 'pulse-dot 2s ease-in-out infinite',
+                            '@keyframes pulse-dot': {
+                              '0%, 100%': {
+                                transform: 'translateY(0) scale(1)',
+                                opacity: 1,
+                              },
+                              '50%': {
+                                transform: 'translateY(-3px) scale(1.1)',
+                                opacity: 0.8,
+                              },
+                            },
+                          }),
+                          ...(bankAccountStatus.connected && !bankAccountStatus.payoutsEnabled && {
                             animation: 'pulse-dot 2s ease-in-out infinite',
                             '@keyframes pulse-dot': {
                               '0%, 100%': {
@@ -1029,21 +1142,27 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                         }}
                       />
                       <Typography variant="body1" fontWeight={500}>
-                        {bankAccountStatus.connected ? 'Connected' : 'Not Connected'}
+                        {!bankAccountStatus.connected 
+                          ? 'Not Connected' 
+                          : bankAccountStatus.payoutsEnabled 
+                            ? 'Connected' 
+                            : 'Connected - Payouts Pending'}
                       </Typography>
                       {bankAccountStatus.connected && (
                         <Chip
-                          label="Active"
+                          label={bankAccountStatus.payoutsEnabled ? "Active" : "Pending Verification"}
                           size="small"
-                          color="success"
+                          color={bankAccountStatus.payoutsEnabled ? "success" : "warning"}
                           sx={{ ml: 'auto', fontWeight: 600 }}
                         />
                       )}
                     </Box>
                     <Typography variant="body2" color="text.secondary">
-                      {bankAccountStatus.connected
-                        ? 'Your bank account is connected and ready to receive payments from clients.'
-                        : 'Connect a bank account to accept paid bookings and receive payments.'}
+                      {!bankAccountStatus.connected
+                        ? 'Connect a bank account to accept paid bookings and receive payments.'
+                        : bankAccountStatus.payoutsEnabled
+                          ? 'Your bank account is connected and ready to receive payments from clients.'
+                          : 'Your account is connected but payouts are not yet enabled. Complete your account verification to enable payouts.'}
                     </Typography>
                   </Box>
 
@@ -1071,10 +1190,14 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                   <Button
                     variant={bankAccountStatus.connected ? "outlined" : "contained"}
                     fullWidth
+                    disabled={connectingAccount || loadingStripeStatus}
                     startIcon={bankAccountStatus.connected ? <Settings /> : <AccountBalance />}
                     onClick={() => {
-                      // TODO: Handle bank account connection/management
-                      console.log('Bank account action clicked');
+                      if (bankAccountStatus.connected) {
+                        handleManageStripeAccount();
+                      } else {
+                        handleConnectStripeAccount();
+                      }
                     }}
                     sx={{
                       position: 'relative',
@@ -1129,7 +1252,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                       }),
                     }}
                   >
-                    {bankAccountStatus.connected ? 'Manage Account' : 'Connect Bank Account'}
+                    {connectingAccount 
+                      ? 'Connecting...' 
+                      : bankAccountStatus.connected 
+                        ? 'Manage Account' 
+                        : 'Connect Bank Account'}
                   </Button>
                 </CardContent>
               </Card>
@@ -1144,7 +1271,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                     </Typography>
                   </Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Payouts are processed within 2-3 business days after a client completes payment.
+                    Payouts are processed within 2-5 business days after a client completes payment.
                   </Typography>
                   {bankAccountStatus.connected && bankAccountStatus.lastPayoutDate && (
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
@@ -1159,6 +1286,61 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                         })}
                       </Typography>
                     </Box>
+                  )}
+                  {bankAccountStatus.connected && !bankAccountStatus.payoutsEnabled && (
+                    <Alert 
+                      severity="error" 
+                      sx={{ 
+                        mt: 2,
+                        border: '1px solid',
+                        borderColor: 'error.main',
+                        backgroundColor: 'rgba(211, 47, 47, 0.08)',
+                        '& .MuiAlert-icon': {
+                          color: 'error.main'
+                        },
+                        '& .MuiAlert-message': {
+                          width: '100%'
+                        }
+                      }}
+                    >
+                      <AlertTitle sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Payouts Disabled
+                      </AlertTitle>
+                      {bankAccountStatus.payoutDisableReason ? (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                          {bankAccountStatus.payoutDisableReason}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                          Your payouts are currently disabled. Please complete your account setup to enable payouts.
+                        </Typography>
+                      )}
+                      {bankAccountStatus.currentlyDueRequirements && bankAccountStatus.currentlyDueRequirements.length > 0 && (
+                        <Box sx={{ mt: 1.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+                            Required information:
+                          </Typography>
+                          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                            {bankAccountStatus.currentlyDueRequirements.map((req, index) => (
+                              <li key={index}>
+                                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                  {req.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </Typography>
+                              </li>
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5, fontWeight: 500 }}>
+                        Click "Manage Account" to complete the required information.
+                      </Typography>
+                    </Alert>
+                  )}
+                  {bankAccountStatus.connected && bankAccountStatus.payoutsEnabled && !bankAccountStatus.onboardingComplete && (
+                    <Alert severity="warning" sx={{ mt: 2 }}>
+                      <AlertTitle>Onboarding Incomplete</AlertTitle>
+                      Please complete your account setup to ensure all features are available. Click "Manage Account" to continue.
+                    </Alert>
                   )}
                   {!bankAccountStatus.connected && (
                     <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
