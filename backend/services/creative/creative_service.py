@@ -2044,4 +2044,276 @@ class CreativeController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete bundle: {str(e)}")
+    
+    @staticmethod
+    async def delete_creative_role(user_id: str, client: Client):
+        """Permanently delete the creative role and all associated data
+        
+        This includes:
+        - All services and bundles
+        - All service photos from storage (creative-assets bucket)
+        - Profile photos from storage (profile-photo bucket)
+        - Calendar settings and schedules
+        - Client relationships
+        - Bookings and notifications
+        - Creative profile
+        - Removes 'creative' from user roles
+        
+        Args:
+            user_id: The user ID to delete creative role for
+            client: Authenticated Supabase client (respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
+        try:
+            # First verify the creative profile exists
+            creative_result = client.table('creatives').select('*').eq('user_id', user_id).single().execute()
+            
+            if not creative_result.data:
+                raise HTTPException(status_code=404, detail="Creative profile not found")
+            
+            creative_data = creative_result.data
+            deleted_items = {
+                "services": 0,
+                "bundles": 0,
+                "service_photos": 0,
+                "profile_photos": 0,
+                "calendar_settings": 0,
+                "client_relationships": 0,
+                "bookings": 0,
+                "notifications": 0
+            }
+            
+            # ========== STEP 1: Delete all storage files ==========
+            
+            # 1a. Delete service photos from storage (creative-assets bucket)
+            import re
+            services_result = client.table('creative_services').select('id').eq('creative_user_id', user_id).execute()
+            if services_result.data:
+                for service in services_result.data:
+                    service_id = service['id']
+                    # Get all photos for this service with URLs
+                    photos_result = db_admin.table('service_photos').select('photo_url, photo_filename').eq('service_id', service_id).execute()
+                    
+                    if photos_result.data:
+                        files_to_delete = []
+                        
+                        for photo in photos_result.data:
+                            photo_url = photo.get('photo_url')
+                            if photo_url:
+                                # Extract the file path from the URL (same pattern as _delete_service_photos)
+                                match = re.search(r'/storage/v1/object/public/creative-assets/(.+)', photo_url)
+                                if match:
+                                    file_path = match.group(1)
+                                    # Clean the file path - remove any query parameters
+                                    file_path = file_path.split('?')[0]
+                                    files_to_delete.append(file_path)
+                                else:
+                                    # Try alternative URL patterns
+                                    alt_match = re.search(r'/storage/v1/object/public/([^/]+)/(.+)', photo_url)
+                                    if alt_match and alt_match.group(1) == 'creative-assets':
+                                        file_path = alt_match.group(2).split('?')[0]
+                                        files_to_delete.append(file_path)
+                        
+                        # Delete all files at once if we have any
+                        if files_to_delete:
+                            try:
+                                print(f"Deleting {len(files_to_delete)} service photos from storage")
+                                db_admin.storage.from_('creative-assets').remove(files_to_delete)
+                                deleted_items["service_photos"] += len(files_to_delete)
+                            except Exception as e:
+                                print(f"Warning: Failed to delete service photos: {str(e)}")
+            
+            # 1b. Delete profile photos from storage (profile-photos bucket)
+            try:
+                bucket_name = "profile-photos"
+                files_to_delete = []
+                
+                # Get creative profile to find profile photo URL
+                profile_result = client.table('creatives').select('profile_banner_url').eq('user_id', user_id).single().execute()
+                
+                if profile_result.data and profile_result.data.get('profile_banner_url'):
+                    photo_url = profile_result.data['profile_banner_url']
+                    
+                    # Use the same extraction method as upload_profile_photo function
+                    if 'profile-photos' in photo_url:
+                        # Clean the URL - remove any query parameters or fragments
+                        clean_url = photo_url.split('?')[0].split('#')[0]
+                        
+                        # Extract the file path from the URL
+                        # URL format: https://project.supabase.co/storage/v1/object/public/profile-photos/creatives/filename
+                        old_file_path = clean_url.split('/profile-photos/')[-1]
+                        
+                        if old_file_path.startswith('creatives/'):
+                            # Only delete files from our creatives folder for safety
+                            files_to_delete.append(old_file_path)
+                
+                # List and delete all files in creatives folder for this user
+                try:
+                    # List all files in creatives folder (files are stored as creatives/{user_id}_{uuid}.ext)
+                    list_result = db_admin.storage.from_(bucket_name).list('creatives')
+                    if list_result:
+                        user_prefix = f"{user_id}_"
+                        for file in list_result:
+                            # Files are stored as: creatives/{user_id}_{uuid}.ext
+                            if file['name'].startswith(user_prefix):
+                                file_path = f"creatives/{file['name']}"
+                                if file_path not in files_to_delete:
+                                    files_to_delete.append(file_path)
+                    
+                    # Also check if there's a subdirectory creatives/{user_id}/ (in case files are stored there)
+                    try:
+                        user_dir_result = db_admin.storage.from_(bucket_name).list(f'creatives/{user_id}')
+                        if user_dir_result:
+                            for file in user_dir_result:
+                                file_path = f"creatives/{user_id}/{file['name']}"
+                                if file_path not in files_to_delete:
+                                    files_to_delete.append(file_path)
+                    except Exception as e:
+                        # Subdirectory might not exist, that's okay
+                        print(f"Note: No subdirectory found at creatives/{user_id}/: {str(e)}")
+                        
+                except Exception as e:
+                    print(f"Warning: Failed to list profile photos directory: {str(e)}")
+                
+                # Delete all profile photos at once
+                if files_to_delete:
+                    print(f"Deleting {len(files_to_delete)} profile photos from storage: {files_to_delete}")
+                    db_admin.storage.from_(bucket_name).remove(files_to_delete)
+                    deleted_items["profile_photos"] = len(files_to_delete)
+                else:
+                    print("No profile photos found to delete")
+            except Exception as e:
+                print(f"Warning: Failed to delete profile photos: {str(e)}")
+            
+            # ========== STEP 2: Delete database records (in correct order for foreign keys) ==========
+            
+            # 2a. Delete all notifications related to this creative
+            try:
+                # Delete notifications where creative is the recipient
+                recipient_notifications = db_admin.table('notifications').delete().eq('recipient_user_id', user_id).execute()
+                recipient_count = len(recipient_notifications.data) if recipient_notifications.data else 0
+                
+                # Delete notifications where creative is the related user
+                related_notifications = db_admin.table('notifications').delete().eq('related_user_id', user_id).execute()
+                related_count = len(related_notifications.data) if related_notifications.data else 0
+                
+                # Also delete notifications related to creative's bookings
+                bookings_ids_result = client.table('bookings').select('id').eq('creative_user_id', user_id).execute()
+                booking_notification_count = 0
+                if bookings_ids_result.data:
+                    booking_ids = [b['id'] for b in bookings_ids_result.data]
+                    # Delete notifications for these bookings
+                    booking_notifications = db_admin.table('notifications').delete().in_('related_entity_id', booking_ids).execute()
+                    booking_notification_count = len(booking_notifications.data) if booking_notifications.data else 0
+                
+                deleted_items["notifications"] = recipient_count + related_count + booking_notification_count
+            except Exception as e:
+                print(f"Warning: Failed to delete notifications: {str(e)}")
+            
+            # 2b. Delete calendar-related data (time_slots, time_blocks, weekly_schedule, calendar_settings)
+            try:
+                # Get calendar settings for all services
+                calendar_settings_result = client.table('calendar_settings').select('id').eq('creative_user_id', user_id).execute()
+                if calendar_settings_result.data:
+                    calendar_setting_ids = [cs['id'] for cs in calendar_settings_result.data]
+                    
+                    # Get weekly schedules for these calendar settings
+                    weekly_schedules_result = client.table('weekly_schedule').select('id').in_('calendar_setting_id', calendar_setting_ids).execute()
+                    if weekly_schedules_result.data:
+                        weekly_schedule_ids = [ws['id'] for ws in weekly_schedules_result.data]
+                        
+                        # Delete time_slots
+                        db_admin.table('time_slots').delete().in_('weekly_schedule_id', weekly_schedule_ids).execute()
+                        
+                        # Delete time_blocks
+                        db_admin.table('time_blocks').delete().in_('weekly_schedule_id', weekly_schedule_ids).execute()
+                        
+                        # Delete weekly_schedule
+                        db_admin.table('weekly_schedule').delete().in_('id', weekly_schedule_ids).execute()
+                    
+                    # Delete calendar_settings
+                    calendar_delete_result = db_admin.table('calendar_settings').delete().in_('id', calendar_setting_ids).execute()
+                    if calendar_delete_result.data:
+                        deleted_items["calendar_settings"] = len(calendar_delete_result.data)
+            except Exception as e:
+                print(f"Warning: Failed to delete calendar data: {str(e)}")
+            
+            # 2c. Delete bookings
+            try:
+                bookings_delete_result = db_admin.table('bookings').delete().eq('creative_user_id', user_id).execute()
+                if bookings_delete_result.data:
+                    deleted_items["bookings"] = len(bookings_delete_result.data)
+            except Exception as e:
+                print(f"Warning: Failed to delete bookings: {str(e)}")
+            
+            # 2d. Delete service photos records from database
+            try:
+                if services_result.data:
+                    service_ids = [s['id'] for s in services_result.data]
+                    db_admin.table('service_photos').delete().in_('service_id', service_ids).execute()
+            except Exception as e:
+                print(f"Warning: Failed to delete service photos records: {str(e)}")
+            
+            # 2e. Delete bundle_services (links between bundles and services)
+            try:
+                bundles_result = client.table('creative_bundles').select('id').eq('creative_user_id', user_id).execute()
+                if bundles_result.data:
+                    bundle_ids = [b['id'] for b in bundles_result.data]
+                    db_admin.table('bundle_services').delete().in_('bundle_id', bundle_ids).execute()
+            except Exception as e:
+                print(f"Warning: Failed to delete bundle services: {str(e)}")
+            
+            # 2f. Delete bundles
+            try:
+                bundles_delete_result = db_admin.table('creative_bundles').delete().eq('creative_user_id', user_id).execute()
+                if bundles_delete_result.data:
+                    deleted_items["bundles"] = len(bundles_delete_result.data)
+            except Exception as e:
+                print(f"Warning: Failed to delete bundles: {str(e)}")
+            
+            # 2g. Delete services
+            try:
+                services_delete_result = db_admin.table('creative_services').delete().eq('creative_user_id', user_id).execute()
+                if services_delete_result.data:
+                    deleted_items["services"] = len(services_delete_result.data)
+            except Exception as e:
+                print(f"Warning: Failed to delete services: {str(e)}")
+            
+            # 2h. Delete creative-client relationships
+            try:
+                relationships_delete_result = db_admin.table('creative_client_relationships').delete().eq('creative_user_id', user_id).execute()
+                if relationships_delete_result.data:
+                    deleted_items["client_relationships"] = len(relationships_delete_result.data)
+            except Exception as e:
+                print(f"Warning: Failed to delete client relationships: {str(e)}")
+            
+            # 2i. Delete creative profile
+            try:
+                db_admin.table('creatives').delete().eq('user_id', user_id).execute()
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to delete creative profile: {str(e)}")
+            
+            # ========== STEP 3: Update user roles to remove 'creative' ==========
+            try:
+                user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
+                if user_result.data:
+                    current_roles = user_result.data.get('roles', [])
+                    if 'creative' in current_roles:
+                        updated_roles = [role for role in current_roles if role != 'creative']
+                        db_admin.table('users').update({'roles': updated_roles}).eq('user_id', user_id).execute()
+            except Exception as e:
+                print(f"Warning: Failed to update user roles: {str(e)}")
+            
+            return {
+                "success": True,
+                "message": "Creative role and all associated data have been permanently deleted",
+                "deleted_items": deleted_items
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete creative role: {str(e)}")
 

@@ -28,6 +28,9 @@ import {
   Divider,
   Alert,
   AlertTitle,
+  CircularProgress,
+  Skeleton,
+  DialogActions,
 } from '@mui/material';
 import {
   Close,
@@ -210,6 +213,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   });
   const [loadingStripeStatus, setLoadingStripeStatus] = useState(false);
   const [connectingAccount, setConnectingAccount] = useState(false);
+  const [loadingAccountData, setLoadingAccountData] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -250,6 +254,9 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null);
   const [saving, setSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark'>('light');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
   
   // Fetch creative profile and services when popover opens
   useEffect(() => {
@@ -297,6 +304,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         return;
       }
 
+      setLoadingAccountData(true);
+
       // Fetch creative profile
       const profile = await userService.getCreativeProfile();
       setCreativeProfile(profile);
@@ -316,6 +325,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       setBundles(publicBundles);
     } catch (error) {
       console.error('Failed to fetch creative data:', error);
+    } finally {
+      setLoadingAccountData(false);
     }
   };
 
@@ -534,12 +545,50 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     }
   };
 
+  const handleDeleteCreativeRole = async () => {
+    try {
+      setDeleting(true);
+      await userService.deleteCreativeRole();
+      
+      successToast('Creative role deleted successfully');
+      
+      // Close dialogs
+      setDeleteDialogOpen(false);
+      onClose();
+      
+      // Refresh the page to update the UI (user no longer has creative role)
+      window.location.href = '/';
+      
+    } catch (error: any) {
+      console.error('Failed to delete creative role:', error);
+      errorToast(error.response?.data?.detail || 'Failed to delete creative role');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
 
   const renderSectionContent = () => {
     switch (selectedSection) {
       case 'account':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
+            {loadingAccountData ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* Loading Skeletons */}
+                {[1, 2, 3, 4, 5].map((item) => (
+                  <Card key={item} variant="outlined">
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Skeleton variant="circular" width={24} height={24} />
+                        <Skeleton variant="text" width={200} height={32} />
+                      </Box>
+                      <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {/* Profile Photo Section */}
               <Card variant="outlined">
@@ -1074,6 +1123,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   <Button
                     variant="outlined"
                     color="error"
+                    onClick={() => setDeleteDialogOpen(true)}
                     sx={{
                       textTransform: 'none',
                       fontWeight: 500,
@@ -1085,6 +1135,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
               </Card>
 
             </Box>
+            )}
           </Box>
         );
       case 'billing':
@@ -1103,6 +1154,51 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   
                   <Box sx={{ mb: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      {loadingStripeStatus ? (
+                        <Box
+                          sx={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: '50%',
+                            bgcolor: 'grey.400',
+                            position: 'relative',
+                            animation: 'loading-pulse 1.5s ease-in-out infinite',
+                            '@keyframes loading-pulse': {
+                              '0%, 100%': {
+                                transform: 'scale(1)',
+                                opacity: 0.6,
+                              },
+                              '50%': {
+                                transform: 'scale(1.3)',
+                                opacity: 1,
+                              },
+                            },
+                            '&::after': {
+                              content: '""',
+                              position: 'absolute',
+                              top: '50%',
+                              left: '50%',
+                              transform: 'translate(-50%, -50%)',
+                              width: '200%',
+                              height: '200%',
+                              borderRadius: '50%',
+                              border: '2px solid',
+                              borderColor: 'grey.400',
+                              animation: 'loading-ring 1.5s ease-in-out infinite',
+                            },
+                            '@keyframes loading-ring': {
+                              '0%': {
+                                transform: 'translate(-50%, -50%) scale(0.5)',
+                                opacity: 1,
+                              },
+                              '100%': {
+                                transform: 'translate(-50%, -50%) scale(1.5)',
+                                opacity: 0,
+                              },
+                            },
+                          }}
+                        />
+                      ) : (
                       <Box
                         sx={{
                           width: 12,
@@ -1141,14 +1237,17 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                           }),
                         }}
                       />
+                      )}
                       <Typography variant="body1" fontWeight={500}>
-                        {!bankAccountStatus.connected 
-                          ? 'Not Connected' 
-                          : bankAccountStatus.payoutsEnabled 
-                            ? 'Connected' 
-                            : 'Connected - Payouts Pending'}
+                        {loadingStripeStatus 
+                          ? 'Loading...'
+                          : !bankAccountStatus.connected 
+                            ? 'Not Connected' 
+                            : bankAccountStatus.payoutsEnabled 
+                              ? 'Connected' 
+                              : 'Connected - Payouts Pending'}
                       </Typography>
-                      {bankAccountStatus.connected && (
+                      {!loadingStripeStatus && bankAccountStatus.connected && (
                         <Chip
                           label={bankAccountStatus.payoutsEnabled ? "Active" : "Pending Verification"}
                           size="small"
@@ -1158,15 +1257,17 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                       )}
                     </Box>
                     <Typography variant="body2" color="text.secondary">
-                      {!bankAccountStatus.connected
-                        ? 'Connect a bank account to accept paid bookings and receive payments.'
-                        : bankAccountStatus.payoutsEnabled
-                          ? 'Your bank account is connected and ready to receive payments from clients.'
-                          : 'Your account is connected but payouts are not yet enabled. Complete your account verification to enable payouts.'}
+                      {loadingStripeStatus
+                        ? 'Fetching your account status...'
+                        : !bankAccountStatus.connected
+                          ? 'Connect a bank account to accept paid bookings and receive payments.'
+                          : bankAccountStatus.payoutsEnabled
+                            ? 'Your bank account is connected and ready to receive payments from clients.'
+                            : 'Your account is connected but payouts are not yet enabled. Complete your account verification to enable payouts.'}
                     </Typography>
                   </Box>
 
-                  {bankAccountStatus.connected && (
+                  {!loadingStripeStatus && bankAccountStatus.connected && (
                     <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body2" color="text.secondary">
@@ -1188,10 +1289,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   )}
 
                   <Button
-                    variant={bankAccountStatus.connected ? "outlined" : "contained"}
+                    variant={loadingStripeStatus ? "outlined" : bankAccountStatus.connected ? "outlined" : "contained"}
                     fullWidth
                     disabled={connectingAccount || loadingStripeStatus}
-                    startIcon={bankAccountStatus.connected ? <Settings /> : <AccountBalance />}
+                    startIcon={loadingStripeStatus ? <CircularProgress size={20} /> : bankAccountStatus.connected ? <Settings /> : <AccountBalance />}
                     onClick={() => {
                       if (bankAccountStatus.connected) {
                         handleManageStripeAccount();
@@ -1252,16 +1353,19 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                       }),
                     }}
                   >
-                    {connectingAccount 
-                      ? 'Connecting...' 
-                      : bankAccountStatus.connected 
-                        ? 'Manage Account' 
-                        : 'Connect Bank Account'}
+                    {loadingStripeStatus
+                      ? 'Loading...'
+                      : connectingAccount 
+                        ? 'Connecting...' 
+                        : bankAccountStatus.connected 
+                          ? 'Manage Account' 
+                          : 'Connect Bank Account'}
                   </Button>
                 </CardContent>
               </Card>
 
               {/* Payout Information */}
+              {!loadingStripeStatus && (
               <Card variant="outlined">
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
@@ -1351,9 +1455,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   )}
                 </CardContent>
               </Card>
+              )}
 
               {/* Important Information */}
-              {!bankAccountStatus.connected && (
+              {!loadingStripeStatus && !bankAccountStatus.connected && (
                 <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
@@ -1383,8 +1488,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
                       The setup process takes approximately 5-10 minutes.
                     </Typography>
-                  </CardContent>
-                </Card>
+                </CardContent>
+              </Card>
               )}
             </Box>
           </Box>
@@ -1587,6 +1692,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   };
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={handleClose}
@@ -1853,5 +1959,91 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         </Box>
       </DialogContent>
     </Dialog>
+    
+    {/* Delete Confirmation Dialog */}
+    <Dialog
+      open={deleteDialogOpen}
+      onClose={() => !deleting && setDeleteDialogOpen(false)}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+        },
+      }}
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        <Typography variant="h5" fontWeight={600} color="error">
+          Delete Creative Role
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <AlertTitle sx={{ fontWeight: 600 }}>Warning: This action is permanent and cannot be undone</AlertTitle>
+          This will permanently delete:
+        </Alert>
+        
+        <Box component="ul" sx={{ pl: 2, mb: 3 }}>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            Your creative profile
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All services and bundles
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All service photos and profile photos
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All calendar settings and schedules
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All client relationships
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All bookings and notifications
+          </Typography>
+        </Box>
+        
+        <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+          To confirm, type <Box component="span" sx={{ color: 'error.main', fontFamily: 'monospace' }}>DELETE</Box> below:
+        </Typography>
+        
+        <TextField
+          fullWidth
+          value={deleteConfirmText}
+          onChange={(e) => setDeleteConfirmText(e.target.value)}
+          placeholder="Type DELETE to confirm"
+          disabled={deleting}
+          sx={{ mb: 2 }}
+          autoFocus
+        />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button
+          onClick={() => {
+            setDeleteDialogOpen(false);
+            setDeleteConfirmText('');
+          }}
+          disabled={deleting}
+          sx={{ textTransform: 'none' }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={handleDeleteCreativeRole}
+          disabled={deleteConfirmText !== 'DELETE' || deleting}
+          startIcon={deleting ? <CircularProgress size={20} /> : null}
+          sx={{
+            textTransform: 'none',
+            fontWeight: 600,
+          }}
+        >
+          {deleting ? 'Deleting...' : 'Delete Creative Role Permanently'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 }

@@ -452,3 +452,35 @@ async def delete_bundle(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete bundle: {str(e)}")
+
+
+@router.delete("/role")
+@limiter.limit("1 per 10 seconds")
+async def delete_creative_role(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """Delete the creative role and all associated data
+    Requires authentication - will return 401 if not authenticated.
+    This is a permanent action that deletes:
+    - Creative profile
+    - All services and bundles
+    - All service photos from storage
+    - Profile photos from storage
+    - Calendar settings and schedules
+    - Client relationships
+    - Bookings and notifications
+    """
+    try:
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        return await CreativeController.delete_creative_role(user_id, client)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete creative role: {str(e)}")

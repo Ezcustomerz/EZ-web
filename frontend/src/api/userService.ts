@@ -743,6 +743,19 @@ export const userService = {
   },
 
   /**
+   * Delete creative role and all associated data
+   */
+  async deleteCreativeRole(): Promise<{ success: boolean; message: string; deleted_items: any }> {
+    const headers = await getAuthHeaders();
+    
+    const response = await axios.delete(
+      `${API_BASE_URL}/creative/role`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
    * Upload service photo to Supabase Storage
    */
   async uploadServicePhoto(file: File, serviceId?: string): Promise<{ url: string; filename: string; size: number }> {
