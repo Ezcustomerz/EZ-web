@@ -1008,61 +1008,50 @@ class CreativeController:
             if not service_result.data['is_active']:
                 raise HTTPException(status_code=400, detail="Cannot access calendar settings for deleted service")
             
-            # Get calendar settings (using authenticated client - respects RLS)
+            # OPTIMIZED: Use nested selects to fetch all related data in fewer queries
             calendar_result = client.table('calendar_settings').select(
-                '*'
-            ).eq('service_id', service_id).eq('is_active', True).execute()
+                '*, weekly_schedule(id, day_of_week, is_enabled, time_blocks(start_time, end_time), time_slots(slot_time, is_enabled))'
+            ).eq('service_id', service_id).eq('is_active', True).limit(1).execute()
             
             if not calendar_result.data:
                 return None  # No calendar settings configured
             
             calendar_data = calendar_result.data[0]
-            calendar_setting_id = calendar_data['id']
+            weekly_schedule_data = calendar_data.pop('weekly_schedule', []) or []
             
-            # Get weekly schedule (using authenticated client - respects RLS)
-            weekly_result = client.table('weekly_schedule').select(
-                'id, day_of_week, is_enabled'
-            ).eq('calendar_setting_id', calendar_setting_id).execute()
-            
-            # Get time blocks for each weekly schedule entry (using authenticated client - respects RLS)
-            time_blocks_result = client.table('time_blocks').select(
-                'weekly_schedule_id, start_time, end_time'
-            ).in_('weekly_schedule_id', [ws['id'] for ws in weekly_result.data] if weekly_result.data else []).execute()
-            
-            # Get time slots for each weekly schedule entry (using authenticated client - respects RLS)
-            time_slots_result = client.table('time_slots').select(
-                'weekly_schedule_id, slot_time, is_enabled'
-            ).in_('weekly_schedule_id', [ws['id'] for ws in weekly_result.data] if weekly_result.data else []).execute()
-            
-            # Group time blocks and slots by weekly_schedule_id
+            # Process nested data structure
+            weekly_result = weekly_schedule_data
             time_blocks_by_ws = {}
-            for tb in time_blocks_result.data or []:
-                ws_id = tb['weekly_schedule_id']
+            time_slots_by_ws = {}
+            
+            for ws in weekly_result:
+                ws_id = ws['id']
+                # Extract time_blocks
+                time_blocks = ws.get('time_blocks', []) or []
                 if ws_id not in time_blocks_by_ws:
                     time_blocks_by_ws[ws_id] = []
-                # Convert time format from HH:MM:SS to HH:MM
-                start_time = str(tb['start_time'])[:5] if tb['start_time'] else '09:00'
-                end_time = str(tb['end_time'])[:5] if tb['end_time'] else '17:00'
-                time_blocks_by_ws[ws_id].append({
-                    'start': start_time,
-                    'end': end_time
-                })
-            
-            time_slots_by_ws = {}
-            for ts in time_slots_result.data or []:
-                ws_id = ts['weekly_schedule_id']
+                for tb in time_blocks:
+                    start_time = str(tb.get('start_time', ''))[:5] if tb.get('start_time') else '09:00'
+                    end_time = str(tb.get('end_time', ''))[:5] if tb.get('end_time') else '17:00'
+                    time_blocks_by_ws[ws_id].append({
+                        'start': start_time,
+                        'end': end_time
+                    })
+                
+                # Extract time_slots
+                time_slots = ws.get('time_slots', []) or []
                 if ws_id not in time_slots_by_ws:
                     time_slots_by_ws[ws_id] = []
-                # Convert time format from HH:MM:SS to HH:MM
-                slot_time = str(ts['slot_time'])[:5] if ts['slot_time'] else '09:00'
-                time_slots_by_ws[ws_id].append({
-                    'time': slot_time,
-                    'enabled': ts['is_enabled']
-                })
+                for ts in time_slots:
+                    slot_time = str(ts.get('slot_time', ''))[:5] if ts.get('slot_time') else '09:00'
+                    time_slots_by_ws[ws_id].append({
+                        'time': slot_time,
+                        'enabled': ts.get('is_enabled', True)
+                    })
             
-            # Build weekly schedule with nested data
+            # Build weekly schedule with nested data (already processed above)
             weekly_schedule = []
-            for ws in weekly_result.data or []:
+            for ws in weekly_result:
                 ws_id = ws['id']
                 weekly_schedule.append({
                     'day': ws['day_of_week'],
