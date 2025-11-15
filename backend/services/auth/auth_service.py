@@ -32,6 +32,42 @@ class AuthController:
         if not all(re.match(b64url_pattern, part) for part in parts):
             return False
         return True
+    
+    @staticmethod
+    def _is_valid_token_format(token: str, max_length: int = 4096) -> bool:
+        """
+        Checks whether the string is a valid token format (JWT or opaque).
+        Accepts both JWT format (3 parts) and opaque tokens.
+        This is lenient to support various Supabase refresh token formats.
+        Since we're just storing the token and Supabase validates it when used,
+        we only need basic sanity checks.
+        """
+        if not token or not isinstance(token, str):
+            return False
+        
+        # Length check to prevent DoS
+        if len(token) > max_length:
+            return False
+        
+        # Minimum length check - tokens should be at least 10 characters
+        # (some short tokens might be valid, but this prevents obviously invalid inputs)
+        if len(token) < 10:
+            return False
+        
+        # Basic check: token should contain only printable ASCII characters
+        # This prevents null bytes, control characters, and other malicious inputs
+        # while being very permissive for actual token formats
+        try:
+            # Check for printable ASCII (32-126) or common token characters
+            # This allows: letters, numbers, and common URL-safe characters
+            for char in token:
+                code = ord(char)
+                # Allow printable ASCII (32-126) which includes most token characters
+                if not (32 <= code <= 126):
+                    return False
+            return True
+        except (TypeError, ValueError):
+            return False
     def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
         """
         Set HttpOnly, Secure cookies for authentication tokens.
@@ -132,10 +168,16 @@ class AuthController:
         if not access_token or not refresh_token:
             raise HTTPException(status_code=400, detail="Missing access_token or refresh_token")
 
-        # Validate the access token before setting cookies
+        # Validate the access token before setting cookies (must be JWT format)
         if not AuthController._is_valid_jwt_format(access_token):
             raise HTTPException(status_code=400, detail="Invalid access_token format")
-        if not AuthController._is_valid_jwt_format(refresh_token):
+        
+        # Validate refresh token (can be JWT or opaque token format)
+        # Supabase refresh tokens can be either JWT or opaque tokens
+        if not AuthController._is_valid_token_format(refresh_token):
+            # Log the token format for debugging (truncated for security)
+            token_preview = refresh_token[:50] + "..." if len(refresh_token) > 50 else refresh_token
+            logger.warning(f"Invalid refresh_token format. Length: {len(refresh_token) if refresh_token else 0}, Preview: {token_preview}")
             raise HTTPException(status_code=400, detail="Invalid refresh_token format")
 
         # Validate access_token cryptographically
