@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LandingPage } from '../views/web/LandingPage';
-import { AuthCallback } from '../views/AuthCallback';
 
 /**
  * Handles root route and checks if it's an auth callback

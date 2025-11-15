@@ -1,6 +1,5 @@
 import { StrictMode, useEffect, useState, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import {LandingPage} from './views/web/LandingPage.tsx'
 import { ContactUs } from './views/web/ContactUs.tsx'
 import { PrivacyPolicy } from './views/web/PrivacyPolicy.tsx'
 import { TermsOfService } from './views/web/TermsOfService.tsx'
