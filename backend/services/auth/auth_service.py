@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 import logging
 from typing import Dict, Any
-
+import re
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -15,8 +15,23 @@ SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
 class AuthController:
     """Controller for authentication-related operations"""
-    
+
     @staticmethod
+    def _is_valid_jwt_format(token: str, max_length: int = 4096) -> bool:
+        """
+        Checks whether the string looks like a JWT and is not too long.
+        Accepts only base64url characters and ensures the pattern header.payload.signature.
+        """
+        if not token or len(token) > max_length:
+            return False
+        # JWTs are three base64url-encoded parts separated by dots
+        parts = token.split('.')
+        if len(parts) != 3:
+            return False
+        b64url_pattern = r'^[A-Za-z0-9\-_]+$'
+        if not all(re.match(b64url_pattern, part) for part in parts):
+            return False
+        return True
     def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
         """
         Set HttpOnly, Secure cookies for authentication tokens.
@@ -116,20 +131,24 @@ class AuthController:
         """
         if not access_token or not refresh_token:
             raise HTTPException(status_code=400, detail="Missing access_token or refresh_token")
-        
+
         # Validate the access token before setting cookies
+        if not AuthController._is_valid_jwt_format(access_token):
+            raise HTTPException(status_code=400, detail="Invalid access_token format")
+        if not AuthController._is_valid_jwt_format(refresh_token):
+            raise HTTPException(status_code=400, detail="Invalid refresh_token format")
         # This ensures only valid Supabase tokens are stored
         try:
             AuthController.validate_jwt_token(access_token)
         except HTTPException:
             raise
-        
+
         # Note: Refresh tokens have a different structure and are validated by Supabase
         # when used for token refresh, so we don't validate them here
-        
+
         response = JSONResponse({"success": True, "message": "Cookies set successfully"})
         AuthController.set_auth_cookies(response, access_token, refresh_token)
-        
+
         return response
 
     @staticmethod
