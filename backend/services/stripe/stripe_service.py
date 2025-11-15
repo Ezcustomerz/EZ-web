@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from fastapi import HTTPException
 from supabase import Client
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
 
@@ -220,11 +221,12 @@ class StripeService:
                         'stripe_payouts_enabled': False
                     }).eq('user_id', user_id).execute()
                 
+                logging.error("Stripe error in get_account_status for user %s: %s", user_id, str(e))
                 return {
                     "connected": False,
                     "payouts_enabled": False,
                     "onboarding_complete": False,
-                    "error": str(e)
+                    "error": "Could not retrieve account status from Stripe. Please try again later."
                 }
                 
         except HTTPException:
