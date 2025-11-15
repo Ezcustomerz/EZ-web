@@ -4,9 +4,12 @@ FROM clamav/clamav:latest
 EXPOSE 3310
 
 # Configure ClamAV for TCP mode with memory optimizations
-# Enable TCP socket - keep the base image's init system
-RUN echo "TCPSocket 3310" >> /etc/clamav/clamd.conf && \
+# Enable both Unix socket (for init script) and TCP socket (for external access)
+RUN mkdir -p /tmp && \
+    echo "LocalSocket /tmp/clamd.sock" >> /etc/clamav/clamd.conf && \
+    echo "TCPSocket 3310" >> /etc/clamav/clamd.conf && \
     echo "TCPAddr 0.0.0.0" >> /etc/clamav/clamd.conf && \
+    echo "Foreground no" >> /etc/clamav/clamd.conf && \
     echo "MaxScanSize 100M" >> /etc/clamav/clamd.conf && \
     echo "MaxFileSize 25M" >> /etc/clamav/clamd.conf && \
     echo "StreamMaxLength 25M" >> /etc/clamav/clamd.conf && \
