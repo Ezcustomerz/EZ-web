@@ -10,7 +10,7 @@ export function DashAdvocate() {
 
     return (
     <LayoutAdvocate selectedNavItem="dashboard">
-      {({ isSidebarOpen: _isSidebarOpen, isMobile: _isMobile, advocateProfile: _advocateProfile }) => (
+      {({ isSidebarOpen: _isSidebarOpen, isMobile: _isMobile, advocateProfile }) => (
         <Box sx={{
         px: { xs: 1.5, sm: 1.5, md: 2.5 },
         pt: { xs: 1.5, sm: 1.5, md: 2.5 },
