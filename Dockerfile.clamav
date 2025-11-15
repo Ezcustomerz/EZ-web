@@ -13,10 +13,9 @@ RUN echo "TCPSocket 3310" >> /etc/clamav/clamd.conf && \
 # Create custom startup script using printf for better reliability
 # Use /bin/sh instead of /bin/bash as the ClamAV image may not have bash
 RUN printf '#!/bin/sh\n\
-set -e\n\
 \n\
 echo "Starting Freshclam..."\n\
-freshclam -d || true\n\
+freshclam -d || echo "Freshclam warning (continuing anyway)"\n\
 \n\
 echo "Waiting for virus definitions..."\n\
 timeout=300\n\
@@ -33,7 +32,12 @@ done\n\
 sleep 5\n\
 \n\
 echo "Starting ClamAV daemon..."\n\
-exec clamd\n' > /start.sh && \
+echo "ClamAV config check:"\n\
+clamd --version || echo "clamd version check failed"\n\
+\n\
+echo "Starting clamd in foreground mode..."\n\
+clamd -F\n\
+' > /start.sh && \
     chmod +x /start.sh && \
     ls -la /start.sh
 
