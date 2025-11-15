@@ -10,32 +10,33 @@ RUN echo "TCPSocket 3310" >> /etc/clamav/clamd.conf && \
     echo "Foreground yes" >> /etc/clamav/clamd.conf && \
     echo "LocalSocket /tmp/clamd.sock" >> /etc/clamav/clamd.conf
 
-# Create custom startup script
-RUN echo '#!/bin/bash' > /start.sh && \
-    echo 'set -e' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo 'echo "Starting Freshclam..."' >> /start.sh && \
-    echo 'freshclam -d || true' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo 'echo "Waiting for virus definitions..."' >> /start.sh && \
-    echo 'timeout=300' >> /start.sh && \
-    echo 'elapsed=0' >> /start.sh && \
-    echo 'while [ $elapsed -lt $timeout ]; do' >> /start.sh && \
-    echo '  if [ -f /var/lib/clamav/main.cvd ] || [ -f /var/lib/clamav/main.cld ]; then' >> /start.sh && \
-    echo '    echo "Virus definitions ready"' >> /start.sh && \
-    echo '    break' >> /start.sh && \
-    echo '  fi' >> /start.sh && \
-    echo '  sleep 2' >> /start.sh && \
-    echo '  elapsed=$((elapsed + 2))' >> /start.sh && \
-    echo 'done' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo 'sleep 5' >> /start.sh && \
-    echo '' >> /start.sh && \
-    echo 'echo "Starting ClamAV daemon..."' >> /start.sh && \
-    echo 'exec clamd' >> /start.sh && \
-    chmod +x /start.sh
+# Create custom startup script using printf for better reliability
+RUN printf '#!/bin/bash\n\
+set -e\n\
+\n\
+echo "Starting Freshclam..."\n\
+freshclam -d || true\n\
+\n\
+echo "Waiting for virus definitions..."\n\
+timeout=300\n\
+elapsed=0\n\
+while [ $elapsed -lt $timeout ]; do\n\
+  if [ -f /var/lib/clamav/main.cvd ] || [ -f /var/lib/clamav/main.cld ]; then\n\
+    echo "Virus definitions ready"\n\
+    break\n\
+  fi\n\
+  sleep 2\n\
+  elapsed=$((elapsed + 2))\n\
+done\n\
+\n\
+sleep 5\n\
+\n\
+echo "Starting ClamAV daemon..."\n\
+exec clamd\n' > /start.sh && \
+    chmod +x /start.sh && \
+    ls -la /start.sh
 
 # Use our custom startup script
 ENTRYPOINT []
-CMD ["/start.sh"]
+CMD ["/bin/bash", "/start.sh"]
 
