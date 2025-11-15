@@ -4,11 +4,9 @@ FROM clamav/clamav:latest
 EXPOSE 3310
 
 # Configure ClamAV for TCP mode with memory optimizations
-# Enable TCP socket and set to foreground mode
+# Enable TCP socket - keep the base image's init system
 RUN echo "TCPSocket 3310" >> /etc/clamav/clamd.conf && \
     echo "TCPAddr 0.0.0.0" >> /etc/clamav/clamd.conf && \
-    echo "Foreground yes" >> /etc/clamav/clamd.conf && \
-    echo "LocalSocket /tmp/clamd.sock" >> /etc/clamav/clamd.conf && \
     echo "MaxScanSize 100M" >> /etc/clamav/clamd.conf && \
     echo "MaxFileSize 25M" >> /etc/clamav/clamd.conf && \
     echo "StreamMaxLength 25M" >> /etc/clamav/clamd.conf && \
@@ -22,40 +20,6 @@ RUN echo "TCPSocket 3310" >> /etc/clamav/clamd.conf && \
     echo "MaxPartitions 50" >> /etc/clamav/clamd.conf && \
     echo "MaxIconsPE 100" >> /etc/clamav/clamd.conf
 
-# Create custom startup script using printf for better reliability
-# Use /bin/sh instead of /bin/bash as the ClamAV image may not have bash
-RUN printf '#!/bin/sh\n\
-\n\
-echo "Starting Freshclam..."\n\
-freshclam -d || echo "Freshclam warning (continuing anyway)"\n\
-\n\
-echo "Waiting for virus definitions..."\n\
-timeout=300\n\
-elapsed=0\n\
-while [ $elapsed -lt $timeout ]; do\n\
-  if [ -f /var/lib/clamav/main.cvd ] || [ -f /var/lib/clamav/main.cld ]; then\n\
-    echo "Virus definitions ready"\n\
-    break\n\
-  fi\n\
-  sleep 2\n\
-  elapsed=$((elapsed + 2))\n\
-done\n\
-\n\
-sleep 5\n\
-\n\
-echo "Starting ClamAV daemon..."\n\
-echo "System memory info:"\n\
-free -h || echo "free command not available"\n\
-echo "ClamAV config check:"\n\
-clamd --version || echo "clamd version check failed"\n\
-\n\
-echo "Starting clamd in foreground mode..."\n\
-clamd -F\n\
-' > /start.sh && \
-    chmod +x /start.sh && \
-    ls -la /start.sh
-
-# Use our custom startup script
-ENTRYPOINT []
-CMD ["/bin/sh", "/start.sh"]
+# Use the base image's /init script which handles freshclam and clamd startup properly
+# Don't override ENTRYPOINT or CMD - let the base image handle it
 
