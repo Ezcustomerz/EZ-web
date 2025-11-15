@@ -54,7 +54,7 @@ class AuthController:
         if len(token) < 10:
             return False
         
-        # Basic check: token should contain only printable ASCII characters
+        # Basic check: token should contain only printable ASCII chars
         # This prevents null bytes, control characters, and other malicious inputs
         # while being very permissive for actual token formats
         try:
