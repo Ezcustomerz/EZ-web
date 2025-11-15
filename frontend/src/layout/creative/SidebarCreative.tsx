@@ -476,17 +476,17 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                       {isMobileView ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
-                          {creativeProfile?.subscription_tier || 'Loading...'}
+                          {creativeProfile?.subscription_tier_name || creativeProfile?.subscription_tier || 'Loading...'}
                         </Box>
                       ) : (
                         <Tooltip
-                          title={`Current plan: ${creativeProfile?.subscription_tier || 'Loading...'}`}
+                          title={`Current plan: ${creativeProfile?.subscription_tier_name || creativeProfile?.subscription_tier || 'Loading...'}`}
                           arrow
                           placement="top"
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <StarOutline sx={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.8)' }} />
-                            {creativeProfile?.subscription_tier || 'Loading...'}
+                            {creativeProfile?.subscription_tier_name || creativeProfile?.subscription_tier || 'Loading...'}
                           </Box>
                         </Tooltip>
                       )}

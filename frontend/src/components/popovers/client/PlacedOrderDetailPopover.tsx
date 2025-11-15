@@ -15,12 +15,14 @@ import {
   Button,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { DateRange, AttachMoney, Payment, CalendarMonth, Cancel } from '@mui/icons-material';
+import { DateRange, AttachMoney, Payment, CalendarMonth, Cancel, Warning } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
+import { bookingService } from '../../../api/bookingService';
+import { successToast, errorToast } from '../../toast/toast';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -62,17 +64,21 @@ export interface PlacedOrderDetailPopoverProps {
   open: boolean;
   onClose: () => void;
   order: PlacedOrderDetail | null;
+  onOrderCanceled?: () => void;
 }
 
 export function PlacedOrderDetailPopover({ 
   open, 
   onClose, 
-  order 
+  order,
+  onOrderCanceled
 }: PlacedOrderDetailPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
 
   if (!order) return null;
 
@@ -137,6 +143,50 @@ export function PlacedOrderDetailPopover({
 
   const handleCreativeDetailClose = () => {
     setCreativeDetailOpen(false);
+  };
+
+  const handleCancelClick = () => {
+    setConfirmCancelOpen(true);
+  };
+
+  const handleConfirmCancelClose = () => {
+    if (!isCanceling) {
+      setConfirmCancelOpen(false);
+    }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!order) return;
+    
+    setIsCanceling(true);
+    try {
+      const response = await bookingService.cancelOrder(order.id);
+      
+      if (!response.success) {
+        errorToast('Cancel Failed', response.message || 'Failed to cancel the service. Please try again.');
+        setIsCanceling(false);
+        return;
+      }
+
+      successToast('Service Canceled', 'Your service request has been canceled successfully.');
+      
+      // Close confirmation dialog
+      setConfirmCancelOpen(false);
+      
+      // Notify parent component to refresh data
+      if (onOrderCanceled) {
+        onOrderCanceled();
+      }
+      
+      // Close the popover
+      onClose();
+    } catch (error: any) {
+      console.error('Failed to cancel order:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'An unexpected error occurred. Please try again.';
+      errorToast('Cancel Failed', errorMessage);
+    } finally {
+      setIsCanceling(false);
+    }
   };
 
   // Create service detail object for the nested popover
@@ -450,10 +500,7 @@ export function PlacedOrderDetailPopover({
           <Button
             variant="outlined"
             startIcon={<Cancel />}
-            onClick={() => {
-              // TODO: Implement cancel service functionality
-              console.log('Cancel service clicked for order:', order.id);
-            }}
+            onClick={handleCancelClick}
             sx={{
               borderColor: theme.palette.error.main,
               color: theme.palette.error.main,
@@ -482,6 +529,101 @@ export function PlacedOrderDetailPopover({
         onClose={handleCreativeDetailClose}
         creative={creativeDetail}
       />
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog
+        open={confirmCancelOpen}
+        onClose={handleConfirmCancelClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            background: theme.palette.mode === 'dark'
+              ? 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)'
+              : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                bgcolor: `${theme.palette.error.main}15`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Warning sx={{ fontSize: 28, color: theme.palette.error.main }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                Cancel Service?
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                This action cannot be undone
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 2, color: 'text.primary' }}>
+            Are you sure you want to cancel this service request? This will cancel the order for both you and the creative.
+          </Typography>
+          {order && (
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: theme.palette.mode === 'dark'
+                  ? 'rgba(255, 255, 255, 0.05)'
+                  : 'rgba(0, 0, 0, 0.02)',
+                border: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                {order.serviceName}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                by {order.creativeName}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 2, gap: 1.5 }}>
+          <Button
+            onClick={handleConfirmCancelClose}
+            disabled={isCanceling}
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
+              px: 3,
+              py: 1,
+            }}
+          >
+            Keep Service
+          </Button>
+          <Button
+            onClick={handleConfirmCancel}
+            disabled={isCanceling}
+            variant="contained"
+            color="error"
+            startIcon={isCanceling ? null : <Cancel />}
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
+              px: 3,
+              py: 1,
+            }}
+          >
+            {isCanceling ? 'Canceling...' : 'Yes, Cancel Service'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

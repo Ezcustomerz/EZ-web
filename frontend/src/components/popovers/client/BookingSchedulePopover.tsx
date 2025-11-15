@@ -367,25 +367,31 @@ export function BookingSchedulePopover({
       fullScreen={isMobile}
       TransitionComponent={Slide}
       TransitionProps={{ direction: 'up' } as any}
-      PaperProps={{
-        sx: {
-          borderRadius: isMobile ? 0 : 4,
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-          boxShadow: isMobile 
-            ? 'none' 
-            : '0 25px 50px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
-          overflow: 'hidden',
-          position: 'relative',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 4,
-            background: `linear-gradient(90deg, ${service.color} 0%, ${service.color}CC 100%)`,
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: isMobile ? 0 : 4,
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            boxShadow: isMobile 
+              ? 'none' 
+              : '0 25px 50px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
+            overflow: 'hidden',
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 4,
+              background: `linear-gradient(90deg, ${service.color} 0%, ${service.color}CC 100%)`,
+            }
           }
-        }
+        },
+        backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.32)' } }
       }}
     >
       <DialogTitle sx={{ 

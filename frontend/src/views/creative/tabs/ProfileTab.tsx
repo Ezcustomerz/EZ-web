@@ -12,7 +12,6 @@ import {
 import {
   Star,
   LocationOn,
-  Work,
   ContactPhone,
   Visibility,
   Edit,
@@ -291,29 +290,54 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
     <>
       <Box sx={{
         height: { xs: '100vh', md: '100vh' },
-        py: { xs: 1, md: 2 },
-        overflow: { xs: 'hidden', md: 'hidden' },
-        display: isActive ? 'block' : 'none'
+        py: { xs: 0.5, md: 2 },
+        overflow: { xs: 'auto', md: 'hidden' },
+        overflowX: 'hidden',
+        display: isActive ? 'block' : 'none',
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        mx: 0,
+        px: 0
       }}>
-        <Container maxWidth="lg" sx={{ 
-          px: { xs: 1, md: 3 },
-          minHeight: 265
-        }}>
+        <Container 
+          maxWidth="lg" 
+          sx={{ 
+            px: { xs: 1, sm: 1.5, md: 3 },
+            minHeight: 265,
+            width: '100%',
+            maxWidth: { xs: '100%', md: '1200px' },
+            boxSizing: 'border-box',
+            mx: 'auto',
+            '&.MuiContainer-root': {
+              paddingLeft: { xs: '8px !important', sm: '12px !important', md: '24px !important' },
+              paddingRight: { xs: '8px !important', sm: '12px !important', md: '24px !important' }
+            }
+          }}
+        >
         <Box sx={{ 
           display: 'flex', 
           flexDirection: { xs: 'column', md: 'row' }, 
           gap: { xs: 1, md: 4 },
           alignItems: { xs: 'stretch', md: 'stretch' },
           height: '100%',
-          overflow: { xs: 'auto', md: 'hidden' },
-          pb: { xs: 20, md: 0 }
+          overflow: 'visible',
+          pb: { xs: 20, md: 0 },
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
+          minWidth: 0
         }}>
           {/* Left Column - Profile Info */}
           <Box sx={{ 
             width: { xs: '100%', md: '33.333%' },
-            minWidth: { md: '300px' },
+            minWidth: 0,
+            maxWidth: { xs: '100%', md: '33.333%' },
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            boxSizing: 'border-box',
+            flexShrink: 0,
+            flexGrow: 0
           }}>
             <Card sx={{ 
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
@@ -321,8 +345,17 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
               position: { xs: 'relative', md: 'sticky' },
               top: { xs: 0, md: 24 },
               height: { xs: 'auto', md: '100%' },
+              minHeight: { xs: 'auto', md: '100%' },
+              maxHeight: { xs: 'none', md: '100%' },
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              width: '100%',
+              maxWidth: '100%',
+              minWidth: 0,
+              boxSizing: 'border-box',
+              overflow: 'hidden',
+              mx: 0,
+              mb: { xs: 2, md: 0 }
             }}>
               {/* Profile Header */}
               <Box sx={{
@@ -330,17 +363,28 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                   ? `linear-gradient(135deg, ${creativeProfile.avatar_background_color} 0%, ${creativeProfile.avatar_background_color}CC 100%)`
                   : 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
                 color: 'white',
-                p: 3,
+                pt: { xs: 1.5, sm: 2, md: 3 },
+                pb: { xs: 1.5, sm: 2, md: 3 },
+                px: { xs: 1.5, sm: 2, md: 3 },
                 textAlign: 'center',
-                position: 'relative'
+                position: 'relative',
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                overflow: 'visible',
+                mx: 0,
+                borderTopLeftRadius: 24,
+                borderTopRightRadius: 24
               }}>
                 {/* Action Buttons */}
                 <Box sx={{ 
                   position: 'absolute',
-                  top: 16,
-                  right: 16,
+                  top: { xs: 8, md: 16 },
+                  right: { xs: 8, md: 16 },
                   display: 'flex',
-                  gap: 1
+                  gap: { xs: 0.5, md: 1 },
+                  flexShrink: 0
                 }}>
                   <Button
                     variant="outlined"
@@ -351,16 +395,17 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                       backgroundColor: 'rgba(255, 255, 255, 0.1)',
                       backdropFilter: 'blur(10px)',
                       minWidth: 'auto',
-                      width: 40,
-                      height: 40,
+                      width: { xs: 36, md: 40 },
+                      height: { xs: 36, md: 40 },
                       p: 0,
+                      flexShrink: 0,
                       '&:hover': {
                         borderColor: 'rgba(255, 255, 255, 0.5)',
                         backgroundColor: 'rgba(255, 255, 255, 0.2)',
                       }
                     }}
                   >
-                    <Share />
+                    <Share sx={{ fontSize: { xs: 18, md: 24 } }} />
                   </Button>
                   <Button
                     variant="outlined"
@@ -371,84 +416,157 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                       backgroundColor: 'rgba(255, 255, 255, 0.1)',
                       backdropFilter: 'blur(10px)',
                       minWidth: 'auto',
-                      width: 40,
-                      height: 40,
+                      width: { xs: 36, md: 40 },
+                      height: { xs: 36, md: 40 },
                       p: 0,
+                      flexShrink: 0,
                       '&:hover': {
                         borderColor: 'rgba(255, 255, 255, 0.5)',
                         backgroundColor: 'rgba(255, 255, 255, 0.2)',
                       }
                     }}
                   >
-                    <Edit />
+                    <Edit sx={{ fontSize: { xs: 18, md: 24 } }} />
                   </Button>
                 </Box>
                 <Avatar
                   src={creativeProfile.profile_banner_url || undefined}
                   sx={{
-                    width: { xs: 80, md: 100 },
-                    height: { xs: 80, md: 100 },
+                    width: { xs: 60, sm: 80, md: 100 },
+                    height: { xs: 60, sm: 80, md: 100 },
                     mx: 'auto',
-                    mb: 2,
+                    mb: { xs: 1, md: 2 },
                     bgcolor: 'rgba(255, 255, 255, 0.2)',
-                    fontSize: { xs: '2rem', md: '2.5rem' },
-                    border: '3px solid rgba(255, 255, 255, 0.3)'
+                    fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' },
+                    border: '3px solid rgba(255, 255, 255, 0.3)',
+                    flexShrink: 0
                   }}
                 >
                   {creativeProfile.display_name?.charAt(0) || 'C'}
                 </Avatar>
-                <Typography variant="h4" fontWeight={700} gutterBottom>
+                <Typography 
+                  variant="h4" 
+                  fontWeight={700} 
+                  gutterBottom
+                  sx={{
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word'
+                  }}
+                >
                   {creativeProfile.display_name}
                 </Typography>
-                <Typography variant="h6" sx={{ opacity: 0.9, mb: 1 }}>
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    opacity: 0.9, 
+                    mb: 1,
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word'
+                  }}
+                >
                   {creativeProfile.title}
                 </Typography>
               </Box>
 
               <CardContent sx={{ 
-                p: 3,
-                flex: 1,
+                pt: { xs: 1.5, sm: 2, md: 3 },
+                pb: { xs: 2, sm: 2.5, md: 3 },
+                px: { xs: 1.5, sm: 2, md: 3 },
+                flex: { xs: '0 1 auto', md: 1 },
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                overflow: 'visible',
+                mx: 0,
+                '&.MuiCardContent-root': {
+                  paddingLeft: { xs: '12px !important', sm: '16px !important', md: '24px !important' },
+                  paddingRight: { xs: '12px !important', sm: '16px !important', md: '24px !important' },
+                  paddingTop: { xs: '12px !important', sm: '16px !important', md: '24px !important' },
+                  paddingBottom: { xs: '16px !important', sm: '20px !important', md: '24px !important' }
+                }
               }}>
                 {/* Profile Stats */}
-                <Box sx={{ mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-                    <Star sx={{ color: 'warning.main', mr: 1, fontSize: 20 }} />
-                    <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                <Box sx={{ mb: { xs: 1.5, md: 2 }, minWidth: 0, width: '100%', flex: '0 1 auto' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: { xs: 1, md: 1.5 }, minWidth: 0, width: '100%', gap: 0.5 }}>
+                    <Star sx={{ color: 'warning.main', fontSize: { xs: 16, md: 20 }, flexShrink: 0, mt: 0.2 }} />
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        flex: 1,
+                        minWidth: 0,
+                        wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                      }}
+                    >
                       No ratings yet
                     </Typography>
                     {/* Hide View All button when showing "No ratings yet" */}
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-                    <LocationOn sx={{ color: 'text.secondary', mr: 1, fontSize: 20 }} />
-                    <Typography variant="body2" color="text.secondary">
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: { xs: 1, md: 1.5 }, minWidth: 0, width: '100%', gap: 0.5 }}>
+                    <LocationOn sx={{ color: 'text.secondary', fontSize: { xs: 16, md: 20 }, flexShrink: 0, mt: 0.2 }} />
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{
+                        flex: 1,
+                        minWidth: 0,
+                        wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                      }}
+                    >
                       {creativeProfile.availability_location || 'Availability not set'}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-                    <Work sx={{ color: 'text.secondary', mr: 1, fontSize: 20 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {creativeProfile.title}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <ContactPhone sx={{ color: 'text.secondary', mr: 1, fontSize: 20 }} />
-                    <Typography variant="body2" color="text.secondary">
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: { xs: 1.5, md: 2 }, minWidth: 0, width: '100%', gap: 0.5 }}>
+                    <ContactPhone sx={{ color: 'text.secondary', fontSize: { xs: 16, md: 20 }, flexShrink: 0, mt: 0.2 }} />
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary"
+                      sx={{
+                        flex: 1,
+                        minWidth: 0,
+                        wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                      }}
+                    >
                       {creativeProfile.primary_contact || 'Contact not set'}
                     </Typography>
                   </Box>
 
                   {/* Profile Highlights */}
                   <Box sx={{ 
-                    p: 1, 
-                    pb: 3,
+                    p: { xs: 0.75, sm: 1, md: 1 }, 
+                    pb: { xs: 1.5, sm: 2, md: 3 },
+                    mb: 0,
+                    mt: { xs: 0.5, md: 0 },
                     bgcolor: 'grey.50', 
                     borderRadius: 2, 
                     border: '1px solid',
-                    borderColor: 'grey.200'
+                    borderColor: 'grey.200',
+                    minWidth: 0,
+                    width: '100%',
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                    overflow: 'visible'
                   }}>
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ fontSize: '0.8rem' }}>
+                    <Typography 
+                      variant="subtitle2" 
+                      fontWeight={600} 
+                      gutterBottom 
+                      sx={{ 
+                        fontSize: { xs: '0.7rem', sm: '0.75rem', md: '0.8rem' },
+                        wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
+                        mb: { xs: 0.5, md: 1 }
+                      }}
+                    >
                       Profile Highlights
                     </Typography>
                     {creativeProfile.profile_highlights && creativeProfile.profile_highlights.length > 0 ? (
@@ -460,15 +578,61 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                         value = creativeProfile.profile_highlight_values?.[statKey] || 'Not set';
                         
                         return (
-                          <Box key={highlight} sx={{ display: 'flex', justifyContent: 'space-between', mb: index < creativeProfile.profile_highlights!.length - 1 ? 0.3 : 0 }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>{highlight}</Typography>
-                            <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.7rem' }}>{value}</Typography>
+                          <Box 
+                            key={highlight} 
+                            sx={{ 
+                              display: 'flex', 
+                              flexDirection: { xs: 'column', sm: 'row' },
+                              justifyContent: 'space-between', 
+                              mb: index < creativeProfile.profile_highlights!.length - 1 ? 0.5 : 0,
+                              gap: { xs: 0.25, sm: 1 },
+                              minWidth: 0,
+                              width: '100%'
+                            }}
+                          >
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary" 
+                              sx={{ 
+                                fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                                flex: 1,
+                                minWidth: 0,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word'
+                              }}
+                            >
+                              {highlight}
+                            </Typography>
+                            <Typography 
+                              variant="body2" 
+                              fontWeight={600} 
+                              sx={{ 
+                                fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                                flexShrink: 0,
+                                textAlign: { xs: 'left', sm: 'right' },
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                                maxWidth: { xs: '100%', sm: '60%' }
+                              }}
+                            >
+                              {value}
+                            </Typography>
                           </Box>
                         );
                       })
                     ) : (
                       // Fallback to default display if no highlights are configured
-                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                          fontSize: { xs: '0.65rem', sm: '0.7rem' }, 
+                          fontStyle: 'italic',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'break-word',
+                          lineHeight: 1.4
+                        }}
+                      >
                         No profile highlights configured yet. Use the edit button to customize your profile highlights.
                       </Typography>
                     )}
@@ -789,6 +953,22 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
           requires_booking: service.requires_booking
         }))}
         bundles={bundles}
+        onServiceClick={(service) => {
+          // Find the full service object from services array
+          const fullService = services.find(s => s.id === service.id);
+          if (fullService) {
+            handleServiceClick(fullService);
+            // Keep SessionPopover open
+          }
+        }}
+        onBundleClick={(bundle) => {
+          // Find the full bundle object from bundles array
+          const fullBundle = bundles.find(b => b.id === bundle.id);
+          if (fullBundle) {
+            handleBundleClick(fullBundle);
+            // Keep SessionPopover open
+          }
+        }}
       />
 
       <ReviewPopover

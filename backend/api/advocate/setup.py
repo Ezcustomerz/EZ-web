@@ -1,16 +1,21 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from services.advocate.advocate_service import AdvocateController
+from core.verify import require_auth
+from typing import Dict, Any
 
 router = APIRouter()
 
 @router.post("/setup")
-async def setup_advocate_profile(request: Request):
-    """Set up advocate profile in the advocates table with hardcoded demo values"""
+async def setup_advocate_profile(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Set up advocate profile in the advocates table with hardcoded demo values
+    Requires authentication - will return 401 if not authenticated.
+    """
     try:
-        # Get user ID from JWT token
-        user_id = request.state.user.get('sub')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User ID not found in token")
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
         
         return await AdvocateController.setup_advocate_profile(user_id)
         

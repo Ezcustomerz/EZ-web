@@ -43,6 +43,16 @@ export interface RoleOption {
   description: string;
 }
 
+export interface SubscriptionTier {
+  id: string;
+  name: string;
+  price: number;
+  storage_amount_bytes: number;
+  storage_display: string;
+  description?: string;
+  fee_percentage: number;
+}
+
 export interface CreativeSetupRequest {
   display_name: string;
   title: string;
@@ -50,7 +60,7 @@ export interface CreativeSetupRequest {
   primary_contact?: string;
   secondary_contact?: string;
   bio?: string;
-  subscription_tier: string;
+  subscription_tier_id: string;
 }
 
 export interface CreativeSetupResponse {
@@ -96,7 +106,9 @@ export interface CreativeProfile {
   title: string;
   bio?: string;
   description?: string;
-  subscription_tier: string;
+  subscription_tier_id: string;
+  subscription_tier?: string; // Subscription tier name (e.g., 'basic', 'growth', 'pro') - for backward compatibility
+  subscription_tier_name?: string; // Explicit subscription tier name
   primary_contact?: string;
   secondary_contact?: string;
   profile_banner_url?: string;
@@ -151,6 +163,8 @@ export interface CreativeClient {
   status: 'active' | 'inactive';
   totalSpent: number;
   projects: number;
+  profile_picture_url?: string;
+  title?: string;
 }
 
 export interface CreativeClientsListResponse {
@@ -247,7 +261,7 @@ export interface CreateServiceRequest {
   title: string;
   description: string;
   price: number;
-  delivery_time: string;
+  delivery_time?: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   payment_option: 'upfront' | 'split' | 'later';
@@ -401,6 +415,18 @@ export const userService = {
     const response = await axios.post<UpdateRolesResponse>(
       `${API_BASE_URL}/users/update-roles`,
       { selected_roles: roles },
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get all available subscription tiers
+   */
+  async getSubscriptionTiers(): Promise<SubscriptionTier[]> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<SubscriptionTier[]>(
+      `${API_BASE_URL}/users/subscription-tiers`,
       { headers }
     );
     return response.data;
@@ -594,7 +620,7 @@ export const userService = {
     formData.append('title', serviceData.title);
     formData.append('description', serviceData.description);
     formData.append('price', serviceData.price.toString());
-    formData.append('delivery_time', serviceData.delivery_time);
+    formData.append('delivery_time', serviceData.delivery_time || '');
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);
@@ -639,25 +665,27 @@ export const userService = {
     return response.data;
   },
 
-  async updateServiceWithPhotos(serviceId: string, serviceData: CreateServiceRequest, photos: File[], onProgress?: (progress: number) => void): Promise<UpdateServiceResponse> {
+  async updateServiceWithPhotos(serviceId: string, serviceData: CreateServiceRequest, photos: File[], existingPhotos: ServicePhoto[] = [], onProgress?: (progress: number) => void): Promise<UpdateServiceResponse> {
     const headers = await getAuthHeaders();
     
     // Create FormData for multipart upload
     const formData = new FormData();
     
-    // Add service data
     formData.append('title', serviceData.title);
     formData.append('description', serviceData.description);
     formData.append('price', serviceData.price.toString());
-    formData.append('delivery_time', serviceData.delivery_time);
+    formData.append('delivery_time', serviceData.delivery_time || '');
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);
     
-    // Add calendar settings if provided
     if (serviceData.calendar_settings) {
       formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
     }
+    
+    // Add existing photos to keep (URLs)
+    const existingPhotoUrls = existingPhotos.map(photo => photo.photo_url);
+    formData.append('existing_photos', JSON.stringify(existingPhotoUrls));
     
     // Add photo files
     photos.forEach((photo, index) => {
@@ -708,6 +736,19 @@ export const userService = {
           'Content-Type': 'multipart/form-data',
         }
       }
+    );
+    return response.data;
+  },
+
+  /**
+   * Delete creative role and all associated data
+   */
+  async deleteCreativeRole(): Promise<{ success: boolean; message: string; deleted_items: any }> {
+    const headers = await getAuthHeaders();
+    
+    const response = await axios.delete(
+      `${API_BASE_URL}/creative/role`,
+      { headers }
     );
     return response.data;
   },
@@ -817,6 +858,124 @@ export const userService = {
     const headers = await getAuthHeaders();
     const response = await axios.get<{success: boolean, calendar_settings: CalendarSettings | null}>(
       `${API_BASE_URL}/creative/services/${serviceId}/calendar`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Create a Stripe Connect account for the creative
+   */
+  async createStripeConnectAccount(): Promise<{account_id: string; onboarding_url: string}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{account_id: string; onboarding_url: string}>(
+      `${API_BASE_URL}/stripe/connect/create-account`,
+      {},
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get Stripe account status for the creative
+   */
+  async getStripeAccountStatus(): Promise<{
+    connected: boolean;
+    account_id?: string;
+    payouts_enabled: boolean;
+    onboarding_complete: boolean;
+    account_type?: string;
+    last_payout_date?: number;
+    payout_disable_reason?: string;
+    currently_due_requirements?: string[];
+    error?: string;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<{
+      connected: boolean;
+      account_id?: string;
+      payouts_enabled: boolean;
+      onboarding_complete: boolean;
+      account_type?: string;
+      last_payout_date?: number;
+      payout_disable_reason?: string;
+      currently_due_requirements?: string[];
+      error?: string;
+    }>(
+      `${API_BASE_URL}/stripe/connect/account-status`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Create a login link for the Stripe Express account dashboard
+   */
+  async createStripeLoginLink(): Promise<{login_url: string | null; needs_onboarding?: boolean; error?: string}> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{login_url: string | null; needs_onboarding?: boolean; error?: string}>(
+      `${API_BASE_URL}/stripe/connect/create-login-link`,
+      {},
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Process a payment for a booking - creates a Stripe Checkout Session
+   */
+  async processPayment(bookingId: string, amount: number): Promise<{
+    checkout_url: string;
+    session_id: string;
+    amount: number;
+    platform_fee: number;
+    creative_amount: number;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{
+      checkout_url: string;
+      session_id: string;
+      amount: number;
+      platform_fee: number;
+      creative_amount: number;
+    }>(
+      `${API_BASE_URL}/stripe/payment/process`,
+      {
+        booking_id: bookingId,
+        amount: amount
+      },
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Verify a payment session and update booking status
+   */
+  async verifyPayment(sessionId: string, bookingId: string): Promise<{
+    success: boolean;
+    message: string;
+    booking_id: string;
+    amount_paid: number;
+    payment_status: string;
+    client_status: string;
+    creative_status: string;
+  }> {
+    const headers = await getAuthHeaders();
+    const response = await axios.post<{
+      success: boolean;
+      message: string;
+      booking_id: string;
+      amount_paid: number;
+      payment_status: string;
+      client_status: string;
+      creative_status: string;
+    }>(
+      `${API_BASE_URL}/stripe/payment/verify`,
+      {
+        session_id: sessionId,
+        booking_id: bookingId
+      },
       { headers }
     );
     return response.data;

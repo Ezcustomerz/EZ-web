@@ -8,13 +8,20 @@ import {
   Select, 
   MenuItem, 
   useTheme,
+  useMediaQuery,
   CircularProgress,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
-import { Search, DateRange } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { Search, DateRange, FilterList, AttachMoney } from '@mui/icons-material';
+import { useState, useEffect, useRef } from 'react';
 import { InProgressOrderCard } from '../../../components/cards/client/InProgressOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
 // Cache for orders to prevent duplicate API calls
 let fetchCache: {
@@ -35,104 +42,179 @@ const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remount
 
 // Transform API orders to component format
 function transformOrders(fetchedOrders: Order[]) {
-  return fetchedOrders
-    .filter(order => order.client_status === 'in_progress') // Filter for in-progress orders
-    .map((order: Order) => ({
-      id: order.id,
-      serviceName: order.service_name,
-      creativeName: order.creative_name,
-      orderDate: order.order_date,
-      description: order.description || order.service_description || '',
-      price: order.price,
-      calendarDate: order.booking_date || null,
-      paymentOption: order.payment_option === 'upfront' ? 'payment_upfront' : 
-                     order.payment_option === 'split' ? 'split_payment' : 'payment_later',
-      amountPaid: 0, // TODO: Get from backend when payment tracking is implemented
-      amountRemaining: order.price, // TODO: Calculate based on payment_option and amount_paid
-      approvedDate: order.approved_at || null,
-      serviceId: order.service_id,
-      serviceDescription: order.service_description,
-      serviceDeliveryTime: order.service_delivery_time,
-      serviceColor: order.service_color,
-      creativeAvatarUrl: order.creative_avatar_url,
-      creativeDisplayName: order.creative_display_name,
-      creativeTitle: order.creative_title,
-      creativeId: order.creative_id,
-      creativeEmail: order.creative_email,
-      creativeRating: order.creative_rating,
-      creativeReviewCount: order.creative_review_count,
-      creativeServicesCount: order.creative_services_count,
-      creativeColor: order.creative_color,
-    }));
+  // Backend already filters for in-progress orders, so we just transform
+  return fetchedOrders.map((order: Order) => {
+      const amountPaid = order.amount_paid || 0;
+      const amountRemaining = Math.max(0, order.price - amountPaid);
+      
+      return {
+        id: order.id,
+        serviceName: order.service_name,
+        creativeName: order.creative_name,
+        orderDate: order.order_date,
+        description: order.description || order.service_description || '',
+        price: order.price,
+        calendarDate: order.booking_date || null,
+        paymentOption: order.price === 0 || order.price === null ? 'free' :
+                       order.payment_option === 'upfront' ? 'payment_upfront' : 
+                       order.payment_option === 'split' ? 'split_payment' : 'payment_later',
+        amountPaid: amountPaid,
+        amountRemaining: amountRemaining,
+        approvedDate: order.approved_at || null,
+        serviceId: order.service_id,
+        serviceDescription: order.service_description,
+        serviceDeliveryTime: order.service_delivery_time,
+        serviceColor: order.service_color,
+        creativeAvatarUrl: order.creative_avatar_url,
+        creativeDisplayName: order.creative_display_name,
+        creativeTitle: order.creative_title,
+        creativeId: order.creative_id,
+        creativeEmail: order.creative_email,
+        creativeRating: order.creative_rating,
+        creativeReviewCount: order.creative_review_count,
+        creativeServicesCount: order.creative_services_count,
+        creativeColor: order.creative_color,
+      };
+    });
 }
 
 export function ActiveTab() {
   const theme = useTheme();
+  const { isAuthenticated } = useAuth();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCreative, setSelectedCreative] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [priceSort, setPriceSort] = useState('none');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
   // Fetch orders on component mount with caching to prevent duplicate calls
   useEffect(() => {
-    const fetchOrders = async () => {
-      const now = Date.now();
-      
-      // Return cached data if it's still valid
-      if (fetchCache.data && (now - fetchCache.timestamp < CACHE_DURATION)) {
-        setOrders(transformOrders(fetchCache.data));
+    mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
         setLoading(false);
-        return;
+        setError(null);
       }
-      
-      // If a fetch is already in progress, wait for it
-      if (fetchCache.isFetching && fetchCache.promise) {
-        try {
-          const fetchedOrders = await fetchCache.promise;
-          const transformedOrders = transformOrders(fetchedOrders);
-          setOrders(transformedOrders);
-          setError(null);
-        } catch (err: any) {
-          console.error('Failed to fetch orders:', err);
-          setError(err.message || 'Failed to load orders');
-        } finally {
-          setLoading(false);
-        }
-        return;
+      return;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - fetchCache.timestamp;
+    
+    // Check if we have cached data that's still fresh
+    if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
+      // Use cached data directly (fastest path)
+      if (mountedRef.current) {
+        const transformedOrders = transformOrders(fetchCache.data);
+        setOrders(transformedOrders);
+        setLoading(false);
       }
-
-      // Start a new fetch
-      try {
-        setLoading(true);
-        fetchCache.isFetching = true;
-        fetchCache.resolved = false;
-        fetchCache.promise = bookingService.getClientOrders();
-        
-        const fetchedOrders = await fetchCache.promise;
-        
-        // Update cache
-        fetchCache.data = fetchedOrders;
-        fetchCache.timestamp = Date.now();
-        fetchCache.resolved = true;
-        
+      return;
+    }
+    
+    // Check if a promise already exists - reuse it immediately
+    // This must be checked BEFORE creating a new one to prevent race conditions
+    if (fetchCache.promise) {
+      // Reuse existing promise (handles StrictMode remounts)
+      setLoading(true);
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
         const transformedOrders = transformOrders(fetchedOrders);
         setOrders(transformedOrders);
         setError(null);
-      } catch (err: any) {
-        console.error('Failed to fetch orders:', err);
-        setError(err.message || 'Failed to load orders');
-        fetchCache.data = null;
-      } finally {
         setLoading(false);
-        fetchCache.isFetching = false;
-      }
-    };
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setError(error.message || 'Failed to load orders');
+        setLoading(false);
+      });
+      return;
+    }
+    
+    // No promise exists - create one
+    // This should only execute for the first mount
+    // Set flags BEFORE creating promise to prevent race conditions
+        fetchCache.isFetching = true;
+        fetchCache.resolved = false;
+        fetchCache.timestamp = now;
+        
+        // Create promise synchronously - assign immediately
+        const fetchOrders = async () => {
+        try {
+          const fetchedOrders = await bookingService.getClientInProgressOrders();
+          
+          // Transform orders to match expected format
+          const transformedOrders = transformOrders(fetchedOrders);
+          
+          if (mountedRef.current) {
+            setOrders(transformedOrders);
+            setError(null);
+            setLoading(false);
+          }
+          
+          // Cache the resolved data
+          fetchCache.data = fetchedOrders;
+          fetchCache.isFetching = false;
+          fetchCache.resolved = true;
+          // Keep the data and promise in cache for CACHE_DURATION to handle remounts
+          setTimeout(() => {
+            const now = Date.now();
+            if (now - fetchCache.timestamp >= CACHE_DURATION) {
+              fetchCache.promise = null;
+              fetchCache.data = null;
+              fetchCache.resolved = false;
+            }
+          }, CACHE_DURATION);
+          return fetchedOrders;
+        } catch (error) {
+          console.error('Failed to fetch orders:', error);
+          if (mountedRef.current) {
+            setError((error as any).message || 'Failed to load orders');
+            setLoading(false);
+          }
+          fetchCache.isFetching = false;
+          // Clear cache on error
+          fetchCache.promise = null;
+          throw error;
+        }
+      };
 
-    fetchOrders();
-  }, []);
+      // Assign promise synchronously - this happens immediately
+      // This must happen synchronously so subsequent mounts see it
+      fetchCache.promise = fetchOrders();
+      fetchCache.promise.catch(() => {
+        // Error already handled in fetchOrders
+      });
+      
+      // Set loading and attach promise handler
+      setLoading(true);
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
+        const transformedOrders = transformOrders(fetchedOrders);
+        setOrders(transformedOrders);
+        setError(null);
+        setLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setError(error.message || 'Failed to load orders');
+        setLoading(false);
+      });
+
+    // Cleanup function
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isAuthenticated]);
 
   const handleCreativeChange = (event: SelectChangeEvent) => {
     setSelectedCreative(event.target.value);
@@ -148,8 +230,13 @@ export function ActiveTab() {
 
   // Extract unique creatives from orders
   const connectedCreatives = Array.from(
-    new Set(orders.map(order => order.creativeName))
-  ).map(name => ({ id: name, name }));
+    new Map(
+      orders.map(order => [
+        order.creativeId,
+        { id: order.creativeId, name: order.creativeName }
+      ])
+    ).values()
+  );
 
   // Filter and sort logic
   let filteredOrders = [...orders];
@@ -165,7 +252,7 @@ export function ActiveTab() {
 
   // Apply creative filter
   if (selectedCreative !== 'all') {
-    filteredOrders = filteredOrders.filter(order => order.creativeName === selectedCreative);
+    filteredOrders = filteredOrders.filter(order => order.creativeId === selectedCreative);
   }
 
   // Apply date filter
@@ -235,15 +322,34 @@ export function ActiveTab() {
           }}
         />
 
-        {/* Connected Creative Filter */}
-        <FormControl 
-          sx={{ 
-            minWidth: { xs: '100%', md: 200 },
-            '& .MuiOutlinedInput-root': {
+        {isMobile ? (
+          <Button
+            variant="outlined"
+            startIcon={<FilterList />}
+            onClick={() => setFilterModalOpen(true)}
+            sx={{ 
+              width: '100%',
+              minWidth: 0,
+              py: 1,
+              px: 2,
               borderRadius: 2,
-            }
-          }}
-        >
+              fontWeight: 600,
+              textTransform: 'none',
+            }}
+          >
+            Filters
+          </Button>
+        ) : (
+          <>
+            {/* Connected Creative Filter */}
+            <FormControl 
+              sx={{ 
+                minWidth: { xs: '100%', md: 200 },
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
+            >
           <InputLabel id="creative-filter-label">Connected Creative</InputLabel>
           <Select
             labelId="creative-filter-label"
@@ -270,7 +376,7 @@ export function ActiveTab() {
               All Creatives
             </MenuItem>
             {connectedCreatives.map((creative) => (
-              <MenuItem key={creative.id} value={creative.name} sx={{
+              <MenuItem key={creative.id} value={creative.id} sx={{
                 transition: 'all 0.2s ease',
                 '&:hover': {
                   transform: 'translateX(4px)',
@@ -488,7 +594,262 @@ export function ActiveTab() {
             </MenuItem>
           </Select>
         </FormControl>
+          </>
+        )}
       </Box>
+
+      {/* Filter Modal for Mobile */}
+      <Dialog
+        open={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        disableEnforceFocus
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1, background: 'rgba(255,255,255,0.98)' }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', pb: 1.5 }}>Filters</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2.5, px: 4, overflow: 'visible' }}>
+          {/* Connected Creative Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-creative-filter-label" shrink={true}>Connected Creative</InputLabel>
+            <Select
+              labelId="modal-creative-filter-label"
+              value={selectedCreative}
+              label="Connected Creative"
+              onChange={handleCreativeChange}
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                All Creatives
+              </MenuItem>
+              {connectedCreatives.map((creative) => (
+                <MenuItem key={creative.id} value={creative.id} sx={{
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    transform: 'translateX(4px)',
+                    color: theme.palette.primary.main,
+                    backgroundColor: 'transparent !important',
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: 'transparent',
+                    fontWeight: 600,
+                  },
+                  '&.Mui-selected:hover': {
+                    backgroundColor: 'transparent !important',
+                  },
+                }}>
+                  {creative.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Date Range Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-date-filter-label" shrink={true}>Time Period</InputLabel>
+            <Select
+              labelId="modal-date-filter-label"
+              value={dateFilter}
+              label="Time Period"
+              onChange={handleDateFilterChange}
+              startAdornment={
+                <InputAdornment position="start">
+                  <DateRange sx={{ fontSize: 20, ml: 0.5 }} />
+                </InputAdornment>
+              }
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                All Time
+              </MenuItem>
+              <MenuItem value="week" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Week
+              </MenuItem>
+              <MenuItem value="month" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Month
+              </MenuItem>
+              <MenuItem value="3months" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past 3 Months
+              </MenuItem>
+              <MenuItem value="6months" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past 6 Months
+              </MenuItem>
+              <MenuItem value="year" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Year
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Price Sort */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-price-sort-label" shrink={true}>Price</InputLabel>
+            <Select
+              labelId="modal-price-sort-label"
+              value={priceSort}
+              label="Price"
+              onChange={handlePriceSortChange}
+              startAdornment={
+                <InputAdornment position="start">
+                  <AttachMoney sx={{ fontSize: 20, ml: 0.5 }} />
+                </InputAdornment>
+              }
+            >
+              <MenuItem value="none" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                No Sort
+              </MenuItem>
+              <MenuItem value="low-high" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Low to High
+              </MenuItem>
+              <MenuItem value="high-low" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                High to Low
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFilterModalOpen(false)} variant="contained" color="primary" sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}>Apply</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Orders List */}
       <Box sx={{ 
@@ -562,7 +923,6 @@ export function ActiveTab() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 3 }}>
             {filteredOrders.map((order) => {
               const commonProps = {
-                key: order.id,
                 id: order.id,
                 serviceName: order.serviceName,
                 creativeName: order.creativeName,
@@ -573,6 +933,7 @@ export function ActiveTab() {
 
               return (
                 <InProgressOrderCard
+                  key={order.id}
                   {...commonProps}
                   approvedDate={order.approvedDate}
                   calendarDate={order.calendarDate}

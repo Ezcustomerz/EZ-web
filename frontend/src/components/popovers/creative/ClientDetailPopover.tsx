@@ -146,6 +146,7 @@ export function ClientDetailPopover({ open, onClose, client }: ClientDetailPopov
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Avatar
+            src={client.profile_picture_url}
             sx={{
               width: 48,
               height: 48,
@@ -155,14 +156,14 @@ export function ClientDetailPopover({ open, onClose, client }: ClientDetailPopov
               border: '2px solid rgba(255, 255, 255, 0.3)'
             }}
           >
-            {client.name.charAt(0).toUpperCase()}
+            {!client.profile_picture_url && client.name.charAt(0).toUpperCase()}
           </Avatar>
           <Box>
             <Typography variant="h6" component="div" sx={{ fontWeight: 700, color: 'white' }}>
               {client.name}
             </Typography>
             <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-              Client Details
+              {client.title || 'Client'}
             </Typography>
           </Box>
         </Box>

@@ -409,25 +409,31 @@ export function CancelledPopover({
             </CardContent>
           </Card>
 
-          {/* Service Card */}
-          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
-                Service Details
-              </Typography>
-              <ServiceCard
-                title={order.service.title}
-                description={order.service.description}
-                price={order.service.price}
-                delivery={order.service.delivery_time}
-                status="Public"
-                creative="Service Provider"
-                color={order.service.color}
-                showMenu={false}
-                onClick={handleViewService}
-              />
-            </CardContent>
-          </Card>
+          {/* Notes from Client - Only show if notes exist */}
+          {(order.description || order.specialRequirements) && (
+            <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+                  Notes from Client
+                </Typography>
+                
+                <Box 
+                  sx={{ 
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>
+                    {order.description || order.specialRequirements || ''}
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Booking Date Card */}
           {order.bookingDate && (
@@ -484,6 +490,26 @@ export function CancelledPopover({
               </CardContent>
             </Card>
           )}
+
+          {/* Service Card */}
+          <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+                Service Details
+              </Typography>
+              <ServiceCard
+                title={order.service.title}
+                description={order.service.description}
+                price={order.service.price}
+                delivery={order.service.delivery_time}
+                status="Public"
+                creative="Service Provider"
+                color={order.service.color}
+                showMenu={false}
+                onClick={handleViewService}
+              />
+            </CardContent>
+          </Card>
 
         </Box>
       </DialogContent>

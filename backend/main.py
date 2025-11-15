@@ -7,11 +7,13 @@ from api.advocate import advocate_router
 from api.client import client_router
 from api.creative import creative_router
 from api.user import user_router
-from api import invite
-from api import bookings
-from routers import booking
+from api.invite import invite_router
+from api.notifications import notifications_router
+from api.booking import booking_router
+from api.booking.booking_router import service_main_router
+from api.auth import auth_router
+from api.stripe import stripe_router
 from core.limiter import limiter
-from api import auth
 from core.verify import jwt_auth_middleware
 # Import database module to trigger connection test
 from db import db_session
@@ -22,11 +24,7 @@ load_dotenv()
 
 app = FastAPI()
 
-app.middleware("http")(jwt_auth_middleware)
-app.add_middleware(SlowAPIMiddleware)
-app.state.limiter = limiter
-
-# CORS configuration
+# CORS configuration - MUST be added before other middleware
 # Note: When allow_credentials=True, we cannot use allow_origins=["*"]
 # We must specify explicit origins
 # Get environment type from environment variable (dev, dev_deploy, etc.)
@@ -41,7 +39,7 @@ DEV_ORIGINS = [
 ]
 
 DEV_DEPLOY_ORIGINS = [
-    "https://ez-web-iota.vercel.app",
+    "https://ez-web-dev.vercel.app",
     "https://ez-web.onrender.com",
 ]
 
@@ -65,22 +63,41 @@ else:
     # Otherwise use the defaults based on ENV
     ALLOWED_ORIGINS = DEFAULT_ORIGINS
 
+# Log CORS configuration for debugging (only in non-production)
+import logging
+logger = logging.getLogger(__name__)
+if ENV != "production":
+    logger.info(f"CORS Configuration - ENV: {ENV}, Allowed Origins: {ALLOWED_ORIGINS}")
+
+# Add other middleware first (JWT, SlowAPI)
+# These will run AFTER CORS due to FastAPI's reverse middleware order
+app.middleware("http")(jwt_auth_middleware)
+app.add_middleware(SlowAPIMiddleware)
+app.state.limiter = limiter
+
+# Add CORS middleware LAST - In FastAPI, middleware runs in reverse order
+# (last added runs first), so adding CORS last ensures it runs FIRST
+# This is critical for handling OPTIONS preflight requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,  # Explicit origins required when credentials=True
     allow_credentials=True,  # Required for HttpOnly cookies
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all HTTP methods including OPTIONS
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-app.include_router(auth.router)
+app.include_router(auth_router.router)
 app.include_router(user_router.router)
 app.include_router(creative_router.router)
 app.include_router(client_router.router)
 app.include_router(advocate_router.router)
-app.include_router(invite.router)
-app.include_router(bookings.router, prefix="/api/bookings", tags=["bookings"])
-app.include_router(booking.router)
+app.include_router(invite_router.router)
+app.include_router(notifications_router.router)
+app.include_router(booking_router.router)
+app.include_router(service_main_router)  # Service endpoints at /api/booking
+app.include_router(stripe_router.router, prefix="/stripe", tags=["stripe"])
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

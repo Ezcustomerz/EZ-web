@@ -2,6 +2,7 @@ import { Box, CircularProgress } from '@mui/material';
 import { PastOrdersTable } from '../../../components/tables/PastOrdersTable';
 import { useEffect, useState, useRef } from 'react';
 import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
 // Module-level cache to prevent duplicate fetches across remounts
 let fetchCache: {
@@ -53,11 +54,13 @@ function transformOrders(fetchedOrders: Order[]) {
         description: order.description || order.service_description || '',
         clientEmail: order.creative_email,
         clientPhone: undefined, // TODO: Add client phone if available
+        specialRequirements: order.description,
       };
     });
 }
  
 export function PastOrdersTab() {
+  const { isAuthenticated } = useAuth();
   const [orders, setOrders] = useState<Array<any>>([]);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
@@ -65,6 +68,15 @@ export function PastOrdersTab() {
   // Fetch orders on mount - only once
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setLoading(false);
+      }
+      return;
+    }
     
     const now = Date.now();
     const cacheAge = now - fetchCache.timestamp;
@@ -149,7 +161,7 @@ export function PastOrdersTab() {
     return () => {
       mountedRef.current = false;
     };
-  }, []); // Empty dependency array - only run on mount
+  }, [isAuthenticated]); // Re-run when authentication changes
 
   if (loading) {
     return (

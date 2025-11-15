@@ -293,16 +293,19 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   return (
     <Box sx={{
       width: '100%',
+      maxWidth: '100%',
       flexGrow: 1,
       py: 2,
-      overflowY: { xs: 'auto', sm: 'auto', md: 'auto' },
+      overflowY: 'auto',
+      overflowX: 'hidden',
       minHeight: 0,
+      boxSizing: 'border-box',
     }}>
       <Box
         sx={{
           display: 'grid',
           gap: { xs: 1, sm: 1.7 },
-          px: 2,
+          px: { xs: 1.5, sm: 2 },
           pb: 6, // Increased bottom padding to accommodate hover effects (scale + translateY)
           gridTemplateColumns: {
             xs: '1fr',
@@ -311,6 +314,9 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           },
           alignItems: 'stretch',
           minHeight: 0,
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
         }}
       >
         {/* Build Your Setlist Card (Service Creation CTA, with Note Trail Animation) */}
@@ -322,6 +328,11 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
               '100%': { opacity: 1, transform: 'scale(1) translateY(0)' },
             },
             gridColumn: '1',
+            minWidth: 0,
+            width: '100%',
+            maxWidth: '100%',
+            overflow: 'visible',
+            boxSizing: 'border-box',
           }}
         >
           <Tooltip title="Make a new service or bundle existing services" arrow>
@@ -340,6 +351,8 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
               sx={{
                 position: 'relative',
                 height: '100%',
+                width: '100%',
+                maxWidth: '100%',
                 minHeight: { xs: 80, sm: 210 },
                 display: 'flex',
                 flexDirection: { xs: 'column', sm: 'column' },
@@ -358,9 +371,10 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
                 pt: { xs: 0.7, sm: 2.2 },
                 pb: { xs: 0.7, sm: 2.2 },
                 px: { xs: 0.7, sm: 2.2 },
+                boxSizing: 'border-box',
                 '&:hover, &:focus': {
                   boxShadow: '0 0 0 4px rgba(122,95,255,0.09), 0 4px 16px 0 rgba(51,155,255,0.07)',
-                  transform: 'translateY(-3px) scale(1.035)',
+                  transform: 'translateY(-3px)',
                   borderColor: '#7A5FFF',
                   background: 'linear-gradient(135deg, #f3f6ff 0%, #e3eafc 100%)',
                 },
@@ -566,6 +580,11 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
             key={`${item.type}-${item.data.id}-${animationKey}`}
             sx={{
               animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${(idx + 1) * 0.07}s both`,
+              minWidth: 0,
+              width: '100%',
+              maxWidth: '100%',
+              overflow: 'visible',
+              boxSizing: 'border-box',
             }}
           >
             {item.type === 'service' ? (

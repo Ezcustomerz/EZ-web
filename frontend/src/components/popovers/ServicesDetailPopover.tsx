@@ -43,7 +43,7 @@ export interface ServiceDetail {
   title: string;
   description: string;
   price: number;
-  delivery_time: string;
+  delivery_time?: string;
   creative_name?: string; // Made optional to handle CreativeService type
   color: string;
   status?: string;
@@ -130,12 +130,18 @@ export function ServicesDetailPopover({
       maxWidth="sm"
       fullWidth
       fullScreen={isMobile}
-      PaperProps={{
-        sx: {
-          borderRadius: isMobile ? 0 : 3,
-          maxHeight: isMobile ? '100vh' : '90vh',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-        }
+      sx={{
+        zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
+      }}
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: isMobile ? 0 : 3,
+            maxHeight: isMobile ? '100vh' : '90vh',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          }
+        },
+        backdrop: { sx: { backgroundColor: 'rgba(0,0,0,0.32)' } }
       }}
     >
       <DialogTitle sx={{ 
@@ -454,38 +460,40 @@ export function ServicesDetailPopover({
                </Box>
 
                {/* Delivery Time */}
-               <Box sx={{ 
-                 display: 'flex', 
-                 alignItems: 'center', 
-                 gap: 2,
-                 p: 2,
-                 borderRadius: 2,
-                 backgroundColor: 'rgba(33, 150, 243, 0.08)',
-                 border: '1px solid rgba(33, 150, 243, 0.2)',
-                 flex: 1,
-                 minWidth: '200px'
-               }}>
+               {service.delivery_time && service.delivery_time.trim() && (
                  <Box sx={{ 
                    display: 'flex', 
                    alignItems: 'center', 
-                   justifyContent: 'center',
-                   width: 40,
-                   height: 40,
-                   borderRadius: 1.5,
-                   backgroundColor: 'primary.main',
-                   color: 'white'
+                   gap: 2,
+                   p: 2,
+                   borderRadius: 2,
+                   backgroundColor: 'rgba(33, 150, 243, 0.08)',
+                   border: '1px solid rgba(33, 150, 243, 0.2)',
+                   flex: 1,
+                   minWidth: '200px'
                  }}>
-                   <AccessTimeIcon sx={{ fontSize: 20 }} />
+                   <Box sx={{ 
+                     display: 'flex', 
+                     alignItems: 'center', 
+                     justifyContent: 'center',
+                     width: 40,
+                     height: 40,
+                     borderRadius: 1.5,
+                     backgroundColor: 'primary.main',
+                     color: 'white'
+                   }}>
+                     <AccessTimeIcon sx={{ fontSize: 20 }} />
+                   </Box>
+                   <Box sx={{ flex: 1 }}>
+                     <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                       Delivery Time
+                     </Typography>
+                     <Typography variant="h6" fontWeight={600} sx={{ color: 'primary.main' }}>
+                       {service.delivery_time}
+                     </Typography>
+                   </Box>
                  </Box>
-                 <Box sx={{ flex: 1 }}>
-                   <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
-                     Delivery Time
-                   </Typography>
-                   <Typography variant="h6" fontWeight={600} sx={{ color: 'primary.main' }}>
-                     {service.delivery_time}
-                   </Typography>
-                 </Box>
-               </Box>
+               )}
 
               {/* Booking Type removed: single booking flow now */}
 

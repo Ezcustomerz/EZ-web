@@ -15,7 +15,7 @@ export interface ServiceCardProps {
   title: string;
   description: string;
   price: number;
-  delivery: string;
+  delivery?: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   creative: string;
   onEdit?: () => void;
@@ -40,6 +40,8 @@ export function ServiceCard({ title, description, price, delivery, status, creat
       onClick={onClick}
       sx={{
         height: '100%',
+        width: '100%',
+        maxWidth: '100%',
         minHeight: { xs: 135, sm: 170 },
         display: 'flex',
         flexDirection: 'column',
@@ -50,19 +52,21 @@ export function ServiceCard({ title, description, price, delivery, status, creat
         transition: 'box-shadow 0.18s, transform 0.18s, opacity 0.2s',
         cursor: 'pointer',
         backgroundColor: theme.palette.background.paper,
+        boxSizing: 'border-box',
+        overflow: 'visible',
         '&:hover': {
           boxShadow: `0 4px 16px ${color}`,
-          transform: 'scale(1.025) translateY(-2px)',
+          transform: 'translateY(-2px)',
         },
       }}
     >
-      <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, width: '100%' }}>
         {/* Top row: Title + More menu */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-          <Box sx={{ mb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-              <FontAwesomeIcon icon={faGem} style={{ fontSize: '14px', color: color || theme.palette.primary.main }} />
-              <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, minWidth: 0, width: '100%' }}>
+          <Box sx={{ mb: 1, flex: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, minWidth: 0 }}>
+              <FontAwesomeIcon icon={faGem} style={{ fontSize: '14px', color: color || theme.palette.primary.main, flexShrink: 0 }} />
+              <Typography fontWeight={700} fontSize="1.08rem" sx={{ pr: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.primary', flex: 1 }}>
                 {title}
               </Typography>
             </Box>
@@ -117,11 +121,14 @@ export function ServiceCard({ title, description, price, delivery, status, creat
           sx={{
             mb: 2.5,
             minHeight: { xs: 'unset', sm: 44 },
+            minWidth: 0,
+            width: '100%',
             display: '-webkit-box',
             WebkitLineClamp: { xs: 4, sm: 2 },
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            wordBreak: 'break-word',
           }}
         >
           {description}
@@ -136,6 +143,9 @@ export function ServiceCard({ title, description, price, delivery, status, creat
             gap: { xs: 1, sm: 0 },
             mt: 'auto',
             pt: 1,
+            minWidth: 0,
+            width: '100%',
+            flexWrap: 'wrap',
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { xs: 0.5, sm: 0 } }}>
@@ -170,7 +180,7 @@ export function ServiceCard({ title, description, price, delivery, status, creat
               </Tooltip>
             )}
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', minWidth: 0, flex: { xs: '1 1 100%', sm: '0 1 auto' } }}>
             <Tooltip title={statusHelp[status]} arrow>
               {/* Redesigned pill */}
               <Box
@@ -198,6 +208,7 @@ export function ServiceCard({ title, description, price, delivery, status, creat
                   transition: 'box-shadow 0.18s, border 0.18s, background 0.18s, color 0.18s',
                   cursor: 'help',
                   outline: 'none',
+                  flexShrink: 0,
                   '&:hover, &:focus': {
                     boxShadow: status === 'Public'
                       ? '0 0 0 3px #7be49533, 0 2px 12px 0 #7be49522'
@@ -217,9 +228,11 @@ export function ServiceCard({ title, description, price, delivery, status, creat
                 {status}
               </Box>
             </Tooltip>
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-              {delivery} delivery
-            </Typography>
+            {delivery && delivery.trim() && (
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5, flexShrink: 0 }}>
+                {delivery} delivery
+              </Typography>
+            )}
           </Box>
         </Box>
       </CardContent>
@@ -232,7 +245,7 @@ export interface ServiceCardSimpleProps {
   title: string;
   description: string;
   price: number;
-  delivery: string;
+  delivery?: string;
   color: string;
   creative: string;
   onBook?: () => void;
@@ -246,6 +259,8 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
       onClick={onBook}
       sx={{
         height: '100%',
+        width: '100%',
+        maxWidth: '100%',
         minHeight: { xs: 135, sm: 170 },
         display: 'flex',
         flexDirection: 'column',
@@ -256,13 +271,15 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
         transition: 'box-shadow 0.18s, transform 0.18s',
         cursor: 'pointer',
         backgroundColor: theme.palette.background.paper,
+        boxSizing: 'border-box',
+        overflow: 'visible',
         '&:hover': {
           boxShadow: `0 4px 16px ${color}`,
-          transform: 'scale(1.035) translateY(-2px)',
+          transform: 'translateY(-2px)',
         },
       }}
     >
-      <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, width: '100%' }}>
         {/* Title + Creative */}
         <Box sx={{ mb: 0.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
@@ -334,9 +351,11 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
               </Tooltip>
             )}
           </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            {delivery} delivery
-          </Typography>
+          {delivery && delivery.trim() && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              {delivery} delivery
+            </Typography>
+          )}
         </Box>
       </CardContent>
     </Card>

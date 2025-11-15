@@ -2,22 +2,107 @@ import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { WelcomeCard } from '../../components/cards/creative/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/creative/ActivityFeedCard';
-import type { ActivityItem } from '../../types/activity';
 import type { CreativeProfile } from '../../api/userService';
-import { GraphicEqOutlined, Payment, Download, PersonAddOutlined, CheckCircleOutlined, History } from '@mui/icons-material';
+import { useState, useEffect, useRef } from 'react';
+import { getNotifications } from '../../api/notificationsService';
+import { notificationsToActivityItems } from '../../utils/notificationUtils';
+import type { ActivityItem } from '../../types/activity';
+import { useAuth } from '../../context/auth';
+
+// Module-level cache to prevent duplicate fetches across remounts
+const notificationsCache = {
+  promise: null as Promise<ActivityItem[]> | null,
+  data: null as ActivityItem[] | null,
+  timestamp: 0,
+};
+
+const CACHE_DURATION = 5000; // 5 seconds cache
 
 export function DashCreative() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
+  const { isAuthenticated } = useAuth();
+  const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const mountedRef = useRef(true);
 
-  const items: ActivityItem[] = [
-    { icon: GraphicEqOutlined, label: 'New Booking', description: "Client 'Sarah Wilson' booked your Full Production Package for Dec 15, 2024", counterpart: 'Sarah Wilson', date: '2 hours ago', status: 'booking', isNew: true },
-    { icon: Payment, label: 'Payment Received', description: 'Payment of $500 received for Mixing & Mastering session', counterpart: 'Mike Johnson', date: '1 day ago', status: 'payment', isNew: true },
-    { icon: Download, label: 'File Uploaded', description: 'Client uploaded new vocal tracks for revision', counterpart: 'Alex Thompson', date: '2 days ago', status: 'file', isNew: false },
-    { icon: PersonAddOutlined, label: 'New Connection', description: "Client 'Emma Davis' connected with your profile", counterpart: 'Emma Davis', date: '3 days ago', status: 'connection', isNew: false },
-    { icon: CheckCircleOutlined, label: 'Session Completed', description: "Vocal Recording session with 'David Chen' completed successfully", counterpart: 'David Chen', date: '1 week ago', status: 'completed', isNew: false },
-    { icon: History, label: 'Revision Request', description: 'Client requested changes to the final mix', counterpart: 'Lisa Rodriguez', date: '1 week ago', status: 'revision', isNew: false },
-  ];
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    // Don't fetch notifications if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setActivityItems([]);
+        setIsLoading(false);
+      }
+      return;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - notificationsCache.timestamp;
+
+    // Check if we have cached data that's still fresh
+    if (notificationsCache.data && cacheAge < CACHE_DURATION) {
+      if (mountedRef.current) {
+        setActivityItems(notificationsCache.data);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // Check if a promise already exists - reuse it immediately
+    if (notificationsCache.promise) {
+      setIsLoading(true);
+      notificationsCache.promise.then(items => {
+        if (!mountedRef.current) return;
+        setActivityItems(items);
+        setIsLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Error fetching notifications:', error);
+        setActivityItems([]);
+        setIsLoading(false);
+      });
+      return;
+    }
+
+    // No promise exists - create one
+    setIsLoading(true);
+    
+    const fetchPromise = (async () => {
+      try {
+        const notifications = await getNotifications(25, 0, false, 'creative');
+        const items = notificationsToActivityItems(notifications);
+        
+        // Cache the result
+        notificationsCache.data = items;
+        notificationsCache.timestamp = Date.now();
+        notificationsCache.promise = null;
+        
+        return items;
+      } catch (error) {
+        notificationsCache.promise = null;
+        throw error;
+      }
+    })();
+
+    notificationsCache.promise = fetchPromise;
+
+    fetchPromise.then(items => {
+      if (!mountedRef.current) return;
+      setActivityItems(items);
+      setIsLoading(false);
+    }).catch(error => {
+      if (!mountedRef.current) return;
+      console.error('Error fetching notifications:', error);
+      setActivityItems([]);
+      setIsLoading(false);
+    });
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isAuthenticated]);
 
   return (
     <LayoutCreative selectedNavItem="dashboard">
@@ -54,7 +139,7 @@ export function DashCreative() {
 
           {/* Activity Feed Card */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <ActivityFeedCard items={items} />
+            <ActivityFeedCard items={activityItems} isLoading={isLoading} />
           </Box>
         </Box>
       )}

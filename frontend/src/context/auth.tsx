@@ -87,7 +87,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Sync tokens to HttpOnly cookies for XSS protection
       // This handles: INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, etc.
-      if (newSession?.access_token && newSession?.refresh_token) {
+      // Skip syncing on public pages like invite pages to avoid unnecessary API calls
+      // Use window.location to ensure we always check the current path
+      const currentPath = window.location.pathname;
+      const isPublicPage = currentPath.startsWith('/invite/');
+      
+      if (newSession?.access_token && newSession?.refresh_token && !isPublicPage) {
         // Check if tokens have actually changed to avoid duplicate syncs
         const lastSynced = lastSyncedTokensRef.current;
         const tokensChanged = !lastSynced || 
@@ -108,6 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           console.log('[Auth] Tokens unchanged, skipping sync');
         }
+      } else if (isPublicPage && newSession) {
+        console.log('[Auth] Skipping cookie sync on public page:', currentPath);
       } else {
         // Clear last synced tokens when session is null
         lastSyncedTokensRef.current = null;

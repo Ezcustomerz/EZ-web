@@ -3,8 +3,11 @@ import { LayoutClient } from '../../layout/client/LayoutClient';
 import { WelcomeCard } from '../../components/cards/client/WelcomeCard';
 import { UpcomingBookingsCard } from '../../components/cards/client/UpcomingBookingsCard';
 import { RecentActivityCard } from '../../components/cards/client/RecentActivityCard';
+import { useState, useEffect, useRef } from 'react';
+import { getNotifications } from '../../api/notificationsService';
+import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
-import { CheckCircleOutlined, Payment } from '@mui/icons-material';
+import { useAuth } from '../../context/auth';
 
 // Mock data for upcoming bookings
 const upcomingBookings: any[] = [
@@ -58,94 +61,145 @@ const upcomingBookings: any[] = [
   }
 ];
 
-// Unified mock data for recent activity (client side)
-const recentItems: ActivityItem[] = [
-  {
-    label: 'Booking confirmed with Mike Johnson',
-    description: 'Your booking has been confirmed.',
-    date: '1 day ago',
-    status: 'completed',
-    counterpart: 'Mike Johnson',
-    isNew: true,
-    icon: CheckCircleOutlined,
-  },
-  {
-    label: 'Session completed with Sarah Wilson',
-    description: 'Your session was completed successfully.',
-    date: '2 days ago',
-    status: 'completed',
-    counterpart: 'Sarah Wilson',
-    isNew: true,
-    icon: CheckCircleOutlined,
-  },
-  {
-    label: 'Payment received from David Chen',
-    description: 'Payment received and recorded.',
-    date: '4 days ago',
-    status: 'payment',
-    counterpart: 'David Chen',
-    isNew: false,
-    icon: Payment,
-  },
-  {
-    label: 'Review submitted for Emma Davis',
-    description: 'Thanks for leaving a review.',
-    date: '5 days ago',
-    status: 'completed',
-    counterpart: 'Emma Davis',
-    isNew: false,
-    icon: CheckCircleOutlined,
-  },
-];
+// Module-level cache to prevent duplicate fetches across remounts
+const clientNotificationsCache = {
+  promise: null as Promise<ActivityItem[]> | null,
+  data: null as ActivityItem[] | null,
+  timestamp: 0,
+};
+
+const CACHE_DURATION = 5000; // 5 seconds cache
 
 export function ClientDashboard() {
+  const { isAuthenticated } = useAuth();
+  const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    // Don't fetch notifications if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setActivityItems([]);
+        setIsLoading(false);
+      }
+      return;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - clientNotificationsCache.timestamp;
+
+    // Check if we have cached data that's still fresh
+    if (clientNotificationsCache.data && cacheAge < CACHE_DURATION) {
+      if (mountedRef.current) {
+        setActivityItems(clientNotificationsCache.data);
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // Check if a promise already exists - reuse it immediately
+    if (clientNotificationsCache.promise) {
+      setIsLoading(true);
+      clientNotificationsCache.promise.then(items => {
+        if (!mountedRef.current) return;
+        setActivityItems(items);
+        setIsLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Error fetching notifications:', error);
+        setActivityItems([]);
+        setIsLoading(false);
+      });
+      return;
+    }
+
+    // No promise exists - create one
+    setIsLoading(true);
+    
+    const fetchPromise = (async () => {
+      try {
+        const notifications = await getNotifications(25, 0, false, 'client');
+        const items = notificationsToActivityItems(notifications);
+        
+        // Cache the result
+        clientNotificationsCache.data = items;
+        clientNotificationsCache.timestamp = Date.now();
+        clientNotificationsCache.promise = null;
+        
+        return items;
+      } catch (error) {
+        clientNotificationsCache.promise = null;
+        throw error;
+      }
+    })();
+
+    clientNotificationsCache.promise = fetchPromise;
+
+    fetchPromise.then(items => {
+      if (!mountedRef.current) return;
+      setActivityItems(items);
+      setIsLoading(false);
+    }).catch(error => {
+      if (!mountedRef.current) return;
+      console.error('Error fetching notifications:', error);
+      setActivityItems([]);
+      setIsLoading(false);
+    });
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isAuthenticated]);
 
   return (
     <LayoutClient selectedNavItem="dashboard">
-      {({ clientProfile }) => (
+      {({ isSidebarOpen, isMobile, clientProfile }) => (
         <Box sx={{
-          px: { xs: 1.5, sm: 1.5, md: 2.5 },
-          pt: { xs: 1.5, sm: 1.5, md: 2.5 },
-          pb: { xs: 1.5, sm: 1.5, md: 0.5 },
-          display: 'flex',
-          flexDirection: 'column',
-          height: { xs: 'auto', md: '100vh' },
-          overflow: { xs: 'visible', md: 'hidden' },
-          animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          '@keyframes pageSlideIn': {
-            '0%': {
-              opacity: 0,
-              transform: 'translateY(20px)',
-            },
-            '100%': {
-              opacity: 1,
-              transform: 'translateY(0)',
-            },
+        px: { xs: 1.5, sm: 1.5, md: 2.5 },
+        pt: { xs: 1.5, sm: 1.5, md: 2.5 },
+        pb: { xs: 1.5, sm: 1.5, md: 0.5 },
+        display: 'flex',
+        flexDirection: 'column',
+        height: { xs: 'auto', md: '100vh' },
+        overflow: { xs: 'visible', md: 'hidden' },
+        animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        '@keyframes pageSlideIn': {
+          '0%': {
+            opacity: 0,
+            transform: 'translateY(20px)',
           },
+          '100%': {
+            opacity: 1,
+            transform: 'translateY(0)',
+          },
+        },
+      }}>
+        {/* Welcome Card */}
+        <WelcomeCard 
+          userName={clientProfile?.display_name || "Demo User"} 
+          userType={clientProfile?.title || "Country Artist"} 
+        />
+
+        {/* Main Content Grid - Half and Half */}
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
+          gap: 2,
+          flex: { xs: 'none', md: 1 }, 
+          minHeight: 0,
+          overflow: { xs: 'visible', md: 'visible' },
+          pb: 2, // Increase bottom padding to ensure cards are fully visible
         }}>
-          {/* Welcome Card */}
-          <WelcomeCard
-            userName={clientProfile?.display_name || "Demo User"}
-            userType={clientProfile?.title || "Country Artist"}
-          />
+          {/* Upcoming Bookings Section */}
+          <UpcomingBookingsCard bookings={upcomingBookings} />
 
-          {/* Main Content Grid - Half and Half */}
-          <Box sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' },
-            gap: 2,
-            flex: { xs: 'none', md: 1 },
-            minHeight: 0,
-            overflow: { xs: 'visible', md: 'visible' },
-            pb: 2, // Increase bottom padding to ensure cards are fully visible
-          }}>
-            {/* Upcoming Bookings Section */}
-            <UpcomingBookingsCard bookings={upcomingBookings} />
-
-            {/* Recent Activity Section */}
-            <RecentActivityCard items={recentItems} />
-          </Box>
+          {/* Recent Activity Section */}
+          <RecentActivityCard items={activityItems} />
         </Box>
+      </Box>
       )}
     </LayoutClient>
   );

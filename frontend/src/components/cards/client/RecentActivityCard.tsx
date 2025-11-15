@@ -1,6 +1,7 @@
 import { Box, Typography, Card, useTheme, Stack, Button, Chip } from '@mui/material';
 import { MusicNote, Timeline } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { ActivityNotificationCard } from '../ActivityNotificationCard';
 import type { ActivityItem } from '../../../types/activity';
 
@@ -11,9 +12,26 @@ interface RecentActivityCardProps {
 export function RecentActivityCard({ items = [] }: RecentActivityCardProps) {
   const theme = useTheme();
   const navigate = useNavigate();
+  const [localItems, setLocalItems] = React.useState<ActivityItem[]>(items);
 
-  const filteredItems = items; // keep all; no status chip logic
+  // Update local items when items prop changes
+  React.useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
+
+  const filteredItems = localItems; // keep all; no status chip logic
   const actualNewCount = filteredItems.filter(i => i.isNew).length;
+
+  // Handle when a notification is marked as read
+  const handleMarkAsRead = React.useCallback((notificationId: string) => {
+    setLocalItems(prevItems => 
+      prevItems.map(item => 
+        item.notificationId === notificationId 
+          ? { ...item, isNew: false }
+          : item
+      )
+    );
+  }, []);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: { xs: 'auto', md: '100%' } }}>
@@ -64,6 +82,25 @@ export function RecentActivityCard({ items = [] }: RecentActivityCardProps) {
                   key={`${item.label}-${index}`}
                   item={item}
                   index={index}
+                  onMarkAsRead={handleMarkAsRead}
+                  onClick={() => {
+                    // Customize behavior per notification type
+                    const notificationType = item.notificationType;
+                    
+                    if (notificationType === 'payment_required') {
+                      // Navigate to Action Needed tab (tab index 2)
+                      navigate('/client/orders');
+                      localStorage.setItem('orders-active-tab', '2');
+                    } else if (notificationType === 'booking_rejected' || notificationType === 'booking_canceled') {
+                      // Navigate to History tab (tab index 3)
+                      navigate('/client/orders');
+                      localStorage.setItem('orders-active-tab', '3');
+                    } else if (item.label === 'Placed Booking' || item.label === 'Booking Approved') {
+                      // Navigate to orders page (default tab)
+                      navigate('/client/orders');
+                    }
+                    // We can add more cases in the future
+                  }}
                 />
               ))}
             </Stack>

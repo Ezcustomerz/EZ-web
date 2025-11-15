@@ -8,8 +8,13 @@ import {
   Select, 
   MenuItem, 
   useTheme,
+  useMediaQuery,
   Button,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { Search, FilterList, DateRange, ShoppingBag } from '@mui/icons-material';
@@ -23,6 +28,7 @@ import { DownloadOrderCard } from '../../../components/cards/client/DownloadOrde
 import { CompletedOrderCard } from '../../../components/cards/client/CompletedOrderCard';
 import { CanceledOrderCard } from '../../../components/cards/client/CanceledOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
 // Module-level cache to prevent duplicate fetches across remounts
 // This persists across StrictMode remounts to prevent duplicate API calls
@@ -83,10 +89,13 @@ function transformOrders(fetchedOrders: Order[]) {
 export function AllServicesTab() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [creativeFilter, setCreativeFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [orders, setOrders] = useState<Array<any>>([]);
   const [loading, setLoading] = useState(true);
   const [connectedCreatives, setConnectedCreatives] = useState<Array<{ id: string; name: string }>>([]);
@@ -95,6 +104,16 @@ export function AllServicesTab() {
   // Fetch orders on mount - only once
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setConnectedCreatives([]);
+        setLoading(false);
+      }
+      return;
+    }
     
     const now = Date.now();
     const cacheAge = now - fetchCache.timestamp;
@@ -212,7 +231,7 @@ export function AllServicesTab() {
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [isAuthenticated]);
   
 
   const handleStatusChange = (event: SelectChangeEvent) => {
@@ -225,6 +244,53 @@ export function AllServicesTab() {
 
   const handleDateChange = (event: SelectChangeEvent) => {
     setDateFilter(event.target.value);
+  };
+
+  // Function to refresh orders after cancellation
+  const handleRefreshOrders = async () => {
+    // Don't refresh if not authenticated
+    if (!isAuthenticated) {
+      setOrders([]);
+      setConnectedCreatives([]);
+      setLoading(false);
+      return;
+    }
+
+    // Clear the cache to force a fresh fetch
+    fetchCache.promise = null;
+    fetchCache.data = null;
+    fetchCache.resolved = false;
+    fetchCache.isFetching = false;
+    fetchCache.timestamp = 0;
+
+    // Trigger a re-fetch
+    setLoading(true);
+    try {
+      const fetchedOrders = await bookingService.getClientOrders();
+      const transformedOrders = transformOrders(fetchedOrders);
+      
+      setOrders(transformedOrders);
+      
+      // Extract unique creatives
+      const creatives = Array.from(
+        new Map(
+          transformedOrders.map(order => [
+            order.creativeId,
+            { id: order.creativeId, name: order.creativeName }
+          ])
+        ).values()
+      );
+      setConnectedCreatives(creatives);
+      
+      // Update cache
+      fetchCache.data = fetchedOrders;
+      fetchCache.resolved = true;
+      fetchCache.timestamp = Date.now();
+    } catch (error) {
+      console.error('Failed to refresh orders:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Filter logic
@@ -341,15 +407,34 @@ export function AllServicesTab() {
           }}
         />
 
-        {/* Status Filter */}
-        <FormControl 
-          sx={{ 
-            minWidth: { xs: '100%', md: 180 },
-            '& .MuiOutlinedInput-root': {
+        {isMobile ? (
+          <Button
+            variant="outlined"
+            startIcon={<FilterList />}
+            onClick={() => setFilterModalOpen(true)}
+            sx={{ 
+              width: '100%',
+              minWidth: 0,
+              py: 1,
+              px: 2,
               borderRadius: 2,
-            }
-          }}
-        >
+              fontWeight: 600,
+              textTransform: 'none',
+            }}
+          >
+            Filters
+          </Button>
+        ) : (
+          <>
+            {/* Status Filter */}
+            <FormControl 
+              sx={{ 
+                minWidth: { xs: '100%', md: 180 },
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
+            >
           <InputLabel id="status-filter-label">Status</InputLabel>
           <Select
             labelId="status-filter-label"
@@ -742,7 +827,405 @@ export function AllServicesTab() {
             </MenuItem>
           </Select>
         </FormControl>
+          </>
+        )}
       </Box>
+
+      {/* Filter Modal for Mobile */}
+      <Dialog
+        open={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        disableEnforceFocus
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1, background: 'rgba(255,255,255,0.98)' }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', pb: 1.5 }}>Filters</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2.5, px: 4, overflow: 'visible' }}>
+          {/* Status Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-status-filter-label" shrink={true}>Status</InputLabel>
+            <Select
+              labelId="modal-status-filter-label"
+              value={statusFilter}
+              label="Status"
+              onChange={handleStatusChange}
+              startAdornment={
+                <InputAdornment position="start">
+                  <FilterList sx={{ fontSize: 20, ml: 0.5 }} />
+                </InputAdornment>
+              }
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  All Statuses
+                </Box>
+              </MenuItem>
+              <MenuItem value="placed" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('placed') 
+                  }} />
+                  Placed
+                </Box>
+              </MenuItem>
+              <MenuItem value="payment-required" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('payment-required') 
+                  }} />
+                  Payment Required
+                </Box>
+              </MenuItem>
+              <MenuItem value="in-progress" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('in-progress') 
+                  }} />
+                  In Progress
+                </Box>
+              </MenuItem>
+              <MenuItem value="download" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('download') 
+                  }} />
+                  Download
+                </Box>
+              </MenuItem>
+              <MenuItem value="completed" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('completed') 
+                  }} />
+                  Completed
+                </Box>
+              </MenuItem>
+              <MenuItem value="locked" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('locked') 
+                  }} />
+                  Locked
+                </Box>
+              </MenuItem>
+              <MenuItem value="canceled" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('canceled') 
+                  }} />
+                  Canceled
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Connected Creative Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-creative-filter-label" shrink={true}>Connected Creative</InputLabel>
+            <Select
+              labelId="modal-creative-filter-label"
+              value={creativeFilter}
+              label="Connected Creative"
+              onChange={handleCreativeChange}
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                All Creatives
+              </MenuItem>
+              {connectedCreatives.map((creative) => (
+                <MenuItem key={creative.id} value={creative.id} sx={{
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    transform: 'translateX(4px)',
+                    color: theme.palette.primary.main,
+                    backgroundColor: 'transparent !important',
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: 'transparent',
+                    fontWeight: 600,
+                  },
+                  '&.Mui-selected:hover': {
+                    backgroundColor: 'transparent !important',
+                  },
+                }}>
+                  {creative.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Date Range Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-date-filter-label" shrink={true}>Time Period</InputLabel>
+            <Select
+              labelId="modal-date-filter-label"
+              value={dateFilter}
+              label="Time Period"
+              onChange={handleDateChange}
+              startAdornment={
+                <InputAdornment position="start">
+                  <DateRange sx={{ fontSize: 20, ml: 0.5 }} />
+                </InputAdornment>
+              }
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                All Time
+              </MenuItem>
+              <MenuItem value="week" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Week
+              </MenuItem>
+              <MenuItem value="month" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Month
+              </MenuItem>
+              <MenuItem value="3months" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past 3 Months
+              </MenuItem>
+              <MenuItem value="6months" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past 6 Months
+              </MenuItem>
+              <MenuItem value="year" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Year
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFilterModalOpen(false)} variant="contained" color="primary" sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}>Apply</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Orders Content Area */}
       <Box sx={{ 
@@ -819,7 +1302,6 @@ export function AllServicesTab() {
         ) : (
           filteredOrders.map((order) => {
             const commonProps = {
-              key: order.id,
               id: order.id,
               serviceName: order.serviceName,
               creativeName: order.creativeName,
@@ -831,6 +1313,7 @@ export function AllServicesTab() {
             switch (order.status) {
               case 'placed':
                 return <PlacedOrderCard 
+                  key={order.id}
                   {...commonProps} 
                   calendarDate={order.calendarDate}
                   paymentOption={order.paymentOption}
@@ -838,10 +1321,12 @@ export function AllServicesTab() {
                   serviceDescription={order.serviceDescription}
                   serviceDeliveryTime={order.serviceDeliveryTime}
                   serviceColor={order.serviceColor}
+                  onOrderCanceled={handleRefreshOrders}
                 />;
               
               case 'payment-required':
                 return <PaymentApprovalOrderCard 
+                  key={order.id}
                   {...commonProps} 
                   calendarDate={order.calendarDate}
                   paymentOption={(order.paymentOption === 'split_payment' || order.paymentOption === 'payment_upfront') ? order.paymentOption : 'payment_upfront'}
@@ -864,6 +1349,7 @@ export function AllServicesTab() {
               case 'in-progress':
                 return (
                   <InProgressOrderCard
+                    key={order.id}
                     {...commonProps}
                     approvedDate={order.approvedDate}
                     calendarDate={order.calendarDate}
@@ -889,6 +1375,7 @@ export function AllServicesTab() {
               case 'locked':
                 return (
                   <LockedOrderCard
+                    key={order.id}
                     {...commonProps}
                     approvedDate={order.approvedDate}
                     completedDate={order.completedDate}
@@ -915,6 +1402,7 @@ export function AllServicesTab() {
               case 'download':
                 return (
                   <DownloadOrderCard
+                    key={order.id}
                     {...commonProps}
                     approvedDate={order.approvedDate}
                     completedDate={order.completedDate}
@@ -942,6 +1430,7 @@ export function AllServicesTab() {
               case 'completed':
                 return (
                   <CompletedOrderCard
+                    key={order.id}
                     {...commonProps}
                     approvedDate={order.approvedDate}
                     completedDate={order.completedDate}
@@ -969,6 +1458,7 @@ export function AllServicesTab() {
               case 'canceled':
                 return (
                   <CanceledOrderCard
+                    key={order.id}
                     {...commonProps}
                     canceledDate={(order as any).canceledDate}
                     paymentOption={order.paymentOption}

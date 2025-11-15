@@ -104,7 +104,7 @@ export function CompletedOrderCard({
     paymentOption,
     files,
     fileCount,
-    fileSize,
+    fileSize: fileSize ?? null,
     serviceId,
     serviceDescription,
     serviceDeliveryTime,

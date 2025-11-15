@@ -100,7 +100,7 @@ export interface ServiceFormData {
   title: string;
   description: string;
   price: string;
-  deliveryTime: string;
+  deliveryTime?: string;
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   photos: File[];
@@ -164,6 +164,7 @@ export function ServiceFormPopover({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  const [isDeliveryTimeEnabled, setIsDeliveryTimeEnabled] = useState(true);
   const [deliveryTime, setDeliveryTime] = useState<DeliveryTimeState>({
     minTime: '3',
     maxTime: '5',
@@ -216,13 +217,22 @@ export function ServiceFormPopover({
   const removeTimeBlock = (dayIndex: number, blockIndex: number) => {
     setWeeklySchedule((prev) => prev.map((schedule, idx) => {
       if (idx === dayIndex && schedule.timeBlocks.length > 1) {
+        const newTimeBlocks = schedule.timeBlocks.filter((_, bIdx) => bIdx !== blockIndex);
+        // Regenerate time slots based on remaining time blocks
+        const newTimeSlots = useTimeSlots && schedule.enabled
+          ? generateTimeSlots(newTimeBlocks, parseInt(defaultSessionLength))
+          : schedule.timeSlots;
+        
         return {
           ...schedule,
-          timeBlocks: schedule.timeBlocks.filter((_, bIdx) => bIdx !== blockIndex)
+          timeBlocks: newTimeBlocks,
+          timeSlots: newTimeSlots
         };
       }
       return schedule;
     }));
+    // Reset the flag when time blocks are removed so time slots can be regenerated
+    setTimeSlotsLoadedFromBackend(false);
   };
 
   const toggleDay = (dayIndex: number, enabled: boolean) => {
@@ -257,6 +267,38 @@ export function ServiceFormPopover({
       }
     }
     return true;
+  };
+
+  // Validate all time blocks across all enabled days
+  const validateAllTimeBlocks = (): { isValid: boolean; errorMessage?: string } => {
+    if (!isSchedulingEnabled) {
+      return { isValid: true };
+    }
+
+    // Check each enabled day
+    for (const daySchedule of weeklySchedule) {
+      if (!daySchedule.enabled) continue;
+
+      // Check for invalid time blocks (start >= end)
+      for (const timeBlock of daySchedule.timeBlocks) {
+        if (timeBlock.start >= timeBlock.end) {
+          return {
+            isValid: false,
+            errorMessage: `Invalid time block on ${daySchedule.day}: end time must be greater than start time`
+          };
+        }
+      }
+
+      // Check for overlapping time blocks
+      if (!validateTimeBlocks(daySchedule.timeBlocks)) {
+        return {
+          isValid: false,
+          errorMessage: `Overlapping time blocks found on ${daySchedule.day}. Please fix the time ranges.`
+        };
+      }
+    }
+
+    return { isValid: true };
   };
 
   // Enhanced updateTimeBlock with validation
@@ -338,6 +380,15 @@ export function ServiceFormPopover({
 
   // Step navigation functions
   const handleNext = () => {
+    // Validate time blocks before proceeding from Calendar Scheduling step (step 3)
+    if (activeStep === 3 && isSchedulingEnabled) {
+      const validation = validateAllTimeBlocks();
+      if (!validation.isValid) {
+        errorToast(validation.errorMessage || 'Please fix invalid time blocks before proceeding');
+        return;
+      }
+    }
+
     if (activeStep < steps.length - 1) {
       setActiveStep(prev => prev + 1);
       // Reset scroll position to top when moving to next step
@@ -483,15 +534,26 @@ export function ServiceFormPopover({
       case 0:
         return formData.title.trim().length > 0 && formData.description.trim().length > 0;
       case 1:
-        return formData.price.trim().length > 0 && !isNaN(parseFloat(formData.price)) && parseFloat(formData.price) >= 0;
+        const priceValid = formData.price.trim().length > 0 && !isNaN(parseFloat(formData.price)) && parseFloat(formData.price) >= 0;
+        // If delivery time is enabled, validate that min <= max
+        if (isDeliveryTimeEnabled) {
+          const deliveryTimeValid = validateDeliveryTime(deliveryTime);
+          return priceValid && deliveryTimeValid;
+        }
+        return priceValid;
       case 2:
         // If photos are uploaded, a primary photo must be selected
         return (formData.photos.length + formData.existingPhotos.length) === 0 || formData.primaryPhotoIndex >= 0;
       case 3:
-        // If calendar scheduling is enabled, require at least one weekly schedule event
+        // If calendar scheduling is enabled, require at least one weekly schedule event and valid time blocks
         if (isSchedulingEnabled) {
           const hasEnabledDay = weeklySchedule.some(day => day.enabled);
-          return hasEnabledDay;
+          if (!hasEnabledDay) {
+            return false;
+          }
+          // Validate all time blocks are valid (end > start and no overlaps)
+          const validation = validateAllTimeBlocks();
+          return validation.isValid;
         }
         return true; // Calendar scheduling is optional
       case 4:
@@ -519,13 +581,36 @@ export function ServiceFormPopover({
     return `${delivery.minTime}-${delivery.maxTime} ${unit.plural}`;
   };
 
+  const validateDeliveryTime = (delivery: DeliveryTimeState): boolean => {
+    const min = parseInt(delivery.minTime);
+    const max = parseInt(delivery.maxTime);
+    return !isNaN(min) && !isNaN(max) && min > 0 && max > 0 && min <= max;
+  };
+
   const handleDeliveryTimeChange = (field: keyof DeliveryTimeState, value: string) => {
     const newDeliveryTime = { ...deliveryTime, [field]: value };
     setDeliveryTime(newDeliveryTime);
 
-    // Update the form data with formatted delivery time
-    const formattedTime = formatDeliveryTime(newDeliveryTime);
-    setFormData(prev => ({ ...prev, deliveryTime: formattedTime }));
+    // Update the form data with formatted delivery time only if enabled
+    if (isDeliveryTimeEnabled) {
+      const formattedTime = formatDeliveryTime(newDeliveryTime);
+      setFormData(prev => ({ ...prev, deliveryTime: formattedTime }));
+    }
+  };
+
+  const handleDeliveryTimeToggle = (enabled: boolean) => {
+    setIsDeliveryTimeEnabled(enabled);
+    if (enabled) {
+      // If enabling, format and set delivery time
+      const formattedTime = formatDeliveryTime(deliveryTime);
+      setFormData(prev => ({ ...prev, deliveryTime: formattedTime }));
+    } else {
+      // If disabling, remove delivery time
+      setFormData(prev => {
+        const { deliveryTime, ...rest } = prev;
+        return rest as ServiceFormData;
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -541,7 +626,7 @@ export function ServiceFormPopover({
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
-        delivery_time: formData.deliveryTime,
+        delivery_time: isDeliveryTimeEnabled && formData.deliveryTime ? formData.deliveryTime : '',
         status: formData.status as 'Public' | 'Private' | 'Bundle-Only',
         color: formData.color,
         payment_option: formData.paymentOption
@@ -581,7 +666,7 @@ export function ServiceFormPopover({
       
       const response = mode === 'edit' && initialService
         ? (hasNewPhotos || hasModifiedExistingPhotos)
-          ? await userService.updateServiceWithPhotos(initialService.id, serviceData, formData.photos, (progress) => {
+          ? await userService.updateServiceWithPhotos(initialService.id, serviceData, formData.photos, formData.existingPhotos, (progress) => {
               setUploadProgress(progress);
             })
           : await userService.updateService(initialService.id, serviceData)
@@ -621,11 +706,13 @@ export function ServiceFormPopover({
         const primaryPhotoIndex = existingPhotos.findIndex(photo => photo.is_primary);
         
         // Prefill from service
+        const hasDeliveryTime = initialService.delivery_time && initialService.delivery_time.trim().length > 0;
+        setIsDeliveryTimeEnabled(hasDeliveryTime);
         setFormData({
           title: initialService.title,
           description: initialService.description,
           price: String(initialService.price.toFixed ? initialService.price.toFixed(2) : initialService.price),
-          deliveryTime: initialService.delivery_time,
+          deliveryTime: hasDeliveryTime ? initialService.delivery_time : undefined,
           status: initialService.status,
           color: initialService.color,
           photos: [], // New photos to upload
@@ -634,12 +721,16 @@ export function ServiceFormPopover({
           paymentOption: initialService.payment_option || 'later' // Use existing or default to later
         });
         // Attempt to parse delivery_time like "3-5 days" or "3 days"
-        const match = initialService.delivery_time.match(/(\d+)(?:-(\d+))?\s*(day|week|month)s?/i);
-        if (match) {
-          const minVal = match[1];
-          const maxVal = match[2] || match[1];
-          const unit = match[3].toLowerCase();
-          setDeliveryTime({ minTime: minVal, maxTime: maxVal, unit });
+        if (hasDeliveryTime) {
+          const match = initialService.delivery_time.match(/(\d+)(?:-(\d+))?\s*(day|week|month)s?/i);
+          if (match) {
+            const minVal = match[1];
+            const maxVal = match[2] || match[1];
+            const unit = match[3].toLowerCase();
+            setDeliveryTime({ minTime: minVal, maxTime: maxVal, unit });
+          } else {
+            setDeliveryTime({ minTime: '3', maxTime: '5', unit: 'day' });
+          }
         } else {
           setDeliveryTime({ minTime: '3', maxTime: '5', unit: 'day' });
         }
@@ -715,6 +806,7 @@ export function ServiceFormPopover({
       } else {
         // Reset form data for create mode
         setTimeSlotsLoadedFromBackend(false);
+        setIsDeliveryTimeEnabled(true);
         setFormData({
           title: '',
           description: '',
@@ -763,8 +855,10 @@ export function ServiceFormPopover({
 
   // Initialize delivery time on component mount
   useEffect(() => {
-    const formattedTime = formatDeliveryTime(deliveryTime);
-    setFormData(prev => ({ ...prev, deliveryTime: formattedTime }));
+    if (isDeliveryTimeEnabled) {
+      const formattedTime = formatDeliveryTime(deliveryTime);
+      setFormData(prev => ({ ...prev, deliveryTime: formattedTime }));
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ensure default session length matches session duration
@@ -984,69 +1078,102 @@ export function ServiceFormPopover({
             )}
 
             <Box>
-              <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-                Estimated Delivery Time
-              </Typography>
-
-              <Box sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                flexWrap: 'wrap',
-                mb: 2
-              }}>
-                <TextField
-                  label="Min Time"
-                  value={deliveryTime.minTime}
-                  onChange={(e) => handleDeliveryTimeChange('minTime', e.target.value)}
-                  type="number"
-                  inputProps={{ min: 1, max: 365 }}
-                  sx={{ width: 100 }}
-                  size="small"
-                />
-
-                <Typography variant="body1" sx={{ color: 'text.secondary', mx: 0.5 }}>
-                  to
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  Estimated Delivery Time
                 </Typography>
-
-                <TextField
-                  label="Max Time"
-                  value={deliveryTime.maxTime}
-                  onChange={(e) => handleDeliveryTimeChange('maxTime', e.target.value)}
-                  type="number"
-                  inputProps={{ min: parseInt(deliveryTime.minTime) || 1, max: 365 }}
-                  sx={{ width: 100 }}
-                  size="small"
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={isDeliveryTimeEnabled}
+                      onChange={(e) => handleDeliveryTimeToggle(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={isDeliveryTimeEnabled ? 'Enabled' : 'Optional'}
                 />
-
-                <FormControl size="small" sx={{ minWidth: 120 }}>
-                  <Select
-                    value={deliveryTime.unit}
-                    onChange={(e) => handleDeliveryTimeChange('unit', e.target.value)}
-                  >
-                    {timeUnits.map((unit) => (
-                      <MenuItem key={unit.value} value={unit.value}>
-                        {unit.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
               </Box>
 
-              {/* Preview */}
-              <Box sx={{
-                p: 2.5,
-                borderRadius: 2,
-                backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                border: '1px solid rgba(59, 130, 246, 0.1)'
-              }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  Preview:
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                  {formatDeliveryTime(deliveryTime)} delivery
-                </Typography>
-              </Box>
+              {isDeliveryTimeEnabled && (
+                <>
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    flexWrap: 'wrap',
+                    mb: 2
+                  }}>
+                    <TextField
+                      label="Min Time"
+                      value={deliveryTime.minTime}
+                      onChange={(e) => handleDeliveryTimeChange('minTime', e.target.value)}
+                      type="number"
+                      inputProps={{ min: 1, max: 365 }}
+                      sx={{ width: 100 }}
+                      size="small"
+                      error={!validateDeliveryTime(deliveryTime) && parseInt(deliveryTime.minTime) > parseInt(deliveryTime.maxTime)}
+                      helperText={!validateDeliveryTime(deliveryTime) && parseInt(deliveryTime.minTime) > parseInt(deliveryTime.maxTime) ? 'Min must be ≤ Max' : ''}
+                    />
+
+                    <Typography variant="body1" sx={{ color: 'text.secondary', mx: 0.5 }}>
+                      to
+                    </Typography>
+
+                    <TextField
+                      label="Max Time"
+                      value={deliveryTime.maxTime}
+                      onChange={(e) => handleDeliveryTimeChange('maxTime', e.target.value)}
+                      type="number"
+                      inputProps={{ min: parseInt(deliveryTime.minTime) || 1, max: 365 }}
+                      sx={{ width: 100 }}
+                      size="small"
+                      error={!validateDeliveryTime(deliveryTime) && parseInt(deliveryTime.minTime) > parseInt(deliveryTime.maxTime)}
+                      helperText={!validateDeliveryTime(deliveryTime) && parseInt(deliveryTime.minTime) > parseInt(deliveryTime.maxTime) ? 'Max must be ≥ Min' : ''}
+                    />
+
+                    <FormControl size="small" sx={{ minWidth: 120 }}>
+                      <Select
+                        value={deliveryTime.unit}
+                        onChange={(e) => handleDeliveryTimeChange('unit', e.target.value)}
+                      >
+                        {timeUnits.map((unit) => (
+                          <MenuItem key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+
+                  {/* Validation Error */}
+                  {!validateDeliveryTime(deliveryTime) && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      Minimum time must be less than or equal to maximum time. Please adjust the values.
+                    </Alert>
+                  )}
+
+                  {/* Preview */}
+                  <Box sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                    border: '1px solid rgba(59, 130, 246, 0.1)'
+                  }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Preview:
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                      {formatDeliveryTime(deliveryTime)} delivery
+                    </Typography>
+                  </Box>
+                </>
+              )}
+
+              {!isDeliveryTimeEnabled && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Delivery time is optional. You can enable it above if you want to specify an estimated delivery time for this service.
+                </Alert>
+              )}
             </Box>
           </Box>
         );
@@ -1299,8 +1426,8 @@ export function ServiceFormPopover({
 
       case 3:
         return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Alert severity="info" sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Alert severity="info" sx={{ mb: 1 }}>
               Configure calendar scheduling options. This is optional but allows clients to book sessions directly.
             </Alert>
 
@@ -1309,7 +1436,7 @@ export function ServiceFormPopover({
               borderRadius: 2,
               backgroundColor: '#f8f9fa',
               border: '1px solid rgba(0,0,0,0.06)',
-              mb: 3
+              mb: 1.5
             }}>
               <FormControlLabel
                 control={
@@ -1334,14 +1461,14 @@ export function ServiceFormPopover({
             </Box>
 
             {isSchedulingEnabled && (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {/* Time Slot Mode Info */}
                 <Box sx={{
                   p: 2.5,
                   borderRadius: 2,
                   backgroundColor: '#f0f8ff',
                   border: '1px solid rgba(59, 130, 246, 0.2)',
-                  mb: 1
+                  mb: 0.5
                 }}>
                   <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main' }}>
@@ -2111,7 +2238,7 @@ export function ServiceFormPopover({
                   title={formData.title || 'Service Title'}
                   description={formData.description || 'Service description will appear here...'}
                   price={parseFloat(formData.price) || 0}
-                  delivery={formatDeliveryTime(deliveryTime)}
+                  delivery={isDeliveryTimeEnabled && formData.deliveryTime ? formData.deliveryTime : 'Not specified'}
                   status={formData.status}
                   creative="You"
                   color={formData.color}

@@ -8,15 +8,41 @@ import {
   Select, 
   MenuItem, 
   useTheme,
+  useMediaQuery,
   Button,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { Search, DateRange, ShoppingBag, FilterList } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PaymentApprovalOrderCard } from '../../../components/cards/client/PaymentApprovalOrderCard';
 import { LockedOrderCard } from '../../../components/cards/client/LockedOrderCard';
 import { DownloadOrderCard } from '../../../components/cards/client/DownloadOrderCard';
+import { bookingService, type Order } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
+
+// Module-level cache to prevent duplicate fetches across remounts
+// This persists across StrictMode remounts to prevent duplicate API calls
+let fetchCache: {
+  promise: Promise<Order[]> | null;
+  data: Order[] | null;
+  isFetching: boolean;
+  timestamp: number;
+  resolved: boolean;
+} = {
+  promise: null,
+  data: null,
+  isFetching: false,
+  timestamp: 0,
+  resolved: false,
+};
+
+const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remounts
 
 // Helper function to get status color
 const getStatusColor = (status: string) => {
@@ -32,19 +58,194 @@ const getStatusColor = (status: string) => {
   }
 };
 
-// Connected creatives - will be populated from API
-const connectedCreatives: Array<{ id: string; name: string }> = [];
-
-// Order data - will be populated from API (filtered to only action-needed orders)
-const actionNeededOrders: Array<any> = [];
+// Helper function to transform orders
+function transformOrders(fetchedOrders: Order[]) {
+  return fetchedOrders.map((order: Order) => ({
+    id: order.id,
+    serviceName: order.service_name,
+    creativeName: order.creative_name,
+    orderDate: order.order_date,
+    description: order.description || order.service_description || '',
+    price: order.price,
+    calendarDate: order.booking_date || null,
+    canceledDate: order.canceled_date,
+    approvedDate: order.approved_at || null,
+    paymentOption: order.price === 0 || order.price === null ? 'free' :
+                   order.payment_option === 'upfront' ? 'payment_upfront' : 
+                   order.payment_option === 'split' ? 'split_payment' : 'payment_later',
+    status: order.status === 'placed' ? 'placed' :
+            order.status === 'payment_required' ? 'payment-required' :
+            order.status === 'in_progress' ? 'in-progress' :
+            order.status === 'locked' ? 'locked' :
+            order.status === 'download' ? 'download' :
+            order.status === 'completed' ? 'completed' :
+            order.status === 'canceled' ? 'canceled' : 'placed',
+    serviceId: order.service_id,
+    serviceDescription: order.service_description,
+    serviceDeliveryTime: order.service_delivery_time,
+    serviceColor: order.service_color,
+    creativeAvatarUrl: order.creative_avatar_url,
+    creativeDisplayName: order.creative_display_name,
+    creativeTitle: order.creative_title,
+    creativeId: order.creative_id,
+    creativeEmail: order.creative_email,
+    creativeRating: order.creative_rating,
+    creativeReviewCount: order.creative_review_count,
+    creativeServicesCount: order.creative_services_count,
+    creativeColor: order.creative_color,
+  }));
+}
 
 export function ActionNeededTab() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCreative, setSelectedCreative] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [orders, setOrders] = useState<Array<any>>([]);
+  const [loading, setLoading] = useState(true);
+  const [connectedCreatives, setConnectedCreatives] = useState<Array<{ id: string; name: string }>>([]);
+  const mountedRef = useRef(true);
+
+  // Fetch orders on mount - only once
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    // Don't fetch orders if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setOrders([]);
+        setConnectedCreatives([]);
+        setLoading(false);
+      }
+      return;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - fetchCache.timestamp;
+    
+    // Helper function to set action-needed orders (backend already filters)
+    const setActionNeededOrders = (transformedOrders: any[]) => {
+      if (mountedRef.current) {
+        setOrders(transformedOrders);
+
+        // Extract unique creatives from action-needed orders
+        const creatives = Array.from(
+          new Map(
+            transformedOrders.map(order => [
+              order.creativeId,
+              { id: order.creativeId, name: order.creativeName }
+            ])
+          ).values()
+        );
+        setConnectedCreatives(creatives);
+      }
+    };
+    
+    // Check if we have cached data that's still fresh
+    if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
+      // Use cached data directly (fastest path)
+      if (mountedRef.current) {
+        const transformedOrders = transformOrders(fetchCache.data);
+        setActionNeededOrders(transformedOrders);
+        setLoading(false);
+      }
+      return;
+    }
+    
+    // Check if a promise already exists - reuse it immediately
+    // This must be checked BEFORE creating a new one to prevent race conditions
+    if (fetchCache.promise) {
+      // Reuse existing promise (handles StrictMode remounts)
+      setLoading(true);
+      fetchCache.promise.then(fetchedOrders => {
+        if (!mountedRef.current) return;
+        const transformedOrders = transformOrders(fetchedOrders);
+        setActionNeededOrders(transformedOrders);
+        setLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch orders:', error);
+        setLoading(false);
+      });
+      return;
+    }
+    
+    // No promise exists - create one
+    // This should only execute for the first mount
+    // Set flags BEFORE creating promise to prevent race conditions
+    fetchCache.isFetching = true;
+    fetchCache.resolved = false;
+    fetchCache.timestamp = now;
+    
+        // Create promise synchronously - assign immediately
+        const fetchOrders = async () => {
+      try {
+        const fetchedOrders = await bookingService.getClientActionNeededOrders();
+        
+        // Transform orders to match expected format
+        const transformedOrders = transformOrders(fetchedOrders);
+        
+        if (mountedRef.current) {
+          setActionNeededOrders(transformedOrders);
+          setLoading(false);
+        }
+        
+        // Cache the resolved data
+        fetchCache.data = fetchedOrders;
+        fetchCache.isFetching = false;
+        fetchCache.resolved = true;
+        // Keep the data and promise in cache for CACHE_DURATION to handle remounts
+        setTimeout(() => {
+          const now = Date.now();
+          if (now - fetchCache.timestamp >= CACHE_DURATION) {
+            fetchCache.promise = null;
+            fetchCache.data = null;
+            fetchCache.resolved = false;
+          }
+        }, CACHE_DURATION);
+        return fetchedOrders;
+      } catch (error) {
+        console.error('Failed to fetch orders:', error);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
+        fetchCache.isFetching = false;
+        // Clear cache on error
+        fetchCache.promise = null;
+        throw error;
+      }
+    };
+
+    // Assign promise synchronously - this happens immediately
+    // This must happen synchronously so subsequent mounts see it
+    fetchCache.promise = fetchOrders();
+    fetchCache.promise.catch(() => {
+      // Error already handled in fetchOrders
+    });
+    
+    // Set loading and attach promise handler
+    setLoading(true);
+    fetchCache.promise.then(fetchedOrders => {
+      if (!mountedRef.current) return;
+      const transformedOrders = transformOrders(fetchedOrders);
+      setActionNeededOrders(transformedOrders);
+      setLoading(false);
+    }).catch(error => {
+      if (!mountedRef.current) return;
+      console.error('Failed to fetch orders:', error);
+      setLoading(false);
+    });
+
+    // Cleanup function
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isAuthenticated]);
 
   const handleCreativeChange = (event: SelectChangeEvent) => {
     setSelectedCreative(event.target.value);
@@ -59,7 +260,7 @@ export function ActionNeededTab() {
   };
 
   // Filter and sort logic
-  let filteredOrders = [...actionNeededOrders];
+  let filteredOrders = [...orders];
 
   // Apply search filter
   if (searchQuery) {
@@ -72,7 +273,7 @@ export function ActionNeededTab() {
 
   // Apply creative filter
   if (selectedCreative !== 'all') {
-    filteredOrders = filteredOrders.filter(order => order.creativeName === selectedCreative);
+    filteredOrders = filteredOrders.filter(order => order.creativeId === selectedCreative);
   }
 
   // Apply status filter
@@ -140,15 +341,34 @@ export function ActionNeededTab() {
           }}
         />
 
-        {/* Connected Creative Filter */}
-        <FormControl 
-          sx={{ 
-            minWidth: { xs: '100%', md: 200 },
-            '& .MuiOutlinedInput-root': {
+        {isMobile ? (
+          <Button
+            variant="outlined"
+            startIcon={<FilterList />}
+            onClick={() => setFilterModalOpen(true)}
+            sx={{ 
+              width: '100%',
+              minWidth: 0,
+              py: 1,
+              px: 2,
               borderRadius: 2,
-            }
-          }}
-        >
+              fontWeight: 600,
+              textTransform: 'none',
+            }}
+          >
+            Filters
+          </Button>
+        ) : (
+          <>
+            {/* Connected Creative Filter */}
+            <FormControl 
+              sx={{ 
+                minWidth: { xs: '100%', md: 200 },
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                }
+              }}
+            >
           <InputLabel id="creative-filter-label">Connected Creative</InputLabel>
           <Select
             labelId="creative-filter-label"
@@ -175,7 +395,7 @@ export function ActionNeededTab() {
               All Creatives
             </MenuItem>
             {connectedCreatives.map((creative) => (
-              <MenuItem key={creative.id} value={creative.name} sx={{
+              <MenuItem key={creative.id} value={creative.id} sx={{
                 transition: 'all 0.2s ease',
                 '&:hover': {
                   transform: 'translateX(4px)',
@@ -441,7 +661,305 @@ export function ActionNeededTab() {
             </MenuItem>
           </Select>
         </FormControl>
+          </>
+        )}
       </Box>
+
+      {/* Filter Modal for Mobile */}
+      <Dialog
+        open={filterModalOpen}
+        onClose={() => setFilterModalOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        disableEnforceFocus
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1, background: 'rgba(255,255,255,0.98)' }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1.1rem', pb: 1.5 }}>Filters</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2.5, px: 4, overflow: 'visible' }}>
+          {/* Connected Creative Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-creative-filter-label" shrink={true}>Connected Creative</InputLabel>
+            <Select
+              labelId="modal-creative-filter-label"
+              value={selectedCreative}
+              label="Connected Creative"
+              onChange={handleCreativeChange}
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                All Creatives
+              </MenuItem>
+              {connectedCreatives.map((creative) => (
+                <MenuItem key={creative.id} value={creative.id} sx={{
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    transform: 'translateX(4px)',
+                    color: theme.palette.primary.main,
+                    backgroundColor: 'transparent !important',
+                  },
+                  '&.Mui-selected': {
+                    backgroundColor: 'transparent',
+                    fontWeight: 600,
+                  },
+                  '&.Mui-selected:hover': {
+                    backgroundColor: 'transparent !important',
+                  },
+                }}>
+                  {creative.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Date Range Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-date-filter-label" shrink={true}>Time Period</InputLabel>
+            <Select
+              labelId="modal-date-filter-label"
+              value={dateFilter}
+              label="Time Period"
+              onChange={handleDateFilterChange}
+              startAdornment={
+                <InputAdornment position="start">
+                  <DateRange sx={{ fontSize: 20, ml: 0.5 }} />
+                </InputAdornment>
+              }
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                All Time
+              </MenuItem>
+              <MenuItem value="week" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Week
+              </MenuItem>
+              <MenuItem value="month" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Month
+              </MenuItem>
+              <MenuItem value="3months" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past 3 Months
+              </MenuItem>
+              <MenuItem value="6months" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past 6 Months
+              </MenuItem>
+              <MenuItem value="year" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                Past Year
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Status Filter */}
+          <FormControl size="small" fullWidth sx={{ minWidth: 0 }} margin="dense">
+            <InputLabel id="modal-status-filter-label" shrink={true}>Status</InputLabel>
+            <Select
+              labelId="modal-status-filter-label"
+              value={statusFilter}
+              label="Status"
+              onChange={handleStatusChange}
+              startAdornment={
+                <InputAdornment position="start">
+                  <FilterList sx={{ fontSize: 20, ml: 0.5 }} />
+                </InputAdornment>
+              }
+            >
+              <MenuItem value="all" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  All Statuses
+                </Box>
+              </MenuItem>
+              <MenuItem value="payment-required" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('payment-required') 
+                  }} />
+                  Payment Required
+                </Box>
+              </MenuItem>
+              <MenuItem value="locked" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('locked') 
+                  }} />
+                  Locked
+                </Box>
+              </MenuItem>
+              <MenuItem value="download" sx={{
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: theme.palette.primary.main,
+                  backgroundColor: 'transparent !important',
+                },
+                '&.Mui-selected': {
+                  backgroundColor: 'transparent',
+                  fontWeight: 600,
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ 
+                    width: 8, 
+                    height: 8, 
+                    borderRadius: '50%', 
+                    bgcolor: getStatusColor('download') 
+                  }} />
+                  Download
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFilterModalOpen(false)} variant="contained" color="primary" sx={{ borderRadius: 2, fontWeight: 700, px: 3 }}>Apply</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Orders List */}
       <Box sx={{ 
@@ -464,7 +982,11 @@ export function ActionNeededTab() {
           },
         },
       }}>
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : filteredOrders.length === 0 ? (
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -510,7 +1032,6 @@ export function ActionNeededTab() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 3 }}>
             {filteredOrders.map((order) => {
               const commonProps = {
-                key: order.id,
                 id: order.id,
                 serviceName: order.serviceName,
                 creativeName: order.creativeName,
@@ -521,13 +1042,31 @@ export function ActionNeededTab() {
 
               switch (order.status) {
                 case 'payment-required':
+                  // Calculate deposit and remaining amounts based on payment option
+                  const calculatePaymentAmounts = (paymentOption: string, price: number) => {
+                    if (price === 0 || paymentOption === 'free') {
+                      return { depositAmount: 0, remainingAmount: 0 };
+                    }
+                    if (paymentOption === 'split_payment') {
+                      const depositAmount = Math.round(price * 0.5 * 100) / 100;
+                      return { depositAmount, remainingAmount: price - depositAmount };
+                    }
+                    if (paymentOption === 'payment_upfront') {
+                      return { depositAmount: price, remainingAmount: 0 };
+                    }
+                    // payment_later
+                    return { depositAmount: 0, remainingAmount: price };
+                  };
+                  const paymentAmounts = calculatePaymentAmounts(order.paymentOption, order.price);
+                  
                   return (
                     <PaymentApprovalOrderCard
+                      key={order.id}
                       {...commonProps}
                       calendarDate={order.calendarDate}
                       paymentOption={(order.paymentOption === 'split_payment' || order.paymentOption === 'payment_upfront') ? order.paymentOption : 'payment_upfront'}
-                      depositAmount={order.depositAmount}
-                      remainingAmount={order.remainingAmount}
+                      depositAmount={paymentAmounts.depositAmount}
+                      remainingAmount={paymentAmounts.remainingAmount}
                       serviceId={order.serviceId}
                       serviceDescription={order.serviceDescription}
                       serviceDeliveryTime={order.serviceDeliveryTime}
@@ -547,6 +1086,7 @@ export function ActionNeededTab() {
                 case 'locked':
                   return (
                     <LockedOrderCard
+                      key={order.id}
                       {...commonProps}
                       approvedDate={order.approvedDate}
                       completedDate={order.completedDate}
@@ -573,6 +1113,7 @@ export function ActionNeededTab() {
                 case 'download':
                   return (
                     <DownloadOrderCard
+                      key={order.id}
                       {...commonProps}
                       approvedDate={order.approvedDate}
                       completedDate={order.completedDate}

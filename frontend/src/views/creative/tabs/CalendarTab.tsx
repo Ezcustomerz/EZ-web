@@ -4,7 +4,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, isToday, parse } from 'date-fns';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Fade, Stack } from '@mui/material';
 import { orange, grey } from '@mui/material/colors';
 import { Fab, Menu as MuiMenu, MenuItem as MuiMenuItem } from '@mui/material';
@@ -12,17 +12,11 @@ import { HeadsetMic, MoreVert } from '@mui/icons-material';
 import { CalendarDaySessionListPopover } from '../../../components/popovers/creative/CalendarDaySessionListPopover';
 import { CalendarSessionDetailPopover } from '../../../components/popovers/creative/CalendarSessionDetailPopover';
 import { CalendarDayCard } from '../../../components/cards/creative/CalendarDayCard';
+import { bookingService } from '../../../api/bookingService';
+import type { CalendarSession } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 
-interface Session {
-  id: string;
-  date: string; // ISO date string (yyyy-MM-dd)
-  time: string; // start time (e.g., '09:00')
-  endTime: string; // end time (e.g., '10:00')
-  client: string;
-  type: string;
-  status: 'confirmed' | 'pending' | 'cancelled';
-  notes?: string;
-}
+type Session = CalendarSession;
 
 const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -40,242 +34,52 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
   const isIPadMini = useMediaQuery('(min-height: 1024px) and (max-width: 1024px)');
   const isIPadAir = useMediaQuery('(min-height: 1180px) and (max-width: 1180px)');
   const isIPadPro = useMediaQuery('(min-height: 1366px) and (max-width: 1366px)');
+  const { isAuthenticated } = useAuth();
   
   // Determine max sessions to show based on screen height and width
   const maxSessionsToShow = isMobile ? 2 : isIPadPro ? 9 : isIPadAir ? 8 : isIPadMini ? 6 : isTallScreen ? 4 : 2;
   const [currentMonth, setCurrentMonth] = useState(new Date()); // for desktop
   const [mobileStartOfWeek, setMobileStartOfWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
-  const [sessions] = useState<Session[]>([
-    {
-      id: '1',
-      date: '2025-07-15',
-      time: '09:00',
-      endTime: '11:00',
-      client: 'John Smith',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Studio A - Bring your own headphones'
-    },
-    {
-      id: '2',
-      date: '2025-07-15',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Sarah Johnson',
-      type: 'Mixing',
-      status: 'pending',
-      notes: 'Mix review session'
-    },
-    {
-      id: '3',
-      date: '2025-07-18',
-      time: '10:00',
-      endTime: '12:00',
-      client: 'Mike Davis',
-      type: 'Mastering',
-      status: 'confirmed'
-    },
-    {
-      id: '4',
-      date: '2025-07-20',
-      time: '13:00',
-      endTime: '15:00',
-      client: 'Emma Wilson',
-      type: 'Consultation',
-      status: 'confirmed',
-      notes: 'Project planning meeting'
-    },
-    {
-      id: '5',
-      date: '2025-07-22',
-      time: '16:00',
-      endTime: '18:00',
-      client: 'Alex Brown',
-      type: 'Recording',
-      status: 'cancelled'
-    },
-    {
-      id: '6',
-      date: '2025-07-25',
-      time: '11:00',
-      endTime: '13:00',
-      client: 'Lisa Chen',
-      type: 'Mixing',
-      status: 'confirmed'
-    },
-    {
-      id: '7',
-      date: '2025-07-25',
-      time: '15:00',
-      endTime: '17:00',
-      client: 'Tom Anderson',
-      type: 'Recording',
-      status: 'pending'
-    },
-    {
-      id: '8',
-      date: '2025-07-25',
-      time: '19:00',
-      endTime: '21:00',
-      client: 'Rachel Green',
-      type: 'Mastering',
-      status: 'confirmed'
-    },
-    {
-      id: '9',
-      date: '2025-07-28',
-      time: '09:00',
-      endTime: '11:00',
-      client: 'David Lee',
-      type: 'Consultation',
-      status: 'confirmed'
-    },
-    {
-      id: '10',
-      date: '2025-07-30',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '11',
-      date: '2025-07-30',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '12',
-      date: '2025-07-25',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '13',
-      date: '2025-07-25',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '14',
-      date: '2025-07-25',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '15',
-      date: '2025-07-25',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '16',
-      date: '2025-07-25',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '17',
-      date: '2025-07-25',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '18',
-      date: '2025-07-25',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '19',
-      date: '2025-07-20',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '20',
-      date: '2025-07-20',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '21',
-      date: '2025-07-20',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '22',
-      date: '2025-07-22',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-    {
-      id: '23',
-      date: '2025-07-22',
-      time: '14:00',
-      endTime: '16:00',
-      client: 'Maria Garcia',
-      type: 'Recording',
-      status: 'confirmed',
-      notes: 'Vocal recording session'
-    },
-  ]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [fabMenuAnchor, setFabMenuAnchor] = useState<null | HTMLElement>(null);
   const handleFabMenuOpen = (e: React.MouseEvent<HTMLElement>) => setFabMenuAnchor(e.currentTarget);
   const handleFabMenuClose = () => setFabMenuAnchor(null);
+
+  // Fetch sessions when month changes (desktop) or week changes (mobile)
+  useEffect(() => {
+    // Don't fetch calendar sessions if user is not authenticated
+    if (!isAuthenticated) {
+      setSessions([]);
+      return;
+    }
+
+    const fetchSessions = async () => {
+      try {
+        if (isMobile) {
+          // Mobile view: fetch sessions for the current week using week endpoint
+          const weekEnd = addDays(mobileStartOfWeek, 6);
+          const startDateStr = format(mobileStartOfWeek, 'yyyy-MM-dd');
+          const endDateStr = format(weekEnd, 'yyyy-MM-dd');
+          
+          const fetchedSessions = await bookingService.getCreativeCalendarSessionsWeek(startDateStr, endDateStr);
+          setSessions(fetchedSessions);
+        } else {
+          // Desktop view: fetch sessions for the current month
+          const year = currentMonth.getFullYear();
+          const month = currentMonth.getMonth() + 1; // JavaScript months are 0-indexed
+          const fetchedSessions = await bookingService.getCreativeCalendarSessions(year, month);
+          setSessions(fetchedSessions);
+        }
+      } catch (error) {
+        console.error('Error fetching calendar sessions:', error);
+        setSessions([]);
+      }
+    };
+
+    fetchSessions();
+  }, [currentMonth, mobileStartOfWeek, isMobile, isAuthenticated]);
 
   // Month navigation
   const [monthTransition, setMonthTransition] = useState<'left' | 'right' | null>(null);

@@ -410,11 +410,14 @@ export function ConnectedServicesTab() {
   return (
         <Box sx={{
           height: '100vh',
-          overflow: 'auto', // Changed from 'hidden' to 'auto' to allow scrolling and hover effects
+          overflowY: 'auto',
+          overflowX: 'hidden',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
           py: 1,
+          width: '100%',
+          maxWidth: '100%',
         }}>
       {/* Search and Filter Bar */}
       <Box
@@ -863,7 +866,8 @@ export function ConnectedServicesTab() {
           alignItems: 'stretch',
           minHeight: 0,
           width: '100%',
-          overflow: 'visible', 
+          maxWidth: '100%',
+          boxSizing: 'border-box',
           '@keyframes fadeInCard': {
             '0%': {
               opacity: 0,
@@ -881,6 +885,11 @@ export function ConnectedServicesTab() {
               sx={{
                 animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${index * 0.1}s both`,
                 pb: 1,
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                overflow: 'visible',
+                boxSizing: 'border-box',
               }}
             >
               {item.type === 'service' ? (

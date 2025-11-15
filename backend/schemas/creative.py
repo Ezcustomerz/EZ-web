@@ -8,7 +8,7 @@ class CreativeSetupRequest(BaseModel):
     primary_contact: Optional[str] = None
     secondary_contact: Optional[str] = None
     bio: Optional[str] = None
-    subscription_tier: str = 'basic'
+    subscription_tier_id: str  # UUID of subscription tier
 
 class CreativeSetupResponse(BaseModel):
     success: bool
@@ -22,6 +22,8 @@ class CreativeClientResponse(BaseModel):
     status: str
     totalSpent: float
     projects: int
+    profile_picture_url: Optional[str] = None
+    title: Optional[str] = None
 
 class CreativeClientsListResponse(BaseModel):
     clients: List[CreativeClientResponse]
@@ -84,7 +86,7 @@ class CreateServiceRequest(BaseModel):
     title: str
     description: str
     price: float
-    delivery_time: str
+    delivery_time: Optional[str] = ''
     status: Literal['Public', 'Private', 'Bundle-Only'] = 'Private'
     color: str = '#3b82f6'
     payment_option: Literal['upfront', 'split', 'later'] = 'later'

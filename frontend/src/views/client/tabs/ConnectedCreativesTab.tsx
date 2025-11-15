@@ -102,10 +102,13 @@ export function ConnectedCreativesTab() {
   return (
     <Box sx={{
       width: '100%',
+      maxWidth: '100%',
       flexGrow: 1,
       py: 2,
-      overflowY: { xs: 'auto', sm: 'auto', md: 'auto' },
+      overflowY: 'auto',
+      overflowX: 'hidden',
       minHeight: 0,
+      boxSizing: 'border-box',
     }}>
       {creatives.length === 0 ? (
         <Box sx={{
@@ -142,15 +145,26 @@ export function ConnectedCreativesTab() {
           alignItems: 'stretch',
           minHeight: 0,
           width: '100%',
-          overflow: 'hidden',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
         }}>
           {creatives.map((creative, index) => (
-            <CreativeCard
+            <Box
               key={creative.id}
-              creative={creative}
-              index={index}
-              onClick={handleCreativeClick}
-            />
+              sx={{
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                overflow: 'visible',
+                boxSizing: 'border-box',
+              }}
+            >
+              <CreativeCard
+                creative={creative}
+                index={index}
+                onClick={handleCreativeClick}
+              />
+            </Box>
           ))}
         </Box>
       )}

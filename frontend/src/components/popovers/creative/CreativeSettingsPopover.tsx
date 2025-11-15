@@ -26,6 +26,11 @@ import {
   Autocomplete,
   Popover,
   Divider,
+  Alert,
+  AlertTitle,
+  CircularProgress,
+  Skeleton,
+  DialogActions,
 } from '@mui/material';
 import {
   Close,
@@ -42,17 +47,20 @@ import {
   Visibility,
   Check,
   AccountCircle,
+  AccountBalance,
+  Info,
 } from '@mui/icons-material';
 import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
-import { errorToast } from '../../../components/toast/toast';
+import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
   onClose: () => void;
   onProfileUpdated?: () => void; // Callback to refresh parent components
+  initialSection?: SettingsSection; // Optional section to open to
 }
 
 type SettingsSection = 'account' | 'billing' | 'userAccount';
@@ -170,16 +178,42 @@ const PROFILE_HIGHLIGHTS_OPTIONS = [
   'Client Types',
 ] as const;
 
-export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: CreativeSettingsPopoverProps) {
+export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initialSection = 'account' }: CreativeSettingsPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuthenticated } = useAuth();
-  const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
+  const [selectedSection, setSelectedSection] = useState<SettingsSection>(initialSection);
+  
+  // Update selected section when initialSection prop changes
+  useEffect(() => {
+    if (open && initialSection) {
+      setSelectedSection(initialSection);
+    }
+  }, [open, initialSection]);
   
   // Data state
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const [services, setServices] = useState<CreativeService[]>([]);
   const [bundles, setBundles] = useState<CreativeBundle[]>([]);
+  
+  // Bank account state (fetched from Stripe)
+  const [bankAccountStatus, setBankAccountStatus] = useState<{
+    connected: boolean;
+    accountId?: string;
+    payoutsEnabled: boolean;
+    accountType?: 'individual' | 'company';
+    lastPayoutDate?: string;
+    payoutDisableReason?: string;
+    currentlyDueRequirements?: string[];
+    onboardingComplete?: boolean;
+  }>({
+    connected: false,
+    payoutsEnabled: false,
+    onboardingComplete: false,
+  });
+  const [loadingStripeStatus, setLoadingStripeStatus] = useState(false);
+  const [connectingAccount, setConnectingAccount] = useState(false);
+  const [loadingAccountData, setLoadingAccountData] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -220,6 +254,9 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   const [colorPickerAnchor, setColorPickerAnchor] = useState<HTMLElement | null>(null);
   const [saving, setSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark'>('light');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
   
   // Fetch creative profile and services when popover opens
   useEffect(() => {
@@ -227,6 +264,13 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
       fetchData();
     }
   }, [open, isAuthenticated]);
+
+  // Fetch Stripe account status when billing section is selected
+  useEffect(() => {
+    if (open && isAuthenticated && selectedSection === 'billing') {
+      fetchStripeAccountStatus();
+    }
+  }, [open, isAuthenticated, selectedSection]);
   
   // Update form data when creative profile loads
   useEffect(() => {
@@ -260,6 +304,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
         return;
       }
 
+      setLoadingAccountData(true);
+
       // Fetch creative profile
       const profile = await userService.getCreativeProfile();
       setCreativeProfile(profile);
@@ -279,6 +325,86 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
       setBundles(publicBundles);
     } catch (error) {
       console.error('Failed to fetch creative data:', error);
+    } finally {
+      setLoadingAccountData(false);
+    }
+  };
+
+  const fetchStripeAccountStatus = async () => {
+    try {
+      setLoadingStripeStatus(true);
+      const status = await userService.getStripeAccountStatus();
+      setBankAccountStatus({
+        connected: status.connected,
+        accountId: status.account_id,
+        payoutsEnabled: status.payouts_enabled,
+        accountType: status.account_type as 'individual' | 'company' | undefined,
+        lastPayoutDate: status.last_payout_date 
+          ? new Date(status.last_payout_date * 1000).toISOString() 
+          : undefined,
+        onboardingComplete: status.onboarding_complete,
+        payoutDisableReason: status.payout_disable_reason,
+        currentlyDueRequirements: status.currently_due_requirements,
+      });
+    } catch (error) {
+      console.error('Failed to fetch Stripe account status:', error);
+      errorToast('Failed to load account status');
+    } finally {
+      setLoadingStripeStatus(false);
+    }
+  };
+
+  const handleConnectStripeAccount = async () => {
+    try {
+      setConnectingAccount(true);
+      const result = await userService.createStripeConnectAccount();
+      
+      // Redirect to Stripe onboarding
+      if (result.onboarding_url) {
+        window.location.href = result.onboarding_url;
+      } else {
+        errorToast('Failed to get onboarding URL');
+      }
+    } catch (error: any) {
+      console.error('Failed to create Stripe account:', error);
+      errorToast(error.response?.data?.detail || 'Failed to connect Stripe account');
+    } finally {
+      setConnectingAccount(false);
+    }
+  };
+
+  const handleManageStripeAccount = async () => {
+    try {
+      setConnectingAccount(true);
+      const result: {login_url: string | null; needs_onboarding?: boolean; error?: string} = await userService.createStripeLoginLink();
+      
+      // Check if onboarding is needed
+      if (result.needs_onboarding) {
+        // Redirect to onboarding instead
+        handleConnectStripeAccount();
+        return;
+      }
+      
+      // Redirect to Stripe Express Dashboard
+      if (result.login_url) {
+        window.open(result.login_url, '_blank');
+        successToast('Opening Stripe dashboard...');
+      } else {
+        errorToast('Failed to get login URL');
+      }
+    } catch (error: any) {
+      console.error('Failed to create login link:', error);
+      const errorMessage = error.response?.data?.detail || 'Failed to open Stripe dashboard';
+      
+      // Check if error indicates onboarding is needed
+      if (errorMessage.toLowerCase().includes('onboarding') || errorMessage.toLowerCase().includes('not completed')) {
+        // Redirect to onboarding instead
+        handleConnectStripeAccount();
+      } else {
+        errorToast(errorMessage);
+      }
+    } finally {
+      setConnectingAccount(false);
     }
   };
 
@@ -419,12 +545,50 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
     }
   };
 
+  const handleDeleteCreativeRole = async () => {
+    try {
+      setDeleting(true);
+      await userService.deleteCreativeRole();
+      
+      successToast('Creative role deleted successfully');
+      
+      // Close dialogs
+      setDeleteDialogOpen(false);
+      onClose();
+      
+      // Refresh the page to update the UI (user no longer has creative role)
+      window.location.href = '/';
+      
+    } catch (error: any) {
+      console.error('Failed to delete creative role:', error);
+      errorToast(error.response?.data?.detail || 'Failed to delete creative role');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
 
   const renderSectionContent = () => {
     switch (selectedSection) {
       case 'account':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
+            {loadingAccountData ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* Loading Skeletons */}
+                {[1, 2, 3, 4, 5].map((item) => (
+                  <Card key={item} variant="outlined">
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Skeleton variant="circular" width={24} height={24} />
+                        <Skeleton variant="text" width={200} height={32} />
+                      </Box>
+                      <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {/* Profile Photo Section */}
               <Card variant="outlined">
@@ -959,6 +1123,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
                   <Button
                     variant="outlined"
                     color="error"
+                    onClick={() => setDeleteDialogOpen(true)}
                     sx={{
                       textTransform: 'none',
                       fontWeight: 500,
@@ -970,12 +1135,363 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
               </Card>
 
             </Box>
+            )}
           </Box>
         );
       case 'billing':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
-      
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Bank Account Connection */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <AccountBalance color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Bank Account
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      {loadingStripeStatus ? (
+                        <Box
+                          sx={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: '50%',
+                            bgcolor: 'grey.400',
+                            position: 'relative',
+                            animation: 'loading-pulse 1.5s ease-in-out infinite',
+                            '@keyframes loading-pulse': {
+                              '0%, 100%': {
+                                transform: 'scale(1)',
+                                opacity: 0.6,
+                              },
+                              '50%': {
+                                transform: 'scale(1.3)',
+                                opacity: 1,
+                              },
+                            },
+                            '&::after': {
+                              content: '""',
+                              position: 'absolute',
+                              top: '50%',
+                              left: '50%',
+                              transform: 'translate(-50%, -50%)',
+                              width: '200%',
+                              height: '200%',
+                              borderRadius: '50%',
+                              border: '2px solid',
+                              borderColor: 'grey.400',
+                              animation: 'loading-ring 1.5s ease-in-out infinite',
+                            },
+                            '@keyframes loading-ring': {
+                              '0%': {
+                                transform: 'translate(-50%, -50%) scale(0.5)',
+                                opacity: 1,
+                              },
+                              '100%': {
+                                transform: 'translate(-50%, -50%) scale(1.5)',
+                                opacity: 0,
+                              },
+                            },
+                          }}
+                        />
+                      ) : (
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          bgcolor: !bankAccountStatus.connected 
+                            ? 'error.main' 
+                            : bankAccountStatus.payoutsEnabled 
+                              ? 'success.main' 
+                              : 'warning.main',
+                          ...(!bankAccountStatus.connected && {
+                            animation: 'pulse-dot 2s ease-in-out infinite',
+                            '@keyframes pulse-dot': {
+                              '0%, 100%': {
+                                transform: 'translateY(0) scale(1)',
+                                opacity: 1,
+                              },
+                              '50%': {
+                                transform: 'translateY(-3px) scale(1.1)',
+                                opacity: 0.8,
+                              },
+                            },
+                          }),
+                          ...(bankAccountStatus.connected && !bankAccountStatus.payoutsEnabled && {
+                            animation: 'pulse-dot 2s ease-in-out infinite',
+                            '@keyframes pulse-dot': {
+                              '0%, 100%': {
+                                transform: 'translateY(0) scale(1)',
+                                opacity: 1,
+                              },
+                              '50%': {
+                                transform: 'translateY(-3px) scale(1.1)',
+                                opacity: 0.8,
+                              },
+                            },
+                          }),
+                        }}
+                      />
+                      )}
+                      <Typography variant="body1" fontWeight={500}>
+                        {loadingStripeStatus 
+                          ? 'Loading...'
+                          : !bankAccountStatus.connected 
+                            ? 'Not Connected' 
+                            : bankAccountStatus.payoutsEnabled 
+                              ? 'Connected' 
+                              : 'Connected - Payouts Pending'}
+                      </Typography>
+                      {!loadingStripeStatus && bankAccountStatus.connected && (
+                        <Chip
+                          label={bankAccountStatus.payoutsEnabled ? "Active" : "Pending Verification"}
+                          size="small"
+                          color={bankAccountStatus.payoutsEnabled ? "success" : "warning"}
+                          sx={{ ml: 'auto', fontWeight: 600 }}
+                        />
+                      )}
+                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      {loadingStripeStatus
+                        ? 'Fetching your account status...'
+                        : !bankAccountStatus.connected
+                          ? 'Connect a bank account to accept paid bookings and receive payments.'
+                          : bankAccountStatus.payoutsEnabled
+                            ? 'Your bank account is connected and ready to receive payments from clients.'
+                            : 'Your account is connected but payouts are not yet enabled. Complete your account verification to enable payouts.'}
+                    </Typography>
+                  </Box>
+
+                  {!loadingStripeStatus && bankAccountStatus.connected && (
+                    <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Account Type:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={500}>
+                          {bankAccountStatus.accountType === 'company' ? 'Business' : 'Individual'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Payout Status:
+                        </Typography>
+                        <Typography variant="body2" fontWeight={500}>
+                          {bankAccountStatus.payoutsEnabled ? 'Enabled' : 'Pending Verification'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+
+                  <Button
+                    variant={loadingStripeStatus ? "outlined" : bankAccountStatus.connected ? "outlined" : "contained"}
+                    fullWidth
+                    disabled={connectingAccount || loadingStripeStatus}
+                    startIcon={loadingStripeStatus ? <CircularProgress size={20} /> : bankAccountStatus.connected ? <Settings /> : <AccountBalance />}
+                    onClick={() => {
+                      if (bankAccountStatus.connected) {
+                        handleManageStripeAccount();
+                      } else {
+                        handleConnectStripeAccount();
+                      }
+                    }}
+                    sx={{
+                      position: 'relative',
+                      overflow: 'visible',
+                      ...(!bankAccountStatus.connected && {
+                        background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                        animation: 'gentle-breathe 2.5s ease-in-out infinite',
+                        boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)',
+                        '@keyframes gentle-breathe': {
+                          '0%, 100%': {
+                            transform: 'scale(1)',
+                          },
+                          '50%': {
+                            transform: 'scale(1.02)',
+                          },
+                        },
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          inset: -2,
+                          borderRadius: 'inherit',
+                          padding: '2px',
+                          background: 'linear-gradient(135deg, #60a5fa, #3b82f6, #1d4ed8)',
+                          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                          WebkitMaskComposite: 'xor',
+                          maskComposite: 'exclude',
+                          opacity: 0,
+                          animation: 'border-glow 2.5s ease-in-out infinite',
+                        },
+                        '@keyframes border-glow': {
+                          '0%, 100%': {
+                            opacity: 0,
+                          },
+                          '50%': {
+                            opacity: 0.6,
+                          },
+                        },
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 6px 16px rgba(59, 130, 246, 0.35)',
+                          animation: 'none',
+                          '&::before': {
+                            opacity: 0.8,
+                            animation: 'none',
+                          },
+                        },
+                        '&:active': {
+                          transform: 'translateY(0)',
+                          boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                        },
+                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                      }),
+                    }}
+                  >
+                    {loadingStripeStatus
+                      ? 'Loading...'
+                      : connectingAccount 
+                        ? 'Connecting...' 
+                        : bankAccountStatus.connected 
+                          ? 'Manage Account' 
+                          : 'Connect Bank Account'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Payout Information */}
+              {!loadingStripeStatus && (
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <CreditCard color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Payout Information
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Payouts are processed within 2-5 business days after a client completes payment.
+                  </Typography>
+                  {bankAccountStatus.connected && bankAccountStatus.lastPayoutDate && (
+                    <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Last Payout:
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500}>
+                        {new Date(bankAccountStatus.lastPayoutDate).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </Typography>
+                    </Box>
+                  )}
+                  {bankAccountStatus.connected && !bankAccountStatus.payoutsEnabled && (
+                    <Alert 
+                      severity="error" 
+                      sx={{ 
+                        mt: 2,
+                        border: '1px solid',
+                        borderColor: 'error.main',
+                        backgroundColor: 'rgba(211, 47, 47, 0.08)',
+                        '& .MuiAlert-icon': {
+                          color: 'error.main'
+                        },
+                        '& .MuiAlert-message': {
+                          width: '100%'
+                        }
+                      }}
+                    >
+                      <AlertTitle sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Payouts Disabled
+                      </AlertTitle>
+                      {bankAccountStatus.payoutDisableReason ? (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                          {bankAccountStatus.payoutDisableReason}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                          Your payouts are currently disabled. Please complete your account setup to enable payouts.
+                        </Typography>
+                      )}
+                      {bankAccountStatus.currentlyDueRequirements && bankAccountStatus.currentlyDueRequirements.length > 0 && (
+                        <Box sx={{ mt: 1.5 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.5 }}>
+                            Required information:
+                          </Typography>
+                          <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                            {bankAccountStatus.currentlyDueRequirements.map((req, index) => (
+                              <li key={index}>
+                                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                  {req.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </Typography>
+                              </li>
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5, fontWeight: 500 }}>
+                        Click "Manage Account" to complete the required information.
+                      </Typography>
+                    </Alert>
+                  )}
+                  {bankAccountStatus.connected && bankAccountStatus.payoutsEnabled && !bankAccountStatus.onboardingComplete && (
+                    <Alert severity="warning" sx={{ mt: 2 }}>
+                      <AlertTitle>Onboarding Incomplete</AlertTitle>
+                      Please complete your account setup to ensure all features are available. Click "Manage Account" to continue.
+                    </Alert>
+                  )}
+                  {!bankAccountStatus.connected && (
+                    <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        Connect your bank account to view payout information.
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+              )}
+
+              {/* Important Information */}
+              {!loadingStripeStatus && !bankAccountStatus.connected && (
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <Info color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Important Information
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
+                      A bank account is required to accept paid bookings. Your banking information is securely 
+                      processed by Stripe and we never store your account details.
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 500 }}>
+                      You'll need to provide:
+                    </Typography>
+                    <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Bank account details
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Business information (if applicable)
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary">
+                        Identity verification documents
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                      The setup process takes approximately 5-10 minutes.
+                    </Typography>
+                </CardContent>
+              </Card>
+              )}
+            </Box>
           </Box>
         );
       case 'userAccount':
@@ -1176,6 +1692,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
   };
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={handleClose}
@@ -1442,5 +1959,91 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated }: Cre
         </Box>
       </DialogContent>
     </Dialog>
+    
+    {/* Delete Confirmation Dialog */}
+    <Dialog
+      open={deleteDialogOpen}
+      onClose={() => !deleting && setDeleteDialogOpen(false)}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+        },
+      }}
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        <Typography variant="h5" fontWeight={600} color="error">
+          Delete Creative Role
+        </Typography>
+      </DialogTitle>
+      <DialogContent>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <AlertTitle sx={{ fontWeight: 600 }}>Warning: This action is permanent and cannot be undone</AlertTitle>
+          This will permanently delete:
+        </Alert>
+        
+        <Box component="ul" sx={{ pl: 2, mb: 3 }}>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            Your creative profile
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All services and bundles
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All service photos and profile photos
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All calendar settings and schedules
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All client relationships
+          </Typography>
+          <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+            All bookings and notifications
+          </Typography>
+        </Box>
+        
+        <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+          To confirm, type <Box component="span" sx={{ color: 'error.main', fontFamily: 'monospace' }}>DELETE</Box> below:
+        </Typography>
+        
+        <TextField
+          fullWidth
+          value={deleteConfirmText}
+          onChange={(e) => setDeleteConfirmText(e.target.value)}
+          placeholder="Type DELETE to confirm"
+          disabled={deleting}
+          sx={{ mb: 2 }}
+          autoFocus
+        />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button
+          onClick={() => {
+            setDeleteDialogOpen(false);
+            setDeleteConfirmText('');
+          }}
+          disabled={deleting}
+          sx={{ textTransform: 'none' }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={handleDeleteCreativeRole}
+          disabled={deleteConfirmText !== 'DELETE' || deleting}
+          startIcon={deleting ? <CircularProgress size={20} /> : null}
+          sx={{
+            textTransform: 'none',
+            fontWeight: 600,
+          }}
+        >
+          {deleting ? 'Deleting...' : 'Delete Creative Role Permanently'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 }

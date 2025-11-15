@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   MenuItem,
   ListItemIcon,
@@ -18,7 +19,10 @@ import {
 } from '@mui/icons-material';
 import { RoleSwitcherPopover } from '../popovers/RoleSwitcherPopover';
 import { CreativeSettingsPopover } from '../popovers/creative/CreativeSettingsPopover';
+import { ClientSettingsPopover } from '../popovers/client/ClientSettingsPopover';
+import { AdvocateSettingsPopover } from '../popovers/advocate/AdvocateSettingsPopover';
 import { useAuth } from '../../context/auth';
+import { successToast } from '../toast/toast';
 
 interface UserDropdownMenuProps {
   anchorEl: HTMLElement | null;
@@ -30,7 +34,10 @@ interface UserDropdownMenuProps {
 export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: UserDropdownMenuProps) {
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<'account' | 'billing' | 'userAccount'>('account');
   const { isAuthenticated, signOut, openAuth } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   // Determine current role based on URL path
   const getCurrentRole = () => {
@@ -43,21 +50,45 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
 
   const currentRole = getCurrentRole();
 
+  // Handle Stripe return/refresh query parameters
+  useEffect(() => {
+    const stripeSuccess = searchParams.get('stripe_success');
+    const stripeRefresh = searchParams.get('stripe_refresh');
+    
+    if ((stripeSuccess || stripeRefresh) && currentRole === 'creative' && isAuthenticated) {
+      // Show success message
+      if (stripeSuccess) {
+        successToast('Stripe account connected successfully!');
+      } else if (stripeRefresh) {
+        successToast('Please complete your Stripe account setup');
+      }
+      
+      // Open settings popover to billing section
+      setSettingsInitialSection('billing');
+      setSettingsOpen(true);
+      
+      // Clean up URL by removing query parameters
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('stripe_success');
+      newSearchParams.delete('stripe_refresh');
+      
+      const newSearch = newSearchParams.toString();
+      const newUrl = newSearch 
+        ? `${window.location.pathname}?${newSearch}` 
+        : window.location.pathname;
+      
+      // Use replace to avoid adding to history
+      navigate(newUrl, { replace: true });
+    }
+  }, [searchParams, currentRole, isAuthenticated, navigate]);
+
   const menuItems = [
-    { 
+    {
       id: 'settings', 
       label: 'Settings', 
       icon: Settings,
       action: () => {
-        if (currentRole === 'creative') {
-          if (isAuthenticated) {
-            setSettingsOpen(true);
-          } else {
-            openAuth();
-          }
-        } else {
-          console.log('Settings clicked for non-creative role');
-        }
+        setSettingsOpen(true);
         onClose();
       }
     },
@@ -310,9 +341,24 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
       onClose={() => setRoleSwitcherOpen(false)}
     />
 
-    {/* Creative Settings Popover */}
+    {/* Settings Popovers - Show based on current role */}
     {currentRole === 'creative' && (
       <CreativeSettingsPopover
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        initialSection={settingsInitialSection}
+      />
+    )}
+
+    {currentRole === 'client' && (
+      <ClientSettingsPopover
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
+    )}
+
+    {currentRole === 'advocate' && (
+      <AdvocateSettingsPopover
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
