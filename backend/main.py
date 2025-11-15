@@ -39,7 +39,7 @@ DEV_ORIGINS = [
 ]
 
 DEV_DEPLOY_ORIGINS = [
-    "https://ez-web-iota.vercel.app",
+    "https://ez-web-dev.vercel.app",
     "https://ez-web.onrender.com",
 ]
 
