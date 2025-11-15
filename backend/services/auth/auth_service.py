@@ -55,7 +55,7 @@ class AuthController:
             return False
         
         # Basic check: token should contain only printable ASCII characters
-        # This prevents null bytes, control characters, and other malicious inputs
+        # This prevents null bytes, control characters, and other malicious input
         # while being very permissive for actual token formats
         try:
             # Check for printable ASCII or common token characters
