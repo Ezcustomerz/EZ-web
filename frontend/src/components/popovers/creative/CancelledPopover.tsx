@@ -15,6 +15,7 @@ import {
   Stack,
   Card,
   CardContent,
+  Divider,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { 
@@ -23,6 +24,8 @@ import {
   Person, 
   AccessTime,
   Cancel,
+  Info,
+  Warning,
   Block
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';

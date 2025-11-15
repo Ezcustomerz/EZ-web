@@ -77,10 +77,9 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
     sessionStorage.removeItem('authCallbackRedirected');
     
     try {
-      // For OAuth, we can't determine the role before login, so we redirect to root
-      // The AuthCallbackHandler component will detect auth params and route to /auth-callback
-      // Using root (/) ensures it works even if Render doesn't have SPA routing configured
-      const redirectTo = `${window.location.origin}/`;
+      // For OAuth, we can't determine the role before login, so we redirect to a generic handler
+      // The auth context will handle the actual role-based redirection after login
+      const redirectTo = `${window.location.origin}/auth-callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

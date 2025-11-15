@@ -5,6 +5,7 @@ import ListItemText from '@mui/material/ListItemText';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Popper from '@mui/material/Popper';
 import Paper from '@mui/material/Paper';
+import Divider from '@mui/material/Divider';
 import MenuItem from '@mui/material/MenuItem';
 
 export interface BundleDialogProps {

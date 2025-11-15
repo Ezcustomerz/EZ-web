@@ -27,7 +27,6 @@ export function StripePaymentDialog({
   onClose,
   bookingId,
   amount,
-  onSuccess: _onSuccess,
 }: StripePaymentDialogProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

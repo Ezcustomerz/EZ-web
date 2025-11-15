@@ -706,7 +706,7 @@ export function ServiceFormPopover({
         const primaryPhotoIndex = existingPhotos.findIndex(photo => photo.is_primary);
         
         // Prefill from service
-        const hasDeliveryTime = !!(initialService.delivery_time && initialService.delivery_time.trim().length > 0);
+        const hasDeliveryTime = initialService.delivery_time && initialService.delivery_time.trim().length > 0;
         setIsDeliveryTimeEnabled(hasDeliveryTime);
         setFormData({
           title: initialService.title,

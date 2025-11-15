@@ -211,7 +211,6 @@ export interface CreativeService {
   updated_at: string;
   requires_booking: boolean;
   photos?: ServicePhoto[];
-  calendar_settings?: CalendarSettings;
 }
 
 export interface CreativeServicesListResponse {
@@ -621,9 +620,7 @@ export const userService = {
     formData.append('title', serviceData.title);
     formData.append('description', serviceData.description);
     formData.append('price', serviceData.price.toString());
-    if (serviceData.delivery_time) {
-      formData.append('delivery_time', serviceData.delivery_time);
-    }
+    formData.append('delivery_time', serviceData.delivery_time || '');
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);
@@ -678,9 +675,7 @@ export const userService = {
     formData.append('title', serviceData.title);
     formData.append('description', serviceData.description);
     formData.append('price', serviceData.price.toString());
-    if (serviceData.delivery_time) {
-      formData.append('delivery_time', serviceData.delivery_time);
-    }
+    formData.append('delivery_time', serviceData.delivery_time || '');
     formData.append('status', serviceData.status);
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);

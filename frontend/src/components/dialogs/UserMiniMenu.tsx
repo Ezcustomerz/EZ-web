@@ -36,7 +36,7 @@ export function UserDropdownMenu({ anchorEl, open, onClose, isOpen = true }: Use
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'account' | 'billing' | 'userAccount'>('account');
   const { isAuthenticated, signOut, openAuth } = useAuth();
-  const [searchParams, _setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   // Determine current role based on URL path

@@ -942,6 +942,7 @@ export function ConnectedServicesTab() {
         onClose={handleBookingClose}
         service={serviceToBook}
         onConfirmBooking={handleConfirmBooking}
+        onCreativeClick={handleCreativeClick}
       />
 
       {/* Creative Detail Popover */}

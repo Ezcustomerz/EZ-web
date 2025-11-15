@@ -107,7 +107,7 @@ export function CompletedOrderCard({
     fileSize: fileSize ?? null,
     serviceId,
     serviceDescription,
-    serviceDeliveryTime: serviceDeliveryTime ?? undefined,
+    serviceDeliveryTime,
     serviceColor: serviceColor || statusColor,
     creativeAvatarUrl,
     creativeDisplayName,

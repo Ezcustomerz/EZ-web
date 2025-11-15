@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useState, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import {LandingPage} from './views/web/LandingPage.tsx'
 import { ContactUs } from './views/web/ContactUs.tsx'
 import { PrivacyPolicy } from './views/web/PrivacyPolicy.tsx'
 import { TermsOfService } from './views/web/TermsOfService.tsx'
@@ -43,7 +44,6 @@ import { RoleGuard } from './components/guards/RoleGuard'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { InvitePage } from './views/InvitePage'
 import { AuthCallback } from './views/AuthCallback'
-import { AuthCallbackHandler } from './components/AuthCallbackHandler'
 import { NoAccess } from './views/NoAccess'
 import { PaymentSuccess } from './views/PaymentSuccess'
 import { PaymentCancelled } from './views/PaymentCancelled'
@@ -94,7 +94,7 @@ function AppContent() {
       <ScrollToTop />
       <SetupGate />
       <Routes>
-        <Route path="/" element={<AuthCallbackHandler />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/creative" element={
           <RoleGuard requiredRole="creative">
             <DashCreative />
