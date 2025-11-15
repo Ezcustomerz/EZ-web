@@ -1,4 +1,4 @@
-import { Box, Typography, Card, Chip, useTheme, useMediaQuery, CircularProgress, Skeleton } from '@mui/material';
+import { Box, Typography, Card, Chip, useTheme, useMediaQuery, Skeleton } from '@mui/material';
 import { Timeline } from '@mui/icons-material';
 import React from 'react';
 import { ActivityNotificationCard } from '../ActivityNotificationCard';

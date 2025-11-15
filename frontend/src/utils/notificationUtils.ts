@@ -1,4 +1,4 @@
-import { PersonAddOutlined, GraphicEqOutlined, Payment, Download, CheckCircleOutlined, Star, Timeline, CalendarToday, CreditCard, CancelOutlined } from '@mui/icons-material';
+import { PersonAddOutlined, GraphicEqOutlined, Payment, CheckCircleOutlined, Star, Timeline, CalendarToday, CreditCard, CancelOutlined } from '@mui/icons-material';
 import type { ActivityItem } from '../types/activity';
 import type { Notification } from '../api/notificationsService';
 

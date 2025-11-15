@@ -1,8 +1,7 @@
-import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Divider, useTheme, useMediaQuery } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { WelcomeCard } from '../../components/cards/creative/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/creative/ActivityFeedCard';
-import type { CreativeProfile } from '../../api/userService';
 import { useState, useEffect, useRef } from 'react';
 import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';

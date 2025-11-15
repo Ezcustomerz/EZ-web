@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,7 +27,7 @@ export function StripePaymentDialog({
   onClose,
   bookingId,
   amount,
-  onSuccess,
+  onSuccess: _onSuccess,
 }: StripePaymentDialogProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

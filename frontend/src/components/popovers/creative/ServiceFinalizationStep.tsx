@@ -37,8 +37,8 @@ export interface ServiceFinalizationStepProps {
 export function ServiceFinalizationStep({
   uploadedFiles,
   onFilesChange,
-  onFinalize,
-  isFinalizing
+  onFinalize: _onFinalize,
+  isFinalizing: _isFinalizing
 }: ServiceFinalizationStepProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);

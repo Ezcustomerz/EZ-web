@@ -73,7 +73,7 @@ const CACHE_DURATION = 5000; // 5 seconds cache
 export function ClientDashboard() {
   const { isAuthenticated } = useAuth();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -156,7 +156,7 @@ export function ClientDashboard() {
 
   return (
     <LayoutClient selectedNavItem="dashboard">
-      {({ isSidebarOpen, isMobile, clientProfile }) => (
+      {({ isSidebarOpen: _isSidebarOpen, isMobile: _isMobile, clientProfile }) => (
         <Box sx={{
         px: { xs: 1.5, sm: 1.5, md: 2.5 },
         pt: { xs: 1.5, sm: 1.5, md: 2.5 },

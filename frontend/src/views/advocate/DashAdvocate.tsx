@@ -3,8 +3,6 @@ import { LayoutAdvocate } from '../../layout/advocate/LayoutAdvocate';
 import { WelcomeCard } from '../../components/cards/advocate/WelcomeCard';
 import { ReferralLinkCard } from '../../components/cards/advocate/ReferralLinkCard';
 import { ProgressCard } from '../../components/cards/advocate/ProgressCard';
-import type { AdvocateProfile } from '../../api/userService';
-
 export function DashAdvocate() {
   const handleRewardfulClick = () => {
     // No action for now as requested
@@ -12,7 +10,7 @@ export function DashAdvocate() {
 
     return (
     <LayoutAdvocate selectedNavItem="dashboard">
-      {({ isSidebarOpen, isMobile, advocateProfile }) => (
+      {({ isSidebarOpen: _isSidebarOpen, isMobile: _isMobile, advocateProfile: _advocateProfile }) => (
         <Box sx={{
         px: { xs: 1.5, sm: 1.5, md: 2.5 },
         pt: { xs: 1.5, sm: 1.5, md: 2.5 },

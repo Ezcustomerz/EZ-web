@@ -95,7 +95,7 @@ export function AwaitingPaymentPopover({
   onClose, 
   order,
   onSendReminder,
-  onPaymentConfirmed
+  onPaymentConfirmed: _onPaymentConfirmed
 }: AwaitingPaymentPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
