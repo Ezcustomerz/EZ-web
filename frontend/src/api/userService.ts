@@ -680,7 +680,6 @@ export const userService = {
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);
     
-    // Add calendar settings if provided
     if (serviceData.calendar_settings) {
       formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
     }
