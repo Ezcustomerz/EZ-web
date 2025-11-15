@@ -268,10 +268,11 @@ class StripeService:
             # Check if account hasn't completed onboarding
             if "onboarding" in error_message.lower() or "not completed" in error_message.lower():
                 # Return a special response indicating onboarding is needed
+                logging.error(f"Stripe onboarding error for user {user_id}: {error_message}")
                 return {
                     "login_url": None,
                     "needs_onboarding": True,
-                    "error": error_message
+                    "error": "Stripe onboarding incomplete. Please complete onboarding in your Stripe dashboard."
                 }
             # Provide more helpful error messages
             if "Connect" in error_message or "connect" in error_message.lower():
@@ -279,11 +280,13 @@ class StripeService:
                     status_code=400, 
                     detail="Stripe Connect is not enabled on your account. Please enable Connect in your Stripe Dashboard at https://dashboard.stripe.com/settings/connect"
                 )
-            raise HTTPException(status_code=400, detail=f"Stripe error: {error_message}")
+            logging.error(f"Stripe error for user {user_id}, account {account_id}: {error_message}")
+            raise HTTPException(status_code=400, detail="Failed to create login link due to a Stripe error. Please try again later or contact support.")
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create login link: {str(e)}")
+            logging.error(f"Unexpected error in create_login_link for user {user_id}: {str(e)}")
+            raise HTTPException(status_code=500, detail="An internal server error occurred while creating the Stripe login link.")
     
     @staticmethod
     async def process_payment(
