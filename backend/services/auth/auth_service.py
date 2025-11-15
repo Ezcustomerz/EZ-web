@@ -53,12 +53,12 @@ class AuthController:
         # (some short tokens might be valid, but this prevents obviously invalid inputs)
         if len(token) < 10:
             return False
-        
-        # Basic check: token should contain only printable ASCII chars
-        # This prevents null bytes, control characters, and other malicious inputs
+          
+        # Basic check: token should contain only printable ASCII characters
+        # This prevents null bytes, control characters, and other malicious input
         # while being very permissive for actual token formats
         try:
-            # Check for printable ASCII (32-126) or common token characters
+            # Check for printable ASCII or common token characters
             # This allows: letters, numbers, and common URL-safe characters
             for char in token:
                 code = ord(char)
