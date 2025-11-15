@@ -58,7 +58,7 @@ class AuthController:
         # This prevents null bytes, control characters, and other malicious inputs
         # while being very permissive for actual token formats
         try:
-            # Check for printable ASCII (32-126) or common token characters
+            # Check for printable ASCII or common token characters
             # This allows: letters, numbers, and common URL-safe characters
             for char in token:
                 code = ord(char)
