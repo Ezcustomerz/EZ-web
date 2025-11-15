@@ -3,6 +3,39 @@ FROM clamav/clamav:latest
 # Expose ClamAV TCP port
 EXPOSE 3310
 
-# ClamAV daemon runs automatically on port 3310
-# The base image handles all configuration
+# Configure ClamAV for TCP mode
+# Enable TCP socket and set to foreground mode
+RUN echo "TCPSocket 3310" >> /etc/clamav/clamd.conf && \
+    echo "TCPAddr 0.0.0.0" >> /etc/clamav/clamd.conf && \
+    echo "Foreground yes" >> /etc/clamav/clamd.conf && \
+    echo "LocalSocket /tmp/clamd.sock" >> /etc/clamav/clamd.conf
+
+# Create custom startup script
+RUN echo '#!/bin/bash' > /start.sh && \
+    echo 'set -e' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo 'echo "Starting Freshclam..."' >> /start.sh && \
+    echo 'freshclam -d || true' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo 'echo "Waiting for virus definitions..."' >> /start.sh && \
+    echo 'timeout=300' >> /start.sh && \
+    echo 'elapsed=0' >> /start.sh && \
+    echo 'while [ $elapsed -lt $timeout ]; do' >> /start.sh && \
+    echo '  if [ -f /var/lib/clamav/main.cvd ] || [ -f /var/lib/clamav/main.cld ]; then' >> /start.sh && \
+    echo '    echo "Virus definitions ready"' >> /start.sh && \
+    echo '    break' >> /start.sh && \
+    echo '  fi' >> /start.sh && \
+    echo '  sleep 2' >> /start.sh && \
+    echo '  elapsed=$((elapsed + 2))' >> /start.sh && \
+    echo 'done' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo 'sleep 5' >> /start.sh && \
+    echo '' >> /start.sh && \
+    echo 'echo "Starting ClamAV daemon..."' >> /start.sh && \
+    echo 'exec clamd' >> /start.sh && \
+    chmod +x /start.sh
+
+# Use our custom startup script
+ENTRYPOINT []
+CMD ["/start.sh"]
 
