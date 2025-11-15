@@ -35,6 +35,9 @@ import React, { useState, useEffect } from 'react';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
 import { CalendarSessionDetailPopover } from './CalendarSessionDetailPopover';
 import { ServiceFinalizationStep } from './ServiceFinalizationStep';
+import { ClamAVScanDialog } from '../../dialogs/ClamAVScanDialog';
+import { fileScanningService } from '../../../api/fileScanningService';
+import type { FileScanResponse } from '../../../api/fileScanningService';
 
 // Define Session interface locally since it's not exported
 interface Session {
@@ -119,6 +122,9 @@ export function InProgressPopover({
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showFinalizationStep, setShowFinalizationStep] = useState(initialShowFinalizationStep);
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResponse, setScanResponse] = useState<FileScanResponse | null>(null);
 
   // Update state when prop changes
   useEffect(() => {
@@ -275,6 +281,73 @@ export function InProgressPopover({
   };
 
   const handleFinalizeService = async () => {
+    // If there are files, scan them first
+    if (uploadedFiles.length > 0) {
+      setScanDialogOpen(true);
+      setIsScanning(true);
+      setScanResponse(null);
+      
+      try {
+        // Convert UploadedFile to File objects for scanning
+        const filesToScan: File[] = [];
+        for (const uploadedFile of uploadedFiles) {
+          try {
+            // Fetch the file from the blob URL
+            const response = await fetch(uploadedFile.url);
+            const blob = await response.blob();
+            const file = new File([blob], uploadedFile.name, { type: uploadedFile.type });
+            filesToScan.push(file);
+          } catch (error) {
+            console.error(`Error converting file ${uploadedFile.name}:`, error);
+          }
+        }
+        
+        if (filesToScan.length > 0) {
+          const response = await fileScanningService.scanFiles(filesToScan);
+          setScanResponse(response);
+          
+          // If there are unsafe files, don't proceed
+          if (response.unsafe_files > 0) {
+            setIsScanning(false);
+            return; // Stop here, user can see the dialog
+          }
+        }
+      } catch (error) {
+        console.error('Error scanning files:', error);
+        // Create error response
+        setScanResponse({
+          results: uploadedFiles.map(f => ({
+            filename: f.name,
+            is_safe: false,
+            error_message: 'Failed to scan file',
+          })),
+          total_files: uploadedFiles.length,
+          safe_files: 0,
+          unsafe_files: uploadedFiles.length,
+          scanner_available: false,
+        });
+        setIsScanning(false);
+        return;
+      } finally {
+        setIsScanning(false);
+      }
+    }
+    
+    // If no files or all files are safe, proceed with finalization
+    setIsFinalizing(true);
+    try {
+      await onFinalizeService(order.id, uploadedFiles);
+      setScanDialogOpen(false);
+      onClose();
+    } catch (error) {
+      console.error('Error finalizing service:', error);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleScanDialogContinue = async () => {
+    setScanDialogOpen(false);
     setIsFinalizing(true);
     try {
       await onFinalizeService(order.id, uploadedFiles);
@@ -284,6 +357,11 @@ export function InProgressPopover({
     } finally {
       setIsFinalizing(false);
     }
+  };
+
+  const handleScanDialogCancel = () => {
+    setScanDialogOpen(false);
+    setScanResponse(null);
   };
 
   const handleBackToMain = () => {
@@ -752,6 +830,16 @@ export function InProgressPopover({
         onClose={handleBookingDetailClose}
         session={bookingSession}
         onBack={handleBookingDetailClose}
+      />
+
+      {/* ClamAV Scan Dialog */}
+      <ClamAVScanDialog
+        open={scanDialogOpen}
+        onClose={handleScanDialogCancel}
+        scanResponse={scanResponse}
+        isScanning={isScanning}
+        onContinue={handleScanDialogContinue}
+        onCancel={handleScanDialogCancel}
       />
     </Dialog>
   );
