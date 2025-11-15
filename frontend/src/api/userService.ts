@@ -671,7 +671,6 @@ export const userService = {
     // Create FormData for multipart upload
     const formData = new FormData();
     
-    // Add service data
     formData.append('title', serviceData.title);
     formData.append('description', serviceData.description);
     formData.append('price', serviceData.price.toString());
