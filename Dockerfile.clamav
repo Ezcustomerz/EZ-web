@@ -11,7 +11,8 @@ RUN echo "TCPSocket 3310" >> /etc/clamav/clamd.conf && \
     echo "LocalSocket /tmp/clamd.sock" >> /etc/clamav/clamd.conf
 
 # Create custom startup script using printf for better reliability
-RUN printf '#!/bin/bash\n\
+# Use /bin/sh instead of /bin/bash as the ClamAV image may not have bash
+RUN printf '#!/bin/sh\n\
 set -e\n\
 \n\
 echo "Starting Freshclam..."\n\
@@ -38,5 +39,5 @@ exec clamd\n' > /start.sh && \
 
 # Use our custom startup script
 ENTRYPOINT []
-CMD ["/bin/bash", "/start.sh"]
+CMD ["/bin/sh", "/start.sh"]
 
