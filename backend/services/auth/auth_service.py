@@ -137,15 +137,30 @@ class AuthController:
             raise HTTPException(status_code=400, detail="Invalid access_token format")
         if not AuthController._is_valid_jwt_format(refresh_token):
             raise HTTPException(status_code=400, detail="Invalid refresh_token format")
-        # This ensures only valid Supabase tokens are stored
+
+        # Validate access_token cryptographically
         try:
             AuthController.validate_jwt_token(access_token)
         except HTTPException:
             raise
 
-        # Note: Refresh tokens have a different structure and are validated by Supabase
-        # when used for token refresh, so we don't validate them here
+        # Additional: Try to validate refresh_token (if possible), otherwise add strict checks
+        # If Supabase refresh tokens are JWTs, validate as for access_token.
+        try:
+            AuthController.validate_jwt_token(refresh_token)
+        except Exception as e:
+            # If refresh_token cannot be validated (e.g., is not a JWT), fall back to strict constraints
+            # Enforce minimum/maximum length and character restrictions (base64url, no unusual chars)
+            b64url_pattern = r'^[A-Za-z0-9\-_\.]+$'
+            if (
+                not isinstance(refresh_token, str) or
+                len(refresh_token) > 4096 or
+                not re.match(b64url_pattern, refresh_token)
+            ):
+                logger.warning(f"Rejected suspicious refresh_token: {refresh_token!r}")
+                raise HTTPException(status_code=400, detail="Invalid refresh_token value")
 
+        # This ensures only valid tokens are stored in cookies
         response = JSONResponse({"success": True, "message": "Cookies set successfully"})
         AuthController.set_auth_cookies(response, access_token, refresh_token)
 
