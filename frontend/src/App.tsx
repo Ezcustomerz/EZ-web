@@ -44,6 +44,7 @@ import { RoleGuard } from './components/guards/RoleGuard'
 import { DashAdvocate } from './views/advocate/DashAdvocate'
 import { InvitePage } from './views/InvitePage'
 import { AuthCallback } from './views/AuthCallback'
+import { AuthCallbackHandler } from './components/AuthCallbackHandler'
 import { NoAccess } from './views/NoAccess'
 import { PaymentSuccess } from './views/PaymentSuccess'
 import { PaymentCancelled } from './views/PaymentCancelled'
@@ -94,7 +95,7 @@ function AppContent() {
       <ScrollToTop />
       <SetupGate />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<AuthCallbackHandler />} />
         <Route path="/creative" element={
           <RoleGuard requiredRole="creative">
             <DashCreative />
