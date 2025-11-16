@@ -24,12 +24,13 @@ sleep 2
 
 # Start clamd daemon in the background and capture errors
 echo "Starting clamd..."
-# Start clamd and redirect output to log file
-clamd > /var/log/clamav/clamd-startup.log 2>&1 &
+# Start clamd in foreground mode (config says Foreground yes) and background it
+# This ensures it stays running
+nohup clamd > /var/log/clamav/clamd-startup.log 2>&1 &
 CLAMD_PID=$!
 
 # Wait a moment to see if it starts or crashes immediately
-sleep 3
+sleep 5
 
 # Check if process is still running
 if ! kill -0 $CLAMD_PID 2>/dev/null; then
@@ -38,8 +39,14 @@ if ! kill -0 $CLAMD_PID 2>/dev/null; then
     cat /var/log/clamav/clamd-startup.log 2>/dev/null || echo "No log file"
     echo "=== Main log ==="
     tail -50 /var/log/clamav/clamd.log 2>/dev/null || echo "No main log"
-    exit 1
+    echo "=== Trying to start clamd directly to see errors ==="
+    clamd || {
+        echo "clamd failed with exit code $?"
+        exit 1
+    }
 fi
+
+echo "clamd started with PID $CLAMD_PID"
 
 # Wait for clamd to create the socket or start listening on TCP port
 echo "Waiting for clamd to be ready..."
@@ -93,19 +100,40 @@ fi
 
 # Keep container running and monitor processes
 echo "ClamAV services are running. Monitoring..."
+LAST_CHECK=0
 while true; do
-    # Check if clamd is still running
-    if ! ps aux | grep -v grep | grep -q "[c]lamd"; then
+    # Check if clamd is still running (check both the PID and process list)
+    CLAMD_RUNNING=false
+    if kill -0 $CLAMD_PID 2>/dev/null; then
+        CLAMD_RUNNING=true
+    elif ps aux | grep -v grep | grep -q "[c]lamd"; then
+        # PID might have changed if it daemonized, but process is still running
+        CLAMD_RUNNING=true
+        echo "Note: clamd PID changed (daemonized?), but process is still running"
+    fi
+    
+    if [ "$CLAMD_RUNNING" = "false" ]; then
         echo "ERROR: clamd process died!"
+        # Try to get exit status
+        wait $CLAMD_PID 2>/dev/null && EXIT_CODE=$? || EXIT_CODE=$?
+        echo "clamd exited with code: $EXIT_CODE"
         echo "=== Checking logs for errors ==="
-        echo "=== clamd startup log ==="
-        cat /var/log/clamav/clamd-startup.log 2>/dev/null || echo "No startup log found"
+        echo "=== clamd startup log (last 100 lines) ==="
+        tail -100 /var/log/clamav/clamd-startup.log 2>/dev/null || echo "No startup log found"
         echo "=== clamd main log (last 50 lines) ==="
         tail -50 /var/log/clamav/clamd.log 2>/dev/null || echo "No main log file found"
-        echo "=== System logs (last 20 lines) ==="
-        dmesg | tail -20 2>/dev/null || echo "No system logs available"
+        echo "=== Process list ==="
+        ps aux | head -20
         exit 1
     fi
-    sleep 10
+    
+    # Every 30 seconds, log that we're still monitoring
+    CURRENT_TIME=$(date +%s)
+    if [ $((CURRENT_TIME - LAST_CHECK)) -ge 30 ]; then
+        echo "Still monitoring... clamd PID: $CLAMD_PID"
+        LAST_CHECK=$CURRENT_TIME
+    fi
+    
+    sleep 5
 done
 
