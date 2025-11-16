@@ -1,7 +1,14 @@
 FROM clamav/clamav:latest
 
+# Install netcat for port checking (Alpine package manager)
+RUN apk add --no-cache netcat-openbsd || apk add --no-cache netcat || true
+
 # Copy custom clamd.conf that enables TCP socket
 COPY clamd.conf /etc/clamav/clamd.conf
+
+# Copy custom entrypoint script
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Ensure log directory exists and has proper permissions
 RUN mkdir -p /var/log/clamav && \
@@ -14,7 +21,6 @@ RUN chmod 1777 /tmp
 # Expose ClamAV TCP port
 EXPOSE 3310
 
-# The base image entrypoint should handle starting freshclam and clamd
-# Our custom clamd.conf ensures TCP is enabled on port 3310
-# and Unix socket is available for startup script detection
+# Use our custom entrypoint that explicitly starts clamd
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
