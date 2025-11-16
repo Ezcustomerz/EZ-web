@@ -19,4 +19,6 @@ class FileScanResponse(BaseModel):
     safe_files: int
     unsafe_files: int
     scanner_available: bool
+    clamav_skipped: bool = False
+    skip_reason: Optional[str] = None
 

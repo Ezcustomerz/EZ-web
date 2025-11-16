@@ -36,6 +36,8 @@ export type FileScanResponse = {
   safe_files: number;
   unsafe_files: number;
   scanner_available: boolean;
+  clamav_skipped?: boolean;
+  skip_reason?: string;
 };
 
 export const fileScanningService = {

@@ -41,6 +41,7 @@ export function ClamAVScanDialog({
   const hasUnsafeFiles = scanResponse && scanResponse.unsafe_files > 0;
   const allFilesSafe = scanResponse && scanResponse.unsafe_files === 0 && scanResponse.safe_files > 0;
   const scannerUnavailable = scanResponse && !scanResponse.scanner_available;
+  const clamavSkipped = scanResponse && scanResponse.clamav_skipped === true;
 
   return (
     <Dialog
@@ -83,7 +84,16 @@ export function ClamAVScanDialog({
           </Box>
         ) : scanResponse ? (
           <Box>
-            {scannerUnavailable ? (
+            {clamavSkipped ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  ClamAV Scanning Skipped
+                </Typography>
+                <Typography variant="body2">
+                  {scanResponse.skip_reason || "ClamAV scanning is disabled in this environment. Files passed basic validation checks."}
+                </Typography>
+              </Alert>
+            ) : scannerUnavailable ? (
               <Alert severity="warning" sx={{ mb: 2 }}>
                 <Typography variant="body2">
                   Scanner service is currently unavailable. Files cannot be verified at this time.
@@ -229,7 +239,7 @@ export function ClamAVScanDialog({
           >
             Close
           </Button>
-        ) : allFilesSafe ? (
+        ) : (allFilesSafe || clamavSkipped) ? (
           <>
             <Button onClick={onCancel || onClose} sx={{ minWidth: 100 }}>
               Cancel

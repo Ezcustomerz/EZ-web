@@ -28,13 +28,15 @@ async def scan_files(
         unsafe_count = 0
         # Check if ClamAV is available (will be False in dev_deploy mode)
         scanner_available = scanner_service.clamav.is_available() if scanner_service.clamav is not None else False
+        clamav_skipped = scanner_service.skip_clamav
+        skip_reason = "ClamAV scanning disabled in dev_deploy mode" if clamav_skipped else None
         
         for file in files:
             try:
                 is_safe, error_message, scan_details = await scanner_service.scan_and_validate(
                     file,
                     max_size=100 * 1024 * 1024,  # 100MB
-                    fail_if_scanner_unavailable=True
+                    fail_if_scanner_unavailable=False if clamav_skipped else True  # Don't fail if ClamAV is intentionally skipped
                 )
                 
                 result = FileScanResult(
@@ -66,7 +68,9 @@ async def scan_files(
             total_files=len(files),
             safe_files=safe_count,
             unsafe_files=unsafe_count,
-            scanner_available=scanner_available
+            scanner_available=scanner_available,
+            clamav_skipped=clamav_skipped,
+            skip_reason=skip_reason
         )
         
     except HTTPException:
