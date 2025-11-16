@@ -1,8 +1,23 @@
 FROM clamav/clamav:latest
 
+# Install netcat for health checks
+RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
+
+# Copy custom clamd.conf that enables TCP socket
+COPY clamd.conf /etc/clamav/clamd.conf
+
+# Ensure log directory exists and has proper permissions
+RUN mkdir -p /var/log/clamav && \
+    chown clamav:clamav /var/log/clamav && \
+    chmod 755 /var/log/clamav
+
+# Ensure /tmp is writable for Unix socket
+RUN chmod 1777 /tmp
+
 # Expose ClamAV TCP port
 EXPOSE 3310
 
-# ClamAV daemon runs automatically on port 3310
-# The base image handles all configuration
+# The base image entrypoint should handle starting freshclam and clamd
+# Our custom clamd.conf ensures TCP is enabled on port 3310
+# and Unix socket is available for startup script detection
 
