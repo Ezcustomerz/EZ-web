@@ -1,8 +1,5 @@
 FROM clamav/clamav:latest
 
-# Install netcat for health checks
-RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
-
 # Copy custom clamd.conf that enables TCP socket
 COPY clamd.conf /etc/clamav/clamd.conf
 
