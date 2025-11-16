@@ -26,7 +26,8 @@ async def scan_files(
         results = []
         safe_count = 0
         unsafe_count = 0
-        scanner_available = scanner_service.clamav.is_available()
+        # Check if ClamAV is available (will be False in dev_deploy mode)
+        scanner_available = scanner_service.clamav.is_available() if scanner_service.clamav is not None else False
         
         for file in files:
             try:
