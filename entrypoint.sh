@@ -3,16 +3,43 @@ set -e
 
 echo "Starting ClamAV services..."
 
-# Start freshclam in the background to update virus definitions
-echo "Starting freshclam..."
-freshclam -d || echo "Warning: freshclam failed to start, continuing anyway..."
+# First, update the virus database (this may take a while on first run)
+echo "Updating virus database..."
+freshclam || echo "Warning: freshclam update failed, but continuing..."
+
+# Wait a moment for database to be ready
+sleep 2
+
+# Verify database files exist
+if [ ! -f /var/lib/clamav/main.cvd ] && [ ! -f /var/lib/clamav/main.cld ]; then
+    echo "WARNING: No main database found, but continuing..."
+fi
+
+# Start freshclam in the background for continuous updates
+echo "Starting freshclam daemon..."
+freshclam -d || echo "Warning: freshclam daemon failed to start, continuing anyway..."
 
 # Give freshclam a moment to start
+sleep 2
+
+# Start clamd daemon in the background and capture errors
+echo "Starting clamd..."
+# Start clamd and redirect output to log file
+clamd > /var/log/clamav/clamd-startup.log 2>&1 &
+CLAMD_PID=$!
+
+# Wait a moment to see if it starts or crashes immediately
 sleep 3
 
-# Start clamd daemon in the background
-echo "Starting clamd..."
-clamd &
+# Check if process is still running
+if ! kill -0 $CLAMD_PID 2>/dev/null; then
+    echo "ERROR: clamd process died immediately after starting!"
+    echo "=== Startup log ==="
+    cat /var/log/clamav/clamd-startup.log 2>/dev/null || echo "No log file"
+    echo "=== Main log ==="
+    tail -50 /var/log/clamav/clamd.log 2>/dev/null || echo "No main log"
+    exit 1
+fi
 
 # Wait for clamd to create the socket or start listening on TCP port
 echo "Waiting for clamd to be ready..."
@@ -45,9 +72,11 @@ done
 # Final check - verify clamd process is running
 if ! ps aux | grep -v grep | grep -q "[c]lamd"; then
     echo "ERROR: clamd process not found!"
-    echo "Checking logs..."
-    tail -50 /var/log/clamav/clamd.log 2>/dev/null || echo "No log file found"
-    echo "Attempting to start clamd in foreground to see errors..."
+    echo "=== clamd startup log ==="
+    cat /var/log/clamav/clamd-startup.log 2>/dev/null || echo "No startup log found"
+    echo "=== clamd main log ==="
+    tail -50 /var/log/clamav/clamd.log 2>/dev/null || echo "No main log file found"
+    echo "=== Attempting to start clamd in foreground to see errors ==="
     clamd || exit 1
 fi
 
@@ -68,6 +97,13 @@ while true; do
     # Check if clamd is still running
     if ! ps aux | grep -v grep | grep -q "[c]lamd"; then
         echo "ERROR: clamd process died!"
+        echo "=== Checking logs for errors ==="
+        echo "=== clamd startup log ==="
+        cat /var/log/clamav/clamd-startup.log 2>/dev/null || echo "No startup log found"
+        echo "=== clamd main log (last 50 lines) ==="
+        tail -50 /var/log/clamav/clamd.log 2>/dev/null || echo "No main log file found"
+        echo "=== System logs (last 20 lines) ==="
+        dmesg | tail -20 2>/dev/null || echo "No system logs available"
         exit 1
     fi
     sleep 10
