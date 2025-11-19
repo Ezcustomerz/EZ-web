@@ -24,6 +24,7 @@ interface PaymentApprovalOrderCardProps {
   paymentOption?: PaymentApprovalOption;
   depositAmount?: number;
   remainingAmount?: number;
+  amountPaid?: number; // Track how much has been paid
   serviceId?: string;
   serviceDescription?: string;
   serviceDeliveryTime?: string;
@@ -50,6 +51,7 @@ export function PaymentApprovalOrderCard({
   paymentOption = 'payment_upfront',
   depositAmount,
   remainingAmount,
+  amountPaid = 0,
   serviceId,
   serviceDescription,
   serviceDeliveryTime,
@@ -68,6 +70,53 @@ export function PaymentApprovalOrderCard({
   const statusColor = '#00bcd4';
   const [popoverOpen, setPopoverOpen] = useState(false);
 
+  // Calculate payment details based on payment option and amount paid
+  const calculatePaymentDetails = () => {
+    if (paymentOption === 'split_payment') {
+      const calculatedDeposit = depositAmount || Math.round(price * 0.5 * 100) / 100;
+      const calculatedRemaining = remainingAmount || (price - calculatedDeposit);
+      
+      // Ensure amountPaid is a number
+      const paidAmount = typeof amountPaid === 'number' ? amountPaid : (parseFloat(String(amountPaid || 0)) || 0);
+      
+      // Check if first payment (deposit) has been paid
+      // Use tolerance for floating point comparison
+      const paymentTolerance = 0.01;
+      const isFirstPayment = paidAmount < calculatedDeposit - paymentTolerance;
+      
+      if (isFirstPayment) {
+        // First payment - show deposit amount
+        return {
+          amountDue: calculatedDeposit,
+          paymentMessage: 'Payment due now',
+          isSecondPayment: false,
+          firstPaymentAmount: 0,
+          remainingAmount: calculatedRemaining,
+        };
+      } else {
+        // Second payment - show remaining amount
+        return {
+          amountDue: calculatedRemaining,
+          paymentMessage: 'Final payment due',
+          isSecondPayment: true,
+          firstPaymentAmount: calculatedDeposit,
+          remainingAmount: calculatedRemaining,
+        };
+      }
+    } else {
+      // Payment upfront - always show full price
+      return {
+        amountDue: price,
+        paymentMessage: 'Payment required to begin',
+        isSecondPayment: false,
+        firstPaymentAmount: 0,
+        remainingAmount: 0,
+      };
+    }
+  };
+
+  const paymentDetails = calculatePaymentDetails();
+
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't open popover if clicking the pay button
     if ((e.target as HTMLElement).closest('button')) {
@@ -85,6 +134,10 @@ export function PaymentApprovalOrderCard({
     setPopoverOpen(true);
   };
 
+  // Calculate deposit and remaining for order detail
+  const calculatedDeposit = depositAmount || (paymentOption === 'split_payment' ? Math.round(price * 0.5 * 100) / 100 : price);
+  const calculatedRemaining = remainingAmount || (paymentOption === 'split_payment' ? (price - calculatedDeposit) : 0);
+  
   const orderDetail: PaymentApprovalOrderDetail = {
     id,
     serviceName,
@@ -94,8 +147,9 @@ export function PaymentApprovalOrderCard({
     price,
     calendarDate,
     paymentOption,
-    depositAmount,
-    remainingAmount,
+    depositAmount: calculatedDeposit,
+    remainingAmount: calculatedRemaining,
+    amountPaid: amountPaid,
     serviceId,
     serviceDescription,
     serviceDeliveryTime,
@@ -163,7 +217,7 @@ export function PaymentApprovalOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • Payment required to begin
+                • {paymentDetails.paymentMessage}
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
@@ -233,6 +287,28 @@ export function PaymentApprovalOrderCard({
           )}
 
           <Box sx={{ flex: 1 }} />
+
+          {/* Show payment breakdown for second payment of split payment */}
+          {paymentOption === 'split_payment' && paymentDetails.isSecondPayment && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                  First payment paid:
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600, fontSize: '0.7rem' }}>
+                  ${paymentDetails.firstPaymentAmount.toFixed(2)}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
+                  Final payment:
+                </Typography>
+                <Typography variant="caption" sx={{ color: statusColor, fontWeight: 600, fontSize: '0.7rem' }}>
+                  ${paymentDetails.remainingAmount.toFixed(2)}
+                </Typography>
+              </Box>
+            </Box>
+          )}
 
           <Box sx={{ position: 'relative' }}>
             <Button
@@ -377,7 +453,7 @@ export function PaymentApprovalOrderCard({
                   pointerEvents: 'none',
                 }}
               />
-              Pay ${price.toFixed(2)}
+              Pay ${paymentDetails.amountDue.toFixed(2)}
             </Button>
           </Box>
         </Box>

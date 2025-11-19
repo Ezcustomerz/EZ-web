@@ -80,9 +80,9 @@ function transformOrders(fetchedOrders: Order[]) {
       clientEmail: order.creative_email,
       clientPhone: undefined, // TODO: Add client phone if available
       specialRequirements: order.description,
-      amountPaid: 0, // TODO: Calculate from payment records
-      amountRemaining: order.price,
-      depositPaid: false,
+      amountPaid: order.amount_paid || 0,
+      amountRemaining: order.price - (order.amount_paid || 0),
+      depositPaid: order.payment_option === 'split' && (order.amount_paid || 0) >= Math.round(order.price * 0.5 * 100) / 100,
     };
   });
 }

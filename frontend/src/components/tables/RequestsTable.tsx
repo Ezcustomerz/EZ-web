@@ -480,10 +480,28 @@ export function RequestsTable({
 
   // In Progress handlers
   const handleFinalizeService = async (orderId: string, files: any[]) => {
-    console.log('Finalizing service for order:', orderId, 'with files:', files);
-    // TODO: Implement service finalization logic - update order status to 'Complete'
-    // This would typically involve an API call to finalize the service and upload files
-    handleCloseInProgressPopover();
+    try {
+      // Transform files to match API format
+      const filesData = files.map(file => ({
+        url: file.url,
+        name: file.name,
+        size: file.size,
+        type: file.type
+      }));
+      
+      await bookingService.finalizeService(orderId, filesData);
+      
+      // Refresh the requests list
+      if (onRefresh) {
+        await onRefresh();
+      }
+      
+      handleCloseInProgressPopover();
+    } catch (error) {
+      console.error('Error finalizing service:', error);
+      // TODO: Show error notification to user
+      throw error;
+    }
   };
 
   // Complete handlers

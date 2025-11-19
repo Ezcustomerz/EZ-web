@@ -6,11 +6,12 @@ from supabase import Client
 from db.db_session import db_admin
 from schemas.booking import (
     CreateBookingRequest, CreateBookingResponse,
-    OrdersListResponse, OrderResponse,
+    OrdersListResponse, OrderResponse, OrderFile,
     CalendarSessionsResponse, CalendarSessionResponse,
     ApproveBookingRequest, ApproveBookingResponse,
     RejectBookingRequest, RejectBookingResponse,
-    CancelBookingRequest, CancelBookingResponse
+    CancelBookingRequest, CancelBookingResponse,
+    FinalizeServiceRequest, FinalizeServiceResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -426,7 +427,7 @@ class BookingController:
     """Controller for booking/order management operations"""
     
     @staticmethod
-    def _build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False):
+    def _build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False, files=None):
         """Helper function to build an OrderResponse from booking data"""
         service = services_dict.get(booking['service_id'], {})
         creative = creatives_dict.get(booking.get('creative_user_id', ''), {})
@@ -502,6 +503,16 @@ class BookingController:
                 creative_status=creative_status
             )
         else:
+            # Convert files to OrderFile format if provided
+            order_files = None
+            if files and len(files) > 0:
+                try:
+                    order_files = [OrderFile(**f) for f in files]
+                    logger.debug(f"[_build_order_response] Converted {len(order_files)} files for booking {booking.get('id')}")
+                except Exception as e:
+                    logger.error(f"[_build_order_response] Error converting files to OrderFile: {e}", exc_info=True)
+                    order_files = None
+            
             return OrderResponse(
                 id=booking['id'],
                 service_id=booking['service_id'],
@@ -529,7 +540,8 @@ class BookingController:
                 description=booking.get('notes'),
                 status=display_status,
                 client_status=client_status,
-                creative_status=creative_status
+                creative_status=creative_status,
+                files=order_files
             )
     
     @staticmethod
@@ -729,9 +741,69 @@ class BookingController:
                 .execute()
             users_dict = {u['user_id']: u for u in (users_response.data or [])}
             
+            # Fetch deliverables (files) for orders that have files (locked, download statuses)
+            booking_ids = [b['id'] for b in bookings_response.data]
+            deliverables_dict = {}
+            
+            if booking_ids:
+                try:
+                    logger.info(f"[get_client_orders] Fetching deliverables for {len(booking_ids)} bookings: {booking_ids}")
+                    
+                    # Query with UUID objects (Supabase handles UUID conversion)
+                    deliverables_response = client.table('booking_deliverables')\
+                        .select('id, booking_id, file_name, file_type, file_size_bytes')\
+                        .in_('booking_id', booking_ids)\
+                        .execute()
+                    
+                    logger.info(f"[get_client_orders] Query response: {deliverables_response}")
+                    logger.info(f"[get_client_orders] Fetched {len(deliverables_response.data or [])} deliverables for {len(booking_ids)} bookings")
+                    
+                    if deliverables_response.data:
+                        logger.info(f"[get_client_orders] Sample deliverable: {deliverables_response.data[0] if deliverables_response.data else 'None'}")
+                    
+                    # Group deliverables by booking_id (normalize to string for consistent lookup)
+                    for deliverable in (deliverables_response.data or []):
+                        booking_id = str(deliverable['booking_id'])  # Ensure string for dictionary key
+                        if booking_id not in deliverables_dict:
+                            deliverables_dict[booking_id] = []
+                        # Format file size
+                        file_size_bytes = deliverable.get('file_size_bytes', 0) or 0
+                        if file_size_bytes > 1024 * 1024:
+                            file_size_str = f"{(file_size_bytes / 1024 / 1024):.2f} MB"
+                        else:
+                            file_size_str = f"{(file_size_bytes / 1024):.2f} KB"
+                        deliverables_dict[booking_id].append({
+                            'id': str(deliverable['id']),
+                            'name': deliverable.get('file_name', 'Unknown'),
+                            'type': deliverable.get('file_type', 'file'),
+                            'size': file_size_str
+                        })
+                    
+                    logger.info(f"[get_client_orders] Deliverables dict has {len(deliverables_dict)} bookings with files")
+                    logger.info(f"[get_client_orders] Deliverables dict keys: {list(deliverables_dict.keys())}")
+                except Exception as e:
+                    logger.error(f"Error fetching deliverables in get_client_orders: {e}", exc_info=True)
+                    deliverables_dict = {}
+            
             orders = []
             for booking in bookings_response.data:
-                order = BookingController._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False)
+                booking_id_str = str(booking['id'])  # Convert to string for dictionary lookup
+                booking_files = deliverables_dict.get(booking_id_str, [])
+                
+                logger.info(f"[get_client_orders] Booking {booking_id_str} (status: {booking.get('client_status')}) has {len(booking_files)} files")
+                if booking_files:
+                    logger.info(f"[get_client_orders] Files for booking {booking_id_str}: {booking_files}")
+                
+                order = BookingController._build_order_response(
+                    booking, 
+                    services_dict, 
+                    creatives_dict, 
+                    users_dict, 
+                    is_creative_view=False,
+                    files=booking_files
+                )
+                
+                logger.info(f"[get_client_orders] Order {order.id} has files: {order.files}")
                 orders.append(order)
             
             return OrdersListResponse(success=True, orders=orders)
@@ -853,9 +925,60 @@ class BookingController:
                 .execute()
             users_dict = {u['user_id']: u for u in (users_response.data or [])}
             
+            # Fetch deliverables (files) for locked and download orders
+            # Keep booking IDs as they come from the database (UUID objects) for the query
+            booking_ids = [b['id'] for b in bookings_response.data]
+            deliverables_dict = {}
+            
+            if booking_ids:
+                try:
+                    # Query with UUID objects (Supabase handles UUID conversion)
+                    deliverables_response = client.table('booking_deliverables')\
+                        .select('id, booking_id, file_name, file_type, file_size_bytes')\
+                        .in_('booking_id', booking_ids)\
+                        .execute()
+                    
+                    logger.info(f"[get_client_action_needed_orders] Fetched {len(deliverables_response.data or [])} deliverables for {len(booking_ids)} bookings")
+                    logger.info(f"[get_client_action_needed_orders] Booking IDs: {booking_ids}")
+                    
+                    # Group deliverables by booking_id (normalize to string for consistent lookup)
+                    for deliverable in (deliverables_response.data or []):
+                        booking_id = str(deliverable['booking_id'])  # Ensure string for dictionary key
+                        if booking_id not in deliverables_dict:
+                            deliverables_dict[booking_id] = []
+                        # Format file size
+                        file_size_bytes = deliverable.get('file_size_bytes', 0) or 0
+                        if file_size_bytes > 1024 * 1024:
+                            file_size_str = f"{(file_size_bytes / 1024 / 1024):.2f} MB"
+                        else:
+                            file_size_str = f"{(file_size_bytes / 1024):.2f} KB"
+                        deliverables_dict[booking_id].append({
+                            'id': str(deliverable['id']),
+                            'name': deliverable.get('file_name', 'Unknown'),
+                            'type': deliverable.get('file_type', 'file'),
+                            'size': file_size_str
+                        })
+                    
+                    logger.info(f"[get_client_action_needed_orders] Deliverables dict keys: {list(deliverables_dict.keys())}")
+                    logger.info(f"[get_client_action_needed_orders] Deliverables dict: {deliverables_dict}")
+                except Exception as e:
+                    logger.error(f"Error fetching deliverables: {e}", exc_info=True)
+                    deliverables_dict = {}
+            
             orders = []
             for booking in bookings_response.data:
-                order = BookingController._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False)
+                booking_id_str = str(booking['id'])  # Convert to string for dictionary lookup
+                booking_files = deliverables_dict.get(booking_id_str, [])
+                logger.info(f"[get_client_action_needed_orders] Booking {booking_id_str} has {len(booking_files)} files")
+                
+                order = BookingController._build_order_response(
+                    booking, 
+                    services_dict, 
+                    creatives_dict, 
+                    users_dict, 
+                    is_creative_view=False,
+                    files=booking_files
+                )
                 orders.append(order)
             
             return OrdersListResponse(success=True, orders=orders)
@@ -1764,3 +1887,175 @@ class BookingController:
         except Exception as e:
             logger.error(f"Error canceling booking: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to cancel booking: {str(e)}")
+    
+    @staticmethod
+    async def finalize_service(user_id: str, finalize_request: FinalizeServiceRequest, client: Client) -> FinalizeServiceResponse:
+        """Finalize a service - update statuses based on payment type and file presence
+        
+        Status flow:
+        - Free + File: Creative = "completed", Client = "download"
+        - Free + No file: Both = "completed"
+        - Payment upfront + File: Creative = "completed", Client = "download"
+        - Payment upfront + No file: Both = "completed"
+        - Split payment + File: Creative = "awaiting_payment" (if not fully paid) or "completed" (if fully paid), Client = "locked" (if not fully paid) or "download" (if fully paid)
+        - Split payment + No file: Creative = "awaiting_payment" (if not fully paid) or "completed" (if fully paid), Client = "payment_required" (if not fully paid) or "completed" (if fully paid)
+        - Payment later + File: Creative = "awaiting_payment" (if not fully paid) or "completed" (if fully paid), Client = "locked" (if not fully paid) or "download" (if fully paid)
+        - Payment later + No file: Creative = "awaiting_payment" (if not fully paid) or "completed" (if fully paid), Client = "payment_required" (if not fully paid) or "completed" (if fully paid)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
+        try:
+            booking_id = finalize_request.booking_id
+            
+            # Get booking details
+            booking_result = client.table('bookings').select(
+                'id, creative_user_id, client_user_id, service_id, price, payment_option, payment_status, amount_paid, creative_status, client_status'
+            ).eq('id', booking_id).single().execute()
+            
+            if not booking_result.data:
+                raise HTTPException(status_code=404, detail="Booking not found")
+            
+            booking = booking_result.data
+            
+            # Verify the booking belongs to the creative
+            if booking['creative_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to finalize this booking")
+            
+            # Verify the booking is in progress
+            if booking['creative_status'] != 'in_progress':
+                raise HTTPException(status_code=400, detail=f"Cannot finalize booking with status: {booking['creative_status']}")
+            
+            # Get payment details
+            price = float(booking.get('price', 0))
+            payment_option = booking.get('payment_option', 'later')
+            payment_status = booking.get('payment_status', 'pending')
+            amount_paid = float(booking.get('amount_paid', 0))
+            
+            # Determine if files were provided
+            has_files = finalize_request.files and len(finalize_request.files) > 0
+            
+            # Determine if service is free
+            is_free = price == 0
+            
+            # Determine new statuses based on payment type and file presence
+            creative_status = 'completed'
+            client_status = 'completed'  # Default
+            
+            if is_free:
+                # Free service
+                if has_files:
+                    client_status = 'download'
+                else:
+                    client_status = 'completed'
+            elif payment_option == 'upfront':
+                # Payment upfront
+                if has_files:
+                    client_status = 'download'
+                else:
+                    client_status = 'completed'
+            elif payment_option == 'split':
+                # Split payment
+                if has_files:
+                    # Check if fully paid
+                    if payment_status == 'fully_paid' or amount_paid >= price:
+                        client_status = 'download'
+                    else:
+                        client_status = 'locked'
+                        creative_status = 'awaiting_payment'  # Creative waits for payment
+                else:
+                    # No files - check payment status
+                    if payment_status == 'fully_paid' or amount_paid >= price:
+                        client_status = 'completed'
+                    else:
+                        client_status = 'payment_required'
+                        creative_status = 'awaiting_payment'  # Creative waits for payment
+            elif payment_option == 'later':
+                # Payment later
+                if has_files:
+                    # Check if fully paid
+                    if payment_status == 'fully_paid' or amount_paid >= price:
+                        client_status = 'download'
+                    else:
+                        client_status = 'locked'
+                        creative_status = 'awaiting_payment'  # Creative waits for payment
+                else:
+                    # No files - check payment status
+                    if payment_status == 'fully_paid' or amount_paid >= price:
+                        client_status = 'completed'
+                    else:
+                        client_status = 'payment_required'
+                        creative_status = 'awaiting_payment'  # Creative waits for payment
+            
+            # Save files if provided
+            if has_files:
+                deliverables_data = []
+                for file_info in finalize_request.files:
+                    deliverables_data.append({
+                        'booking_id': booking_id,
+                        'file_url': file_info.get('url') or file_info.get('file_url'),
+                        'file_name': file_info.get('name') or file_info.get('file_name'),
+                        'file_size_bytes': file_info.get('size') or file_info.get('file_size_bytes'),
+                        'file_type': file_info.get('type') or file_info.get('file_type')
+                    })
+                
+                if deliverables_data:
+                    db_admin.table('booking_deliverables').insert(deliverables_data).execute()
+            
+            # Update booking statuses
+            update_data = {
+                'creative_status': creative_status,
+                'client_status': client_status,
+                'updated_at': datetime.utcnow().isoformat()
+            }
+            
+            update_result = client.table('bookings').update(update_data).eq('id', booking_id).execute()
+            
+            if not update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update booking status")
+            
+            # Get service and creative details for notification
+            service_response = client.table('creative_services').select('title').eq('id', booking['service_id']).single().execute()
+            creative_response = client.table('creatives').select('display_name').eq('user_id', user_id).single().execute()
+            
+            service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
+            creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
+            
+            # Create notification for client
+            client_notification_data = {
+                "recipient_user_id": booking['client_user_id'],
+                "notification_type": "session_completed",
+                "title": "Service Completed",
+                "message": f"Your service '{service_title}' has been completed by {creative_display_name}." + (" Files are ready for download." if has_files else ""),
+                "is_read": False,
+                "related_user_id": user_id,
+                "related_entity_id": booking_id,
+                "related_entity_type": "booking",
+                "target_roles": ["client"],
+                "metadata": {
+                    "service_title": service_title,
+                    "booking_id": booking_id,
+                    "has_files": has_files,
+                    "client_status": client_status
+                },
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            try:
+                db_admin.table("notifications").insert(client_notification_data).execute()
+                logger.info(f"Completion notification created for client: {booking['client_user_id']}")
+            except Exception as notif_error:
+                logger.error(f"Failed to create completion notification: {notif_error}")
+            
+            return FinalizeServiceResponse(
+                success=True,
+                message="Service finalized successfully",
+                booking_id=booking_id
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error finalizing service: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to finalize service: {str(e)}")

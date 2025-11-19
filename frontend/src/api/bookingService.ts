@@ -322,6 +322,21 @@ class BookingService {
     });
     return response.data;
   }
+
+  async finalizeService(bookingId: string, files?: Array<{ url: string; name: string; size: number; type: string }>): Promise<{ success: boolean; message: string; booking_id: string }> {
+    const response = await apiClient.post(`${this.bookingsUrl}/finalize`, {
+      booking_id: bookingId,
+      files: files || []
+    });
+    return response.data;
+  }
+}
+
+export interface OrderFile {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
 }
 
 export interface Order {
@@ -352,6 +367,7 @@ export interface Order {
   status: string;
   client_status?: string;
   creative_status?: string;
+  files?: OrderFile[];
 }
 
 export const bookingService = new BookingService();

@@ -44,6 +44,7 @@ export interface PaymentApprovalOrderDetail {
   // Split payment amounts
   depositAmount?: number;
   remainingAmount?: number;
+  amountPaid?: number; // Track how much has been paid
   // Service details for nested popover
   serviceId?: string;
   serviceDescription?: string;
@@ -95,9 +96,12 @@ export function PaymentApprovalOrderDetailPopover({
     }
   };
 
-  const getPaymentOptionDescription = (option: PaymentApprovalOption) => {
+  const getPaymentOptionDescription = (option: PaymentApprovalOption, isSecondPayment: boolean = false) => {
     switch (option) {
       case 'split_payment':
+        if (isSecondPayment) {
+          return 'Deposit has been paid. Complete your payment with the remaining balance.';
+        }
         return 'Pay a deposit now to start, then pay the remaining balance after completion';
       case 'payment_upfront':
         return 'Full payment is required before the service begins';
@@ -141,18 +145,38 @@ export function PaymentApprovalOrderDetailPopover({
   const handlePaymentSuccess = () => {
     setPaymentDialogOpen(false);
     if (onPay) {
-      const amountToPay = order.paymentOption === 'split_payment' 
-        ? (order.depositAmount || order.price * 0.5)
-        : order.price;
-      onPay(order.id, amountToPay);
+      onPay(order.id, amountDueNow);
     }
     onClose();
   };
 
-  // Calculate payment amounts
-  const depositAmount = order.depositAmount || (order.price * 0.5);
-  const remainingAmount = order.remainingAmount || (order.price - depositAmount);
-  const amountDueNow = order.paymentOption === 'split_payment' ? depositAmount : order.price;
+  // Calculate payment amounts - use same rounding as card component
+  const depositAmount = order.depositAmount || Math.round(order.price * 0.5 * 100) / 100;
+  const remainingAmount = order.remainingAmount || Math.round((order.price - depositAmount) * 100) / 100;
+  const amountPaid = typeof order.amountPaid === 'number' ? order.amountPaid : (parseFloat(String(order.amountPaid || 0)) || 0);
+  
+  // Determine if this is the first or second payment for split payments
+  // If amountPaid >= depositAmount (with tolerance), it's the second payment
+  const paymentTolerance = 0.01;
+  const isFirstPayment = order.paymentOption === 'split_payment' 
+    ? (amountPaid < depositAmount - paymentTolerance)
+    : false;
+  const isSecondPayment = order.paymentOption === 'split_payment' && amountPaid >= depositAmount - paymentTolerance;
+  const amountDueNow = order.paymentOption === 'split_payment' 
+    ? (isFirstPayment ? depositAmount : remainingAmount)
+    : order.price;
+  
+  // Debug logging (can be removed in production)
+  if (order.paymentOption === 'split_payment') {
+    console.log('[PaymentApproval] Split payment check:', {
+      amountPaid,
+      depositAmount,
+      remainingAmount,
+      isFirstPayment,
+      isSecondPayment,
+      amountDueNow
+    });
+  }
 
   // Create service detail object for the nested popover
   const serviceDetail: ServiceDetail = {
@@ -368,7 +392,7 @@ export function PaymentApprovalOrderDetailPopover({
                   }}
                 />
                 <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                  {getPaymentOptionDescription(order.paymentOption)}
+                  {getPaymentOptionDescription(order.paymentOption, isSecondPayment)}
                 </Typography>
               </Box>
             </Box>
@@ -391,37 +415,75 @@ export function PaymentApprovalOrderDetailPopover({
 
               {order.paymentOption === 'split_payment' ? (
                 <>
-                  {/* Deposit Amount */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        Deposit Due Now
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        Required to start service
-                      </Typography>
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
-                      ${amountDueNow.toFixed(2)}
-                    </Typography>
-                  </Box>
+                  {isFirstPayment ? (
+                    <>
+                      {/* First Payment - Deposit */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            Deposit Due Now
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Required to start service
+                          </Typography>
+                        </Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                          ${amountDueNow.toFixed(2)}
+                        </Typography>
+                      </Box>
 
-                  <Divider sx={{ my: 1.5 }} />
+                      <Divider sx={{ my: 1.5 }} />
 
-                  {/* Remaining Amount */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        Remaining Balance
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        Due after completion
-                      </Typography>
-                    </Box>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                      ${remainingAmount.toFixed(2)}
-                    </Typography>
-                  </Box>
+                      {/* Remaining Amount */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            Remaining Balance
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Due after completion
+                          </Typography>
+                        </Box>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                          ${remainingAmount.toFixed(2)}
+                        </Typography>
+                      </Box>
+                    </>
+                  ) : (
+                    <>
+                      {/* Second Payment - Show what was paid and what's due */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            First Payment Paid
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Deposit received
+                          </Typography>
+                        </Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.success.main }}>
+                          ${depositAmount.toFixed(2)}
+                        </Typography>
+                      </Box>
+
+                      <Divider sx={{ my: 1.5 }} />
+
+                      {/* Final Payment Due */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            Final Payment Due Now
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Complete your payment
+                          </Typography>
+                        </Box>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                          ${amountDueNow.toFixed(2)}
+                        </Typography>
+                      </Box>
+                    </>
+                  )}
                 </>
               ) : (
                 /* Payment Upfront */

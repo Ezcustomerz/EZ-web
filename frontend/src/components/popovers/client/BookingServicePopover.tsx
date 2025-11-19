@@ -1121,7 +1121,7 @@ export function BookingServicePopover({
       <DialogContent ref={contentRef} sx={{ p: 3, pt: 2}}>
         <Stepper activeStep={activeStep} orientation="vertical" sx={{ mt: 1 }}>
           {isBookingRequired && (
-            <>
+            <Box component="div">
               {/* Step 1: Booking Required */}
               <Step expanded={activeStep >= 0} ref={step0Ref}>
                 <StepLabel
@@ -1219,7 +1219,7 @@ export function BookingServicePopover({
                   />
                 </StepContent>
               </Step>
-            </>
+            </Box>
           )}
 
           {/* Step 3: Additional Notes (Optional) */}

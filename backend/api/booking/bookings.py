@@ -12,7 +12,8 @@ from schemas.booking import (
     CalendarSessionsResponse,
     ApproveBookingRequest, ApproveBookingResponse,
     RejectBookingRequest, RejectBookingResponse,
-    CancelBookingRequest, CancelBookingResponse
+    CancelBookingRequest, CancelBookingResponse,
+    FinalizeServiceRequest, FinalizeServiceResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -366,3 +367,38 @@ async def cancel_booking(
     except Exception as e:
         logger.error(f"Error canceling booking: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to cancel booking: {str(e)}")
+
+
+@router.post("/finalize", response_model=FinalizeServiceResponse)
+@limiter.limit("10 per minute")
+async def finalize_service(
+    request: Request,
+    finalize_data: FinalizeServiceRequest,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Finalize a service - update statuses based on payment type and file presence
+    Requires authentication - will return 401 if not authenticated.
+    
+    Status flow:
+    - Free + File: Creative = "completed", Client = "download"
+    - Free + No file: Both = "completed"
+    - Payment upfront + File: Creative = "completed", Client = "download"
+    - Payment upfront + No file: Both = "completed"
+    - Split payment + File: Creative = "awaiting_payment" (if not fully paid) or "completed" (if fully paid), Client = "locked" (if not fully paid) or "download" (if fully paid)
+    - Split payment + No file: Creative = "awaiting_payment" (if not fully paid) or "completed" (if fully paid), Client = "payment_required" (if not fully paid) or "completed" (if fully paid)
+    - Payment later + File: Creative = "awaiting_payment" (if not fully paid) or "completed" (if fully paid), Client = "locked" (if not fully paid) or "download" (if fully paid)
+    - Payment later + No file: Creative = "awaiting_payment" (if not fully paid) or "completed" (if fully paid), Client = "payment_required" (if not fully paid) or "completed" (if fully paid)
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        return await BookingController.finalize_service(user_id, finalize_data, client)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error finalizing service: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to finalize service: {str(e)}")

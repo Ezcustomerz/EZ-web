@@ -18,6 +18,12 @@ class CreateBookingResponse(BaseModel):
     booking: Optional[dict] = None
 
 
+class OrderFile(BaseModel):
+    id: str
+    name: str
+    type: str
+    size: str
+
 class OrderResponse(BaseModel):
     id: str
     service_id: str
@@ -46,6 +52,7 @@ class OrderResponse(BaseModel):
     status: str
     client_status: Optional[str]
     creative_status: Optional[str]
+    files: Optional[List[OrderFile]] = None
 
 
 class OrdersListResponse(BaseModel):
@@ -95,3 +102,13 @@ class CancelBookingResponse(BaseModel):
     success: bool
     message: str
 
+
+class FinalizeServiceRequest(BaseModel):
+    booking_id: str
+    files: Optional[List[dict]] = None  # List of file objects with url, name, size, type
+
+
+class FinalizeServiceResponse(BaseModel):
+    success: bool
+    message: str
+    booking_id: str

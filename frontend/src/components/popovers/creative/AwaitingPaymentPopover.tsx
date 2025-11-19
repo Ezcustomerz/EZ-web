@@ -179,12 +179,15 @@ export function AwaitingPaymentPopover({
       case 'split':
         const depositAmount = Math.round(price * 0.5 * 100) / 100; // 50% deposit
         const remainingAmount = price - depositAmount;
+        // For display: if deposit has been paid (amountPaid >= depositAmount), show depositAmount
+        // Otherwise show the actual amountPaid (which would be 0 or partial)
+        const displayDepositPaid = amountPaid >= depositAmount ? depositAmount : amountPaid;
         return {
           depositAmount,
           remainingAmount,
           amountDueNow: depositAmount,
           isFree: false,
-          amountPaid: amountPaid,
+          amountPaid: displayDepositPaid, // Show deposit amount if deposit was paid, otherwise show actual amountPaid
           amountRemaining: price - amountPaid
         };
       case 'later':
