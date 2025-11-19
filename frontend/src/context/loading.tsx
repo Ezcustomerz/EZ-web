@@ -19,7 +19,7 @@ const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 export function LoadingProvider({ children }: { children: ReactNode }) {
   const [loadingStates, setLoadingStates] = useState<LoadingState>({
     theme: false, // Theme is now inline, no loading needed
-    userAuth: true, // Start with loading true to show spinner immediately
+    userAuth: false,
     profile: false,
   });
 

@@ -196,59 +196,17 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Hide fallback once React is ready and showing its spinner -->
+    <!-- Hide fallback once React loads -->
     <script>
-      let reactReady = false;
-      let fallbackRemoved = false;
-      
-      function removeFallback() {
-        if (fallbackRemoved) return;
-        
-        const fallback = document.getElementById('lcp-fallback');
-        if (fallback) {
-          // Check if React has mounted and is showing a spinner
-          const root = document.getElementById('root');
-          const hasReactContent = root && root.children.length > 0;
-          
-          // Check if spinner is visible (look for RecordSpinner SVG or loading overlay)
-          const spinnerVisible = document.querySelector('[aria-label="Loading application"]') !== null ||
-                                 document.querySelector('[role="status"][aria-live="polite"]') !== null;
-          
-          // Only remove if React is ready, has content, and spinner is visible
-          if (reactReady && hasReactContent && spinnerVisible) {
-            fallbackRemoved = true;
-            fallback.style.opacity = '0';
-            fallback.style.transition = 'opacity 0.5s ease';
-            setTimeout(() => {
-              if (fallback.parentNode) {
-                fallback.remove();
-              }
-            }, 500);
-          } else if (reactReady && hasReactContent) {
-            // React is ready but spinner not visible yet - wait a bit more
-            setTimeout(removeFallback, 100);
-          } else {
-            // React not ready yet - retry
-            setTimeout(removeFallback, 100);
-          }
-        }
-      }
-      
-      // Listen for React ready event
-      window.addEventListener('react-ready', function() {
-        reactReady = true;
-        // Give React a moment to render the spinner
-        setTimeout(removeFallback, 200);
-      });
-      
-      // Fallback: if React doesn't signal within 3 seconds, remove anyway
       window.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
-          if (!fallbackRemoved) {
-            reactReady = true;
-            removeFallback();
+          const fallback = document.getElementById('lcp-fallback');
+          if (fallback) {
+            fallback.style.opacity = '0';
+            fallback.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => fallback.remove(), 300);
           }
-        }, 3000);
+        }, 100);
       });
     </script>
   </body>

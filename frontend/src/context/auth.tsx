@@ -75,10 +75,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const isAuthed = !!data.session;
       console.log('[Auth] initial state:', { isAuthenticated: isAuthed, userId: data.session?.user.id });
       
-      // Set auth loading to false after initial session check
-      // This is especially important for public pages like InvitePage
-      setUserAuthLoading(false);
-      
       // Don't sync tokens here - let onAuthStateChange handle it
       // to avoid duplicate calls on initial load
     });

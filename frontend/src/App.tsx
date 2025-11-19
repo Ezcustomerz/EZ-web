@@ -48,9 +48,7 @@ import { NoAccess } from './views/NoAccess'
 import { PaymentSuccess } from './views/PaymentSuccess'
 import { PaymentCancelled } from './views/PaymentCancelled'
 import { ToastProvider } from './components/toast/toast'
-import { LoadingProvider, useLoading } from './context/loading'
-import { RecordSpinner } from './components/loaders/RecordSpinner'
-import { Box } from '@mui/material'
+import { LoadingProvider } from './context/loading'
 
 function AppContent() {
   const { 
@@ -187,37 +185,6 @@ function AppContent() {
   );
 }
 
-function GlobalLoadingOverlay() {
-  const { isAnyLoading } = useLoading();
-
-  if (!isAnyLoading) return null;
-
-  return (
-    <Box
-      sx={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backdropFilter: 'blur(6px)',
-      }}
-    >
-      <RecordSpinner 
-        size={140} 
-        speed="normal" 
-        variant="scratch" 
-        ariaLabel="Loading application" 
-      />
-    </Box>
-  );
-}
-
 function ThemeLoader({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState(() => createAppTheme(defaultThemeConfig));
 
@@ -256,27 +223,12 @@ function ThemeLoader({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <GlobalLoadingOverlay />
       {children}
     </ThemeProvider>
   );
 }
 
 function App() {
-  useEffect(() => {
-    // Signal to HTML that React is ready and can take over loading display
-    // This ensures smooth transition from HTML fallback to React spinner
-    const checkAndSignalReady = () => {
-      // Wait a bit to ensure React has rendered
-      requestAnimationFrame(() => {
-        window.dispatchEvent(new CustomEvent('react-ready'));
-      });
-    };
-    
-    // Signal ready after initial render
-    checkAndSignalReady();
-  }, []);
-
   return (
     <StrictMode>
       <LoadingProvider>
