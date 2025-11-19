@@ -367,6 +367,32 @@ class BookingService {
     });
     return response.data;
   }
+
+  async downloadComplianceSheet(bookingId: string): Promise<Blob> {
+    const response = await apiClient.get(`/api/bookings/compliance-sheet/${bookingId}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  async getInvoices(bookingId: string): Promise<{ success: boolean; booking_id: string; invoices: Array<{ type: string; name: string; download_url: string; session_id?: string }> }> {
+    const response = await apiClient.get(`/api/bookings/invoices/${bookingId}`);
+    return response.data;
+  }
+
+  async downloadEzInvoice(bookingId: string): Promise<Blob> {
+    const response = await apiClient.get(`/api/bookings/invoice/ez/${bookingId}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  async getStripeReceipt(bookingId: string, sessionId: string): Promise<{ success: boolean; receipt_url: string; session_id: string }> {
+    const response = await apiClient.get(`/api/bookings/invoice/stripe/${bookingId}`, {
+      params: { session_id: sessionId }
+    });
+    return response.data;
+  }
 }
 
 export interface OrderFile {

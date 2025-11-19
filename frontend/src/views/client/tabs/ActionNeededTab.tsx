@@ -171,11 +171,6 @@ export function ActionNeededTab() {
       return;
     }
     
-    // TEMPORARY: Always clear cache on mount to force fresh fetch with files
-    // This ensures we get the latest data with files
-    console.log('[ActionNeededTab] Clearing cache to force fresh fetch');
-    clearCache();
-    
     const now = Date.now();
     const cacheAge = now - fetchCache.timestamp;
     
@@ -197,49 +192,16 @@ export function ActionNeededTab() {
       }
     };
     
-    // TEMPORARY: Skip cache check to always fetch fresh data
-    // This ensures we get files that were recently added
-    // if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
-    //   // Use cached data directly (fastest path)
-    //   if (mountedRef.current) {
-    //     // Debug: Log cached data
-    //     console.log('[ActionNeededTab] Using cached data:', fetchCache.data);
-    //     if (fetchCache.data && fetchCache.data.length > 0) {
-    //       fetchCache.data.forEach((order: Order) => {
-    //         if (order.files && order.files.length > 0) {
-    //           console.log('[ActionNeededTab] Cached order has files:', {
-    //             orderId: order.id,
-    //             files: order.files
-    //           });
-    //         } else {
-    //           console.log('[ActionNeededTab] Cached order has NO files:', {
-    //             orderId: order.id,
-    //             files: order.files
-    //           });
-    //         }
-    //       });
-    //     }
-    //     const transformedOrders = transformOrders(fetchCache.data);
-    //     console.log('[ActionNeededTab] Transformed cached orders:', transformedOrders);
-    //     transformedOrders.forEach((order: any) => {
-    //       if (order.files && order.files.length > 0) {
-    //         console.log('[ActionNeededTab] Transformed cached order has files:', {
-    //           orderId: order.id,
-    //           files: order.files
-    //         });
-    //       } else {
-    //         console.log('[ActionNeededTab] Transformed cached order has NO files:', {
-    //           orderId: order.id,
-    //           files: order.files,
-    //           fileCount: order.fileCount
-    //         });
-    //       }
-    //     });
-    //     setActionNeededOrders(transformedOrders);
-    //     setLoading(false);
-    //   }
-    //   return;
-    // }
+    // Check if cached data is still valid
+    if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
+      // Use cached data directly (fastest path)
+      if (mountedRef.current) {
+        const transformedOrders = transformOrders(fetchCache.data);
+        setActionNeededOrders(transformedOrders);
+        setLoading(false);
+      }
+      return;
+    }
     
     // Check if a promise already exists - reuse it immediately
     // This must be checked BEFORE creating a new one to prevent race conditions
@@ -260,7 +222,12 @@ export function ActionNeededTab() {
     }
     
     // No promise exists - create one
-    // This should only execute for the first mount
+    // Clear stale cache data if it exists
+    if (cacheAge >= CACHE_DURATION) {
+      fetchCache.data = null;
+      fetchCache.resolved = false;
+    }
+    
     // Set flags BEFORE creating promise to prevent race conditions
     fetchCache.isFetching = true;
     fetchCache.resolved = false;

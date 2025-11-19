@@ -176,7 +176,7 @@ export function DownloadOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Creative files are ready to download
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>

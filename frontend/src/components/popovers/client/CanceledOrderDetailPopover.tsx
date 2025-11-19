@@ -12,6 +12,7 @@ import {
   Chip,
   Avatar,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { 
@@ -20,12 +21,17 @@ import {
   Payment, 
   Cancel as CancelIcon,
   Replay,
+  Description,
+  Download,
+  PictureAsPdf,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
+import { ComplianceSheetViewer } from './ComplianceSheetViewer';
+import { bookingService } from '../../../api/bookingService';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -78,10 +84,66 @@ export function CanceledOrderDetailPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
+  const [complianceSheetOpen, setComplianceSheetOpen] = useState(false);
+  const [invoices, setInvoices] = useState<Array<{ type: string; name: string; download_url: string; session_id?: string }>>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   if (!order) return null;
 
   const statusColor = '#f44336'; // Red for canceled
+
+  // Load invoices when popover opens
+  useEffect(() => {
+    if (open && order.id) {
+      loadInvoices();
+    }
+  }, [open, order.id]);
+
+  const loadInvoices = async () => {
+    setLoadingInvoices(true);
+    try {
+      const response = await bookingService.getInvoices(order.id);
+      if (response.success && response.invoices) {
+        setInvoices(response.invoices);
+      }
+    } catch (error) {
+      console.error('Failed to load invoices:', error);
+    } finally {
+      setLoadingInvoices(false);
+    }
+  };
+
+  const handleDownloadEzInvoice = async () => {
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `EZ_Invoice_${order.id.substring(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+    } catch (error) {
+      console.error('Failed to download EZ invoice:', error);
+      alert('Failed to download invoice. Please try again.');
+    }
+  };
+
+  const handleDownloadStripeReceipt = async (sessionId: string) => {
+    try {
+      const response = await bookingService.getStripeReceipt(order.id, sessionId);
+      if (response.success && response.receipt_url) {
+        // Open Stripe receipt in new tab
+        window.open(response.receipt_url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to get Stripe receipt:', error);
+      alert('Failed to open Stripe receipt. Please try again.');
+    }
+  };
 
   const getPaymentOptionLabel = (option: CanceledPaymentOption) => {
     switch (option) {
@@ -133,6 +195,14 @@ export function CanceledOrderDetailPopover({
     console.log('Book again:', order.serviceName);
     // TODO: Navigate to service booking or open service detail
     handleViewService();
+  };
+
+  const handleViewComplianceSheet = () => {
+    setComplianceSheetOpen(true);
+  };
+
+  const handleComplianceSheetClose = () => {
+    setComplianceSheetOpen(false);
   };
 
   // Create service detail object for the nested popover
@@ -397,6 +467,80 @@ export function CanceledOrderDetailPopover({
             </Typography>
           </Box>
 
+          {/* Invoices Section */}
+          <Divider sx={{ my: 2 }} />
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, fontSize: '1rem' }}>
+              Invoices & Receipts
+            </Typography>
+            {loadingInvoices ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            ) : invoices.length > 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {invoices.map((invoice, index) => (
+                  <Box 
+                    key={index}
+                    sx={{ 
+                      p: 2,
+                      borderRadius: 2,
+                      border: `1px solid ${theme.palette.divider}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <PictureAsPdf sx={{ fontSize: 32, color: invoice.type === 'stripe_receipt' ? '#635bff' : '#f44336' }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {invoice.name}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          {invoice.type === 'stripe_receipt' ? 'Stripe payment receipt' : 'EZ platform invoice'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Download />}
+                      onClick={() => {
+                        if (invoice.type === 'ez_invoice') {
+                          handleDownloadEzInvoice();
+                        } else if (invoice.type === 'stripe_receipt' && invoice.session_id) {
+                          handleDownloadStripeReceipt(invoice.session_id);
+                        }
+                      }}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {invoice.type === 'stripe_receipt' ? 'View' : 'Download'}
+                    </Button>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Box 
+                sx={{ 
+                  p: 2,
+                  borderRadius: 2,
+                  border: `1px solid ${theme.palette.divider}`,
+                  textAlign: 'center',
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
+                }}
+              >
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  No invoices available
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
           {/* Additional Notes Section - Only show if notes exist */}
           {order.description && order.description.trim() && (
             <>
@@ -425,7 +569,7 @@ export function CanceledOrderDetailPopover({
         </Box>
         {/* End of scrollable content */}
 
-        {/* Sticky Rebook Service Button */}
+        {/* Sticky Action Buttons */}
         <Box
           sx={{
             position: 'sticky',
@@ -442,8 +586,34 @@ export function CanceledOrderDetailPopover({
             display: 'flex',
             gap: 2,
             zIndex: 1,
+            flexDirection: { xs: 'column', sm: 'row' },
           }}
         >
+          <Button
+            variant="outlined"
+            size="large"
+            startIcon={<Description />}
+            onClick={handleViewComplianceSheet}
+            sx={{
+              py: 1.5,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              borderRadius: 2,
+              borderColor: theme.palette.primary.main,
+              color: theme.palette.primary.main,
+              flex: { xs: 1, sm: '0 0 auto' },
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                borderColor: theme.palette.primary.dark,
+                color: theme.palette.primary.dark,
+                bgcolor: theme.palette.primary.main + '10',
+                transform: 'translateY(-2px)',
+              },
+            }}
+          >
+            Compliance Sheet
+          </Button>
           <Button
             variant="contained"
             fullWidth
