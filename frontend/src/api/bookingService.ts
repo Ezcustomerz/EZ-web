@@ -323,6 +323,43 @@ class BookingService {
     return response.data;
   }
 
+  async uploadDeliverables(bookingId: string, files: File[]): Promise<{ success: boolean; files: Array<{ file_url: string; file_name: string; file_size: number; file_type: string; storage_path: string }>; total_files: number }> {
+    const formData = new FormData();
+    // FastAPI expects files parameter name to match the function parameter
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+    
+    // Don't set Content-Type header - let the browser set it automatically with boundary
+    const response = await apiClient.post(
+      `${this.bookingsUrl}/upload-deliverables?booking_id=${bookingId}`,
+      formData
+    );
+    return response.data;
+  }
+
+  async uploadDeliverable(bookingId: string, file: File): Promise<{ success: boolean; file_url: string; file_name: string; file_size: number; file_type: string; storage_path: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Don't set Content-Type header - let the browser set it automatically with boundary
+    const response = await apiClient.post(
+      `${this.bookingsUrl}/upload-deliverable?booking_id=${bookingId}`,
+      formData
+    );
+    return response.data;
+  }
+
+  async downloadDeliverable(deliverableId: string): Promise<{ success: boolean; signed_url: string; file_name: string; expires_in: number }> {
+    const response = await apiClient.get(`${this.bookingsUrl}/download-deliverable/${deliverableId}`);
+    return response.data;
+  }
+
+  async downloadDeliverablesBatch(bookingId: string): Promise<{ success: boolean; files: Array<{ deliverable_id: string; file_name: string; signed_url: string; expires_in: number }>; total_files: number }> {
+    const response = await apiClient.get(`${this.bookingsUrl}/download-deliverables/${bookingId}`);
+    return response.data;
+  }
+
   async finalizeService(bookingId: string, files?: Array<{ url: string; name: string; size: number; type: string }>): Promise<{ success: boolean; message: string; booking_id: string }> {
     const response = await apiClient.post(`${this.bookingsUrl}/finalize`, {
       booking_id: bookingId,

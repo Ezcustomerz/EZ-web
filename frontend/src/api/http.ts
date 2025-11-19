@@ -25,14 +25,17 @@ import axios, {
       async (config: InternalAxiosRequestConfig) => {
         const { data } = await supabase.auth.getSession();
         const jwtToken = data.session?.access_token;
-  
+
         if (config.headers && jwtToken) {
           config.headers.Authorization = `Bearer ${jwtToken}`;
-          config.headers['Content-Type'] = 'application/json';
+          // Only set Content-Type if it's not FormData (FormData needs browser to set boundary)
+          if (!(config.data instanceof FormData)) {
+            config.headers['Content-Type'] = 'application/json';
+          }
           config.headers.Accept = 'application/json';
           config.headers['x-user-timezone'] = getUserTimezone();
         }
-  
+
         return config;
       },
       (error) => Promise.reject(error)

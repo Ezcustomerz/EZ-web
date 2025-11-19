@@ -522,16 +522,45 @@ class StripeService:
                 else:
                     payment_status = 'deposit_paid'
             
+            # Check if this is a locked order that's now fully paid
+            current_client_status = booking.get('client_status')
+            is_locked_order = current_client_status == 'locked'
+            is_fully_paid = new_amount_paid >= price
+            
+            # If locked order is fully paid, check for files and update statuses
+            if is_locked_order and is_fully_paid:
+                # Check if order has files
+                deliverables_response = client.table('booking_deliverables')\
+                    .select('id')\
+                    .eq('booking_id', booking_id)\
+                    .execute()
+                
+                has_files = deliverables_response.data and len(deliverables_response.data) > 0
+                
+                if has_files:
+                    # Order has files - client can download, creative is completed
+                    client_status = 'download'
+                    creative_status = 'completed'
+                else:
+                    # No files - both are completed
+                    client_status = 'completed'
+                    creative_status = 'completed'
+            
             # Update booking with new amount_paid and statuses
             update_data = {
                 'amount_paid': new_amount_paid,
                 'payment_status': payment_status,
             }
             
-            # Only update statuses if they're changing to in_progress
+            # Update statuses if they're changing to in_progress
             if client_status == 'in_progress' and booking.get('client_status') != 'in_progress':
                 update_data['client_status'] = client_status
             if creative_status == 'in_progress' and booking.get('creative_status') != 'in_progress':
+                update_data['creative_status'] = creative_status
+            
+            # Update statuses if locked order is now fully paid
+            if is_locked_order and is_fully_paid:
+                update_data['client_status'] = client_status
                 update_data['creative_status'] = creative_status
             
             update_response = client.table('bookings')\

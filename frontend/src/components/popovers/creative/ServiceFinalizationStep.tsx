@@ -52,17 +52,39 @@ export function ServiceFinalizationStep({
   };
 
   const handleFileUpload = useCallback((files: FileList | null) => {
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
     setIsUploading(true);
     
-    Array.from(files).forEach((file) => {
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        alert('File size must be less than 10MB');
-        return;
+    const fileArray = Array.from(files);
+    const validFiles: File[] = [];
+    const invalidFiles: string[] = [];
+    
+    // Validate all files first
+    fileArray.forEach((file) => {
+      // Validate file size (max 50MB to match backend)
+      if (file.size > 50 * 1024 * 1024) {
+        invalidFiles.push(`${file.name} (exceeds 50MB limit)`);
+      } else {
+        validFiles.push(file);
       }
-
+    });
+    
+    // Show error for invalid files
+    if (invalidFiles.length > 0) {
+      alert(`The following files exceed the 50MB size limit:\n${invalidFiles.join('\n')}`);
+    }
+    
+    if (validFiles.length === 0) {
+      setIsUploading(false);
+      return;
+    }
+    
+    // Process all valid files and add them in batch
+    const newFiles: UploadedFile[] = [];
+    let processedCount = 0;
+    
+    validFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const newFile: UploadedFile = {
@@ -75,12 +97,24 @@ export function ServiceFinalizationStep({
           uploadedAt: new Date()
         };
         
-        onFilesChange([...uploadedFiles, newFile]);
+        newFiles.push(newFile);
+        processedCount++;
+        
+        // When all files are processed, add them all at once
+        if (processedCount === validFiles.length) {
+          onFilesChange([...uploadedFiles, ...newFiles]);
+          setIsUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        processedCount++;
+        if (processedCount === validFiles.length) {
+          onFilesChange([...uploadedFiles, ...newFiles]);
+          setIsUploading(false);
+        }
       };
       reader.readAsDataURL(file);
     });
-
-    setTimeout(() => setIsUploading(false), 1000);
   }, [uploadedFiles, onFilesChange]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -155,7 +189,7 @@ export function ServiceFinalizationStep({
               {dragActive ? 'Drop files here' : 'Upload Files (Optional)'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Drag and drop files here, or click to browse. Any file type is supported.
+              Drag and drop multiple files here, or click to browse and select multiple files. Any file type is supported (max 50MB per file).
             </Typography>
             <Button
               variant="outlined"

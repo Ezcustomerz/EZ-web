@@ -7,7 +7,9 @@ import {
   Divider,
   Chip,
   Button,
-  useTheme
+  useTheme,
+  CircularProgress,
+  LinearProgress,
 } from '@mui/material';
 import { DateRange, CalendarToday, CheckCircle, Folder, InsertDriveFile, Download as DownloadIcon } from '@mui/icons-material';
 import { useState } from 'react';
@@ -73,6 +75,8 @@ export function DownloadOrderCard({
   const theme = useTheme();
   const statusColor = '#0097a7';
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<string>('');
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't open popover if clicking the download button
@@ -181,7 +185,7 @@ export function DownloadOrderCard({
           </Box>
           
           <Chip
-            label="Ready to Download"
+            label="Download"
             size="small"
             sx={{
               bgcolor: statusColor,
@@ -461,7 +465,59 @@ export function DownloadOrderCard({
       open={popoverOpen}
       onClose={handlePopoverClose}
       order={orderDetail}
+      onDownloadProgress={(progress: string) => setDownloadProgress(progress)}
+      onDownloadStateChange={(downloading: boolean) => setIsDownloading(downloading)}
     />
+
+    {/* Persistent Download Progress Card */}
+    {isDownloading && (
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          zIndex: 1400,
+          minWidth: 320,
+          maxWidth: 400,
+          boxShadow: theme.shadows[8],
+          borderRadius: 2,
+          overflow: 'hidden',
+          backgroundColor: theme.palette.background.paper,
+          border: `1px solid ${theme.palette.divider}`,
+        }}
+      >
+        <Box
+          sx={{
+            p: 2,
+            bgcolor: theme.palette.mode === 'dark' 
+              ? 'rgba(156, 39, 176, 0.1)' 
+              : 'rgba(156, 39, 176, 0.05)',
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            <CircularProgress size={24} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Downloading Files
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {serviceName}
+              </Typography>
+            </Box>
+          </Box>
+          <LinearProgress sx={{ mt: 1 }} />
+        </Box>
+        <Box sx={{ p: 2 }}>
+          <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 500 }}>
+            {downloadProgress || 'Downloading files...'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Please wait while your files are being downloaded. You can continue working while this completes.
+          </Typography>
+        </Box>
+      </Box>
+    )}
   </>
   );
 }

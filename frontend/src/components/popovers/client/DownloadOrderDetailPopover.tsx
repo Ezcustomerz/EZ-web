@@ -16,6 +16,8 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  CircularProgress,
+  LinearProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { 
@@ -40,6 +42,7 @@ import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
+import { bookingService } from '../../../api/bookingService';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -94,17 +97,24 @@ export interface DownloadOrderDetailPopoverProps {
   open: boolean;
   onClose: () => void;
   order: DownloadOrderDetail | null;
+  onDownloadProgress?: (progress: string) => void;
+  onDownloadStateChange?: (downloading: boolean) => void;
 }
 
 export function DownloadOrderDetailPopover({ 
   open, 
   onClose, 
-  order 
+  order,
+  onDownloadProgress,
+  onDownloadStateChange
 }: DownloadOrderDetailPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<string>('');
+  const [downloadingFileIndex, setDownloadingFileIndex] = useState<number>(-1);
 
   if (!order) return null;
 
@@ -166,9 +176,66 @@ export function DownloadOrderDetailPopover({
     setCreativeDetailOpen(false);
   };
 
-  const handleDownloadFile = (file: DownloadFile) => {
-    console.log('Download file:', file.name);
-    // TODO: Implement actual file download
+  const handleDownloadFile = async (file: DownloadFile, index?: number) => {
+    setIsDownloading(true);
+    if (onDownloadStateChange) onDownloadStateChange(true);
+    setDownloadProgress(`Preparing ${file.name}...`);
+    if (onDownloadProgress) onDownloadProgress(`Preparing ${file.name}...`);
+    if (index !== undefined) {
+      setDownloadingFileIndex(index);
+    }
+    
+    try {
+      // Get signed URL from backend
+      setDownloadProgress(`Getting download link for ${file.name}...`);
+      if (onDownloadProgress) onDownloadProgress(`Getting download link for ${file.name}...`);
+      const response = await bookingService.downloadDeliverable(file.id);
+      
+      // Download the file using the signed URL
+      setDownloadProgress(`Downloading ${file.name}...`);
+      if (onDownloadProgress) onDownloadProgress(`Downloading ${file.name}...`);
+      const downloadResponse = await fetch(response.signed_url);
+      if (!downloadResponse.ok) {
+        throw new Error('Failed to download file');
+      }
+      
+      const blob = await downloadResponse.blob();
+      
+      // Use the file name from the backend response, fallback to file.name
+      const fileName = response.file_name || file.name;
+      
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+      
+      setDownloadProgress(`Successfully downloaded ${file.name}`);
+      if (onDownloadProgress) onDownloadProgress(`Successfully downloaded ${file.name}`);
+      setTimeout(() => {
+        setIsDownloading(false);
+        setDownloadProgress('');
+        setDownloadingFileIndex(-1);
+        if (onDownloadStateChange) onDownloadStateChange(false);
+        if (onDownloadProgress) onDownloadProgress('');
+      }, 500);
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert(`Failed to download ${file.name}. Please try again.`);
+      setIsDownloading(false);
+      setDownloadProgress('');
+      setDownloadingFileIndex(-1);
+      if (onDownloadStateChange) onDownloadStateChange(false);
+      if (onDownloadProgress) onDownloadProgress('');
+    }
   };
 
   const handleDownloadInvoice = () => {
@@ -176,9 +243,91 @@ export function DownloadOrderDetailPopover({
     // TODO: Implement actual invoice download
   };
 
-  const handleDownloadAll = () => {
-    console.log('Download all files for order:', order.id);
-    // TODO: Implement bulk download
+  const handleDownloadAll = async () => {
+    if (!order.files || order.files.length === 0) {
+      alert('No files available to download.');
+      return;
+    }
+
+    setIsDownloading(true);
+    if (onDownloadStateChange) onDownloadStateChange(true);
+    setDownloadProgress('Preparing files for download...');
+    if (onDownloadProgress) onDownloadProgress('Preparing files for download...');
+    setDownloadingFileIndex(-1);
+
+    try {
+      // Get all signed URLs in one API call
+      setDownloadProgress('Getting downloads...');
+      if (onDownloadProgress) onDownloadProgress('Getting downloads...');
+      const response = await bookingService.downloadDeliverablesBatch(order.id);
+      
+      if (!response.success || !response.files || response.files.length === 0) {
+        alert('No files available to download.');
+        setIsDownloading(false);
+        setDownloadProgress('');
+        return;
+      }
+
+      // Download all files using the signed URLs
+      for (let i = 0; i < response.files.length; i++) {
+        const fileInfo = response.files[i];
+        const progressMsg = `Downloading ${i + 1} of ${response.files.length}: ${fileInfo.file_name}...`;
+        setDownloadProgress(progressMsg);
+        if (onDownloadProgress) onDownloadProgress(progressMsg);
+        setDownloadingFileIndex(i);
+        
+        try {
+          // Download the file using the signed URL
+          const downloadResponse = await fetch(fileInfo.signed_url);
+          if (!downloadResponse.ok) {
+            throw new Error('Failed to download file');
+          }
+          
+          const blob = await downloadResponse.blob();
+          
+          // Create download link and trigger download
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileInfo.file_name;
+          document.body.appendChild(a);
+          a.click();
+          
+          // Clean up
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+          }, 100);
+          
+          // Add a small delay between downloads to prevent browser blocking
+          if (i < response.files.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+        } catch (error) {
+          console.error(`Failed to download ${fileInfo.file_name}:`, error);
+          // Continue with other files even if one fails
+        }
+      }
+      
+      const successMsg = `Successfully downloaded ${response.files.length} file${response.files.length > 1 ? 's' : ''}`;
+      setDownloadProgress(successMsg);
+      if (onDownloadProgress) onDownloadProgress(successMsg);
+      setTimeout(() => {
+        setIsDownloading(false);
+        setDownloadProgress('');
+        setDownloadingFileIndex(-1);
+        if (onDownloadStateChange) onDownloadStateChange(false);
+        if (onDownloadProgress) onDownloadProgress('');
+      }, 1000);
+    } catch (error) {
+      console.error('Error downloading all files:', error);
+      alert('Failed to download files. Please try again.');
+      setIsDownloading(false);
+      setDownloadProgress('');
+      setDownloadingFileIndex(-1);
+      if (onDownloadStateChange) onDownloadStateChange(false);
+      if (onDownloadProgress) onDownloadProgress('');
+    }
   };
 
   const handleBookAgain = () => {
@@ -278,7 +427,7 @@ export function DownloadOrderDetailPopover({
                   {order.serviceName}
                 </Typography>
                 <Chip
-                  label="Ready to Download"
+                  label="Download"
                   size="small"
                   sx={{
                     bgcolor: statusColor,
@@ -321,7 +470,39 @@ export function DownloadOrderDetailPopover({
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ pt: 0, pb: 0, px: 0, display: 'flex', flexDirection: 'column' }}>
+        <DialogContent sx={{ pt: 0, pb: 0, px: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          {/* Download Progress Indicator */}
+          {isDownloading && (
+            <Box sx={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(8px)',
+              p: 2,
+              borderRadius: 2,
+              mb: 2,
+              mx: { xs: 2, sm: 3 },
+              mt: 2,
+              border: `1px solid ${theme.palette.divider}`,
+              boxShadow: theme.palette.mode === 'dark' 
+                ? '0 4px 20px rgba(0, 0, 0, 0.5)' 
+                : '0 4px 20px rgba(0, 0, 0, 0.1)'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+                <CircularProgress size={24} />
+                <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+                  {downloadProgress || 'Downloading files...'}
+                </Typography>
+              </Box>
+              <LinearProgress sx={{ mb: 1 }} />
+              <Typography variant="caption" color="text.secondary">
+                {downloadingFileIndex >= 0 && order.files && order.files.length > 1
+                  ? `Downloading file ${downloadingFileIndex + 1} of ${order.files.length}`
+                  : 'Please wait while your files are being downloaded.'}
+              </Typography>
+            </Box>
+          )}
           {/* Scrollable Content */}
           <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 2, sm: 3 }}}>
             {/* Order Information Section */}
@@ -489,8 +670,9 @@ export function DownloadOrderDetailPopover({
                <Button
                  variant="contained"
                  size="small"
-                 startIcon={<Folder />}
+                 startIcon={isDownloading ? <CircularProgress size={16} sx={{ color: 'white' }} /> : <Folder />}
                  onClick={handleDownloadAll}
+                 disabled={isDownloading}
                  sx={{
                    textTransform: 'none',
                    fontWeight: 600,
@@ -499,9 +681,13 @@ export function DownloadOrderDetailPopover({
                      bgcolor: statusColor,
                      filter: 'brightness(1.1)',
                    },
+                   '&:disabled': {
+                     bgcolor: statusColor,
+                     opacity: 0.7,
+                   },
                  }}
                >
-                 Download All
+                 {isDownloading ? 'Downloading...' : 'Download All'}
                </Button>
              )}
            </Box>
@@ -548,14 +734,15 @@ export function DownloadOrderDetailPopover({
                     <Button
                       variant="text"
                       size="small"
-                      startIcon={<Download />}
-                      onClick={() => handleDownloadFile(file)}
+                      startIcon={isDownloading && downloadingFileIndex === index ? <CircularProgress size={16} /> : <Download />}
+                      onClick={() => handleDownloadFile(file, index)}
+                      disabled={isDownloading}
                       sx={{
                         textTransform: 'none',
                         fontWeight: 600,
                       }}
                     >
-                      Download
+                      {isDownloading && downloadingFileIndex === index ? 'Downloading...' : 'Download'}
                     </Button>
                   }
                 >

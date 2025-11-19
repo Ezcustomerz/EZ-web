@@ -16,6 +16,9 @@ import {
   Card,
   CardContent,
   Divider,
+  CircularProgress,
+  Backdrop,
+  LinearProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -105,8 +108,9 @@ export interface InProgressPopoverProps {
   open: boolean;
   onClose: () => void;
   order: InProgressOrder | null;
-  onFinalizeService: (orderId: string, files: UploadedFile[]) => void;
+  onFinalizeService: (orderId: string, files: UploadedFile[]) => Promise<void>;
   showFinalizationStep?: boolean;
+  onUploadProgress?: (progress: string) => void;
 }
 
 export function InProgressPopover({ 
@@ -114,13 +118,16 @@ export function InProgressPopover({
   onClose, 
   order,
   onFinalizeService,
-  showFinalizationStep: initialShowFinalizationStep = false
+  showFinalizationStep: initialShowFinalizationStep = false,
+  onUploadProgress
 }: InProgressPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [bookingDetailOpen, setBookingDetailOpen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
   const [showFinalizationStep, setShowFinalizationStep] = useState(initialShowFinalizationStep);
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -306,10 +313,10 @@ export function InProgressPopover({
           const response = await fileScanningService.scanFiles(filesToScan);
           setScanResponse(response);
           
-          // If there are unsafe files, don't proceed
+          // If there are unsafe files, don't proceed - user will see the dialog
           if (response.unsafe_files > 0) {
             setIsScanning(false);
-            return; // Stop here, user can see the dialog
+            return; // Stop here, user can see the dialog and decide what to do
           }
         }
       } catch (error) {
@@ -333,29 +340,48 @@ export function InProgressPopover({
       }
     }
     
-    // If no files or all files are safe, proceed with finalization
-    setIsFinalizing(true);
-    try {
-      await onFinalizeService(order.id, uploadedFiles);
-      setScanDialogOpen(false);
-      onClose();
-    } catch (error) {
-      console.error('Error finalizing service:', error);
-    } finally {
-      setIsFinalizing(false);
+    // If no files or all files are safe, proceed with finalization immediately
+    // (No files to scan, so no need to wait for user confirmation)
+    if (uploadedFiles.length === 0) {
+      setIsFinalizing(true);
+      try {
+        await onFinalizeService(order.id, uploadedFiles);
+        setScanDialogOpen(false);
+        onClose();
+      } catch (error) {
+        console.error('Error finalizing service:', error);
+      } finally {
+        setIsFinalizing(false);
+      }
     }
+    // If files were scanned and are safe, the scan dialog will be shown
+    // and user will click "Continue" to proceed with upload and finalization
   };
 
   const handleScanDialogContinue = async () => {
+    // This is called when user clicks "Continue" after scan is complete
+    // Now upload files to Supabase and finalize
     setScanDialogOpen(false);
+    setIsUploading(true);
     setIsFinalizing(true);
+    setUploadProgress('Preparing files for upload...');
+    if (onUploadProgress) onUploadProgress('Preparing files for upload...');
+    
     try {
+      // Don't close popover during upload - let the persistent card handle visibility
       await onFinalizeService(order.id, uploadedFiles);
+      // Upload state is managed in parent component, so we can close now
       onClose();
     } catch (error) {
       console.error('Error finalizing service:', error);
+      setIsUploading(false);
+      setUploadProgress('');
+      if (onUploadProgress) onUploadProgress('');
     } finally {
       setIsFinalizing(false);
+      setIsUploading(false);
+      setUploadProgress('');
+      if (onUploadProgress) onUploadProgress('');
     }
   };
 
@@ -477,7 +503,36 @@ export function InProgressPopover({
         flex: '1 1 auto',
         overflowY: 'auto',
         minHeight: 0,
+        position: 'relative'
       }}>
+        {/* Upload Progress Indicator */}
+        {isUploading && (
+          <Box sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(8px)',
+            p: 2,
+            borderRadius: 2,
+            mb: 2,
+            border: `1px solid ${theme.palette.divider}`,
+            boxShadow: theme.palette.mode === 'dark' 
+              ? '0 4px 20px rgba(0, 0, 0, 0.5)' 
+              : '0 4px 20px rgba(0, 0, 0, 0.1)'
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+              <CircularProgress size={24} />
+              <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+                {uploadProgress || 'Uploading files to server...'}
+              </Typography>
+            </Box>
+            <LinearProgress sx={{ mb: 1 }} />
+            <Typography variant="caption" color="text.secondary">
+              Please wait while your files are being uploaded. This may take a moment depending on file sizes.
+            </Typography>
+          </Box>
+        )}
         {!showFinalizationStep ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
 
@@ -804,9 +859,9 @@ export function InProgressPopover({
         ) : (
           <Button
             variant="contained"
-            startIcon={<Send />}
+            startIcon={isFinalizing || isUploading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <Send />}
             onClick={handleFinalizeService}
-            disabled={isFinalizing}
+            disabled={isFinalizing || isUploading}
             sx={{
               backgroundColor: '#10b981',
               '&:hover': {
@@ -818,7 +873,7 @@ export function InProgressPopover({
               }
             }}
           >
-            {isFinalizing ? 'Finalizing...' : 'Complete Finalization'}
+            {isUploading ? uploadProgress || 'Uploading files...' : isFinalizing ? 'Finalizing...' : 'Complete Finalization'}
           </Button>
         )}
       </DialogActions>

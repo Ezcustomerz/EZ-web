@@ -220,7 +220,7 @@ export function LockedOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Pay to unlock creative files
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
