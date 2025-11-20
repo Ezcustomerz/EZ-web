@@ -1244,11 +1244,11 @@ class BookingController:
             raise ValueError("Authenticated client is required for this operation")
         
         try:
-            # Fetch bookings for this creative, excluding completed/canceled/rejected orders
+            # Fetch bookings for this creative, excluding completed/rejected orders
             bookings_response = client.table('bookings')\
                 .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('creative_user_id', user_id)\
-                .not_.in_('creative_status', ['complete', 'rejected', 'canceled'])\
+                .not_.in_('creative_status', ['completed', 'rejected'])\
                 .order('order_date', desc=True)\
                 .execute()
             
@@ -1303,11 +1303,11 @@ class BookingController:
             raise ValueError("Authenticated client is required for this operation")
         
         try:
-            # Fetch bookings for this creative, only completed/canceled/rejected orders
+            # Fetch bookings for this creative, only completed/rejected orders
             bookings_response = client.table('bookings')\
                 .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('creative_user_id', user_id)\
-                .in_('creative_status', ['complete', 'rejected', 'canceled'])\
+                .in_('creative_status', ['completed', 'rejected'])\
                 .order('order_date', desc=True)\
                 .execute()
             
@@ -1442,7 +1442,7 @@ class BookingController:
                     calendar_status = 'pending'
                 elif creative_status == 'rejected':
                     calendar_status = 'cancelled'
-                elif creative_status in ['in_progress', 'awaiting_payment', 'complete']:
+                elif creative_status in ['in_progress', 'awaiting_payment', 'completed']:
                     calendar_status = 'confirmed'
                 else:
                     calendar_status = 'pending'
@@ -1558,7 +1558,7 @@ class BookingController:
                     calendar_status = 'pending'
                 elif creative_status == 'rejected':
                     calendar_status = 'cancelled'
-                elif creative_status in ['in_progress', 'awaiting_payment', 'complete']:
+                elif creative_status in ['in_progress', 'awaiting_payment', 'completed']:
                     calendar_status = 'confirmed'
                 else:
                     calendar_status = 'pending'
