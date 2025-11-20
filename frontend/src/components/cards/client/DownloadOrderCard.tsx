@@ -42,6 +42,7 @@ interface DownloadOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
 }
 
 export function DownloadOrderCard({
@@ -70,7 +71,8 @@ export function DownloadOrderCard({
   creativeRating,
   creativeReviewCount,
   creativeServicesCount,
-  creativeColor
+  creativeColor,
+  invoices
 }: DownloadOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#0097a7';
@@ -122,6 +124,7 @@ export function DownloadOrderCard({
     creativeReviewCount,
     creativeServicesCount,
     creativeColor,
+    invoices: invoices || [],
   };
 
   return (

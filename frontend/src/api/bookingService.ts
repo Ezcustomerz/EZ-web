@@ -402,6 +402,13 @@ export interface OrderFile {
   size: string;
 }
 
+export interface Invoice {
+  type: string; // 'ez_invoice' | 'stripe_receipt'
+  name: string;
+  download_url: string;
+  session_id?: string;
+}
+
 export interface Order {
   id: string;
   service_id: string;
@@ -431,6 +438,7 @@ export interface Order {
   client_status?: string;
   creative_status?: string;
   files?: OrderFile[];
+  invoices?: Invoice[];
 }
 
 export const bookingService = new BookingService();

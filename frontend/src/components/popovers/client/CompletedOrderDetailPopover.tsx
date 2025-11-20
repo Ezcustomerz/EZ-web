@@ -35,13 +35,13 @@ import {
   Folder,
   Replay,
   ErrorOutline,
+  Visibility,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
-import { ComplianceSheetViewer } from './ComplianceSheetViewer';
 import { bookingService } from '../../../api/bookingService';
 
 // Slide transition for dialogs
@@ -91,6 +91,7 @@ export interface CompletedOrderDetail {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
 }
 
 export interface CompletedOrderDetailPopoverProps {
@@ -112,9 +113,6 @@ export function CompletedOrderDetailPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
-  const [complianceSheetOpen, setComplianceSheetOpen] = useState(false);
-  const [invoices, setInvoices] = useState<Array<{ type: string; name: string; download_url: string; session_id?: string }>>([]);
-  const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<string>('');
   const [downloadingFileIndex, setDownloadingFileIndex] = useState<number>(-1);
@@ -122,27 +120,7 @@ export function CompletedOrderDetailPopover({
   if (!order) return null;
 
   const statusColor = '#4caf50'; // Green for completed
-
-  // Load invoices when popover opens
-  useEffect(() => {
-    if (open && order.id) {
-      loadInvoices();
-    }
-  }, [open, order.id]);
-
-  const loadInvoices = async () => {
-    setLoadingInvoices(true);
-    try {
-      const response = await bookingService.getInvoices(order.id);
-      if (response.success && response.invoices) {
-        setInvoices(response.invoices);
-      }
-    } catch (error) {
-      console.error('Failed to load invoices:', error);
-    } finally {
-      setLoadingInvoices(false);
-    }
-  };
+  const invoices = order.invoices || [];
 
   const getFileIcon = (fileType: string) => {
     const type = fileType.toLowerCase();
@@ -262,6 +240,22 @@ export function CompletedOrderDetailPopover({
     }
   };
 
+  const handleViewEzInvoice = async () => {
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view EZ invoice:', error);
+      alert('Failed to view invoice. Please try again.');
+    }
+  };
+
   const handleDownloadEzInvoice = async () => {
     try {
       const blob = await bookingService.downloadEzInvoice(order.id);
@@ -281,7 +275,7 @@ export function CompletedOrderDetailPopover({
     }
   };
 
-  const handleDownloadStripeReceipt = async (sessionId: string) => {
+  const handleViewStripeReceipt = async (sessionId: string) => {
     try {
       const response = await bookingService.getStripeReceipt(order.id, sessionId);
       if (response.success && response.receipt_url) {
@@ -387,12 +381,20 @@ export function CompletedOrderDetailPopover({
     handleViewService();
   };
 
-  const handleViewComplianceSheet = () => {
-    setComplianceSheetOpen(true);
-  };
-
-  const handleComplianceSheetClose = () => {
-    setComplianceSheetOpen(false);
+  const handleViewComplianceSheet = async () => {
+    try {
+      const blob = await bookingService.downloadComplianceSheet(order.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view compliance sheet:', error);
+      alert('Failed to view compliance sheet. Please try again.');
+    }
   };
 
   // Check if files are expired (30 days after completion)
@@ -651,11 +653,7 @@ export function CompletedOrderDetailPopover({
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, fontSize: '1rem' }}>
               Invoices & Receipts
             </Typography>
-            {loadingInvoices ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : invoices.length > 0 ? (
+            {invoices.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {invoices.map((invoice, index) => (
                   <Box 
@@ -681,24 +679,52 @@ export function CompletedOrderDetailPopover({
                         </Typography>
                       </Box>
                     </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Download />}
-                      onClick={() => {
-                        if (invoice.type === 'ez_invoice') {
-                          handleDownloadEzInvoice();
-                        } else if (invoice.type === 'stripe_receipt' && invoice.session_id) {
-                          handleDownloadStripeReceipt(invoice.session_id);
-                        }
-                      }}
-                      sx={{
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {invoice.type === 'stripe_receipt' ? 'View' : 'Download'}
-                    </Button>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {invoice.type === 'ez_invoice' && (
+                        <IconButton
+                          size="small"
+                          onClick={handleViewEzInvoice}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="View invoice"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      )}
+                      {invoice.type === 'stripe_receipt' && invoice.session_id ? (
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewStripeReceipt(invoice.session_id!)}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="View receipt"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      ) : invoice.type === 'ez_invoice' ? (
+                        <IconButton
+                          size="small"
+                          onClick={handleDownloadEzInvoice}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="Download invoice"
+                        >
+                          <Download />
+                        </IconButton>
+                      ) : null}
+                    </Box>
                   </Box>
                 ))}
               </Box>
@@ -981,13 +1007,6 @@ export function CompletedOrderDetailPopover({
         creative={creativeDetail}
       />
 
-      {/* Compliance Sheet Viewer */}
-      <ComplianceSheetViewer
-        open={complianceSheetOpen}
-        onClose={handleComplianceSheetClose}
-        bookingId={order.id}
-        onDownloadComplianceSheet={bookingService.downloadComplianceSheet}
-      />
     </>
   );
 }

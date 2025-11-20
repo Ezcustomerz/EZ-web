@@ -151,6 +151,8 @@ export function RequestsTable({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingApprovalOrderId, setPendingApprovalOrderId] = useState<string | null>(null);
   const [pendingApprovalOrderAmount, setPendingApprovalOrderAmount] = useState<number | undefined>(undefined);
+  const [isCheckingBankAccount, setIsCheckingBankAccount] = useState(false);
+  const [checkingBankAccountOrderId, setCheckingBankAccountOrderId] = useState<string | null>(null);
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
@@ -349,9 +351,17 @@ export function RequestsTable({
     const requiresPayment = price > 0;
     
     if (requiresPayment) {
+      // Show loading state while checking bank account
+      setIsCheckingBankAccount(true);
+      setCheckingBankAccountOrderId(orderId);
+      
       // Check if Stripe account is connected
       try {
         const stripeStatus = await userService.getStripeAccountStatus();
+        
+        // Clear loading state
+        setIsCheckingBankAccount(false);
+        setCheckingBankAccountOrderId(null);
         
         if (!stripeStatus.connected || !stripeStatus.payouts_enabled) {
           // Account not connected or payouts not enabled - show dialog
@@ -362,6 +372,9 @@ export function RequestsTable({
         }
       } catch (error) {
         console.error('Failed to check Stripe account status:', error);
+        // Clear loading state
+        setIsCheckingBankAccount(false);
+        setCheckingBankAccountOrderId(null);
         // If check fails, still show the requirement dialog to be safe
         setPendingApprovalOrderId(orderId);
         setPendingApprovalOrderAmount(price);
@@ -2134,6 +2147,55 @@ export function RequestsTable({
         showFinalizationStep={showFinalizationStep}
         onUploadProgress={handleUploadProgress}
       />
+
+      {/* Bank Account Checking Loading Card */}
+      {isCheckingBankAccount && checkingBankAccountOrderId && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 1400,
+            minWidth: 320,
+            maxWidth: 400,
+            boxShadow: theme.shadows[8],
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: theme.palette.mode === 'dark' 
+                ? 'rgba(59, 130, 246, 0.1)' 
+                : 'rgba(59, 130, 246, 0.05)',
+              borderBottom: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+              <CircularProgress size={24} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Checking Bank Account
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Verifying payment setup...
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ p: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 500 }}>
+              Verifying your Stripe account connection
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Please wait while we check your payment account status. This usually takes just a moment.
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       {/* Persistent Upload Progress Card */}
       {isUploading && uploadingOrderId && (

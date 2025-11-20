@@ -36,13 +36,13 @@ import {
   Folder,
   Replay,
   ErrorOutline,
+  Visibility,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
-import { ComplianceSheetViewer } from './ComplianceSheetViewer';
 import { bookingService } from '../../../api/bookingService';
 
 // Slide transition for dialogs
@@ -92,6 +92,7 @@ export interface DownloadOrderDetail {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
 }
 
 export interface DownloadOrderDetailPopoverProps {
@@ -113,9 +114,6 @@ export function DownloadOrderDetailPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
-  const [complianceSheetOpen, setComplianceSheetOpen] = useState(false);
-  const [invoices, setInvoices] = useState<Array<{ type: string; name: string; download_url: string; session_id?: string }>>([]);
-  const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<string>('');
   const [downloadingFileIndex, setDownloadingFileIndex] = useState<number>(-1);
@@ -123,27 +121,7 @@ export function DownloadOrderDetailPopover({
   if (!order) return null;
 
   const statusColor = '#9c27b0'; // Purple for download
-
-  // Load invoices when popover opens
-  useEffect(() => {
-    if (open && order.id) {
-      loadInvoices();
-    }
-  }, [open, order.id]);
-
-  const loadInvoices = async () => {
-    setLoadingInvoices(true);
-    try {
-      const response = await bookingService.getInvoices(order.id);
-      if (response.success && response.invoices) {
-        setInvoices(response.invoices);
-      }
-    } catch (error) {
-      console.error('Failed to load invoices:', error);
-    } finally {
-      setLoadingInvoices(false);
-    }
-  };
+  const invoices = order.invoices || [];
 
   const getFileIcon = (fileType: string) => {
     const type = fileType.toLowerCase();
@@ -153,6 +131,35 @@ export function DownloadOrderDetailPopover({
     if (type.includes('image') || type.includes('jpg') || type.includes('png') || type.includes('jpeg')) return <Image sx={{ color: '#ff9800' }} />;
     if (type.includes('text') || type.includes('txt')) return <Description sx={{ color: '#607d8b' }} />;
     return <InsertDriveFile sx={{ color: theme.palette.text.secondary }} />;
+  };
+
+  const isViewableFile = (fileType: string): boolean => {
+    const type = fileType.toLowerCase();
+    // Viewable file types: PDF, images
+    return (
+      type.includes('pdf') ||
+      type.includes('image') ||
+      type.includes('jpg') ||
+      type.includes('jpeg') ||
+      type.includes('png') ||
+      type.includes('gif') ||
+      type.includes('webp') ||
+      type.includes('svg') ||
+      type.includes('bmp')
+    );
+  };
+
+  const handleViewFile = async (file: DownloadFile) => {
+    try {
+      // Get signed URL from backend
+      const response = await bookingService.downloadDeliverable(file.id);
+      
+      // Open file in new tab for viewing
+      window.open(response.signed_url, '_blank');
+    } catch (error) {
+      console.error('Failed to view file:', error);
+      alert(`Failed to view ${file.name}. Please try again.`);
+    }
   };
 
   const getPaymentOptionLabel = (option: DownloadPaymentOption) => {
@@ -263,6 +270,22 @@ export function DownloadOrderDetailPopover({
     }
   };
 
+  const handleViewEzInvoice = async () => {
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view EZ invoice:', error);
+      alert('Failed to view invoice. Please try again.');
+    }
+  };
+
   const handleDownloadEzInvoice = async () => {
     try {
       const blob = await bookingService.downloadEzInvoice(order.id);
@@ -282,7 +305,7 @@ export function DownloadOrderDetailPopover({
     }
   };
 
-  const handleDownloadStripeReceipt = async (sessionId: string) => {
+  const handleViewStripeReceipt = async (sessionId: string) => {
     try {
       const response = await bookingService.getStripeReceipt(order.id, sessionId);
       if (response.success && response.receipt_url) {
@@ -295,12 +318,20 @@ export function DownloadOrderDetailPopover({
     }
   };
 
-  const handleViewComplianceSheet = () => {
-    setComplianceSheetOpen(true);
-  };
-
-  const handleComplianceSheetClose = () => {
-    setComplianceSheetOpen(false);
+  const handleViewComplianceSheet = async () => {
+    try {
+      const blob = await bookingService.downloadComplianceSheet(order.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view compliance sheet:', error);
+      alert('Failed to view compliance sheet. Please try again.');
+    }
   };
 
   const handleDownloadAll = async () => {
@@ -676,11 +707,7 @@ export function DownloadOrderDetailPopover({
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, fontSize: '1rem' }}>
               Invoices & Receipts
             </Typography>
-            {loadingInvoices ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : invoices.length > 0 ? (
+            {invoices.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {invoices.map((invoice, index) => (
                   <Box 
@@ -706,24 +733,52 @@ export function DownloadOrderDetailPopover({
                         </Typography>
                       </Box>
                     </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Download />}
-                      onClick={() => {
-                        if (invoice.type === 'ez_invoice') {
-                          handleDownloadEzInvoice();
-                        } else if (invoice.type === 'stripe_receipt' && invoice.session_id) {
-                          handleDownloadStripeReceipt(invoice.session_id);
-                        }
-                      }}
-                      sx={{
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {invoice.type === 'stripe_receipt' ? 'View' : 'Download'}
-                    </Button>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {invoice.type === 'ez_invoice' && (
+                        <IconButton
+                          size="small"
+                          onClick={handleViewEzInvoice}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="View invoice"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      )}
+                      {invoice.type === 'stripe_receipt' && invoice.session_id ? (
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewStripeReceipt(invoice.session_id!)}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="View receipt"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      ) : invoice.type === 'ez_invoice' ? (
+                        <IconButton
+                          size="small"
+                          onClick={handleDownloadEzInvoice}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="Download invoice"
+                        >
+                          <Download />
+                        </IconButton>
+                      ) : null}
+                    </Box>
                   </Box>
                 ))}
               </Box>
@@ -812,48 +867,74 @@ export function DownloadOrderDetailPopover({
               borderRadius: 2,
               p: 0,
             }}>
-              {order.files.map((file, index) => (
-                <ListItem
-                  key={file.id}
-                  sx={{
-                    borderBottom: index < order.files.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
-                    '&:hover': {
-                      bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-                    },
-                  }}
-                  secondaryAction={
-                    <Button
-                      variant="text"
-                      size="small"
-                      startIcon={isDownloading && downloadingFileIndex === index ? <CircularProgress size={16} /> : <Download />}
-                      onClick={() => handleDownloadFile(file, index)}
-                      disabled={isDownloading}
-                      sx={{
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {isDownloading && downloadingFileIndex === index ? 'Downloading...' : 'Download'}
-                    </Button>
-                  }
-                >
-                  <ListItemIcon>
-                    {getFileIcon(file.type)}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {file.name}
-                      </Typography>
+              {order.files.map((file, index) => {
+                const viewable = isViewableFile(file.type);
+                return (
+                  <ListItem
+                    key={file.id}
+                    sx={{
+                      borderBottom: index < order.files.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
+                      '&:hover': {
+                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                      },
+                    }}
+                    secondaryAction={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {viewable && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleViewFile(file)}
+                            disabled={isDownloading}
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&:hover': {
+                                bgcolor: theme.palette.primary.main + '10',
+                              },
+                            }}
+                            title="View file"
+                          >
+                            <Visibility />
+                          </IconButton>
+                        )}
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDownloadFile(file, index)}
+                          disabled={isDownloading}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="Download file"
+                        >
+                          {isDownloading && downloadingFileIndex === index ? (
+                            <CircularProgress size={20} />
+                          ) : (
+                            <Download />
+                          )}
+                        </IconButton>
+                      </Box>
                     }
-                    secondary={
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {file.type} • {file.size}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-               ))}
+                  >
+                    <ListItemIcon>
+                      {getFileIcon(file.type)}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {file.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          {file.type} • {file.size}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                );
+              })}
              </List>
            )}
          </Box>
@@ -1006,13 +1087,6 @@ export function DownloadOrderDetailPopover({
         creative={creativeDetail}
       />
 
-      {/* Compliance Sheet Viewer */}
-      <ComplianceSheetViewer
-        open={complianceSheetOpen}
-        onClose={handleComplianceSheetClose}
-        bookingId={order.id}
-        onDownloadComplianceSheet={bookingService.downloadComplianceSheet}
-      />
     </>
   );
 }

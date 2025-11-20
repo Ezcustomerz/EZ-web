@@ -134,6 +134,14 @@ class AuthController:
         if not SUPABASE_JWT_SECRET:
             raise HTTPException(status_code=500, detail="JWT secret not configured")
         
+        # Trim whitespace (common issue with JSON parsing)
+        token = token.strip()
+        
+        # Quick format check before attempting decode
+        if not AuthController._is_valid_jwt_format(token):
+            logger.warning(f"Invalid JWT format: token does not have 3 segments")
+            raise HTTPException(status_code=401, detail="Invalid token format: not a valid JWT")
+        
         try:
             payload = jwt.decode(
                 token,
@@ -144,8 +152,10 @@ class AuthController:
             return payload
         except JWTError as e:
             # Token is invalid, expired, or malformed
-            logger.warning(f"Invalid JWT token provided to set_cookies: {str(e)}")
-            raise HTTPException(status_code=401, detail=f"Invalid or expired token: {str(e)}")
+            error_msg = str(e)
+            # Only log detailed error for debugging, but provide user-friendly message
+            logger.warning(f"JWT validation failed: {error_msg}")
+            raise HTTPException(status_code=401, detail=f"Invalid or expired token: {error_msg}")
 
     @staticmethod
     async def set_cookies(access_token: str, refresh_token: str) -> JSONResponse:
@@ -168,6 +178,10 @@ class AuthController:
         if not access_token or not refresh_token:
             raise HTTPException(status_code=400, detail="Missing access_token or refresh_token")
 
+        # Trim whitespace from tokens (common issue with JSON parsing)
+        access_token = access_token.strip()
+        refresh_token = refresh_token.strip()
+
         # Validate the access token before setting cookies (must be JWT format)
         if not AuthController._is_valid_jwt_format(access_token):
             raise HTTPException(status_code=400, detail="Invalid access_token format")
@@ -180,27 +194,23 @@ class AuthController:
             logger.warning(f"Invalid refresh_token format. Length: {len(refresh_token) if refresh_token else 0}, Preview: {token_preview}")
             raise HTTPException(status_code=400, detail="Invalid refresh_token format")
 
-        # Validate access_token cryptographically
+        # Validate access_token cryptographically (this should always be a JWT)
         try:
             AuthController.validate_jwt_token(access_token)
         except HTTPException:
             raise
 
-        # Additional: Try to validate refresh_token (if possible), otherwise add strict checks
-        # If Supabase refresh tokens are JWTs, validate as for access_token.
-        try:
-            AuthController.validate_jwt_token(refresh_token)
-        except Exception as e:
-            # If refresh_token cannot be validated (e.g., is not a JWT), fall back to strict constraints
-            # Enforce minimum/maximum length and character restrictions (base64url, no unusual chars)
-            b64url_pattern = r'^[A-Za-z0-9\-_\.]+$'
-            if (
-                not isinstance(refresh_token, str) or
-                len(refresh_token) > 4096 or
-                not re.match(b64url_pattern, refresh_token)
-            ):
-                logger.warning(f"Rejected suspicious refresh_token: {refresh_token!r}")
-                raise HTTPException(status_code=400, detail="Invalid refresh_token value")
+        # For refresh_token: Only validate format, don't try to decode as JWT
+        # Supabase refresh tokens are often opaque tokens, not JWTs
+        # We only need to ensure they're in a safe format for storage
+        b64url_pattern = r'^[A-Za-z0-9\-_\.]+$'
+        if (
+            not isinstance(refresh_token, str) or
+            len(refresh_token) > 4096 or
+            not re.match(b64url_pattern, refresh_token)
+        ):
+            logger.warning(f"Rejected suspicious refresh_token format")
+            raise HTTPException(status_code=400, detail="Invalid refresh_token format")
 
         # This ensures only valid tokens are stored in cookies
         response = JSONResponse({"success": True, "message": "Cookies set successfully"})

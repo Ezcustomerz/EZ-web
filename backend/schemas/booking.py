@@ -24,6 +24,12 @@ class OrderFile(BaseModel):
     type: str
     size: str
 
+class Invoice(BaseModel):
+    type: str  # 'ez_invoice' | 'stripe_receipt'
+    name: str
+    download_url: str
+    session_id: Optional[str] = None
+
 class OrderResponse(BaseModel):
     id: str
     service_id: str
@@ -53,6 +59,7 @@ class OrderResponse(BaseModel):
     client_status: Optional[str]
     creative_status: Optional[str]
     files: Optional[List[OrderFile]] = None
+    invoices: Optional[List[Invoice]] = None
 
 
 class OrdersListResponse(BaseModel):

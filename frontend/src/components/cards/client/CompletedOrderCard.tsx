@@ -42,6 +42,7 @@ interface CompletedOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
 }
 
 export function CompletedOrderCard({
@@ -70,7 +71,8 @@ export function CompletedOrderCard({
   creativeRating,
   creativeReviewCount,
   creativeServicesCount,
-  creativeColor
+  creativeColor,
+  invoices
 }: CompletedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#4caf50';
@@ -122,6 +124,7 @@ export function CompletedOrderCard({
     creativeReviewCount,
     creativeServicesCount,
     creativeColor,
+    invoices: invoices || [],
   };
 
   return (

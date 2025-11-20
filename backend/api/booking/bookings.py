@@ -1287,17 +1287,47 @@ async def download_stripe_receipt(
             raise HTTPException(status_code=404, detail="Payment intent not found for this session")
         
         # Retrieve the payment intent
-        payment_intent = stripe.PaymentIntent.retrieve(
-            payment_intent_id,
-            stripe_account=stripe_account_id,
-            expand=['charges']
-        )
+        try:
+            payment_intent = stripe.PaymentIntent.retrieve(
+                payment_intent_id,
+                stripe_account=stripe_account_id
+            )
+        except stripe.error.StripeError as e:
+            raise HTTPException(status_code=404, detail=f"Payment intent not found: {str(e)}")
         
-        # Get the charge ID from the payment intent
-        if payment_intent.charges and len(payment_intent.charges.data) > 0:
-            charge_id = payment_intent.charges.data[0].id
-            
-            # Get the charge to access receipt URL
+        # Get charges from payment intent
+        # The charges attribute is a list of charge IDs, not expanded objects
+        charge_id = None
+        
+        # Try to get charge ID from latest_charge (newer API)
+        if hasattr(payment_intent, 'latest_charge') and payment_intent.latest_charge:
+            charge_id = payment_intent.latest_charge
+        # Fallback: get from charges list
+        elif hasattr(payment_intent, 'charges') and payment_intent.charges:
+            if isinstance(payment_intent.charges, dict) and 'data' in payment_intent.charges:
+                if len(payment_intent.charges.data) > 0:
+                    charge_id = payment_intent.charges.data[0].id
+            elif isinstance(payment_intent.charges, list) and len(payment_intent.charges) > 0:
+                charge_id = payment_intent.charges[0]
+        
+        if not charge_id:
+            # If we can't get charge ID, try to list charges for this payment intent
+            try:
+                charges = stripe.Charge.list(
+                    payment_intent=payment_intent_id,
+                    limit=1,
+                    stripe_account=stripe_account_id
+                )
+                if charges.data and len(charges.data) > 0:
+                    charge_id = charges.data[0].id
+            except:
+                pass
+        
+        if not charge_id:
+            raise HTTPException(status_code=404, detail="Charge not found for this payment")
+        
+        # Get the charge to access receipt URL
+        try:
             charge = stripe.Charge.retrieve(
                 charge_id,
                 stripe_account=stripe_account_id
@@ -1310,8 +1340,9 @@ async def download_stripe_receipt(
                 # Fallback: construct receipt URL
                 # Format: https://pay.stripe.com/receipts/{charge_id}
                 receipt_url = f"https://pay.stripe.com/receipts/{charge_id}"
-        else:
-            raise HTTPException(status_code=404, detail="Charge not found for this payment")
+        except stripe.error.StripeError as e:
+            # If charge retrieval fails, construct URL from charge_id
+            receipt_url = f"https://pay.stripe.com/receipts/{charge_id}"
         
         return {
             'success': True,

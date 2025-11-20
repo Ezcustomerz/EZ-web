@@ -1,12 +1,13 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date, time, timedelta
 import logging
+import os
 from fastapi import HTTPException
 from supabase import Client
 from db.db_session import db_admin
 from schemas.booking import (
     CreateBookingRequest, CreateBookingResponse,
-    OrdersListResponse, OrderResponse, OrderFile,
+    OrdersListResponse, OrderResponse, OrderFile, Invoice,
     CalendarSessionsResponse, CalendarSessionResponse,
     ApproveBookingRequest, ApproveBookingResponse,
     RejectBookingRequest, RejectBookingResponse,
@@ -427,7 +428,96 @@ class BookingController:
     """Controller for booking/order management operations"""
     
     @staticmethod
-    def _build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False, files=None):
+    def _get_invoices_for_booking(booking: Dict[str, Any], client: Client) -> List[Invoice]:
+        """Get invoices for a booking if status allows it"""
+        try:
+            client_status = booking.get('client_status', '').lower()
+            allowed_statuses = ['canceled', 'cancelled', 'completed', 'download']
+            
+            logger.info(f"[_get_invoices_for_booking] Checking invoices for booking {booking.get('id')}, status: '{client_status}' (raw: '{booking.get('client_status')}')")
+            logger.info(f"[_get_invoices_for_booking] Allowed statuses: {allowed_statuses}")
+            
+            if client_status not in allowed_statuses:
+                logger.warning(f"[_get_invoices_for_booking] Status '{client_status}' not in allowed statuses {allowed_statuses}, returning empty list")
+                return []
+            
+            invoices = []
+            booking_id = booking.get('id')
+            
+            # Get EZ platform invoice (always available)
+            invoices.append(Invoice(
+                type='ez_invoice',
+                name='EZ Platform Invoice',
+                download_url=f'/api/bookings/invoice/ez/{booking_id}'
+            ))
+            logger.info(f"[_get_invoices_for_booking] Added EZ invoice for booking {booking_id}")
+            
+            # Get Stripe receipts
+            try:
+                import stripe
+                stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+                if not stripe_secret_key:
+                    logger.warning(f"STRIPE_SECRET_KEY not found in environment variables, skipping Stripe receipts for booking {booking_id}")
+                    return invoices
+                stripe.api_key = stripe_secret_key
+                
+                # Get creative's Stripe account ID
+                creative_user_id = booking.get('creative_user_id')
+                creative_result = client.table('creatives')\
+                    .select('stripe_account_id')\
+                    .eq('user_id', creative_user_id)\
+                    .single()\
+                    .execute()
+                
+                if creative_result.data and creative_result.data.get('stripe_account_id'):
+                    stripe_account_id = creative_result.data.get('stripe_account_id')
+                    
+                    # List all checkout sessions for this booking
+                    checkout_sessions = stripe.checkout.Session.list(
+                        limit=100,
+                        stripe_account=stripe_account_id
+                    )
+                    
+                    # Filter sessions for this booking_id
+                    booking_sessions = [
+                        session for session in checkout_sessions.data
+                        if session.metadata and session.metadata.get('booking_id') == booking_id
+                        and session.payment_status == 'paid'
+                    ]
+                    
+                    # For split payments, there should be 2 sessions
+                    # For upfront/later, there should be 1 session
+                    payment_option = booking.get('payment_option', 'later').lower()
+                    
+                    if payment_option == 'split' and len(booking_sessions) >= 2:
+                        # Split payment: 2 Stripe receipts
+                        for idx, session in enumerate(booking_sessions[:2], 1):
+                            invoices.append(Invoice(
+                                type='stripe_receipt',
+                                name=f'Stripe Receipt - Payment {idx}',
+                                session_id=session.id,
+                                download_url=f'/api/bookings/invoice/stripe/{booking_id}?session_id={session.id}'
+                            ))
+                    elif len(booking_sessions) >= 1:
+                        # Single payment: 1 Stripe receipt
+                        invoices.append(Invoice(
+                            type='stripe_receipt',
+                            name='Stripe Receipt',
+                            session_id=booking_sessions[0].id,
+                            download_url=f'/api/bookings/invoice/stripe/{booking_id}?session_id={booking_sessions[0].id}'
+                        ))
+            except Exception as e:
+                logger.warning(f"Could not retrieve Stripe receipts for booking {booking_id}: {e}")
+                # Continue without Stripe receipts
+            
+            logger.info(f"[_get_invoices_for_booking] Returning {len(invoices)} invoices for booking {booking_id}")
+            return invoices
+        except Exception as e:
+            logger.error(f"Error getting invoices for booking {booking.get('id')}: {e}", exc_info=True)
+            return []
+    
+    @staticmethod
+    def _build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False, files=None, client: Optional[Client] = None):
         """Helper function to build an OrderResponse from booking data"""
         service = services_dict.get(booking['service_id'], {})
         creative = creatives_dict.get(booking.get('creative_user_id', ''), {})
@@ -513,6 +603,21 @@ class BookingController:
                     logger.error(f"[_build_order_response] Error converting files to OrderFile: {e}", exc_info=True)
                     order_files = None
             
+            # Get invoices if client is provided and status allows
+            order_invoices = None
+            if client and not is_creative_view:
+                try:
+                    order_invoices = BookingController._get_invoices_for_booking(booking, client)
+                    logger.info(f"[_build_order_response] Got {len(order_invoices) if order_invoices else 0} invoices for booking {booking.get('id')}, invoices: {order_invoices}")
+                    # Ensure we return an empty list instead of None if no invoices
+                    if order_invoices is None:
+                        order_invoices = []
+                except Exception as e:
+                    logger.error(f"Could not get invoices for booking {booking.get('id')}: {e}", exc_info=True)
+                    order_invoices = []
+            else:
+                logger.debug(f"[_build_order_response] Skipping invoices - client: {client is not None}, is_creative_view: {is_creative_view}")
+            
             return OrderResponse(
                 id=booking['id'],
                 service_id=booking['service_id'],
@@ -541,7 +646,8 @@ class BookingController:
                 status=display_status,
                 client_status=client_status,
                 creative_status=creative_status,
-                files=order_files
+                files=order_files,
+                invoices=order_invoices
             )
     
     @staticmethod
@@ -800,7 +906,8 @@ class BookingController:
                     creatives_dict, 
                     users_dict, 
                     is_creative_view=False,
-                    files=booking_files
+                    files=booking_files,
+                    client=client
                 )
                 
                 logger.info(f"[get_client_orders] Order {order.id} has files: {order.files}")
@@ -865,7 +972,7 @@ class BookingController:
             
             orders = []
             for booking in bookings_response.data:
-                order = BookingController._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False)
+                order = BookingController._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False, client=client)
                 orders.append(order)
             
             return OrdersListResponse(success=True, orders=orders)
@@ -977,7 +1084,8 @@ class BookingController:
                     creatives_dict, 
                     users_dict, 
                     is_creative_view=False,
-                    files=booking_files
+                    files=booking_files,
+                    client=client
                 )
                 orders.append(order)
             
@@ -1051,7 +1159,7 @@ class BookingController:
             
             orders = []
             for booking in all_bookings:
-                order = BookingController._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False)
+                order = BookingController._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False, client=client)
                 orders.append(order)
             
             return OrdersListResponse(success=True, orders=orders)

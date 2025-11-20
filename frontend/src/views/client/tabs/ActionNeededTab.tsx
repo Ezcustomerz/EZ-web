@@ -136,6 +136,7 @@ function transformOrders(fetchedOrders: Order[]) {
           return totalKB >= 1024 ? `${(totalKB / 1024).toFixed(2)} MB` : `${totalKB.toFixed(2)} KB`;
         })()
       : null,
+    invoices: order.invoices || [],
   };
   });
 }
@@ -1191,6 +1192,7 @@ export function ActionNeededTab() {
                       creativeServicesCount={order.creativeServicesCount}
                       creativeColor={order.creativeColor}
                       creativeAvatarUrl={order.creativeAvatarUrl}
+                      invoices={order.invoices}
                     />
                   );
 

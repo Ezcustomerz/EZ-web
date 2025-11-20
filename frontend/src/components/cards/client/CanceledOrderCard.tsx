@@ -35,6 +35,7 @@ interface CanceledOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
 }
 
 export function CanceledOrderCard({
@@ -58,7 +59,8 @@ export function CanceledOrderCard({
   creativeRating,
   creativeReviewCount,
   creativeServicesCount,
-  creativeColor
+  creativeColor,
+  invoices
 }: CanceledOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#f44336';
@@ -103,6 +105,7 @@ export function CanceledOrderCard({
     creativeReviewCount,
     creativeServicesCount,
     creativeColor,
+    invoices: invoices || [],
   };
 
   return (
