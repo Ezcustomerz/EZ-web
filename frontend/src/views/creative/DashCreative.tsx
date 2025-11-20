@@ -2,7 +2,8 @@ import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { WelcomeCard } from '../../components/cards/creative/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/creative/ActivityFeedCard';
-import type { CreativeProfile } from '../../api/userService';
+import type { CreativeProfile, CreativeDashboardStats } from '../../api/userService';
+import { userService } from '../../api/userService';
 import { useState, useEffect, useRef } from 'react';
 import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
@@ -24,7 +25,41 @@ export function DashCreative() {
   const { isAuthenticated } = useAuth();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<CreativeDashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const mountedRef = useRef(true);
+
+  // Fetch dashboard stats
+  useEffect(() => {
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setDashboardStats(null);
+        setStatsLoading(false);
+      }
+      return;
+    }
+
+    const fetchStats = async () => {
+      try {
+        setStatsLoading(true);
+        const stats = await userService.getCreativeDashboardStats();
+        if (mountedRef.current) {
+          setDashboardStats(stats);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard stats:', error);
+        if (mountedRef.current) {
+          setDashboardStats(null);
+        }
+      } finally {
+        if (mountedRef.current) {
+          setStatsLoading(false);
+        }
+      }
+    };
+
+    fetchStats();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -129,7 +164,13 @@ export function DashCreative() {
           <WelcomeCard 
             userName={creativeProfile?.display_name || "Demo User"} 
             userRole={creativeProfile?.title || "Music Creative"} 
-            isSidebarOpen={isSidebarOpen} 
+            isSidebarOpen={isSidebarOpen}
+            stats={dashboardStats ? {
+              totalClients: dashboardStats.total_clients,
+              monthlyAmount: dashboardStats.monthly_amount,
+              totalBookings: dashboardStats.total_bookings,
+              completedSessions: dashboardStats.completed_sessions,
+            } : undefined}
           />
 
           {/* Section Divider */}

@@ -49,6 +49,7 @@ import {
   AccountCircle,
   AccountBalance,
   Info,
+  Storage,
 } from '@mui/icons-material';
 import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -63,7 +64,7 @@ interface CreativeSettingsPopoverProps {
   initialSection?: SettingsSection; // Optional section to open to
 }
 
-type SettingsSection = 'account' | 'billing' | 'userAccount';
+type SettingsSection = 'account' | 'billing' | 'storage' | 'userAccount';
 
 const CREATIVE_TITLES = [
   'Other', // Move to top for easy access
@@ -418,6 +419,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       id: 'billing' as SettingsSection,
       label: 'Creative Billing',
       icon: CreditCard,
+    },
+    {
+      id: 'storage' as SettingsSection,
+      label: 'Storage',
+      icon: Storage,
     },
   ];
 
@@ -1358,7 +1364,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                       : connectingAccount 
                         ? 'Connecting...' 
                         : bankAccountStatus.connected 
-                          ? 'Manage Account' 
+                          ? 'View Stripe Dashboard' 
                           : 'Connect Bank Account'}
                   </Button>
                 </CardContent>
@@ -1436,14 +1442,14 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                         </Box>
                       )}
                       <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5, fontWeight: 500 }}>
-                        Click "Manage Account" to complete the required information.
+                        Click "View Stripe Dashboard" to complete the required information.
                       </Typography>
                     </Alert>
                   )}
                   {bankAccountStatus.connected && bankAccountStatus.payoutsEnabled && !bankAccountStatus.onboardingComplete && (
                     <Alert severity="warning" sx={{ mt: 2 }}>
                       <AlertTitle>Onboarding Incomplete</AlertTitle>
-                      Please complete your account setup to ensure all features are available. Click "Manage Account" to continue.
+                      Please complete your account setup to ensure all features are available. Click "View Stripe Dashboard" to continue.
                     </Alert>
                   )}
                   {!bankAccountStatus.connected && (
@@ -1491,6 +1497,14 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                 </CardContent>
               </Card>
               )}
+            </Box>
+          </Box>
+        );
+      case 'storage':
+        return (
+          <Box sx={{ px: 3, pb: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Storage section - placeholder for future implementation */}
             </Box>
           </Box>
         );
@@ -1770,6 +1784,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
               <Typography variant="body2" color="text.secondary">
                 {selectedSection === 'account' && 'Manage your account information and profile settings.'}
                 {selectedSection === 'billing' && 'Manage your subscription and payment information.'}
+                {selectedSection === 'storage' && 'Manage your storage and file management settings.'}
                 {selectedSection === 'userAccount' && 'Manage your user account settings and security preferences.'}
               </Typography>
             </Box>

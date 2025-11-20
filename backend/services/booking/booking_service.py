@@ -1348,6 +1348,127 @@ class BookingController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch creative past orders: {str(e)}")
     
     @staticmethod
+    async def get_creative_dashboard_stats(user_id: str, client: Client) -> Dict[str, Any]:
+        """Get dashboard statistics for the current creative user
+        
+        Args:
+            user_id: The creative user ID
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Returns:
+            Dictionary containing:
+            - total_clients: Number of unique clients
+            - monthly_amount: Net amount from Stripe for current month (matches Stripe Express dashboard)
+            - total_bookings: Total number of bookings
+            - completed_sessions: Number of completed bookings
+        """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
+        try:
+            from datetime import datetime, timezone
+            import stripe
+            import os
+            
+            # Get current month start and end timestamps
+            now = datetime.now(timezone.utc)
+            month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+            month_end = datetime(now.year, now.month + 1, 1, tzinfo=timezone.utc) if now.month < 12 else datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
+            month_start_timestamp = int(month_start.timestamp())
+            month_end_timestamp = int(month_end.timestamp())
+            
+            # Get all bookings for this creative
+            bookings_response = client.table('bookings')\
+                .select('id, client_user_id, amount_paid, creative_status, order_date')\
+                .eq('creative_user_id', user_id)\
+                .execute()
+            
+            bookings = bookings_response.data or []
+            
+            # Calculate stats
+            unique_clients = len(set(b['client_user_id'] for b in bookings))
+            total_bookings = len(bookings)
+            completed_sessions = len([b for b in bookings if b.get('creative_status') == 'completed'])
+            
+            # Get monthly amount from Stripe if account is connected
+            monthly_amount = 0.0
+            try:
+                # Get creative's Stripe account ID
+                creative_result = client.table('creatives')\
+                    .select('stripe_account_id')\
+                    .eq('user_id', user_id)\
+                    .single()\
+                    .execute()
+                
+                if creative_result.data and creative_result.data.get('stripe_account_id'):
+                    stripe_account_id = creative_result.data.get('stripe_account_id')
+                    stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+                    
+                    if stripe_secret_key:
+                        stripe.api_key = stripe_secret_key
+                        
+                        # Get balance transactions for current month from Stripe
+                        # This gives us the actual net amounts after all fees
+                        balance_transactions = stripe.BalanceTransaction.list(
+                            created={'gte': month_start_timestamp, 'lt': month_end_timestamp},
+                            stripe_account=stripe_account_id,
+                            limit=100  # Adjust if needed
+                        )
+                        
+                        # Sum up all positive net amounts (this matches Stripe Express dashboard)
+                        # The net field already accounts for all fees (platform + Stripe processing)
+                        # We sum positive net amounts which represent earnings
+                        for transaction in balance_transactions.data:
+                            # Include all transactions with positive net (earnings)
+                            # Exclude negative transactions (refunds, chargebacks, fees)
+                            if transaction.net > 0:
+                                # Convert from cents to dollars
+                                monthly_amount += transaction.net / 100
+                        
+                        # If there are more than 100 transactions, paginate
+                        while balance_transactions.has_more:
+                            balance_transactions = stripe.BalanceTransaction.list(
+                                created={'gte': month_start_timestamp, 'lt': month_end_timestamp},
+                                stripe_account=stripe_account_id,
+                                limit=100,
+                                starting_after=balance_transactions.data[-1].id
+                            )
+                            
+                            for transaction in balance_transactions.data:
+                                if transaction.net > 0:
+                                    monthly_amount += transaction.net / 100
+                    
+            except Exception as stripe_error:
+                # If Stripe fetch fails, fall back to database calculation
+                logger.warning(f"Failed to fetch monthly amount from Stripe, falling back to database calculation: {stripe_error}")
+                
+                # Fallback: Calculate from bookings (less accurate but better than nothing)
+                for booking in bookings:
+                    order_date_str = booking.get('order_date')
+                    if order_date_str:
+                        try:
+                            order_date = datetime.fromisoformat(order_date_str.replace('Z', '+00:00'))
+                            if month_start <= order_date < month_end:
+                                amount_paid = booking.get('amount_paid', 0)
+                                if amount_paid:
+                                    monthly_amount += float(amount_paid)
+                        except (ValueError, AttributeError):
+                            continue
+            
+            return {
+                'total_clients': unique_clients,
+                'monthly_amount': round(monthly_amount, 2),
+                'total_bookings': total_bookings,
+                'completed_sessions': completed_sessions
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching creative dashboard stats: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch creative dashboard stats: {str(e)}")
+    
+    @staticmethod
     async def get_creative_calendar_sessions(user_id: str, year: int, month: int, client: Client) -> CalendarSessionsResponse:
         """Get calendar sessions for the current creative user for a specific month
         
