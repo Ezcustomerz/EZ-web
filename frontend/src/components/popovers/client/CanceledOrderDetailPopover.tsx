@@ -12,6 +12,7 @@ import {
   Chip,
   Avatar,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { 
@@ -20,12 +21,17 @@ import {
   Payment, 
   Cancel as CancelIcon,
   Replay,
+  Description,
+  Download,
+  PictureAsPdf,
+  Visibility,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
+import { bookingService } from '../../../api/bookingService';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -61,6 +67,7 @@ export interface CanceledOrderDetail {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
 }
 
 export interface CanceledOrderDetailPopoverProps {
@@ -82,6 +89,55 @@ export function CanceledOrderDetailPopover({
   if (!order) return null;
 
   const statusColor = '#f44336'; // Red for canceled
+  const invoices = order.invoices || [];
+
+  const handleViewEzInvoice = async () => {
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view EZ invoice:', error);
+      alert('Failed to view invoice. Please try again.');
+    }
+  };
+
+  const handleDownloadEzInvoice = async () => {
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `EZ_Invoice_${order.id.substring(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+    } catch (error) {
+      console.error('Failed to download EZ invoice:', error);
+      alert('Failed to download invoice. Please try again.');
+    }
+  };
+
+  const handleViewStripeReceipt = async (sessionId: string) => {
+    try {
+      const response = await bookingService.getStripeReceipt(order.id, sessionId);
+      if (response.success && response.receipt_url) {
+        // Open Stripe receipt in new tab
+        window.open(response.receipt_url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to get Stripe receipt:', error);
+      alert('Failed to open Stripe receipt. Please try again.');
+    }
+  };
 
   const getPaymentOptionLabel = (option: CanceledPaymentOption) => {
     switch (option) {
@@ -133,6 +189,22 @@ export function CanceledOrderDetailPopover({
     console.log('Book again:', order.serviceName);
     // TODO: Navigate to service booking or open service detail
     handleViewService();
+  };
+
+  const handleViewComplianceSheet = async () => {
+    try {
+      const blob = await bookingService.downloadComplianceSheet(order.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view compliance sheet:', error);
+      alert('Failed to view compliance sheet. Please try again.');
+    }
   };
 
   // Create service detail object for the nested popover
@@ -397,6 +469,104 @@ export function CanceledOrderDetailPopover({
             </Typography>
           </Box>
 
+          {/* Invoices Section */}
+          <Divider sx={{ my: 2 }} />
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, fontSize: '1rem' }}>
+              Invoices & Receipts
+            </Typography>
+            {invoices.length > 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {invoices.map((invoice, index) => (
+                  <Box 
+                    key={index}
+                    sx={{ 
+                      p: 2,
+                      borderRadius: 2,
+                      border: `1px solid ${theme.palette.divider}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <PictureAsPdf sx={{ fontSize: 32, color: invoice.type === 'stripe_receipt' ? '#635bff' : '#f44336' }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {invoice.name}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          {invoice.type === 'stripe_receipt' ? 'Stripe payment receipt' : 'EZ platform invoice'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {invoice.type === 'ez_invoice' && (
+                        <IconButton
+                          size="small"
+                          onClick={handleViewEzInvoice}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="View invoice"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      )}
+                      {invoice.type === 'stripe_receipt' && invoice.session_id ? (
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewStripeReceipt(invoice.session_id!)}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="View receipt"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      ) : invoice.type === 'ez_invoice' ? (
+                        <IconButton
+                          size="small"
+                          onClick={handleDownloadEzInvoice}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="Download invoice"
+                        >
+                          <Download />
+                        </IconButton>
+                      ) : null}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Box 
+                sx={{ 
+                  p: 2,
+                  borderRadius: 2,
+                  border: `1px solid ${theme.palette.divider}`,
+                  textAlign: 'center',
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
+                }}
+              >
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  No invoices available
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
           {/* Additional Notes Section - Only show if notes exist */}
           {order.description && order.description.trim() && (
             <>
@@ -425,7 +595,7 @@ export function CanceledOrderDetailPopover({
         </Box>
         {/* End of scrollable content */}
 
-        {/* Sticky Rebook Service Button */}
+        {/* Sticky Action Buttons */}
         <Box
           sx={{
             position: 'sticky',
@@ -442,8 +612,34 @@ export function CanceledOrderDetailPopover({
             display: 'flex',
             gap: 2,
             zIndex: 1,
+            flexDirection: { xs: 'column', sm: 'row' },
           }}
         >
+          <Button
+            variant="outlined"
+            size="large"
+            startIcon={<Description />}
+            onClick={handleViewComplianceSheet}
+            sx={{
+              py: 1.5,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              borderRadius: 2,
+              borderColor: theme.palette.primary.main,
+              color: theme.palette.primary.main,
+              flex: { xs: 1, sm: '0 0 auto' },
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                borderColor: theme.palette.primary.dark,
+                color: theme.palette.primary.dark,
+                bgcolor: theme.palette.primary.main + '10',
+                transform: 'translateY(-2px)',
+              },
+            }}
+          >
+            Compliance Sheet
+          </Button>
           <Button
             variant="contained"
             fullWidth

@@ -19,6 +19,14 @@ async def set_cookies(request: Request):
         access_token = body.get("access_token")
         refresh_token = body.get("refresh_token")
         
+        # Ensure tokens are strings and not None
+        if not access_token or not refresh_token:
+            raise HTTPException(status_code=400, detail="Missing access_token or refresh_token in request body")
+        
+        # Convert to string if needed (handles edge cases)
+        access_token = str(access_token).strip()
+        refresh_token = str(refresh_token).strip()
+        
         return await AuthController.set_cookies(access_token, refresh_token)
     except HTTPException:
         raise

@@ -44,6 +44,18 @@ let fetchCache: {
 
 const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remounts
 
+// Function to clear cache (useful for debugging or forcing refresh)
+const clearCache = () => {
+  fetchCache = {
+    promise: null,
+    data: null,
+    isFetching: false,
+    timestamp: 0,
+    resolved: false,
+  };
+  console.log('[ActionNeededTab] Cache cleared');
+};
+
 // Helper function to get status color
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -60,7 +72,8 @@ const getStatusColor = (status: string) => {
 
 // Helper function to transform orders
 function transformOrders(fetchedOrders: Order[]) {
-  return fetchedOrders.map((order: Order) => ({
+  return fetchedOrders.map((order: Order) => {
+    return {
     id: order.id,
     serviceName: order.service_name,
     creativeName: order.creative_name,
@@ -70,6 +83,7 @@ function transformOrders(fetchedOrders: Order[]) {
     calendarDate: order.booking_date || null,
     canceledDate: order.canceled_date,
     approvedDate: order.approved_at || null,
+    completedDate: null, // Not available in API response, but required by component
     paymentOption: order.price === 0 || order.price === null ? 'free' :
                    order.payment_option === 'upfront' ? 'payment_upfront' : 
                    order.payment_option === 'split' ? 'split_payment' : 'payment_later',
@@ -80,6 +94,10 @@ function transformOrders(fetchedOrders: Order[]) {
             order.status === 'download' ? 'download' :
             order.status === 'completed' ? 'completed' :
             order.status === 'canceled' ? 'canceled' : 'placed',
+    amountPaid: order.amount_paid || 0,
+    amountRemaining: order.price - (order.amount_paid || 0),
+    depositAmount: order.payment_option === 'split' ? Math.round(order.price * 0.5 * 100) / 100 : undefined,
+    remainingAmount: order.payment_option === 'split' ? Math.round((order.price - Math.round(order.price * 0.5 * 100) / 100) * 100) / 100 : undefined,
     serviceId: order.service_id,
     serviceDescription: order.service_description,
     serviceDeliveryTime: order.service_delivery_time,
@@ -93,10 +111,38 @@ function transformOrders(fetchedOrders: Order[]) {
     creativeReviewCount: order.creative_review_count,
     creativeServicesCount: order.creative_services_count,
     creativeColor: order.creative_color,
-  }));
+    // Files for locked/download orders
+    files: order.files && Array.isArray(order.files) && order.files.length > 0 
+      ? order.files.map(f => ({
+          id: f.id,
+          name: f.name,
+          type: f.type,
+          size: f.size
+        }))
+      : undefined,
+    // File count and size for display
+    fileCount: order.files ? order.files.length : null,
+    fileSize: order.files && order.files.length > 0 
+      ? (() => {
+          const totalKB = order.files.reduce((total, f) => {
+            const sizeMatch = f.size.match(/([\d.]+)\s*(KB|MB)/);
+            if (sizeMatch) {
+              const value = parseFloat(sizeMatch[1]);
+              const unit = sizeMatch[2];
+              return total + (unit === 'MB' ? value * 1024 : value);
+            }
+            return total;
+          }, 0);
+          return totalKB >= 1024 ? `${(totalKB / 1024).toFixed(2)} MB` : `${totalKB.toFixed(2)} KB`;
+        })()
+      : null,
+    invoices: order.invoices || [],
+  };
+  });
 }
 
 export function ActionNeededTab() {
+  console.log('[ActionNeededTab] Component rendering');
   const theme = useTheme();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -113,6 +159,7 @@ export function ActionNeededTab() {
 
   // Fetch orders on mount - only once
   useEffect(() => {
+    console.log('[ActionNeededTab] useEffect running, isAuthenticated:', isAuthenticated);
     mountedRef.current = true;
     
     // Don't fetch orders if user is not authenticated
@@ -146,7 +193,7 @@ export function ActionNeededTab() {
       }
     };
     
-    // Check if we have cached data that's still fresh
+    // Check if cached data is still valid
     if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
       // Use cached data directly (fastest path)
       if (mountedRef.current) {
@@ -176,7 +223,12 @@ export function ActionNeededTab() {
     }
     
     // No promise exists - create one
-    // This should only execute for the first mount
+    // Clear stale cache data if it exists
+    if (cacheAge >= CACHE_DURATION) {
+      fetchCache.data = null;
+      fetchCache.resolved = false;
+    }
+    
     // Set flags BEFORE creating promise to prevent race conditions
     fetchCache.isFetching = true;
     fetchCache.resolved = false;
@@ -1067,6 +1119,7 @@ export function ActionNeededTab() {
                       paymentOption={(order.paymentOption === 'split_payment' || order.paymentOption === 'payment_upfront') ? order.paymentOption : 'payment_upfront'}
                       depositAmount={paymentAmounts.depositAmount}
                       remainingAmount={paymentAmounts.remainingAmount}
+                      amountPaid={order.amountPaid || 0}
                       serviceId={order.serviceId}
                       serviceDescription={order.serviceDescription}
                       serviceDeliveryTime={order.serviceDeliveryTime}
@@ -1093,7 +1146,11 @@ export function ActionNeededTab() {
                       calendarDate={order.calendarDate}
                       fileCount={order.fileCount}
                       fileSize={order.fileSize}
+                      files={order.files}
                       paymentOption={order.paymentOption}
+                      depositAmount={order.depositAmount}
+                      remainingAmount={order.remainingAmount}
+                      amountPaid={order.amountPaid}
                       serviceId={order.serviceId}
                       serviceDescription={order.serviceDescription}
                       serviceDeliveryTime={order.serviceDeliveryTime}
@@ -1135,6 +1192,7 @@ export function ActionNeededTab() {
                       creativeServicesCount={order.creativeServicesCount}
                       creativeColor={order.creativeColor}
                       creativeAvatarUrl={order.creativeAvatarUrl}
+                      invoices={order.invoices}
                     />
                   );
 

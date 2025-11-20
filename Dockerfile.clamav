@@ -1,0 +1,8 @@
+FROM clamav/clamav:latest
+
+# Expose ClamAV TCP port
+EXPOSE 3310
+
+# ClamAV daemon runs automatically on port 3310
+# The base image handles all configuration
+

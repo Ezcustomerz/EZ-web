@@ -19,6 +19,8 @@ import {
   InputAdornment,
   Stack,
   IconButton,
+  CircularProgress,
+  LinearProgress,
 } from '@mui/material';
 import { ArrowDropUp, ArrowDropDown, SwapVert, Search as SearchIcon, Payment as PaymentIcon, ReceiptLong, FilterList as FilterIcon, Check, Close, Done as DoneIcon } from '@mui/icons-material';
 import Card from '@mui/material/Card';
@@ -129,6 +131,10 @@ export function RequestsTable({
   const [awaitingPaymentPopoverOpen, setAwaitingPaymentPopoverOpen] = useState(false);
   const [selectedAwaitingPaymentOrder, setSelectedAwaitingPaymentOrder] = useState<AwaitingPaymentOrder | null>(null);
   const [inProgressPopoverOpen, setInProgressPopoverOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
+  const [uploadingOrderTitle, setUploadingOrderTitle] = useState<string>('');
   const [selectedInProgressOrder, setSelectedInProgressOrder] = useState<InProgressOrder | null>(null);
   const [completePopoverOpen, setCompletePopoverOpen] = useState(false);
   const [selectedCompleteOrder, setSelectedCompleteOrder] = useState<CompleteOrder | null>(null);
@@ -145,6 +151,8 @@ export function RequestsTable({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingApprovalOrderId, setPendingApprovalOrderId] = useState<string | null>(null);
   const [pendingApprovalOrderAmount, setPendingApprovalOrderAmount] = useState<number | undefined>(undefined);
+  const [isCheckingBankAccount, setIsCheckingBankAccount] = useState(false);
+  const [checkingBankAccountOrderId, setCheckingBankAccountOrderId] = useState<string | null>(null);
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
@@ -343,9 +351,17 @@ export function RequestsTable({
     const requiresPayment = price > 0;
     
     if (requiresPayment) {
+      // Show loading state while checking bank account
+      setIsCheckingBankAccount(true);
+      setCheckingBankAccountOrderId(orderId);
+      
       // Check if Stripe account is connected
       try {
         const stripeStatus = await userService.getStripeAccountStatus();
+        
+        // Clear loading state
+        setIsCheckingBankAccount(false);
+        setCheckingBankAccountOrderId(null);
         
         if (!stripeStatus.connected || !stripeStatus.payouts_enabled) {
           // Account not connected or payouts not enabled - show dialog
@@ -356,6 +372,9 @@ export function RequestsTable({
         }
       } catch (error) {
         console.error('Failed to check Stripe account status:', error);
+        // Clear loading state
+        setIsCheckingBankAccount(false);
+        setCheckingBankAccountOrderId(null);
         // If check fails, still show the requirement dialog to be safe
         setPendingApprovalOrderId(orderId);
         setPendingApprovalOrderAmount(price);
@@ -479,11 +498,72 @@ export function RequestsTable({
   };
 
   // In Progress handlers
-  const handleFinalizeService = async (orderId: string, files: any[]) => {
-    console.log('Finalizing service for order:', orderId, 'with files:', files);
-    // TODO: Implement service finalization logic - update order status to 'Complete'
-    // This would typically involve an API call to finalize the service and upload files
-    handleCloseInProgressPopover();
+  const handleFinalizeService = async (orderId: string, files: any[]): Promise<void> => {
+    try {
+      // Set upload state - persist even if popover is closed
+      setIsUploading(true);
+      setUploadingOrderId(orderId);
+      const order = selectedInProgressOrder;
+      setUploadingOrderTitle(order?.service?.title || 'Service');
+      setUploadProgress('Preparing files for upload...');
+      
+      // Convert blob URLs to File objects and batch upload
+      const fileObjects: File[] = [];
+      for (const file of files) {
+        try {
+          // Convert blob URL to File object
+          const response = await fetch(file.url);
+          const blob = await response.blob();
+          const fileObj = new File([blob], file.name, { type: file.type });
+          fileObjects.push(fileObj);
+        } catch (error) {
+          console.error(`Error converting file ${file.name}:`, error);
+          throw new Error(`Failed to prepare ${file.name} for upload. Please try again.`);
+        }
+      }
+      
+      // Batch upload all files at once
+      let uploadedFiles: any[] = [];
+      if (fileObjects.length > 0) {
+        setUploadProgress(`Uploading ${fileObjects.length} file${fileObjects.length > 1 ? 's' : ''}...`);
+        const uploadResult = await bookingService.uploadDeliverables(orderId, fileObjects);
+        uploadedFiles = uploadResult.files.map(f => ({
+          url: f.file_url, // This is the storage path
+          name: f.file_name,
+          size: f.file_size,
+          type: f.file_type
+        }));
+      }
+      
+      // Now finalize with uploaded file metadata
+      setUploadProgress('Finalizing service...');
+      await bookingService.finalizeService(orderId, uploadedFiles);
+      
+      // Refresh the requests list
+      if (onRefresh) {
+        await onRefresh();
+      }
+      
+      // Clear upload state
+      setIsUploading(false);
+      setUploadProgress('');
+      setUploadingOrderId(null);
+      setUploadingOrderTitle('');
+      
+      handleCloseInProgressPopover();
+    } catch (error) {
+      console.error('Error finalizing service:', error);
+      setIsUploading(false);
+      setUploadProgress('');
+      setUploadingOrderId(null);
+      setUploadingOrderTitle('');
+      // TODO: Show error notification to user
+      throw error;
+    }
+  };
+
+  const handleUploadProgress = (progress: string) => {
+    setUploadProgress(progress);
   };
 
   // Complete handlers
@@ -2065,7 +2145,107 @@ export function RequestsTable({
         order={selectedInProgressOrder}
         onFinalizeService={handleFinalizeService}
         showFinalizationStep={showFinalizationStep}
+        onUploadProgress={handleUploadProgress}
       />
+
+      {/* Bank Account Checking Loading Card */}
+      {isCheckingBankAccount && checkingBankAccountOrderId && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 1400,
+            minWidth: 320,
+            maxWidth: 400,
+            boxShadow: theme.shadows[8],
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: theme.palette.mode === 'dark' 
+                ? 'rgba(59, 130, 246, 0.1)' 
+                : 'rgba(59, 130, 246, 0.05)',
+              borderBottom: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+              <CircularProgress size={24} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Checking Bank Account
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Verifying payment setup...
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+          <Box sx={{ p: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 500 }}>
+              Verifying your Stripe account connection
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Please wait while we check your payment account status. This usually takes just a moment.
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
+      {/* Persistent Upload Progress Card */}
+      {isUploading && uploadingOrderId && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 1400,
+            minWidth: 320,
+            maxWidth: 400,
+            boxShadow: theme.shadows[8],
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: theme.palette.mode === 'dark' 
+                ? 'rgba(59, 130, 246, 0.1)' 
+                : 'rgba(59, 130, 246, 0.05)',
+              borderBottom: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+              <CircularProgress size={24} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Uploading Deliverables
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {uploadingOrderTitle}
+                </Typography>
+              </Box>
+            </Box>
+            <LinearProgress sx={{ mt: 1 }} />
+          </Box>
+          <Box sx={{ p: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 500 }}>
+              {uploadProgress || 'Uploading files to server...'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Please wait while your files are being uploaded. You can continue working while this completes.
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       {/* Complete Popover */}
       <CompletePopover

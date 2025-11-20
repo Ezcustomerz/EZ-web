@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -63,16 +63,7 @@ export function InvitePage() {
   // InvitePage is a public page - no need to fetch user profiles
   // The auth context will handle user profile loading when needed
 
-  useEffect(() => {
-    if (inviteToken) {
-      validateInvite();
-    } else {
-      setError('Invalid invite link');
-      setLoading(false);
-    }
-  }, [inviteToken]);
-
-  const validateInvite = async () => {
+  const validateInvite = useCallback(async () => {
     if (!inviteToken) return;
 
     setLoading(true);
@@ -111,7 +102,16 @@ export function InvitePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [inviteToken]);
+
+  useEffect(() => {
+    if (inviteToken) {
+      validateInvite();
+    } else {
+      setError('Invalid invite link');
+      setLoading(false);
+    }
+  }, [inviteToken, validateInvite]);
 
   const handleSignUp = () => {
     // Store invite token in localStorage to survive OAuth redirects

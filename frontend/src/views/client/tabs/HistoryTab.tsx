@@ -88,6 +88,7 @@ function transformOrders(fetchedOrders: Order[]) {
     creativeReviewCount: order.creative_review_count,
     creativeServicesCount: order.creative_services_count,
     creativeColor: order.creative_color,
+    invoices: order.invoices || [],
   }));
 }
 
@@ -993,6 +994,7 @@ export function HistoryTab() {
                       creativeServicesCount={order.creativeServicesCount}
                       creativeColor={order.creativeColor}
                       creativeAvatarUrl={order.creativeAvatarUrl}
+                      invoices={order.invoices}
                     />
                   );
 
@@ -1016,6 +1018,7 @@ export function HistoryTab() {
                       creativeServicesCount={order.creativeServicesCount}
                       creativeColor={order.creativeColor}
                       creativeAvatarUrl={order.creativeAvatarUrl}
+                      invoices={order.invoices}
                     />
                   );
 

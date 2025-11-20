@@ -12,6 +12,10 @@ import {
   Chip,
   Avatar,
   Button,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { 
@@ -22,12 +26,20 @@ import {
   CheckCircle, 
   Lock,
   LockOpen,
+  Description,
+  InsertDriveFile,
+  VideoFile,
+  AudioFile,
+  Image,
+  PictureAsPdf,
+  AccountBalanceWallet,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
+import { StripePaymentDialog } from '../../dialogs/StripePaymentDialog';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -38,6 +50,14 @@ const Transition = React.forwardRef(function Transition(
 });
 
 export type LockedPaymentOption = 'split_payment' | 'payment_upfront' | 'payment_later' | 'free';
+
+export interface LockedFile {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  // No url - files are locked and not downloadable
+}
 
 export interface LockedOrderDetail {
   id: string;
@@ -52,6 +72,11 @@ export interface LockedOrderDetail {
   paymentOption: LockedPaymentOption;
   fileCount: number | null;
   fileSize: string | null;
+  files?: LockedFile[]; // Locked files (names only, not downloadable)
+  // Split payment amounts
+  depositAmount?: number;
+  remainingAmount?: number;
+  amountPaid?: number; // Track how much has been paid
   // Service details for nested popover
   serviceId?: string;
   serviceDescription?: string;
@@ -84,6 +109,7 @@ export function LockedOrderDetailPopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   if (!order) return null;
 
@@ -136,8 +162,37 @@ export function LockedOrderDetailPopover({
   };
 
   const handlePayNow = () => {
-    console.log('Pay now for order:', order.id);
-    // TODO: Implement payment flow
+    // Open payment dialog
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    setPaymentDialogOpen(false);
+    onClose();
+    // Refresh the page or update the order status
+    window.location.reload();
+  };
+
+  // Calculate payment amounts - similar to PaymentApprovalOrderDetailPopover
+  // For locked orders, the deposit is always already paid (it's the second payment)
+  const depositAmount = order.depositAmount || (order.paymentOption === 'split_payment' ? Math.round(order.price * 0.5 * 100) / 100 : 0);
+  const remainingAmount = order.remainingAmount || (order.paymentOption === 'split_payment' ? Math.round((order.price - depositAmount) * 100) / 100 : 0);
+  const amountPaid = typeof order.amountPaid === 'number' ? order.amountPaid : (parseFloat(String(order.amountPaid || 0)) || 0);
+  
+  // Locked orders are always the second payment (deposit already paid)
+  // So for split payment, show remaining amount; for payment_later, show full price
+  const amountDueNow = order.paymentOption === 'split_payment' 
+    ? remainingAmount
+    : order.price;
+
+  // Get file icon based on file type
+  const getFileIcon = (fileType: string) => {
+    const type = fileType.toLowerCase();
+    if (type.includes('image')) return <Image sx={{ color: theme.palette.primary.main }} />;
+    if (type.includes('video')) return <VideoFile sx={{ color: theme.palette.primary.main }} />;
+    if (type.includes('audio')) return <AudioFile sx={{ color: theme.palette.primary.main }} />;
+    if (type.includes('pdf')) return <PictureAsPdf sx={{ color: theme.palette.error.main }} />;
+    return <InsertDriveFile sx={{ color: theme.palette.text.secondary }} />;
   };
 
   // Create service detail object for the nested popover
@@ -393,6 +448,67 @@ export function LockedOrderDetailPopover({
             </Box>
           </Box>
 
+          {/* Locked Files Section */}
+          {order.files && Array.isArray(order.files) && order.files.length > 0 && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, fontSize: '1rem' }}>
+                  Locked Files
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
+                  {order.fileCount || order.files.length} file{(order.fileCount || order.files.length) !== 1 ? 's' : ''} • {order.fileSize || 'N/A'}
+                </Typography>
+                <List sx={{ 
+                  bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
+                  borderRadius: 2,
+                  p: 0,
+                }}>
+                  {order.files.map((file, index) => (
+                    <ListItem
+                      key={file.id}
+                      sx={{
+                        borderBottom: index < order.files!.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
+                        opacity: 0.7,
+                        cursor: 'not-allowed',
+                      }}
+                    >
+                      <ListItemIcon>
+                        <Box sx={{ position: 'relative' }}>
+                          {getFileIcon(file.type)}
+                          <Lock 
+                            sx={{ 
+                              position: 'absolute',
+                              top: -4,
+                              right: -4,
+                              fontSize: 14,
+                              color: statusColor,
+                            }} 
+                          />
+                        </Box>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {file.name}
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {file.type} • {file.size} • Locked
+                          </Typography>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1, fontStyle: 'italic' }}>
+                  Files will be unlocked after payment is completed
+                </Typography>
+              </Box>
+            </>
+          )}
+
           {/* Status Message */}
           <Box 
             sx={{ 
@@ -427,6 +543,110 @@ export function LockedOrderDetailPopover({
                 : 'This order is awaiting payment. Please complete the payment to proceed with your service.'
               }
             </Typography>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Payment Details Section */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, fontSize: '1rem' }}>
+              Payment Details
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
+              <Payment sx={{ fontSize: 20, color: getPaymentOptionColor(order.paymentOption), mt: 0.25 }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, display: 'block', mb: 0.5 }}>
+                  Payment Option
+                </Typography>
+                <Chip
+                  label={getPaymentOptionLabel(order.paymentOption)}
+                  size="small"
+                  sx={{
+                    bgcolor: `${getPaymentOptionColor(order.paymentOption)}20`,
+                    color: getPaymentOptionColor(order.paymentOption),
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    mb: 1,
+                  }}
+                />
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                  {order.paymentOption === 'split_payment'
+                    ? 'Deposit has been paid. Complete your payment with the remaining balance.'
+                    : order.paymentOption === 'payment_later'
+                    ? 'Full payment is required to unlock and download your files.'
+                    : 'Full payment is required to unlock and download your files.'
+                  }
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Payment Breakdown */}
+            <Box 
+              sx={{ 
+                p: 2,
+                borderRadius: 2,
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(156, 39, 176, 0.1)' : 'rgba(156, 39, 176, 0.05)',
+                border: `1px solid ${statusColor}30`,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <AccountBalanceWallet sx={{ fontSize: 20, color: statusColor }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  Payment Breakdown
+                </Typography>
+              </Box>
+
+              {order.paymentOption === 'split_payment' ? (
+                <>
+                  {/* Second Payment - Show what was paid and what's due (locked orders are always second payment) */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        First Payment Paid
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Deposit received
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.success.main }}>
+                      ${depositAmount.toFixed(2)}
+                    </Typography>
+                  </Box>
+
+                  <Divider sx={{ my: 1.5 }} />
+
+                  {/* Final Payment Due */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Final Payment Due Now
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Complete your payment
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                      ${amountDueNow.toFixed(2)}
+                    </Typography>
+                  </Box>
+                </>
+              ) : (
+                /* Payment Later or Upfront */
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                      Amount Due Now
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      Full payment required
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                    ${amountDueNow.toFixed(2)}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
           </Box>
         </Box>
         {/* End of scrollable content */}
@@ -494,7 +714,7 @@ export function LockedOrderDetailPopover({
               <Lock className="lock-icon lock-closed" sx={{ fontSize: 20 }} />
               <LockOpen className="lock-icon lock-open" sx={{ fontSize: 20 }} />
             </Box>
-            Pay Now - ${order.price.toFixed(2)}
+            Unlock Files & Pay ${amountDueNow.toFixed(2)}
           </Button>
         </Box>
       </DialogContent>
@@ -513,6 +733,15 @@ export function LockedOrderDetailPopover({
         open={creativeDetailOpen}
         onClose={handleCreativeDetailClose}
         creative={creativeDetail}
+      />
+
+      {/* Stripe Payment Dialog */}
+      <StripePaymentDialog
+        open={paymentDialogOpen}
+        onClose={() => setPaymentDialogOpen(false)}
+        bookingId={order.id}
+        amount={amountDueNow}
+        onSuccess={handlePaymentSuccess}
       />
     </>
   );
