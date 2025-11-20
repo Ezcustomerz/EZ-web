@@ -1770,7 +1770,7 @@ class BookingController:
             
             logger.info(f"Booking approved successfully: {booking_id} by creative {user_id}")
             
-            # Get service and creative details for notification
+            # Get service, creative, and client details for notifications
             service_response = client.table('creative_services')\
                 .select('title')\
                 .eq('id', booking['service_id'])\
@@ -1783,8 +1783,15 @@ class BookingController:
                 .single()\
                 .execute()
             
+            client_response = db_admin.table('clients')\
+                .select('display_name')\
+                .eq('user_id', booking['client_user_id'])\
+                .single()\
+                .execute()
+            
             service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
             creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
+            client_display_name = client_response.data.get('display_name', 'A client') if client_response.data else 'A client'
             
             # Create appropriate notification
             if price == 0 or payment_option == 'later':
@@ -1830,14 +1837,44 @@ class BookingController:
                     "updated_at": datetime.utcnow().isoformat()
                 }
             
-            # Create notification
+            # Create notification for client
             try:
-                notification_result = client.table("notifications")\
+                notification_result = db_admin.table("notifications")\
                     .insert(notification_data)\
                     .execute()
-                logger.info(f"Approval notification created: {notification_result.data}")
+                logger.info(f"Client approval notification created: {notification_result.data}")
             except Exception as notif_error:
-                logger.error(f"Failed to create approval notification: {notif_error}")
+                logger.error(f"Failed to create client approval notification: {notif_error}")
+            
+            # Create notification for creative confirming they approved the service
+            try:
+                creative_notification_data = {
+                    "recipient_user_id": user_id,
+                    "notification_type": "booking_approved",
+                    "title": "Service Approved",
+                    "message": f"You have approved the booking for {service_title} from {client_display_name}.",
+                    "is_read": False,
+                    "related_user_id": booking['client_user_id'],
+                    "related_entity_id": booking_id,
+                    "related_entity_type": "booking",
+                    "target_roles": ["creative"],
+                    "metadata": {
+                        "service_title": service_title,
+                        "client_display_name": client_display_name,
+                        "booking_id": booking_id,
+                        "price": str(price),
+                        "payment_option": payment_option
+                    },
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                
+                creative_notification_result = db_admin.table("notifications")\
+                    .insert(creative_notification_data)\
+                    .execute()
+                logger.info(f"Creative approval notification created: {creative_notification_result.data}")
+            except Exception as notif_error:
+                logger.error(f"Failed to create creative approval notification: {notif_error}")
             
             return ApproveBookingResponse(
                 success=True,
@@ -2243,39 +2280,184 @@ class BookingController:
             if not update_result.data:
                 raise HTTPException(status_code=500, detail="Failed to update booking status")
             
-            # Get service and creative details for notification
-            service_response = client.table('creative_services').select('title').eq('id', booking['service_id']).single().execute()
-            creative_response = client.table('creatives').select('display_name').eq('user_id', user_id).single().execute()
+            # Get service, creative, and client details for notifications
+            service_response = db_admin.table('creative_services').select('title').eq('id', booking['service_id']).single().execute()
+            creative_response = db_admin.table('creatives').select('display_name').eq('user_id', user_id).single().execute()
+            client_response = db_admin.table('clients').select('display_name').eq('user_id', booking['client_user_id']).single().execute()
             
             service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
             creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
+            client_display_name = client_response.data.get('display_name', 'A client') if client_response.data else 'A client'
             
-            # Create notification for client
-            client_notification_data = {
-                "recipient_user_id": booking['client_user_id'],
-                "notification_type": "session_completed",
-                "title": "Service Completed",
-                "message": f"Your service '{service_title}' has been completed by {creative_display_name}." + (" Files are ready for download." if has_files else ""),
-                "is_read": False,
-                "related_user_id": user_id,
-                "related_entity_id": booking_id,
-                "related_entity_type": "booking",
-                "target_roles": ["client"],
-                "metadata": {
-                    "service_title": service_title,
-                    "booking_id": booking_id,
-                    "has_files": has_files,
-                    "client_status": client_status
-                },
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat()
-            }
-            
+            # Create notifications based on final status
             try:
-                db_admin.table("notifications").insert(client_notification_data).execute()
-                logger.info(f"Completion notification created for client: {booking['client_user_id']}")
+                # Client notifications
+                if client_status == 'payment_required':
+                    # Payment required notification (already exists type)
+                    client_notification_data = {
+                        "recipient_user_id": booking['client_user_id'],
+                        "notification_type": "payment_required",
+                        "title": "Payment Required",
+                        "message": f"Please complete payment for {service_title} to receive your completed service.",
+                        "is_read": False,
+                        "related_user_id": user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": booking_id,
+                            "price": str(price),
+                            "payment_option": payment_option
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    logger.info(f"Payment required notification created for client: {booking['client_user_id']}")
+                
+                elif client_status == 'locked':
+                    # Client: Payment to unlock notification
+                    client_notification_data = {
+                        "recipient_user_id": booking['client_user_id'],
+                        "notification_type": "payment_required",
+                        "title": "Payment Required to Unlock",
+                        "message": f"Files for {service_title} are ready. Complete payment to unlock and download your files.",
+                        "is_read": False,
+                        "related_user_id": user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": booking_id,
+                            "price": str(price),
+                            "payment_option": payment_option
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    logger.info(f"Payment to unlock notification created for client: {booking['client_user_id']}")
+                    
+                    # Creative: Files sent notification
+                    creative_notification_data = {
+                        "recipient_user_id": user_id,
+                        "notification_type": "session_completed",
+                        "title": "Files Sent",
+                        "message": f"You have sent files for {service_title} to {client_display_name}. Awaiting payment to unlock.",
+                        "is_read": False,
+                        "related_user_id": booking['client_user_id'],
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["creative"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "client_display_name": client_display_name,
+                            "booking_id": booking_id,
+                            "has_files": True
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    logger.info(f"Files sent notification created for creative: {user_id}")
+                
+                elif client_status == 'completed':
+                    # Both: Service complete notification
+                    client_notification_data = {
+                        "recipient_user_id": booking['client_user_id'],
+                        "notification_type": "session_completed",
+                        "title": "Service Complete",
+                        "message": f"Your service {service_title} has been completed by {creative_display_name}.",
+                        "is_read": False,
+                        "related_user_id": user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": booking_id
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    logger.info(f"Service complete notification created for client: {booking['client_user_id']}")
+                    
+                    creative_notification_data = {
+                        "recipient_user_id": user_id,
+                        "notification_type": "session_completed",
+                        "title": "Service Complete",
+                        "message": f"You have completed {service_title} for {client_display_name}.",
+                        "is_read": False,
+                        "related_user_id": booking['client_user_id'],
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["creative"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "client_display_name": client_display_name,
+                            "booking_id": booking_id
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    logger.info(f"Service complete notification created for creative: {user_id}")
+                
+                elif client_status == 'download':
+                    # Client: Files ready notification
+                    client_notification_data = {
+                        "recipient_user_id": booking['client_user_id'],
+                        "notification_type": "session_completed",
+                        "title": "Files Ready",
+                        "message": f"Files for {service_title} are ready for download from {creative_display_name}.",
+                        "is_read": False,
+                        "related_user_id": user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": booking_id,
+                            "has_files": True
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    logger.info(f"Files ready notification created for client: {booking['client_user_id']}")
+                    
+                    # Creative: Files sent notification
+                    creative_notification_data = {
+                        "recipient_user_id": user_id,
+                        "notification_type": "session_completed",
+                        "title": "Files Sent",
+                        "message": f"You have sent files for {service_title} to {client_display_name}. Files are now available for download.",
+                        "is_read": False,
+                        "related_user_id": booking['client_user_id'],
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["creative"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "client_display_name": client_display_name,
+                            "booking_id": booking_id,
+                            "has_files": True
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    logger.info(f"Files sent notification created for creative: {user_id}")
+                    
             except Exception as notif_error:
-                logger.error(f"Failed to create completion notification: {notif_error}")
+                logger.error(f"Failed to create finalization notifications: {notif_error}")
             
             return FinalizeServiceResponse(
                 success=True,

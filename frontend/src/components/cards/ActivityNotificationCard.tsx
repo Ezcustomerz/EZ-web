@@ -131,8 +131,8 @@ function renderDescriptionWithHighlights(
       if (secondParts.length === 2) {
         return (
           <>
-            <HighlightText text={firstText} color={firstColor || defaultBorderColor || '#1976d2'} />
             {firstParts[0]}
+            <HighlightText text={firstText} color={firstColor || defaultBorderColor || '#1976d2'} />
             {secondParts[0]}
             <HighlightText text={secondText} color={secondColor || defaultBorderColor || '#1976d2'} />
             {secondParts[1]}
@@ -143,14 +143,45 @@ function renderDescriptionWithHighlights(
     return null;
   };
 
+  // Helper to try highlighting in both orders (name before service or service before name)
+  const tryHighlightBothOrders = (
+    text: string,
+    name: string,
+    nameColor: string | undefined,
+    service: string,
+    serviceColor: string | undefined
+  ): React.ReactNode | null => {
+    // Try name first, then service
+    const result1 = highlightTwoTexts(text, name, nameColor, service, serviceColor);
+    if (result1) return result1;
+    
+    // Try service first, then name
+    const result2 = highlightTwoTexts(text, service, serviceColor, name, nameColor);
+    if (result2) return result2;
+    
+    // Try individual highlights - check if name exists in text
+    if (text.includes(name)) {
+      const result3 = highlightText(text, name, nameColor);
+      if (result3) return result3;
+    }
+    
+    // Try service highlight
+    if (text.includes(service)) {
+      const result4 = highlightText(text, service, serviceColor);
+      if (result4) return result4;
+    }
+    
+    return null;
+  };
+
   // Handle different notification types
   switch (notificationType) {
     case 'booking_created':
+      if (serviceName && clientName) {
+        const result = tryHighlightBothOrders(description, clientName, creativeAvatarColor, serviceName, serviceColor);
+        if (result) return result;
+      }
       if (serviceName) {
-        if (clientName) {
-          const result = highlightTwoTexts(description, clientName, creativeAvatarColor, serviceName, serviceColor);
-          if (result) return result;
-        }
         return highlightText(description, serviceName, serviceColor) || description;
       }
       break;
@@ -168,11 +199,66 @@ function renderDescriptionWithHighlights(
       break;
 
     case 'booking_approved':
+      if (serviceName) {
+        // For client notifications: highlight creative name and service name
+        if (creativeName) {
+          const result = tryHighlightBothOrders(description, creativeName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        // For creative notifications: highlight client name and service name
+        if (clientName) {
+          const result = tryHighlightBothOrders(description, clientName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        return highlightText(description, serviceName, serviceColor) || description;
+      }
+      break;
     case 'payment_required':
+      if (serviceName) {
+        // For client notifications: highlight creative name and service name
+        if (creativeName) {
+          const result = tryHighlightBothOrders(description, creativeName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        return highlightText(description, serviceName, serviceColor) || description;
+      }
+      break;
     case 'booking_rejected':
       if (serviceName) {
         if (creativeName) {
-          const result = highlightTwoTexts(description, creativeName, creativeAvatarColor, serviceName, serviceColor);
+          const result = tryHighlightBothOrders(description, creativeName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        return highlightText(description, serviceName, serviceColor) || description;
+      }
+      break;
+
+    case 'payment_received':
+      if (serviceName) {
+        // For client notifications: highlight creative name and service name (creative name might not be in message, but try anyway)
+        if (creativeName) {
+          const result = tryHighlightBothOrders(description, creativeName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        // For creative notifications: highlight client name and service name
+        if (clientName) {
+          const result = tryHighlightBothOrders(description, clientName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        return highlightText(description, serviceName, serviceColor) || description;
+      }
+      break;
+
+    case 'session_completed':
+      if (serviceName) {
+        // For client notifications: highlight creative name and service name
+        if (creativeName) {
+          const result = tryHighlightBothOrders(description, creativeName, creativeAvatarColor, serviceName, serviceColor);
+          if (result) return result;
+        }
+        // For creative notifications: highlight client name and service name
+        if (clientName) {
+          const result = tryHighlightBothOrders(description, clientName, creativeAvatarColor, serviceName, serviceColor);
           if (result) return result;
         }
         return highlightText(description, serviceName, serviceColor) || description;
@@ -294,11 +380,43 @@ export const ActivityNotificationCard = memo(function ActivityNotificationCard({
   const statusLower = useMemo(() => (normalized.status || '').toLowerCase(), [normalized.status]);
 
   const borderColor = useMemo(() => {
-    if (statusLower === 'payment' || statusLower === 'rejected') return theme.palette.error.main;
-    if (statusLower === 'payment_needed') return theme.palette.info.main;
-    if (statusLower === 'completed' || statusLower === 'booking' || statusLower === 'review') return theme.palette.success.main;
-    if (statusLower === 'revision' || statusLower === 'connection' || statusLower === 'waiting' || statusLower === 'warning') return theme.palette.warning.main;
-    return theme.palette.info.main;
+    // Unique colors for each notification type
+    switch (statusLower) {
+      case 'connection': // new_client_added
+        return '#00bcd4'; // Cyan
+      case 'booking_created':
+        return '#2196f3'; // Blue
+      case 'booking_placed':
+        return '#3f51b5'; // Indigo
+      case 'booking_approved':
+        return '#4caf50'; // Green
+      case 'booking_rejected':
+        return '#f44336'; // Red
+      case 'booking_canceled':
+        return '#ff5722'; // Deep Orange
+      case 'payment_success': // payment_received
+        return '#9c27b0'; // Purple
+      case 'payment_required':
+        return '#ff9800'; // Orange
+      case 'session_completed':
+        return '#009688'; // Teal
+      case 'review':
+        return '#ffc107'; // Amber
+      case 'rejected': // Legacy fallback
+        return theme.palette.error.main;
+      case 'payment_needed': // Legacy fallback
+        return theme.palette.info.main;
+      case 'completed': // Legacy fallback
+        return theme.palette.success.main;
+      case 'booking': // Legacy fallback
+        return theme.palette.success.main;
+      case 'revision':
+      case 'waiting':
+      case 'warning':
+        return theme.palette.warning.main;
+      default:
+        return theme.palette.info.main;
+    }
   }, [statusLower, theme.palette]);
 
   const isWarning = useMemo(() => statusLower === 'warning' || statusLower === 'waiting', [statusLower]);

@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from supabase import Client
 from dotenv import load_dotenv
 import logging
+from db.db_session import db_admin
 
 load_dotenv()
 
@@ -436,7 +437,7 @@ class StripeService:
         try:
             # Get booking details first to find the creative's Stripe account
             booking_result = client.table('bookings')\
-                .select('id, price, payment_option, amount_paid, client_status, creative_status, client_user_id, creative_user_id')\
+                .select('id, price, payment_option, amount_paid, client_status, creative_status, client_user_id, creative_user_id, service_id')\
                 .eq('id', booking_id)\
                 .single()\
                 .execute()
@@ -572,6 +573,231 @@ class StripeService:
                 raise HTTPException(status_code=500, detail="Failed to update booking")
             
             updated_booking = update_response.data[0]
+            
+            # Create notifications for both client and creative after successful payment
+            try:
+                logger = logging.getLogger(__name__)
+                
+                # Get service and user information for notifications
+                service_id = booking.get('service_id')
+                service_title = 'Service'
+                if service_id:
+                    service_result = db_admin.table('creative_services')\
+                        .select('id, title')\
+                        .eq('id', service_id)\
+                        .single()\
+                        .execute()
+                    
+                    if service_result.data:
+                        service_title = service_result.data.get('title', 'Service')
+                
+                # Get client display name from clients table
+                client_user_id = booking.get('client_user_id')
+                client_result = db_admin.table('clients')\
+                    .select('display_name')\
+                    .eq('user_id', client_user_id)\
+                    .single()\
+                    .execute()
+                
+                client_display_name = client_result.data.get('display_name', 'A client') if client_result.data else 'A client'
+                
+                # Get creative display name from creatives table
+                creative_result = db_admin.table('creatives')\
+                    .select('display_name')\
+                    .eq('user_id', creative_user_id)\
+                    .single()\
+                    .execute()
+                
+                creative_display_name = creative_result.data.get('display_name', 'A creative') if creative_result.data else 'A creative'
+                
+                # Determine payment message based on payment status
+                is_fully_paid = new_amount_paid >= price
+                payment_message = f"${amount_total:.2f} payment received"
+                if payment_option == 'split' and not is_fully_paid:
+                    payment_message = f"${amount_total:.2f} deposit payment received"
+                elif is_fully_paid:
+                    payment_message = f"Full payment of ${amount_total:.2f} received"
+                
+                # Check if this payment unlocked a locked order
+                final_client_status = updated_booking.get('client_status')
+                final_creative_status = updated_booking.get('creative_status')
+                was_locked = is_locked_order and is_fully_paid
+                
+                # Create notifications based on whether this unlocked a locked order
+                if was_locked:
+                    # Locked order was unlocked - send unlock notifications
+                    # Check if files exist to customize message
+                    deliverables_check = db_admin.table('booking_deliverables')\
+                        .select('id')\
+                        .eq('booking_id', booking_id)\
+                        .execute()
+                    has_files_for_notification = deliverables_check.data and len(deliverables_check.data) > 0
+                    
+                    if has_files_for_notification and final_client_status == 'download' and final_creative_status == 'completed':
+                        # Client notification: Files unlocked
+                        client_notification_data = {
+                            "recipient_user_id": booking.get('client_user_id'),
+                            "notification_type": "session_completed",
+                            "title": "Files Unlocked",
+                            "message": f"Payment received! Files for {service_title} are now unlocked and ready for download from {creative_display_name}.",
+                            "is_read": False,
+                            "related_user_id": creative_user_id,
+                            "related_entity_id": booking_id,
+                            "related_entity_type": "booking",
+                            "target_roles": ["client"],
+                            "metadata": {
+                                "service_title": service_title,
+                                "creative_display_name": creative_display_name,
+                                "booking_id": str(booking_id),
+                                "amount_paid": str(amount_total),
+                                "total_price": str(price),
+                                "payment_status": payment_status,
+                                "has_files": True
+                            },
+                            "created_at": datetime.utcnow().isoformat(),
+                            "updated_at": datetime.utcnow().isoformat()
+                        }
+                        
+                        # Creative notification: Payment received, service completed
+                        creative_notification_data = {
+                            "recipient_user_id": creative_user_id,
+                            "notification_type": "payment_received",
+                            "title": "Payment Received - Service Complete",
+                            "message": f"{client_display_name} has completed payment for {service_title}. Service is now complete.",
+                            "is_read": False,
+                            "related_user_id": booking.get('client_user_id'),
+                            "related_entity_id": booking_id,
+                            "related_entity_type": "booking",
+                            "target_roles": ["creative"],
+                            "metadata": {
+                                "service_title": service_title,
+                                "client_display_name": client_display_name,
+                                "booking_id": str(booking_id),
+                                "amount_paid": str(amount_total),
+                                "total_price": str(price),
+                                "payment_status": payment_status,
+                                "has_files": True
+                            },
+                            "created_at": datetime.utcnow().isoformat(),
+                            "updated_at": datetime.utcnow().isoformat()
+                        }
+                    else:
+                        # No files or different status - use standard completion messages
+                        client_notification_data = {
+                            "recipient_user_id": booking.get('client_user_id'),
+                            "notification_type": "session_completed",
+                            "title": "Payment Received",
+                            "message": f"Payment received! Your service {service_title} from {creative_display_name} is now complete.",
+                            "is_read": False,
+                            "related_user_id": creative_user_id,
+                            "related_entity_id": booking_id,
+                            "related_entity_type": "booking",
+                            "target_roles": ["client"],
+                            "metadata": {
+                                "service_title": service_title,
+                                "creative_display_name": creative_display_name,
+                                "booking_id": str(booking_id),
+                                "amount_paid": str(amount_total),
+                                "total_price": str(price),
+                                "payment_status": payment_status,
+                                "has_files": False
+                            },
+                            "created_at": datetime.utcnow().isoformat(),
+                            "updated_at": datetime.utcnow().isoformat()
+                        }
+                        
+                        creative_notification_data = {
+                            "recipient_user_id": creative_user_id,
+                            "notification_type": "payment_received",
+                            "title": "Payment Received - Service Complete",
+                            "message": f"{client_display_name} has completed payment for {service_title}. Service is now complete.",
+                            "is_read": False,
+                            "related_user_id": booking.get('client_user_id'),
+                            "related_entity_id": booking_id,
+                            "related_entity_type": "booking",
+                            "target_roles": ["creative"],
+                            "metadata": {
+                                "service_title": service_title,
+                                "client_display_name": client_display_name,
+                                "booking_id": str(booking_id),
+                                "amount_paid": str(amount_total),
+                                "total_price": str(price),
+                                "payment_status": payment_status,
+                                "has_files": False
+                            },
+                            "created_at": datetime.utcnow().isoformat(),
+                            "updated_at": datetime.utcnow().isoformat()
+                        }
+                else:
+                    # Regular payment notification
+                    # Create notification for client
+                    client_notification_data = {
+                        "recipient_user_id": booking.get('client_user_id'),
+                        "notification_type": "payment_received",
+                        "title": "Payment Successful",
+                        "message": f"Your {payment_message} for {service_title} has been processed successfully.",
+                        "is_read": False,
+                        "related_user_id": creative_user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": str(booking_id),
+                            "amount_paid": str(amount_total),
+                            "total_price": str(price),
+                            "payment_status": payment_status
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    
+                    # Create notification for creative
+                    creative_notification_data = {
+                        "recipient_user_id": creative_user_id,
+                        "notification_type": "payment_received",
+                        "title": "Payment Received",
+                        "message": f"{client_display_name} has made a {payment_message} for {service_title}.",
+                        "is_read": False,
+                        "related_user_id": booking.get('client_user_id'),
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["creative"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "client_display_name": client_display_name,
+                            "booking_id": str(booking_id),
+                            "amount_paid": str(amount_total),
+                            "total_price": str(price),
+                            "payment_status": payment_status
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                
+                # Create notifications (don't fail payment verification if notification creation fails)
+                # Use db_admin to bypass RLS policies for notification insertion
+                try:
+                    client_notif_result = db_admin.table("notifications") \
+                        .insert(client_notification_data) \
+                        .execute()
+                    logger.info(f"Client payment notification created: {client_notif_result.data}")
+                except Exception as notif_error:
+                    logger.error(f"Failed to create client payment notification: {notif_error}")
+                
+                try:
+                    creative_notif_result = db_admin.table("notifications") \
+                        .insert(creative_notification_data) \
+                        .execute()
+                    logger.info(f"Creative payment notification created: {creative_notif_result.data}")
+                except Exception as notif_error:
+                    logger.error(f"Failed to create creative payment notification: {notif_error}")
+                    
+            except Exception as notif_error:
+                # Log error but don't fail payment verification
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error creating payment notifications: {notif_error}")
             
             return {
                 "success": True,
