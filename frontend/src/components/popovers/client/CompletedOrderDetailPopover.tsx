@@ -132,6 +132,35 @@ export function CompletedOrderDetailPopover({
     return <InsertDriveFile sx={{ color: theme.palette.text.secondary }} />;
   };
 
+  const isViewableFile = (fileType: string): boolean => {
+    const type = fileType.toLowerCase();
+    // Viewable file types: PDF, images
+    return (
+      type.includes('pdf') ||
+      type.includes('image') ||
+      type.includes('jpg') ||
+      type.includes('jpeg') ||
+      type.includes('png') ||
+      type.includes('gif') ||
+      type.includes('webp') ||
+      type.includes('svg') ||
+      type.includes('bmp')
+    );
+  };
+
+  const handleViewFile = async (file: CompletedFile) => {
+    try {
+      // Get signed URL from backend
+      const response = await bookingService.downloadDeliverable(file.id);
+      
+      // Open file in new tab for viewing
+      window.open(response.signed_url, '_blank');
+    } catch (error) {
+      console.error('Failed to view file:', error);
+      alert(`Failed to view ${file.name}. Please try again.`);
+    }
+  };
+
   const getPaymentOptionLabel = (option: CompletedPaymentOption) => {
     switch (option) {
       case 'split_payment':
@@ -823,19 +852,42 @@ export function CompletedOrderDetailPopover({
                       },
                     }}
                     secondaryAction={
-                      <Button
-                        variant="text"
-                        size="small"
-                        startIcon={isDownloading && downloadingFileIndex === index ? <CircularProgress size={16} /> : <Download />}
-                        onClick={() => handleDownloadFile(file, index)}
-                        disabled={isDownloading}
-                        sx={{
-                          textTransform: 'none',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {isDownloading && downloadingFileIndex === index ? 'Downloading...' : 'Download'}
-                      </Button>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {isViewableFile(file.type) && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleViewFile(file)}
+                            disabled={isDownloading}
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&:hover': {
+                                bgcolor: theme.palette.primary.main + '10',
+                              },
+                            }}
+                            title="View file"
+                          >
+                            <Visibility />
+                          </IconButton>
+                        )}
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDownloadFile(file, index)}
+                          disabled={isDownloading}
+                          sx={{
+                            color: theme.palette.primary.main,
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.main + '10',
+                            },
+                          }}
+                          title="Download file"
+                        >
+                          {isDownloading && downloadingFileIndex === index ? (
+                            <CircularProgress size={20} />
+                          ) : (
+                            <Download />
+                          )}
+                        </IconButton>
+                      </Box>
                     }
                   >
                     <ListItemIcon>

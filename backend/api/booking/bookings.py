@@ -21,7 +21,8 @@ from schemas.booking import (
     ApproveBookingRequest, ApproveBookingResponse,
     RejectBookingRequest, RejectBookingResponse,
     CancelBookingRequest, CancelBookingResponse,
-    FinalizeServiceRequest, FinalizeServiceResponse
+    FinalizeServiceRequest, FinalizeServiceResponse,
+    MarkDownloadCompleteRequest, MarkDownloadCompleteResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -846,6 +847,36 @@ async def finalize_service(
     except Exception as e:
         logger.error(f"Error finalizing service: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to finalize service: {str(e)}")
+
+
+@router.post("/mark-download-complete", response_model=MarkDownloadCompleteResponse)
+@limiter.limit("10 per minute")
+async def mark_download_complete(
+    request: Request,
+    complete_data: MarkDownloadCompleteRequest,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Mark a booking as complete after all files are downloaded
+    Requires authentication - will return 401 if not authenticated.
+    - Verifies the booking belongs to the client
+    - Verifies the booking is in 'download' status
+    - Updates client_status to 'completed'
+    - Keeps creative_status unchanged
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        result = await BookingController.mark_download_complete(user_id, complete_data.booking_id, client)
+        return MarkDownloadCompleteResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking download as complete: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to mark download as complete: {str(e)}")
 
 
 @router.get("/compliance-sheet/{booking_id}")

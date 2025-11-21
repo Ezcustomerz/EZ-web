@@ -157,6 +157,24 @@ export function ActionNeededTab() {
   const [connectedCreatives, setConnectedCreatives] = useState<Array<{ id: string; name: string }>>([]);
   const mountedRef = useRef(true);
 
+  // Helper function to set action-needed orders (backend already filters)
+  const setActionNeededOrders = (transformedOrders: any[]) => {
+    if (mountedRef.current) {
+      setOrders(transformedOrders);
+
+      // Extract unique creatives from action-needed orders
+      const creatives = Array.from(
+        new Map(
+          transformedOrders.map(order => [
+            order.creativeId,
+            { id: order.creativeId, name: order.creativeName }
+          ])
+        ).values()
+      );
+      setConnectedCreatives(creatives);
+    }
+  };
+
   // Fetch orders on mount - only once
   useEffect(() => {
     console.log('[ActionNeededTab] useEffect running, isAuthenticated:', isAuthenticated);
@@ -174,24 +192,6 @@ export function ActionNeededTab() {
     
     const now = Date.now();
     const cacheAge = now - fetchCache.timestamp;
-    
-    // Helper function to set action-needed orders (backend already filters)
-    const setActionNeededOrders = (transformedOrders: any[]) => {
-      if (mountedRef.current) {
-        setOrders(transformedOrders);
-
-        // Extract unique creatives from action-needed orders
-        const creatives = Array.from(
-          new Map(
-            transformedOrders.map(order => [
-              order.creativeId,
-              { id: order.creativeId, name: order.creativeName }
-            ])
-          ).values()
-        );
-        setConnectedCreatives(creatives);
-      }
-    };
     
     // Check if cached data is still valid
     if (fetchCache.resolved && fetchCache.data && cacheAge < CACHE_DURATION) {
@@ -298,6 +298,42 @@ export function ActionNeededTab() {
       mountedRef.current = false;
     };
   }, [isAuthenticated]);
+
+  // Function to refresh orders after status change
+  const handleRefreshOrders = async () => {
+    // Don't refresh if not authenticated
+    if (!isAuthenticated) {
+      setOrders([]);
+      setConnectedCreatives([]);
+      setLoading(false);
+      return;
+    }
+
+    // Clear the cache to force a fresh fetch
+    fetchCache.promise = null;
+    fetchCache.data = null;
+    fetchCache.resolved = false;
+    fetchCache.isFetching = false;
+    fetchCache.timestamp = 0;
+
+    // Trigger a re-fetch
+    setLoading(true);
+    try {
+      const fetchedOrders = await bookingService.getClientActionNeededOrders();
+      const transformedOrders = transformOrders(fetchedOrders);
+      
+      setActionNeededOrders(transformedOrders);
+      
+      // Update cache
+      fetchCache.data = fetchedOrders;
+      fetchCache.resolved = true;
+      fetchCache.timestamp = Date.now();
+    } catch (error) {
+      console.error('Failed to refresh orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreativeChange = (event: SelectChangeEvent) => {
     setSelectedCreative(event.target.value);
@@ -1179,6 +1215,7 @@ export function ActionNeededTab() {
                       fileSize={order.fileSize}
                       paymentOption={order.paymentOption}
                       files={order.files}
+                      onOrderStatusChanged={handleRefreshOrders}
                       serviceId={order.serviceId}
                       serviceDescription={order.serviceDescription}
                       serviceDeliveryTime={order.serviceDeliveryTime}

@@ -393,6 +393,13 @@ class BookingService {
     });
     return response.data;
   }
+
+  async markDownloadComplete(bookingId: string): Promise<{ success: boolean; message: string; booking_id: string; client_status: string }> {
+    const response = await apiClient.post(`${this.bookingsUrl}/mark-download-complete`, {
+      booking_id: bookingId
+    });
+    return response.data;
+  }
 }
 
 export interface OrderFile {

@@ -17,6 +17,13 @@ const notificationsCache = {
   timestamp: 0,
 };
 
+const statsCache = {
+  promise: null as Promise<CreativeDashboardStats> | null,
+  data: null as CreativeDashboardStats | null,
+  timestamp: 0,
+  isFetching: false,
+};
+
 const CACHE_DURATION = 5000; // 5 seconds cache
 
 export function DashCreative() {
@@ -39,26 +46,69 @@ export function DashCreative() {
       return;
     }
 
-    const fetchStats = async () => {
-      try {
-        setStatsLoading(true);
-        const stats = await userService.getCreativeDashboardStats();
-        if (mountedRef.current) {
-          setDashboardStats(stats);
-        }
-      } catch (error) {
-        console.error('Failed to fetch dashboard stats:', error);
-        if (mountedRef.current) {
-          setDashboardStats(null);
-        }
-      } finally {
-        if (mountedRef.current) {
-          setStatsLoading(false);
-        }
-      }
-    };
+    const now = Date.now();
+    const cacheAge = now - statsCache.timestamp;
 
-    fetchStats();
+    // Check if we have cached data that's still fresh
+    if (statsCache.data && cacheAge < CACHE_DURATION) {
+      if (mountedRef.current) {
+        setDashboardStats(statsCache.data);
+        setStatsLoading(false);
+      }
+      return;
+    }
+
+    // Check if a promise already exists - reuse it immediately
+    if (statsCache.promise && statsCache.isFetching) {
+      setStatsLoading(true);
+      statsCache.promise.then(stats => {
+        if (!mountedRef.current) return;
+        setDashboardStats(stats);
+        setStatsLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch dashboard stats:', error);
+        setDashboardStats(null);
+        setStatsLoading(false);
+      });
+      return;
+    }
+
+    // No promise exists - create one
+    setStatsLoading(true);
+    statsCache.isFetching = true;
+    statsCache.timestamp = now;
+
+    const fetchPromise = (async () => {
+      try {
+        const stats = await userService.getCreativeDashboardStats();
+        
+        // Cache the result
+        statsCache.data = stats;
+        statsCache.timestamp = Date.now();
+        statsCache.promise = null;
+        statsCache.isFetching = false;
+        
+        return stats;
+      } catch (error) {
+        statsCache.promise = null;
+        statsCache.isFetching = false;
+        throw error;
+      }
+    })();
+
+    statsCache.promise = fetchPromise;
+
+    fetchPromise.then(stats => {
+      if (!mountedRef.current) return;
+      setDashboardStats(stats);
+      setStatsLoading(false);
+    }).catch(error => {
+      if (!mountedRef.current) return;
+      console.error('Failed to fetch dashboard stats:', error);
+      setDashboardStats(null);
+      setStatsLoading(false);
+    });
   }, [isAuthenticated]);
 
   useEffect(() => {

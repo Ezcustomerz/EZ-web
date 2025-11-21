@@ -179,7 +179,7 @@ export function CompletedOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Order completed
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>

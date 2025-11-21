@@ -277,7 +277,7 @@ export function AllServicesTab() {
     setDateFilter(event.target.value);
   };
 
-  // Function to refresh orders after cancellation
+  // Function to refresh orders after cancellation or status change
   const handleRefreshOrders = async () => {
     // Don't refresh if not authenticated
     if (!isAuthenticated) {
@@ -1447,6 +1447,7 @@ export function AllServicesTab() {
                     fileSize={order.fileSize}
                     paymentOption={order.paymentOption}
                     files={order.files}
+                    onOrderStatusChanged={handleRefreshOrders}
                     serviceId={order.serviceId}
                     serviceDescription={order.serviceDescription}
                     serviceDeliveryTime={order.serviceDeliveryTime}

@@ -2470,3 +2470,61 @@ class BookingController:
         except Exception as e:
             logger.error(f"Error finalizing service: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to finalize service: {str(e)}")
+    
+    @staticmethod
+    async def mark_download_complete(user_id: str, booking_id: str, client: Client) -> Dict[str, Any]:
+        """Mark a booking as complete after all files are downloaded by the client
+        
+        - Verifies the booking belongs to the client
+        - Verifies the booking is in 'download' status
+        - Updates client_status to 'completed'
+        - Keeps creative_status unchanged
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
+        try:
+            # Get booking details
+            booking_result = client.table('bookings').select(
+                'id, client_user_id, client_status, creative_status'
+            ).eq('id', booking_id).single().execute()
+            
+            if not booking_result.data:
+                raise HTTPException(status_code=404, detail="Booking not found")
+            
+            booking = booking_result.data
+            
+            # Verify the booking belongs to the client
+            if booking['client_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to update this booking")
+            
+            # Verify the booking is in 'download' status
+            if booking['client_status'] != 'download':
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot mark as complete. Booking must be in 'download' status. Current status: {booking['client_status']}"
+                )
+            
+            # Update client_status to 'completed', keep creative_status unchanged
+            update_response = client.table('bookings')\
+                .update({'client_status': 'completed'})\
+                .eq('id', booking_id)\
+                .execute()
+            
+            if not update_response.data or len(update_response.data) == 0:
+                raise HTTPException(status_code=500, detail="Failed to update booking status")
+            
+            logger.info(f"Booking {booking_id} marked as complete after download by client {user_id}")
+            
+            return {
+                "success": True,
+                "message": "Booking marked as complete successfully",
+                "booking_id": booking_id,
+                "client_status": "completed"
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error marking download as complete: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to mark download as complete: {str(e)}")

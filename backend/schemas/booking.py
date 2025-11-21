@@ -119,3 +119,14 @@ class FinalizeServiceResponse(BaseModel):
     success: bool
     message: str
     booking_id: str
+
+
+class MarkDownloadCompleteRequest(BaseModel):
+    booking_id: str
+
+
+class MarkDownloadCompleteResponse(BaseModel):
+    success: bool
+    message: str
+    booking_id: str
+    client_status: str

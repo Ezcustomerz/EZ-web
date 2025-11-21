@@ -43,6 +43,7 @@ interface DownloadOrderCardProps {
   creativeServicesCount?: number;
   creativeColor?: string;
   invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
+  onOrderStatusChanged?: () => void;
 }
 
 export function DownloadOrderCard({
@@ -72,7 +73,8 @@ export function DownloadOrderCard({
   creativeReviewCount,
   creativeServicesCount,
   creativeColor,
-  invoices
+  invoices,
+  onOrderStatusChanged
 }: DownloadOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#0097a7';
@@ -470,6 +472,7 @@ export function DownloadOrderCard({
       order={orderDetail}
       onDownloadProgress={(progress: string) => setDownloadProgress(progress)}
       onDownloadStateChange={(downloading: boolean) => setIsDownloading(downloading)}
+      onOrderStatusChanged={onOrderStatusChanged}
     />
 
     {/* Persistent Download Progress Card */}
