@@ -15,7 +15,8 @@
     "install:frontend": "cd frontend && npm install",
     "install:all": "npm run install:backend && npm run install:frontend",
     "link:dev": "dotenv -e .env -- powershell -NoProfile -Command \"cd backend; supabase link --project-ref $env:DEV_PROJECT_REF --password \\\"$env:DEV_DB_PASSWORD\\\"\"",
-    "db:diff:dev": "dotenv -e .env -- powershell -NoProfile -Command \"cd backend; npx supabase db diff -f init_baseline --schema public --linked\""
+    "db:diff:dev": "dotenv -e .env -- powershell -NoProfile -Command \"cd backend; npx supabase db diff -f init_baseline --schema public --linked\"",
+    "db:revert:dev": "dotenv -e .env -- powershell -NoProfile -Command \"cd backend; supabase db push --linked --db-password \\\"$env:DEV_DB_PASSWORD\\\"\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
