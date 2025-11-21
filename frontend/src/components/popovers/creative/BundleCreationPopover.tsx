@@ -302,7 +302,9 @@ export function BundleCreationPopover({
       case 1:
         return formData.selectedServices.length >= 2;
       case 2:
-        return formData.pricingType === 'fixed' ? formData.fixedPrice > 0 : true;
+        return formData.pricingType === 'fixed'
+          ? formData.fixedPrice > 0 && formData.fixedPrice <= totalIndividualPrice
+          : true;
       case 3:
         return true;
       default:
@@ -484,9 +486,25 @@ export function BundleCreationPopover({
             {formData.pricingType === 'discount' ? (
               <TextField
                 label="Discount Percentage"
-                type="number"
+                type="text"
                 value={formData.discountPercentage}
-                onChange={(e) => handleInputChange('discountPercentage', Math.max(0, Math.min(100, Number(e.target.value))))}
+                onChange={(e) => {
+                  const input = e.target.value;
+                  // Allow empty string for clearing
+                  if (input === '') {
+                    handleInputChange('discountPercentage', 0);
+                    return;
+                  }
+                  // Only allow numeric input
+                  if (!/^\d*\.?\d*$/.test(input)) return;
+                  // Remove leading zeros
+                  const cleanedInput = input.replace(/^0+(?=\d)/, '');
+                  const numValue = parseFloat(cleanedInput);
+                  // Validate range and update
+                  if (!isNaN(numValue)) {
+                    handleInputChange('discountPercentage', Math.max(0, Math.min(100, numValue)));
+                  }
+                }}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>
                 }}
@@ -496,9 +514,25 @@ export function BundleCreationPopover({
             ) : (
               <TextField
                 label="Bundle Price"
-                type="number"
+                type="text"
                 value={formData.fixedPrice}
-                onChange={(e) => handleInputChange('fixedPrice', Math.max(0, Number(e.target.value)))}
+                onChange={(e) => {
+                  const input = e.target.value;
+                  // Allow empty string for clearing
+                  if (input === '') {
+                    handleInputChange('fixedPrice', 0);
+                    return;
+                  }
+                  // Only allow numeric input
+                  if (!/^\d*\.?\d*$/.test(input)) return;
+                  // Remove leading zeros
+                  const cleanedInput = input.replace(/^0+(?=\d)/, '');
+                  const numValue = parseFloat(cleanedInput);
+                  // Validate and update
+                  if (!isNaN(numValue)) {
+                    handleInputChange('fixedPrice', Math.max(0, numValue));
+                  }
+                }}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">$</InputAdornment>
                 }}
