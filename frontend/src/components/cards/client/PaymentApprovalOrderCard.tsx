@@ -126,6 +126,53 @@ export function PaymentApprovalOrderCard({
 
   const paymentDetails = calculatePaymentDetails();
 
+  // Calculate payment details based on payment option and amount paid
+  const calculatePaymentDetails = () => {
+    if (paymentOption === 'split_payment') {
+      const calculatedDeposit = depositAmount || Math.round(price * 0.5 * 100) / 100;
+      const calculatedRemaining = remainingAmount || (price - calculatedDeposit);
+      
+      // Ensure amountPaid is a number
+      const paidAmount = typeof amountPaid === 'number' ? amountPaid : (parseFloat(String(amountPaid || 0)) || 0);
+      
+      // Check if first payment (deposit) has been paid
+      // Use tolerance for floating point comparison
+      const paymentTolerance = 0.01;
+      const isFirstPayment = paidAmount < calculatedDeposit - paymentTolerance;
+      
+      if (isFirstPayment) {
+        // First payment - show deposit amount
+        return {
+          amountDue: calculatedDeposit,
+          paymentMessage: 'Payment due now',
+          isSecondPayment: false,
+          firstPaymentAmount: 0,
+          remainingAmount: calculatedRemaining,
+        };
+      } else {
+        // Second payment - show remaining amount
+        return {
+          amountDue: calculatedRemaining,
+          paymentMessage: 'Final payment due',
+          isSecondPayment: true,
+          firstPaymentAmount: calculatedDeposit,
+          remainingAmount: calculatedRemaining,
+        };
+      }
+    } else {
+      // Payment upfront - always show full price
+      return {
+        amountDue: price,
+        paymentMessage: 'Payment required to begin',
+        isSecondPayment: false,
+        firstPaymentAmount: 0,
+        remainingAmount: 0,
+      };
+    }
+  };
+
+  const paymentDetails = calculatePaymentDetails();
+
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't open popover if clicking the pay button
     if ((e.target as HTMLElement).closest('button')) {

@@ -116,6 +116,33 @@ export function LockedOrderCard({
 
   const paymentDetails = calculatePaymentDetails();
 
+  // Calculate payment details similar to PaymentApprovalOrderCard
+  const calculatePaymentDetails = () => {
+    if (paymentOption === 'split_payment') {
+      const calculatedDeposit = depositAmount || Math.round(price * 0.5 * 100) / 100;
+      const calculatedRemaining = remainingAmount || (price - calculatedDeposit);
+      const paidAmount = typeof amountPaid === 'number' ? amountPaid : (parseFloat(String(amountPaid || 0)) || 0);
+      const paymentTolerance = 0.01;
+      const isFirstPayment = paidAmount < calculatedDeposit - paymentTolerance;
+      
+      if (isFirstPayment) {
+        return {
+          amountDue: calculatedDeposit,
+        };
+      } else {
+        return {
+          amountDue: calculatedRemaining,
+        };
+      }
+    } else {
+      return {
+        amountDue: price,
+      };
+    }
+  };
+
+  const paymentDetails = calculatePaymentDetails();
+
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't open popover if clicking the pay button
     if ((e.target as HTMLElement).closest('button')) {
