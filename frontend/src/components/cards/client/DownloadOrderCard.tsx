@@ -12,7 +12,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { DateRange, CalendarToday, CheckCircle, Folder, InsertDriveFile, Download as DownloadIcon } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DownloadOrderDetailPopover, type DownloadOrderDetail, type DownloadPaymentOption, type DownloadFile } from '../../popovers/client/DownloadOrderDetailPopover';
 
 interface DownloadOrderCardProps {
@@ -43,6 +43,8 @@ interface DownloadOrderCardProps {
   creativeServicesCount?: number;
   creativeColor?: string;
   invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
+  onOrderStatusChanged?: () => void;
+  defaultOpen?: boolean;
 }
 
 export function DownloadOrderCard({
@@ -72,11 +74,20 @@ export function DownloadOrderCard({
   creativeReviewCount,
   creativeServicesCount,
   creativeColor,
-  invoices
+  invoices,
+  onOrderStatusChanged,
+  defaultOpen = false
 }: DownloadOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#0097a7';
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+
+  // Update popover state when defaultOpen changes
+  useEffect(() => {
+    if (defaultOpen) {
+      setPopoverOpen(true);
+    }
+  }, [defaultOpen]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<string>('');
 
@@ -470,6 +481,7 @@ export function DownloadOrderCard({
       order={orderDetail}
       onDownloadProgress={(progress: string) => setDownloadProgress(progress)}
       onDownloadStateChange={(downloading: boolean) => setIsDownloading(downloading)}
+      onOrderStatusChanged={onOrderStatusChanged}
     />
 
     {/* Persistent Download Progress Card */}

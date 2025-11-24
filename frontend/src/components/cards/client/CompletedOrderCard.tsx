@@ -12,7 +12,7 @@ import {
   LinearProgress,
 } from '@mui/material';
 import { DateRange, CheckCircle, Folder, Replay } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CompletedOrderDetailPopover, type CompletedOrderDetail, type CompletedPaymentOption, type CompletedFile } from '../../popovers/client/CompletedOrderDetailPopover';
 
 interface CompletedOrderCardProps {
@@ -43,6 +43,7 @@ interface CompletedOrderCardProps {
   creativeServicesCount?: number;
   creativeColor?: string;
   invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
+  defaultOpen?: boolean;
 }
 
 export function CompletedOrderCard({
@@ -72,11 +73,19 @@ export function CompletedOrderCard({
   creativeReviewCount,
   creativeServicesCount,
   creativeColor,
-  invoices
+  invoices,
+  defaultOpen = false
 }: CompletedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#4caf50';
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+
+  // Update popover state when defaultOpen changes
+  useEffect(() => {
+    if (defaultOpen) {
+      setPopoverOpen(true);
+    }
+  }, [defaultOpen]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<string>('');
 
@@ -179,7 +188,7 @@ export function CompletedOrderCard({
                   fontSize: '0.7rem',
                 }}
               >
-                • {description}
+                • Order completed
               </Typography>
             </Box>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>

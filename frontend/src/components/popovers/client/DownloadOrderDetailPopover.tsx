@@ -34,7 +34,6 @@ import {
   Image,
   PictureAsPdf,
   Folder,
-  Replay,
   ErrorOutline,
   Visibility,
 } from '@mui/icons-material';
@@ -101,6 +100,7 @@ export interface DownloadOrderDetailPopoverProps {
   order: DownloadOrderDetail | null;
   onDownloadProgress?: (progress: string) => void;
   onDownloadStateChange?: (downloading: boolean) => void;
+  onOrderStatusChanged?: () => void;
 }
 
 export function DownloadOrderDetailPopover({ 
@@ -108,7 +108,8 @@ export function DownloadOrderDetailPopover({
   onClose, 
   order,
   onDownloadProgress,
-  onDownloadStateChange
+  onDownloadStateChange,
+  onOrderStatusChanged
 }: DownloadOrderDetailPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -403,6 +404,23 @@ export function DownloadOrderDetailPopover({
       const successMsg = `Successfully downloaded ${response.files.length} file${response.files.length > 1 ? 's' : ''}`;
       setDownloadProgress(successMsg);
       if (onDownloadProgress) onDownloadProgress(successMsg);
+      
+      // Mark booking as complete after all files are downloaded
+      try {
+        await bookingService.markDownloadComplete(order.id);
+        
+        // Small delay to ensure backend has processed the update
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Notify parent component to refresh orders list
+        if (onOrderStatusChanged) {
+          onOrderStatusChanged();
+        }
+      } catch (error) {
+        console.error('Failed to mark booking as complete:', error);
+        // Don't show error to user, just log it
+      }
+      
       setTimeout(() => {
         setIsDownloading(false);
         setDownloadProgress('');
@@ -421,11 +439,6 @@ export function DownloadOrderDetailPopover({
     }
   };
 
-  const handleBookAgain = () => {
-    console.log('Book again:', order.serviceName);
-    // TODO: Navigate to service booking or open service detail
-    handleViewService();
-  };
 
   // Check if files are expired (30 days after completion)
   const areFilesExpired = () => {
@@ -879,26 +892,10 @@ export function DownloadOrderDetailPopover({
                       },
                     }}
                     secondaryAction={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {viewable && (
-                          <IconButton
-                            size="small"
-                            onClick={() => handleViewFile(file)}
-                            disabled={isDownloading}
-                            sx={{
-                              color: theme.palette.primary.main,
-                              '&:hover': {
-                                bgcolor: theme.palette.primary.main + '10',
-                              },
-                            }}
-                            title="View file"
-                          >
-                            <Visibility />
-                          </IconButton>
-                        )}
+                      viewable ? (
                         <IconButton
                           size="small"
-                          onClick={() => handleDownloadFile(file, index)}
+                          onClick={() => handleViewFile(file)}
                           disabled={isDownloading}
                           sx={{
                             color: theme.palette.primary.main,
@@ -906,15 +903,11 @@ export function DownloadOrderDetailPopover({
                               bgcolor: theme.palette.primary.main + '10',
                             },
                           }}
-                          title="Download file"
+                          title="View file"
                         >
-                          {isDownloading && downloadingFileIndex === index ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <Download />
-                          )}
+                          <Visibility />
                         </IconButton>
-                      </Box>
+                      ) : null
                     }
                   >
                     <ListItemIcon>
@@ -1043,31 +1036,36 @@ export function DownloadOrderDetailPopover({
            >
              Compliance Sheet
            </Button>
-           <Button
-             variant="contained"
-             fullWidth
-             size="large"
-             startIcon={<Replay />}
-             onClick={handleBookAgain}
-             sx={{
-               py: 1.5,
-               textTransform: 'none',
-               fontWeight: 600,
-               fontSize: '1rem',
-               bgcolor: statusColor,
-               borderRadius: 2,
-               boxShadow: `0 4px 14px ${statusColor}40`,
-               transition: 'all 0.2s ease',
-               '&:hover': {
-                 bgcolor: statusColor,
-                 filter: 'brightness(1.1)',
-                 transform: 'translateY(-2px)',
-                 boxShadow: `0 6px 20px ${statusColor}50`,
-               },
-             }}
-           >
-             Book This Service Again
-           </Button>
+          <Button
+            variant="contained"
+            fullWidth
+            size="large"
+            startIcon={isDownloading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <Download />}
+            onClick={handleDownloadAll}
+            disabled={isDownloading || filesExpired || !order.files || order.files.length === 0}
+            sx={{
+              py: 1.5,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '1rem',
+              bgcolor: statusColor,
+              borderRadius: 2,
+              boxShadow: `0 4px 14px ${statusColor}40`,
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                bgcolor: statusColor,
+                filter: 'brightness(1.1)',
+                transform: 'translateY(-2px)',
+                boxShadow: `0 6px 20px ${statusColor}50`,
+              },
+              '&:disabled': {
+                bgcolor: statusColor,
+                opacity: 0.6,
+              },
+            }}
+          >
+            {isDownloading ? 'Downloading...' : 'Download All Files'}
+          </Button>
          </Box>
        </DialogContent>
      </Dialog>

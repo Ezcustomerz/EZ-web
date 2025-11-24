@@ -23,17 +23,17 @@ const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remount
 
 // Helper function to transform orders
 function transformOrders(fetchedOrders: Order[]) {
-  // No need to filter - backend endpoint already filters for past orders (complete, rejected, canceled)
+  // No need to filter - backend endpoint already filters for past orders (completed, rejected)
   return fetchedOrders.map((order: Order) => {
       // Map creative_status to display status
       const statusMap: Record<string, string> = {
         'completed': 'Complete',
-        'complete': 'Complete',
+        'complete': 'Complete',  // Handle both for backwards compatibility
         'rejected': 'Canceled',  // Show rejected orders as Canceled in UI
-        'canceled': 'Canceled',
+        'canceled': 'Canceled',  // Handle for backwards compatibility
       };
       
-      const displayStatus = statusMap[order.creative_status || 'complete'] || 'Complete';
+      const displayStatus = statusMap[order.creative_status || 'completed'] || 'Complete';
 
       return {
         id: order.id,

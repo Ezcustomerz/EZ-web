@@ -2,7 +2,8 @@ import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { WelcomeCard } from '../../components/cards/creative/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/creative/ActivityFeedCard';
-import type { CreativeProfile } from '../../api/userService';
+import type { CreativeProfile, CreativeDashboardStats } from '../../api/userService';
+import { userService } from '../../api/userService';
 import { useState, useEffect, useRef } from 'react';
 import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
@@ -16,6 +17,13 @@ const notificationsCache = {
   timestamp: 0,
 };
 
+const statsCache = {
+  promise: null as Promise<CreativeDashboardStats> | null,
+  data: null as CreativeDashboardStats | null,
+  timestamp: 0,
+  isFetching: false,
+};
+
 const CACHE_DURATION = 5000; // 5 seconds cache
 
 export function DashCreative() {
@@ -24,7 +32,84 @@ export function DashCreative() {
   const { isAuthenticated } = useAuth();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<CreativeDashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const mountedRef = useRef(true);
+
+  // Fetch dashboard stats
+  useEffect(() => {
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setDashboardStats(null);
+        setStatsLoading(false);
+      }
+      return;
+    }
+
+    const now = Date.now();
+    const cacheAge = now - statsCache.timestamp;
+
+    // Check if we have cached data that's still fresh
+    if (statsCache.data && cacheAge < CACHE_DURATION) {
+      if (mountedRef.current) {
+        setDashboardStats(statsCache.data);
+        setStatsLoading(false);
+      }
+      return;
+    }
+
+    // Check if a promise already exists - reuse it immediately
+    if (statsCache.promise && statsCache.isFetching) {
+      setStatsLoading(true);
+      statsCache.promise.then(stats => {
+        if (!mountedRef.current) return;
+        setDashboardStats(stats);
+        setStatsLoading(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Failed to fetch dashboard stats:', error);
+        setDashboardStats(null);
+        setStatsLoading(false);
+      });
+      return;
+    }
+
+    // No promise exists - create one
+    setStatsLoading(true);
+    statsCache.isFetching = true;
+    statsCache.timestamp = now;
+
+    const fetchPromise = (async () => {
+      try {
+        const stats = await userService.getCreativeDashboardStats();
+        
+        // Cache the result
+        statsCache.data = stats;
+        statsCache.timestamp = Date.now();
+        statsCache.promise = null;
+        statsCache.isFetching = false;
+        
+        return stats;
+      } catch (error) {
+        statsCache.promise = null;
+        statsCache.isFetching = false;
+        throw error;
+      }
+    })();
+
+    statsCache.promise = fetchPromise;
+
+    fetchPromise.then(stats => {
+      if (!mountedRef.current) return;
+      setDashboardStats(stats);
+      setStatsLoading(false);
+    }).catch(error => {
+      if (!mountedRef.current) return;
+      console.error('Failed to fetch dashboard stats:', error);
+      setDashboardStats(null);
+      setStatsLoading(false);
+    });
+  }, [isAuthenticated]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -129,7 +214,13 @@ export function DashCreative() {
           <WelcomeCard 
             userName={creativeProfile?.display_name || "Demo User"} 
             userRole={creativeProfile?.title || "Music Creative"} 
-            isSidebarOpen={isSidebarOpen} 
+            isSidebarOpen={isSidebarOpen}
+            stats={dashboardStats ? {
+              totalClients: dashboardStats.total_clients,
+              monthlyAmount: dashboardStats.monthly_amount,
+              totalBookings: dashboardStats.total_bookings,
+              completedSessions: dashboardStats.completed_sessions,
+            } : undefined}
           />
 
           {/* Section Divider */}

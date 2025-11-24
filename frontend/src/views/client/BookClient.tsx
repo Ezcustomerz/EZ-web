@@ -1,9 +1,10 @@
 import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { People, MusicNote } from '@mui/icons-material';
 import { ConnectedCreativesTab } from './tabs/ConnectedCreativesTab';
 import { ConnectedServicesTab } from './tabs/ConnectedServicesTab';
+import { useSearchParams } from 'react-router-dom';
 
 const tabLabels = [
   { label: 'Connected Creatives', icon: <People sx={{ fontSize: 18, mr: 1 }} /> },
@@ -11,13 +12,35 @@ const tabLabels = [
 ];
 
 export function ClientBook() {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
+    // Check if tab is specified in URL params
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== null) {
+      const tabNum = Number(tabParam);
+      if (!isNaN(tabNum) && tabNum >= 0 && tabNum <= 1) {
+        return tabNum;
+      }
+    }
+    // Otherwise use stored value
     const stored = localStorage.getItem('book-active-tab');
     return stored !== null ? Number(stored) : 0;
   });
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Update active tab when tab param changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== null) {
+      const tabNum = Number(tabParam);
+      if (!isNaN(tabNum) && tabNum >= 0 && tabNum <= 1) {
+        setActiveTab(tabNum);
+        localStorage.setItem('book-active-tab', String(tabNum));
+      }
+    }
+  }, [searchParams]);
   
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);

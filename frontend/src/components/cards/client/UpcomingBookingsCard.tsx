@@ -1,9 +1,11 @@
-import { Box, Typography, Card, useTheme, Stack, Button } from '@mui/material';
+import { Box, Typography, Card, useTheme, Stack, Button, Skeleton } from '@mui/material';
 import { Schedule, People, CalendarToday } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 interface Booking {
   id: number;
+  bookingId?: string; // The actual booking/order UUID
+  serviceId?: string;
   serviceTitle: string;
   dateTime: string;
   creative: string;
@@ -13,11 +15,22 @@ interface Booking {
 
 interface UpcomingBookingsCardProps {
   bookings?: Booking[];
+  onBookingClick?: (booking: Booking) => void;
+  isLoading?: boolean;
 }
 
-export function UpcomingBookingsCard({ bookings = [] }: UpcomingBookingsCardProps) {
+export function UpcomingBookingsCard({ bookings = [], onBookingClick, isLoading = false }: UpcomingBookingsCardProps) {
   const theme = useTheme();
   const navigate = useNavigate();
+
+  const handleBookingClick = (booking: Booking) => {
+    if (onBookingClick) {
+      onBookingClick(booking);
+    } else if (booking.bookingId) {
+      // Default behavior: navigate to orders page with order ID to open the popover
+      navigate(`/client/orders?orderId=${booking.bookingId}&tab=0`);
+    }
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: { xs: 'auto', md: '100%' } }}>
@@ -91,7 +104,36 @@ export function UpcomingBookingsCard({ bookings = [] }: UpcomingBookingsCardProp
           },
           scrollBehavior: 'smooth',
         }}>
-          {bookings.length === 0 ? (
+          {isLoading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 2 }}>
+              {[1, 2, 3].map((i) => (
+                <Box
+                  key={i}
+                  sx={{
+                    backgroundColor: theme.palette.background.paper,
+                    borderRadius: 1.5,
+                    p: 1.5,
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+                    border: '1px solid rgba(0, 0, 0, 0.06)',
+                    borderLeft: '4px solid',
+                    borderLeftColor: 'rgba(0, 0, 0, 0.1)',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flex: 1 }}>
+                      <Skeleton variant="circular" width={18} height={18} sx={{ mt: 0.25 }} />
+                      <Box sx={{ flex: 1 }}>
+                        <Skeleton variant="text" width="60%" height={20} sx={{ mb: 0.5 }} />
+                        <Skeleton variant="text" width="100%" height={16} sx={{ mb: 1 }} />
+                        <Skeleton variant="rectangular" width="40%" height={20} sx={{ borderRadius: 1 }} />
+                      </Box>
+                    </Box>
+                    <Skeleton variant="text" width={60} height={14} />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : bookings.length === 0 ? (
             <Box sx={{
               display: 'flex',
               flexDirection: 'column',
@@ -269,6 +311,7 @@ export function UpcomingBookingsCard({ bookings = [] }: UpcomingBookingsCardProp
               {bookings.map((booking, index) => (
                 <Box
                   key={booking.id}
+                  onClick={() => handleBookingClick(booking)}
                   sx={{
                     backgroundColor: theme.palette.background.paper,
                     borderRadius: 1.5,

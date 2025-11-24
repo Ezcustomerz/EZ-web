@@ -21,7 +21,6 @@ export function Footer() {
   const legal = [
     { name: 'Privacy Policy', href: '/privacy' },
     { name: 'Terms of Service', href: '/terms' },
-    { name: 'Cookie Policy', href: '/cookies' },
     { name: 'Contact Us', href: '/contact' }
   ];
 

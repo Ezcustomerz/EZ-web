@@ -9,7 +9,7 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, CalendarToday, AttachMoney } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { InProgressOrderDetailPopover, type InProgressOrderDetail, type InProgressPaymentOption } from '../../popovers/client/InProgressOrderDetailPopover';
 
 interface InProgressOrderCardProps {
@@ -37,6 +37,7 @@ interface InProgressOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  defaultOpen?: boolean;
 }
 
 export function InProgressOrderCard({
@@ -63,11 +64,19 @@ export function InProgressOrderCard({
   creativeRating,
   creativeReviewCount,
   creativeServicesCount,
-  creativeColor
+  creativeColor,
+  defaultOpen = false
 }: InProgressOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#2196f3';
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+
+  // Update popover state when defaultOpen changes
+  useEffect(() => {
+    if (defaultOpen) {
+      setPopoverOpen(true);
+    }
+  }, [defaultOpen]);
 
   const handleCardClick = () => {
     setPopoverOpen(true);

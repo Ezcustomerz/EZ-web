@@ -8,58 +8,105 @@ import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
 import { useAuth } from '../../context/auth';
+import { bookingService, type Order } from '../../api/bookingService';
 
-// Mock data for upcoming bookings
-const upcomingBookings: any[] = [
-  {
-    id: 1,
-    serviceTitle: 'Full Production',
-    dateTime: '2024-01-15T14:00:00Z',
-    creative: 'Mike Johnson',
-    startsIn: '2 days',
-    color: '#F3E8FF'
-  },
-  {
-    id: 2,
-    serviceTitle: 'Mixing & Mastering',
-    dateTime: '2024-01-18T10:30:00Z',
-    creative: 'Sarah Wilson',
-    startsIn: '5 days',
-    color: '#E0F2FE'
-  },
-  {
-    id: 3,
-    serviceTitle: 'Vocal Production',
-    dateTime: '2024-01-20T16:00:00Z',
-    creative: 'Alex Thompson',
-    startsIn: '7 days',
-    color: '#FEF9C3'
-  },
-  {
-    id: 4,
-    serviceTitle: 'Beat Making',
-    dateTime: '2024-01-22T11:00:00Z',
-    creative: 'David Chen',
-    startsIn: '9 days',
-    color: '#FEE2E2'
-  },
-  {
-    id: 5,
-    serviceTitle: 'Beat Making',
-    dateTime: '2024-01-22T11:00:00Z',
-    creative: 'David Chen',
-    startsIn: '9 days',
-    color: '#FEE2E2'
-  },
-  {
-    id: 6,
-    serviceTitle: 'Beat Making',
-    dateTime: '2024-01-22T11:00:00Z',
-    creative: 'David Chen',
-    startsIn: '9 days',
-    color: '#FEE2E2'
+interface UpcomingBooking {
+  id: number;
+  bookingId: string; // The actual booking/order UUID
+  serviceId: string;
+  serviceTitle: string;
+  dateTime: string;
+  creative: string;
+  startsIn: string;
+  color: string;
+}
+
+/**
+ * Format a date and time to a readable string
+ * booking_date is already formatted as "YYYY-MM-DDTHH:MM:SSZ" by the backend
+ */
+function formatDateTime(bookingDate: string): string {
+  try {
+    if (!bookingDate) return 'Date TBD';
+    
+    const date = new Date(bookingDate);
+    
+    // Format: "Mon, Jan 15, 2024 at 2:00 PM"
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    };
+    
+    return date.toLocaleDateString('en-US', options);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return bookingDate;
   }
-];
+}
+
+/**
+ * Calculate relative time until booking (e.g., "2 days", "3 hours")
+ * booking_date is already formatted as "YYYY-MM-DDTHH:MM:SSZ" by the backend
+ */
+function calculateStartsIn(bookingDate: string): string {
+  try {
+    if (!bookingDate) return 'Unknown';
+    
+    const bookingDateTime = new Date(bookingDate);
+    const now = new Date();
+    const diffInMs = bookingDateTime.getTime() - now.getTime();
+    
+    if (diffInMs < 0) {
+      return 'Past';
+    }
+    
+    const diffInSeconds = Math.floor(diffInMs / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+    
+    if (diffInDays > 0) {
+      return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'}`;
+    } else if (diffInHours > 0) {
+      return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'}`;
+    } else if (diffInMinutes > 0) {
+      return `${diffInMinutes} ${diffInMinutes === 1 ? 'minute' : 'minutes'}`;
+    } else {
+      return 'Soon';
+    }
+  } catch (error) {
+    console.error('Error calculating starts in:', error);
+    return 'Unknown';
+  }
+}
+
+/**
+ * Transform Order[] to UpcomingBooking[] format
+ */
+function transformOrdersToBookings(orders: Order[]): UpcomingBooking[] {
+  return orders
+    .filter(order => order.booking_date) // Only scheduled bookings with booking_date
+    .map((order, index) => {
+      // The backend already formats booking_date as "YYYY-MM-DDTHH:MM:SSZ"
+      const bookingDate = order.booking_date || '';
+      
+      return {
+        id: parseInt(order.id.replace(/-/g, '').substring(0, 10), 16) || index + 1, // Convert UUID to number
+        bookingId: order.id, // The actual booking/order UUID
+        serviceId: order.service_id,
+        serviceTitle: order.service_name || 'Unknown Service',
+        dateTime: formatDateTime(bookingDate),
+        creative: order.creative_display_name || order.creative_name || 'Unknown Creative',
+        startsIn: calculateStartsIn(bookingDate),
+        color: order.service_color || '#3b82f6'
+      };
+    });
+}
 
 // Module-level cache to prevent duplicate fetches across remounts
 const clientNotificationsCache = {
@@ -68,12 +115,20 @@ const clientNotificationsCache = {
   timestamp: 0,
 };
 
+const clientUpcomingBookingsCache = {
+  promise: null as Promise<UpcomingBooking[]> | null,
+  data: null as UpcomingBooking[] | null,
+  timestamp: 0,
+};
+
 const CACHE_DURATION = 5000; // 5 seconds cache
 
 export function ClientDashboard() {
   const { isAuthenticated } = useAuth();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
+  const [upcomingBookings, setUpcomingBookings] = useState<UpcomingBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -154,6 +209,85 @@ export function ClientDashboard() {
     };
   }, [isAuthenticated]);
 
+  // Fetch upcoming bookings
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    // Don't fetch bookings if user is not authenticated
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setUpcomingBookings([]);
+        setIsLoadingBookings(false);
+      }
+      return;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - clientUpcomingBookingsCache.timestamp;
+
+    // Check if we have cached data that's still fresh
+    if (clientUpcomingBookingsCache.data && cacheAge < CACHE_DURATION) {
+      if (mountedRef.current) {
+        setUpcomingBookings(clientUpcomingBookingsCache.data);
+        setIsLoadingBookings(false);
+      }
+      return;
+    }
+
+    // Check if a promise already exists - reuse it immediately
+    if (clientUpcomingBookingsCache.promise) {
+      setIsLoadingBookings(true);
+      clientUpcomingBookingsCache.promise.then(bookings => {
+        if (!mountedRef.current) return;
+        setUpcomingBookings(bookings);
+        setIsLoadingBookings(false);
+      }).catch(error => {
+        if (!mountedRef.current) return;
+        console.error('Error fetching upcoming bookings:', error);
+        setUpcomingBookings([]);
+        setIsLoadingBookings(false);
+      });
+      return;
+    }
+
+    // No promise exists - create one
+    setIsLoadingBookings(true);
+    
+    const fetchPromise = (async () => {
+      try {
+        const orders = await bookingService.getClientUpcomingBookings();
+        const bookings = transformOrdersToBookings(orders);
+        
+        // Cache the result
+        clientUpcomingBookingsCache.data = bookings;
+        clientUpcomingBookingsCache.timestamp = Date.now();
+        clientUpcomingBookingsCache.promise = null;
+        
+        return bookings;
+      } catch (error) {
+        clientUpcomingBookingsCache.promise = null;
+        throw error;
+      }
+    })();
+
+    clientUpcomingBookingsCache.promise = fetchPromise;
+
+    fetchPromise.then(bookings => {
+      if (!mountedRef.current) return;
+      setUpcomingBookings(bookings);
+      setIsLoadingBookings(false);
+    }).catch(error => {
+      if (!mountedRef.current) return;
+      console.error('Error fetching upcoming bookings:', error);
+      setUpcomingBookings([]);
+      setIsLoadingBookings(false);
+    });
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isAuthenticated]);
+
   return (
     <LayoutClient selectedNavItem="dashboard">
       {({ isSidebarOpen, isMobile, clientProfile }) => (
@@ -194,10 +328,10 @@ export function ClientDashboard() {
           pb: 2, // Increase bottom padding to ensure cards are fully visible
         }}>
           {/* Upcoming Bookings Section */}
-          <UpcomingBookingsCard bookings={upcomingBookings} />
+          <UpcomingBookingsCard bookings={upcomingBookings} isLoading={isLoadingBookings} />
 
           {/* Recent Activity Section */}
-          <RecentActivityCard items={activityItems} />
+          <RecentActivityCard items={activityItems} isLoading={isLoading} />
         </Box>
       </Box>
       )}

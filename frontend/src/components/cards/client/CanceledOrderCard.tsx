@@ -10,7 +10,7 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, Cancel, Replay } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CanceledOrderDetailPopover, type CanceledOrderDetail, type CanceledPaymentOption } from '../../popovers/client/CanceledOrderDetailPopover';
 
 interface CanceledOrderCardProps {
@@ -36,6 +36,7 @@ interface CanceledOrderCardProps {
   creativeServicesCount?: number;
   creativeColor?: string;
   invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }>;
+  defaultOpen?: boolean;
 }
 
 export function CanceledOrderCard({
@@ -60,11 +61,19 @@ export function CanceledOrderCard({
   creativeReviewCount,
   creativeServicesCount,
   creativeColor,
-  invoices
+  invoices,
+  defaultOpen = false
 }: CanceledOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#f44336';
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+
+  // Update popover state when defaultOpen changes
+  useEffect(() => {
+    if (defaultOpen) {
+      setPopoverOpen(true);
+    }
+  }, [defaultOpen]);
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't open popover if clicking the rebook button

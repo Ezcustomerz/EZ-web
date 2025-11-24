@@ -136,6 +136,12 @@ class CreativeProfileSettingsResponse(BaseModel):
     success: bool
     message: str
 
+class CreativeDashboardStatsResponse(BaseModel):
+    total_clients: int
+    monthly_amount: float
+    total_bookings: int
+    completed_sessions: int
+
 class ProfilePhotoUploadResponse(BaseModel):
     success: bool
     message: str

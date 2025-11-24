@@ -306,6 +306,13 @@ export interface CreativeProfileSettingsResponse {
   message: string;
 }
 
+export interface CreativeDashboardStats {
+  total_clients: number;
+  monthly_amount: number;
+  total_bookings: number;
+  completed_sessions: number;
+}
+
 export interface ProfilePhotoUploadResponse {
   success: boolean;
   message: string;
@@ -595,6 +602,18 @@ export const userService = {
     const headers = await getAuthHeaders();
     const response = await axios.get<PublicServicesAndBundlesResponse>(
       `${API_BASE_URL}/creative/services`,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Get dashboard statistics for the current creative
+   */
+  async getCreativeDashboardStats(): Promise<CreativeDashboardStats> {
+    const headers = await getAuthHeaders();
+    const response = await axios.get<CreativeDashboardStats>(
+      `${API_BASE_URL}/creative/dashboard/stats`,
       { headers }
     );
     return response.data;

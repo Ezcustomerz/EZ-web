@@ -10,7 +10,7 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, CalendarToday, Payment as PaymentIcon } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PaymentApprovalOrderDetailPopover, type PaymentApprovalOrderDetail, type PaymentApprovalOption } from '../../popovers/client/PaymentApprovalOrderDetailPopover';
 
 interface PaymentApprovalOrderCardProps {
@@ -38,6 +38,7 @@ interface PaymentApprovalOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  defaultOpen?: boolean;
 }
 
 export function PaymentApprovalOrderCard({
@@ -64,11 +65,19 @@ export function PaymentApprovalOrderCard({
   creativeRating,
   creativeReviewCount,
   creativeServicesCount,
-  creativeColor
+  creativeColor,
+  defaultOpen = false
 }: PaymentApprovalOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#00bcd4';
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+
+  // Update popover state when defaultOpen changes
+  useEffect(() => {
+    if (defaultOpen) {
+      setPopoverOpen(true);
+    }
+  }, [defaultOpen]);
 
   // Calculate payment details based on payment option and amount paid
   const calculatePaymentDetails = () => {

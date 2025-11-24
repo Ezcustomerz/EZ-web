@@ -18,40 +18,61 @@ interface WelcomeCardProps {
   userName?: string;
   userRole?: string;
   isSidebarOpen?: boolean;
+  stats?: {
+    totalClients: number;
+    monthlyAmount: number;
+    totalBookings: number;
+    completedSessions: number;
+  };
 }
 
-export function WelcomeCard({ userName = "Demo User", userRole = "Music Creative", isSidebarOpen = true }: WelcomeCardProps) {
+export function WelcomeCard({ 
+  userName = "Demo User", 
+  userRole = "Music Creative", 
+  isSidebarOpen = true,
+  stats
+}: WelcomeCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   // Center text when hamburger menu is visible (mobile + sidebar closed)
   const shouldCenterText = isMobile && !isSidebarOpen;
 
+  // Format monthly amount as currency with decimals
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
   const statsCards: StatsCard[] = [
     {
       title: 'Clients',
-      value: '0',
+      value: stats ? stats.totalClients.toString() : '0',
       icon: PeopleOutlined,
       color: theme.palette.success.main,
       bgColor: `${theme.palette.success.main}1A`,
     },
     {
       title: 'Monthly Amount',
-      value: '$0',
+      value: stats ? formatCurrency(stats.monthlyAmount) : '$0',
       icon: AttachMoneyOutlined,
       color: theme.palette.info.main,
       bgColor: `${theme.palette.info.main}1A`,
     },
     {
       title: 'Total Bookings',
-      value: '0',
+      value: stats ? stats.totalBookings.toString() : '0',
       icon: EventOutlined,
       color: theme.palette.custom.amber,
       bgColor: `${theme.palette.custom.amber}1A`,
     },
     {
       title: 'Completed Sessions',
-      value: '0',
+      value: stats ? stats.completedSessions.toString() : '0',
       icon: HeadsetOutlined,
       color: theme.palette.primary.main,
       bgColor: `${theme.palette.primary.main}1A`,

@@ -1171,6 +1171,81 @@ class BookingController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch client history orders: {str(e)}")
     
     @staticmethod
+    async def get_client_upcoming_bookings(user_id: str, client: Client) -> OrdersListResponse:
+        """Get upcoming scheduled bookings for the current client user
+        
+        Args:
+            user_id: The client user ID
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
+        """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
+        try:
+            from datetime import date, datetime
+            
+            # Fetch upcoming bookings (scheduled bookings with booking_date and start_time)
+            # Filter for bookings that:
+            # - Have booking_date and start_time (scheduled bookings)
+            # - booking_date >= today
+            # - Are not cancelled
+            today = date.today().isoformat()
+            
+            bookings_response = client.table('bookings')\
+                .select('id, service_id, order_date, booking_date, start_time, end_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at, amount_paid')\
+                .eq('client_user_id', user_id)\
+                .not_.is_('booking_date', 'null')\
+                .not_.is_('start_time', 'null')\
+                .gte('booking_date', today)\
+                .neq('client_status', 'cancelled')\
+                .order('booking_date', desc=False)\
+                .order('start_time', desc=False)\
+                .limit(25)\
+                .execute()
+            
+            if not bookings_response.data:
+                return OrdersListResponse(success=True, orders=[])
+            
+            # Get unique service IDs and creative user IDs
+            service_ids = list(set([b['service_id'] for b in bookings_response.data]))
+            creative_user_ids = list(set([b['creative_user_id'] for b in bookings_response.data]))
+            
+            # Fetch services, creatives, and users
+            services_response = client.table('creative_services')\
+                .select('id, title, description, delivery_time, color')\
+                .in_('id', service_ids)\
+                .execute()
+            services_dict = {s['id']: s for s in (services_response.data or [])}
+            
+            creatives_response = client.table('creatives')\
+                .select('user_id, display_name, title')\
+                .in_('user_id', creative_user_ids)\
+                .execute()
+            creatives_dict = {c['user_id']: c for c in (creatives_response.data or [])}
+            
+            users_response = client.table('users')\
+                .select('user_id, name, email, profile_picture_url')\
+                .in_('user_id', creative_user_ids)\
+                .execute()
+            users_dict = {u['user_id']: u for u in (users_response.data or [])}
+            
+            orders = []
+            for booking in bookings_response.data:
+                order = BookingController._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False, client=client)
+                orders.append(order)
+            
+            return OrdersListResponse(success=True, orders=orders)
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching client upcoming bookings: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch client upcoming bookings: {str(e)}")
+    
+    @staticmethod
     async def get_creative_orders(user_id: str, client: Client) -> OrdersListResponse:
         """Get all orders for the current creative user
         
@@ -1244,11 +1319,11 @@ class BookingController:
             raise ValueError("Authenticated client is required for this operation")
         
         try:
-            # Fetch bookings for this creative, excluding completed/canceled/rejected orders
+            # Fetch bookings for this creative, excluding completed/rejected orders
             bookings_response = client.table('bookings')\
                 .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('creative_user_id', user_id)\
-                .not_.in_('creative_status', ['complete', 'rejected', 'canceled'])\
+                .not_.in_('creative_status', ['completed', 'rejected'])\
                 .order('order_date', desc=True)\
                 .execute()
             
@@ -1303,11 +1378,11 @@ class BookingController:
             raise ValueError("Authenticated client is required for this operation")
         
         try:
-            # Fetch bookings for this creative, only completed/canceled/rejected orders
+            # Fetch bookings for this creative, only completed/rejected orders
             bookings_response = client.table('bookings')\
                 .select('id, service_id, order_date, booking_date, start_time, price, payment_option, notes, client_status, creative_status, client_user_id, canceled_date, approved_at, amount_paid')\
                 .eq('creative_user_id', user_id)\
-                .in_('creative_status', ['complete', 'rejected', 'canceled'])\
+                .in_('creative_status', ['completed', 'rejected'])\
                 .order('order_date', desc=True)\
                 .execute()
             
@@ -1346,6 +1421,127 @@ class BookingController:
         except Exception as e:
             logger.error(f"Error fetching creative past orders: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to fetch creative past orders: {str(e)}")
+    
+    @staticmethod
+    async def get_creative_dashboard_stats(user_id: str, client: Client) -> Dict[str, Any]:
+        """Get dashboard statistics for the current creative user
+        
+        Args:
+            user_id: The creative user ID
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Returns:
+            Dictionary containing:
+            - total_clients: Number of unique clients
+            - monthly_amount: Net amount from Stripe for current month (matches Stripe Express dashboard)
+            - total_bookings: Total number of bookings
+            - completed_sessions: Number of completed bookings
+        """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
+        try:
+            from datetime import datetime, timezone
+            import stripe
+            import os
+            
+            # Get current month start and end timestamps
+            now = datetime.now(timezone.utc)
+            month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+            month_end = datetime(now.year, now.month + 1, 1, tzinfo=timezone.utc) if now.month < 12 else datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
+            month_start_timestamp = int(month_start.timestamp())
+            month_end_timestamp = int(month_end.timestamp())
+            
+            # Get all bookings for this creative
+            bookings_response = client.table('bookings')\
+                .select('id, client_user_id, amount_paid, creative_status, order_date')\
+                .eq('creative_user_id', user_id)\
+                .execute()
+            
+            bookings = bookings_response.data or []
+            
+            # Calculate stats
+            unique_clients = len(set(b['client_user_id'] for b in bookings))
+            total_bookings = len(bookings)
+            completed_sessions = len([b for b in bookings if b.get('creative_status') == 'completed'])
+            
+            # Get monthly amount from Stripe if account is connected
+            monthly_amount = 0.0
+            try:
+                # Get creative's Stripe account ID
+                creative_result = client.table('creatives')\
+                    .select('stripe_account_id')\
+                    .eq('user_id', user_id)\
+                    .single()\
+                    .execute()
+                
+                if creative_result.data and creative_result.data.get('stripe_account_id'):
+                    stripe_account_id = creative_result.data.get('stripe_account_id')
+                    stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+                    
+                    if stripe_secret_key:
+                        stripe.api_key = stripe_secret_key
+                        
+                        # Get balance transactions for current month from Stripe
+                        # This gives us the actual net amounts after all fees
+                        balance_transactions = stripe.BalanceTransaction.list(
+                            created={'gte': month_start_timestamp, 'lt': month_end_timestamp},
+                            stripe_account=stripe_account_id,
+                            limit=100  # Adjust if needed
+                        )
+                        
+                        # Sum up all positive net amounts (this matches Stripe Express dashboard)
+                        # The net field already accounts for all fees (platform + Stripe processing)
+                        # We sum positive net amounts which represent earnings
+                        for transaction in balance_transactions.data:
+                            # Include all transactions with positive net (earnings)
+                            # Exclude negative transactions (refunds, chargebacks, fees)
+                            if transaction.net > 0:
+                                # Convert from cents to dollars
+                                monthly_amount += transaction.net / 100
+                        
+                        # If there are more than 100 transactions, paginate
+                        while balance_transactions.has_more:
+                            balance_transactions = stripe.BalanceTransaction.list(
+                                created={'gte': month_start_timestamp, 'lt': month_end_timestamp},
+                                stripe_account=stripe_account_id,
+                                limit=100,
+                                starting_after=balance_transactions.data[-1].id
+                            )
+                            
+                            for transaction in balance_transactions.data:
+                                if transaction.net > 0:
+                                    monthly_amount += transaction.net / 100
+                    
+            except Exception as stripe_error:
+                # If Stripe fetch fails, fall back to database calculation
+                logger.warning(f"Failed to fetch monthly amount from Stripe, falling back to database calculation: {stripe_error}")
+                
+                # Fallback: Calculate from bookings (less accurate but better than nothing)
+                for booking in bookings:
+                    order_date_str = booking.get('order_date')
+                    if order_date_str:
+                        try:
+                            order_date = datetime.fromisoformat(order_date_str.replace('Z', '+00:00'))
+                            if month_start <= order_date < month_end:
+                                amount_paid = booking.get('amount_paid', 0)
+                                if amount_paid:
+                                    monthly_amount += float(amount_paid)
+                        except (ValueError, AttributeError):
+                            continue
+            
+            return {
+                'total_clients': unique_clients,
+                'monthly_amount': round(monthly_amount, 2),
+                'total_bookings': total_bookings,
+                'completed_sessions': completed_sessions
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching creative dashboard stats: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch creative dashboard stats: {str(e)}")
     
     @staticmethod
     async def get_creative_calendar_sessions(user_id: str, year: int, month: int, client: Client) -> CalendarSessionsResponse:
@@ -1442,7 +1638,7 @@ class BookingController:
                     calendar_status = 'pending'
                 elif creative_status == 'rejected':
                     calendar_status = 'cancelled'
-                elif creative_status in ['in_progress', 'awaiting_payment', 'complete']:
+                elif creative_status in ['in_progress', 'awaiting_payment', 'completed']:
                     calendar_status = 'confirmed'
                 else:
                     calendar_status = 'pending'
@@ -1558,7 +1754,7 @@ class BookingController:
                     calendar_status = 'pending'
                 elif creative_status == 'rejected':
                     calendar_status = 'cancelled'
-                elif creative_status in ['in_progress', 'awaiting_payment', 'complete']:
+                elif creative_status in ['in_progress', 'awaiting_payment', 'completed']:
                     calendar_status = 'confirmed'
                 else:
                     calendar_status = 'pending'
@@ -1649,7 +1845,7 @@ class BookingController:
             
             logger.info(f"Booking approved successfully: {booking_id} by creative {user_id}")
             
-            # Get service and creative details for notification
+            # Get service, creative, and client details for notifications
             service_response = client.table('creative_services')\
                 .select('title')\
                 .eq('id', booking['service_id'])\
@@ -1662,8 +1858,15 @@ class BookingController:
                 .single()\
                 .execute()
             
+            client_response = db_admin.table('clients')\
+                .select('display_name')\
+                .eq('user_id', booking['client_user_id'])\
+                .single()\
+                .execute()
+            
             service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
             creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
+            client_display_name = client_response.data.get('display_name', 'A client') if client_response.data else 'A client'
             
             # Create appropriate notification
             if price == 0 or payment_option == 'later':
@@ -1709,14 +1912,44 @@ class BookingController:
                     "updated_at": datetime.utcnow().isoformat()
                 }
             
-            # Create notification
+            # Create notification for client
             try:
-                notification_result = client.table("notifications")\
+                notification_result = db_admin.table("notifications")\
                     .insert(notification_data)\
                     .execute()
-                logger.info(f"Approval notification created: {notification_result.data}")
+                logger.info(f"Client approval notification created: {notification_result.data}")
             except Exception as notif_error:
-                logger.error(f"Failed to create approval notification: {notif_error}")
+                logger.error(f"Failed to create client approval notification: {notif_error}")
+            
+            # Create notification for creative confirming they approved the service
+            try:
+                creative_notification_data = {
+                    "recipient_user_id": user_id,
+                    "notification_type": "booking_approved",
+                    "title": "Service Approved",
+                    "message": f"You have approved the booking for {service_title} from {client_display_name}.",
+                    "is_read": False,
+                    "related_user_id": booking['client_user_id'],
+                    "related_entity_id": booking_id,
+                    "related_entity_type": "booking",
+                    "target_roles": ["creative"],
+                    "metadata": {
+                        "service_title": service_title,
+                        "client_display_name": client_display_name,
+                        "booking_id": booking_id,
+                        "price": str(price),
+                        "payment_option": payment_option
+                    },
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                
+                creative_notification_result = db_admin.table("notifications")\
+                    .insert(creative_notification_data)\
+                    .execute()
+                logger.info(f"Creative approval notification created: {creative_notification_result.data}")
+            except Exception as notif_error:
+                logger.error(f"Failed to create creative approval notification: {notif_error}")
             
             return ApproveBookingResponse(
                 success=True,
@@ -2122,39 +2355,184 @@ class BookingController:
             if not update_result.data:
                 raise HTTPException(status_code=500, detail="Failed to update booking status")
             
-            # Get service and creative details for notification
-            service_response = client.table('creative_services').select('title').eq('id', booking['service_id']).single().execute()
-            creative_response = client.table('creatives').select('display_name').eq('user_id', user_id).single().execute()
+            # Get service, creative, and client details for notifications
+            service_response = db_admin.table('creative_services').select('title').eq('id', booking['service_id']).single().execute()
+            creative_response = db_admin.table('creatives').select('display_name').eq('user_id', user_id).single().execute()
+            client_response = db_admin.table('clients').select('display_name').eq('user_id', booking['client_user_id']).single().execute()
             
             service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
             creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
+            client_display_name = client_response.data.get('display_name', 'A client') if client_response.data else 'A client'
             
-            # Create notification for client
-            client_notification_data = {
-                "recipient_user_id": booking['client_user_id'],
-                "notification_type": "session_completed",
-                "title": "Service Completed",
-                "message": f"Your service '{service_title}' has been completed by {creative_display_name}." + (" Files are ready for download." if has_files else ""),
-                "is_read": False,
-                "related_user_id": user_id,
-                "related_entity_id": booking_id,
-                "related_entity_type": "booking",
-                "target_roles": ["client"],
-                "metadata": {
-                    "service_title": service_title,
-                    "booking_id": booking_id,
-                    "has_files": has_files,
-                    "client_status": client_status
-                },
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat()
-            }
-            
+            # Create notifications based on final status
             try:
-                db_admin.table("notifications").insert(client_notification_data).execute()
-                logger.info(f"Completion notification created for client: {booking['client_user_id']}")
+                # Client notifications
+                if client_status == 'payment_required':
+                    # Payment required notification (already exists type)
+                    client_notification_data = {
+                        "recipient_user_id": booking['client_user_id'],
+                        "notification_type": "payment_required",
+                        "title": "Payment Required",
+                        "message": f"Please complete payment for {service_title} to receive your completed service.",
+                        "is_read": False,
+                        "related_user_id": user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": booking_id,
+                            "price": str(price),
+                            "payment_option": payment_option
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    logger.info(f"Payment required notification created for client: {booking['client_user_id']}")
+                
+                elif client_status == 'locked':
+                    # Client: Payment to unlock notification
+                    client_notification_data = {
+                        "recipient_user_id": booking['client_user_id'],
+                        "notification_type": "payment_required",
+                        "title": "Payment Required to Unlock",
+                        "message": f"Files for {service_title} are ready. Complete payment to unlock and download your files.",
+                        "is_read": False,
+                        "related_user_id": user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": booking_id,
+                            "price": str(price),
+                            "payment_option": payment_option
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    logger.info(f"Payment to unlock notification created for client: {booking['client_user_id']}")
+                    
+                    # Creative: Files sent notification
+                    creative_notification_data = {
+                        "recipient_user_id": user_id,
+                        "notification_type": "session_completed",
+                        "title": "Files Sent",
+                        "message": f"You have sent files for {service_title} to {client_display_name}. Awaiting payment to unlock.",
+                        "is_read": False,
+                        "related_user_id": booking['client_user_id'],
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["creative"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "client_display_name": client_display_name,
+                            "booking_id": booking_id,
+                            "has_files": True
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    logger.info(f"Files sent notification created for creative: {user_id}")
+                
+                elif client_status == 'completed':
+                    # Both: Service complete notification
+                    client_notification_data = {
+                        "recipient_user_id": booking['client_user_id'],
+                        "notification_type": "session_completed",
+                        "title": "Service Complete",
+                        "message": f"Your service {service_title} has been completed by {creative_display_name}.",
+                        "is_read": False,
+                        "related_user_id": user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": booking_id
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    logger.info(f"Service complete notification created for client: {booking['client_user_id']}")
+                    
+                    creative_notification_data = {
+                        "recipient_user_id": user_id,
+                        "notification_type": "session_completed",
+                        "title": "Service Complete",
+                        "message": f"You have completed {service_title} for {client_display_name}.",
+                        "is_read": False,
+                        "related_user_id": booking['client_user_id'],
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["creative"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "client_display_name": client_display_name,
+                            "booking_id": booking_id
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    logger.info(f"Service complete notification created for creative: {user_id}")
+                
+                elif client_status == 'download':
+                    # Client: Files ready notification
+                    client_notification_data = {
+                        "recipient_user_id": booking['client_user_id'],
+                        "notification_type": "session_completed",
+                        "title": "Files Ready",
+                        "message": f"Files for {service_title} are ready for download from {creative_display_name}.",
+                        "is_read": False,
+                        "related_user_id": user_id,
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["client"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "creative_display_name": creative_display_name,
+                            "booking_id": booking_id,
+                            "has_files": True
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    logger.info(f"Files ready notification created for client: {booking['client_user_id']}")
+                    
+                    # Creative: Files sent notification
+                    creative_notification_data = {
+                        "recipient_user_id": user_id,
+                        "notification_type": "session_completed",
+                        "title": "Files Sent",
+                        "message": f"You have sent files for {service_title} to {client_display_name}. Files are now available for download.",
+                        "is_read": False,
+                        "related_user_id": booking['client_user_id'],
+                        "related_entity_id": booking_id,
+                        "related_entity_type": "booking",
+                        "target_roles": ["creative"],
+                        "metadata": {
+                            "service_title": service_title,
+                            "client_display_name": client_display_name,
+                            "booking_id": booking_id,
+                            "has_files": True
+                        },
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    logger.info(f"Files sent notification created for creative: {user_id}")
+                    
             except Exception as notif_error:
-                logger.error(f"Failed to create completion notification: {notif_error}")
+                logger.error(f"Failed to create finalization notifications: {notif_error}")
             
             return FinalizeServiceResponse(
                 success=True,
@@ -2167,3 +2545,61 @@ class BookingController:
         except Exception as e:
             logger.error(f"Error finalizing service: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to finalize service: {str(e)}")
+    
+    @staticmethod
+    async def mark_download_complete(user_id: str, booking_id: str, client: Client) -> Dict[str, Any]:
+        """Mark a booking as complete after all files are downloaded by the client
+        
+        - Verifies the booking belongs to the client
+        - Verifies the booking is in 'download' status
+        - Updates client_status to 'completed'
+        - Keeps creative_status unchanged
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
+        try:
+            # Get booking details
+            booking_result = client.table('bookings').select(
+                'id, client_user_id, client_status, creative_status'
+            ).eq('id', booking_id).single().execute()
+            
+            if not booking_result.data:
+                raise HTTPException(status_code=404, detail="Booking not found")
+            
+            booking = booking_result.data
+            
+            # Verify the booking belongs to the client
+            if booking['client_user_id'] != user_id:
+                raise HTTPException(status_code=403, detail="You don't have permission to update this booking")
+            
+            # Verify the booking is in 'download' status
+            if booking['client_status'] != 'download':
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Cannot mark as complete. Booking must be in 'download' status. Current status: {booking['client_status']}"
+                )
+            
+            # Update client_status to 'completed', keep creative_status unchanged
+            update_response = client.table('bookings')\
+                .update({'client_status': 'completed'})\
+                .eq('id', booking_id)\
+                .execute()
+            
+            if not update_response.data or len(update_response.data) == 0:
+                raise HTTPException(status_code=500, detail="Failed to update booking status")
+            
+            logger.info(f"Booking {booking_id} marked as complete after download by client {user_id}")
+            
+            return {
+                "success": True,
+                "message": "Booking marked as complete successfully",
+                "booking_id": booking_id,
+                "client_status": "completed"
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error marking download as complete: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to mark download as complete: {str(e)}")

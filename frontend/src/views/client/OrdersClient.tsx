@@ -1,7 +1,7 @@
 import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { TaskAlt, HourglassEmpty, History, CheckCircle } from '@mui/icons-material';
 import { AllServicesTab } from './tabs/AllOrdersTab';
 import { ActiveTab } from './tabs/ActiveTab';
@@ -16,7 +16,17 @@ const tabLabels = [
 ];
 
 export function ClientOrders() {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
+    // Check if tab is specified in URL params
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== null) {
+      const tabNum = Number(tabParam);
+      if (!isNaN(tabNum) && tabNum >= 0 && tabNum <= 3) {
+        return tabNum;
+      }
+    }
+    // Otherwise use stored value
     const stored = localStorage.getItem('orders-active-tab');
     return stored !== null ? Number(stored) : 0;
   });
@@ -25,6 +35,15 @@ export function ClientOrders() {
   
   // Check localStorage when component mounts or location changes (e.g., navigating from notifications)
   useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== null) {
+      const tabNum = Number(tabParam);
+      if (!isNaN(tabNum) && tabNum >= 0 && tabNum <= 3) {
+        setActiveTab(tabNum);
+        localStorage.setItem('orders-active-tab', String(tabNum));
+        return;
+      }
+    }
     const stored = localStorage.getItem('orders-active-tab');
     if (stored !== null) {
       const tabValue = Number(stored);
@@ -32,7 +51,7 @@ export function ClientOrders() {
         setActiveTab(tabValue);
       }
     }
-  }, [location.pathname]); // Check when route changes
+  }, [location.pathname, searchParams]); // Check when route changes
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
