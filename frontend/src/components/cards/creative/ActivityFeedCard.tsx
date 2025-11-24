@@ -1,5 +1,5 @@
-import { Box, Typography, Card, Chip, useTheme, useMediaQuery, CircularProgress, Skeleton } from '@mui/material';
-import { Timeline } from '@mui/icons-material';
+import { Box, Typography, Card, Chip, useTheme, useMediaQuery, CircularProgress, Skeleton, Button, Stack } from '@mui/material';
+import { Timeline, Notifications } from '@mui/icons-material';
 import React from 'react';
 import { ActivityNotificationCard } from '../ActivityNotificationCard';
 import type { ActivityItem } from '../../../types/activity';
@@ -13,6 +13,8 @@ interface ActivityFeedCardProps {
   isLoading?: boolean;
 }
 
+const DISPLAY_LIMIT = 5; // Show only 5 items initially
+
 export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -25,8 +27,9 @@ export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardP
     setLocalItems(items ?? []);
   }, [items]);
 
-  const displayItems = localItems;
-  const actualNewCount = displayItems.filter(n => n.isNew).length;
+  const displayItems = localItems.slice(0, DISPLAY_LIMIT);
+  const hasMoreItems = localItems.length > DISPLAY_LIMIT;
+  const actualNewCount = localItems.filter(n => n.isNew).length;
 
   // Handle when a notification is marked as read
   const handleMarkAsRead = React.useCallback((notificationId: string) => {
@@ -126,26 +129,63 @@ export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardP
               </Typography>
             </Box>
         ) : (
-          displayItems.map((item, index) => (
-            <ActivityNotificationCard
-              key={`${item.label}-${index}`}
-              item={item}
-              index={index}
-              onMarkAsRead={handleMarkAsRead}
-              //smc
-              onClick={() => {
-                // Customize behavior per notification type
-                if (item.label === 'New Client Added') {
-                  navigate('/creative/clients'); // Navigate to clients page
-                } else if (item.label === 'New Booking Request' || item.label === 'New Booking') {
-                  navigate('/creative/activity'); // Navigate to activity page
-                } else if (item.label === 'Payment Received') {
-                  navigate('/creative/payments'); // 
-                }
-                // We can add more cases in the future
-              }}
-            />
-          ))
+          <>
+            <Stack spacing={2}>
+              {displayItems.map((item, index) => (
+                <ActivityNotificationCard
+                  key={`${item.label}-${index}`}
+                  item={item}
+                  index={index}
+                  onMarkAsRead={handleMarkAsRead}
+                  //smc
+                  onClick={() => {
+                    // Customize behavior per notification type
+                    if (item.label === 'New Client Added') {
+                      navigate('/creative/clients'); // Navigate to clients page
+                    } else if (item.label === 'New Booking Request' || item.label === 'New Booking') {
+                      navigate('/creative/activity'); // Navigate to activity page
+                    } else if (item.label === 'Payment Received') {
+                      navigate('/creative/payments'); // 
+                    }
+                    // We can add more cases in the future
+                  }}
+                />
+              ))}
+            </Stack>
+            {hasMoreItems && (
+              <Box sx={{ pt: 2, display: 'flex', justifyContent: 'center' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Notifications />}
+                  onClick={() => {
+                    // Navigate to dedicated notifications page
+                    navigate('/creative/notifications');
+                  }}
+                  sx={{
+                    borderColor: theme.palette.primary.main,
+                    color: theme.palette.primary.main,
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 0.75,
+                    borderRadius: 1.5,
+                    textTransform: 'none',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      borderColor: theme.palette.primary.dark,
+                      backgroundColor: theme.palette.primary.main,
+                      color: 'white',
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
+                    },
+                  }}
+                >
+                  View All Notifications ({localItems.length})
+                </Button>
+              </Box>
+            )}
+          </>
         )}
       </Box>
     </Card>

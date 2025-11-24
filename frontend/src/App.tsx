@@ -8,9 +8,11 @@ import { DashCreative } from './views/creative/DashCreative.tsx'
 import { ClientCreative } from './views/creative/ClientCreative.tsx'
 import { ActivityCreative } from './views/creative/ActivityCreative.tsx'
 import { PublicCreative } from './views/creative/PublicCreative.tsx'
+import { NotificationsCreative } from './views/creative/NotificationsCreative.tsx'
 import { ClientDashboard } from './views/client/DashClient.tsx'
 import { ClientBook } from './views/client/BookClient.tsx'
 import { ClientOrders } from './views/client/OrdersClient.tsx'
+import { NotificationsClient } from './views/client/NotificationsClient.tsx'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
@@ -115,6 +117,11 @@ function AppContent() {
             <PublicCreative />
           </RoleGuard>
         } />
+        <Route path="/creative/notifications" element={
+          <RoleGuard requiredRole="creative">
+            <NotificationsCreative />
+          </RoleGuard>
+        } />
         <Route path="/client" element={
           <RoleGuard requiredRole="client">
             <ClientDashboard />
@@ -128,6 +135,11 @@ function AppContent() {
         <Route path="/client/orders" element={
           <RoleGuard requiredRole="client">
             <ClientOrders />
+          </RoleGuard>
+        } />
+        <Route path="/client/notifications" element={
+          <RoleGuard requiredRole="client">
+            <NotificationsClient />
           </RoleGuard>
         } />
         <Route path="/advocate" element={

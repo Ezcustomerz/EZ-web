@@ -1,5 +1,5 @@
 import { Box, Typography, Card, useTheme, Stack, Button, Chip, Skeleton } from '@mui/material';
-import { MusicNote, Timeline } from '@mui/icons-material';
+import { MusicNote, Timeline, Notifications } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import React from 'react';
 import { ActivityNotificationCard } from '../ActivityNotificationCard';
@@ -9,6 +9,8 @@ interface RecentActivityCardProps {
   items?: ActivityItem[];
   isLoading?: boolean;
 }
+
+const DISPLAY_LIMIT = 5; // Show only 5 items initially
 
 export function RecentActivityCard({ items = [], isLoading = false }: RecentActivityCardProps) {
   const theme = useTheme();
@@ -21,6 +23,8 @@ export function RecentActivityCard({ items = [], isLoading = false }: RecentActi
   }, [items]);
 
   const filteredItems = localItems; // keep all; no status chip logic
+  const displayedItems = filteredItems.slice(0, DISPLAY_LIMIT);
+  const hasMoreItems = filteredItems.length > DISPLAY_LIMIT;
   const actualNewCount = filteredItems.filter(i => i.isNew).length;
 
   // Handle when a notification is marked as read
@@ -105,34 +109,69 @@ export function RecentActivityCard({ items = [], isLoading = false }: RecentActi
               </Button>
             </Box>
           ) : (
-            <Stack spacing={2}>
-              {filteredItems.map((item, index) => (
-                <ActivityNotificationCard
-                  key={`${item.label}-${index}`}
-                  item={item}
-                  index={index}
-                  onMarkAsRead={handleMarkAsRead}
-                  onClick={() => {
-                    // Customize behavior per notification type
-                    const notificationType = item.notificationType;
-                    
-                    if (notificationType === 'payment_required') {
-                      // Navigate to Action Needed tab (tab index 2)
-                      navigate('/client/orders');
-                      localStorage.setItem('orders-active-tab', '2');
-                    } else if (notificationType === 'booking_rejected' || notificationType === 'booking_canceled') {
-                      // Navigate to History tab (tab index 3)
-                      navigate('/client/orders');
-                      localStorage.setItem('orders-active-tab', '3');
-                    } else if (item.label === 'Placed Booking' || item.label === 'Booking Approved') {
-                      // Navigate to orders page (default tab)
-                      navigate('/client/orders');
-                    }
-                    // We can add more cases in the future
-                  }}
-                />
-              ))}
-            </Stack>
+            <>
+              <Stack spacing={2}>
+                {displayedItems.map((item, index) => (
+                  <ActivityNotificationCard
+                    key={`${item.label}-${index}`}
+                    item={item}
+                    index={index}
+                    onMarkAsRead={handleMarkAsRead}
+                    onClick={() => {
+                      // Customize behavior per notification type
+                      const notificationType = item.notificationType;
+                      
+                      if (notificationType === 'payment_required') {
+                        // Navigate to Action Needed tab (tab index 2)
+                        navigate('/client/orders');
+                        localStorage.setItem('orders-active-tab', '2');
+                      } else if (notificationType === 'booking_rejected' || notificationType === 'booking_canceled') {
+                        // Navigate to History tab (tab index 3)
+                        navigate('/client/orders');
+                        localStorage.setItem('orders-active-tab', '3');
+                      } else if (item.label === 'Placed Booking' || item.label === 'Booking Approved') {
+                        // Navigate to orders page (default tab)
+                        navigate('/client/orders');
+                      }
+                      // We can add more cases in the future
+                    }}
+                  />
+                ))}
+              </Stack>
+              {hasMoreItems && (
+                <Box sx={{ pt: 2, display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<Notifications />}
+                    onClick={() => {
+                      // Navigate to dedicated notifications page
+                      navigate('/client/notifications');
+                    }}
+                    sx={{
+                      borderColor: theme.palette.primary.main,
+                      color: theme.palette.primary.main,
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      px: 2.5,
+                      py: 0.75,
+                      borderRadius: 1.5,
+                      textTransform: 'none',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        borderColor: theme.palette.primary.dark,
+                        backgroundColor: theme.palette.primary.main,
+                        color: 'white',
+                        transform: 'translateY(-2px)',
+                        boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
+                      },
+                    }}
+                  >
+                    View All Notifications ({filteredItems.length})
+                  </Button>
+                </Box>
+              )}
+            </>
           )}
         </Box>
       </Card>
