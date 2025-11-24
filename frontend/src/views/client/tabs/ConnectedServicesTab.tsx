@@ -12,6 +12,7 @@ import { faArrowUp, faArrowDown, faUser, faLayerGroup } from '@fortawesome/free-
 import { userService } from '../../../api/userService';
 import { useAuth } from '../../../context/auth';
 import { errorToast } from '../../../components/toast/toast';
+import { useSearchParams } from 'react-router-dom';
 
 interface Service {
   id: string;
@@ -85,6 +86,7 @@ export function ConnectedServicesTab() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { isAuthenticated } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Data state
   const [services, setServices] = useState<Service[]>([]);
@@ -185,6 +187,28 @@ export function ConnectedServicesTab() {
 
     fetchServices();
   }, [isAuthenticated]);
+
+  // Check for serviceId in URL params and open booking popover
+  useEffect(() => {
+    const serviceId = searchParams.get('serviceId');
+    if (serviceId && services.length > 0 && !bookingOpen) {
+      const service = services.find(s => s.id === serviceId);
+      if (service) {
+        // Add creative profile information to the service object
+        const serviceWithCreative = {
+          ...service,
+          creative_display_name: service.creative_display_name || service.creative_name,
+          creative_title: service.creative_title,
+          creative_avatar_url: service.creative_avatar_url
+        };
+        setServiceToBook(serviceWithCreative as any);
+        setBookingOpen(true);
+        // Remove serviceId from URL to clean it up
+        searchParams.delete('serviceId');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, services, bookingOpen, setSearchParams]);
 
   // Fetch connected creatives for creative detail popover
   useEffect(() => {

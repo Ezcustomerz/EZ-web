@@ -209,6 +209,27 @@ class BookingService {
     }
   }
 
+  async getClientUpcomingBookings(): Promise<Order[]> {
+    // Check authentication before making API call
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      console.log('User not authenticated, skipping client upcoming bookings fetch');
+      return [];
+    }
+
+    try {
+      const response = await apiClient.get(`${this.bookingsUrl}/client/upcoming`);
+      return response.data.orders || [];
+    } catch (error: any) {
+      console.error('Error fetching client upcoming bookings:', error);
+      if (error.response?.status === 401) {
+        // User is no longer authenticated, return empty array
+        return [];
+      }
+      throw error;
+    }
+  }
+
   async getCreativeOrders(): Promise<Order[]> {
     const response = await apiClient.get(`${this.bookingsUrl}/creative`);
     return response.data.orders || [];

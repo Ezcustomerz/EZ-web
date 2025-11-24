@@ -1171,6 +1171,81 @@ class BookingController:
             raise HTTPException(status_code=500, detail=f"Failed to fetch client history orders: {str(e)}")
     
     @staticmethod
+    async def get_client_upcoming_bookings(user_id: str, client: Client) -> OrdersListResponse:
+        """Get upcoming scheduled bookings for the current client user
+        
+        Args:
+            user_id: The client user ID
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Raises:
+            ValueError: If client is not provided
+        """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
+        try:
+            from datetime import date, datetime
+            
+            # Fetch upcoming bookings (scheduled bookings with booking_date and start_time)
+            # Filter for bookings that:
+            # - Have booking_date and start_time (scheduled bookings)
+            # - booking_date >= today
+            # - Are not cancelled
+            today = date.today().isoformat()
+            
+            bookings_response = client.table('bookings')\
+                .select('id, service_id, order_date, booking_date, start_time, end_time, price, payment_option, notes, client_status, creative_status, creative_user_id, canceled_date, approved_at, amount_paid')\
+                .eq('client_user_id', user_id)\
+                .not_.is_('booking_date', 'null')\
+                .not_.is_('start_time', 'null')\
+                .gte('booking_date', today)\
+                .neq('client_status', 'cancelled')\
+                .order('booking_date', desc=False)\
+                .order('start_time', desc=False)\
+                .limit(25)\
+                .execute()
+            
+            if not bookings_response.data:
+                return OrdersListResponse(success=True, orders=[])
+            
+            # Get unique service IDs and creative user IDs
+            service_ids = list(set([b['service_id'] for b in bookings_response.data]))
+            creative_user_ids = list(set([b['creative_user_id'] for b in bookings_response.data]))
+            
+            # Fetch services, creatives, and users
+            services_response = client.table('creative_services')\
+                .select('id, title, description, delivery_time, color')\
+                .in_('id', service_ids)\
+                .execute()
+            services_dict = {s['id']: s for s in (services_response.data or [])}
+            
+            creatives_response = client.table('creatives')\
+                .select('user_id, display_name, title')\
+                .in_('user_id', creative_user_ids)\
+                .execute()
+            creatives_dict = {c['user_id']: c for c in (creatives_response.data or [])}
+            
+            users_response = client.table('users')\
+                .select('user_id, name, email, profile_picture_url')\
+                .in_('user_id', creative_user_ids)\
+                .execute()
+            users_dict = {u['user_id']: u for u in (users_response.data or [])}
+            
+            orders = []
+            for booking in bookings_response.data:
+                order = BookingController._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=False, client=client)
+                orders.append(order)
+            
+            return OrdersListResponse(success=True, orders=orders)
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error fetching client upcoming bookings: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch client upcoming bookings: {str(e)}")
+    
+    @staticmethod
     async def get_creative_orders(user_id: str, client: Client) -> OrdersListResponse:
         """Get all orders for the current creative user
         

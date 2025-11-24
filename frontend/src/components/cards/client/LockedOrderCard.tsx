@@ -10,7 +10,7 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, CalendarToday, CheckCircle, Folder, InsertDriveFile, Lock, LockOpen } from '@mui/icons-material';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { LockedOrderDetailPopover, type LockedOrderDetail, type LockedPaymentOption } from '../../popovers/client/LockedOrderDetailPopover';
 
 interface LockedOrderCardProps {
@@ -43,6 +43,7 @@ interface LockedOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  defaultOpen?: boolean;
 }
 
 export function LockedOrderCard({
@@ -74,11 +75,19 @@ export function LockedOrderCard({
   creativeRating,
   creativeReviewCount,
   creativeServicesCount,
-  creativeColor
+  creativeColor,
+  defaultOpen = false
 }: LockedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#9c27b0';
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+
+  // Update popover state when defaultOpen changes
+  useEffect(() => {
+    if (defaultOpen) {
+      setPopoverOpen(true);
+    }
+  }, [defaultOpen]);
 
   // Calculate payment details similar to PaymentApprovalOrderCard
   const calculatePaymentDetails = () => {

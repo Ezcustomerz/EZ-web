@@ -1,4 +1,4 @@
-import { Box, Typography, IconButton, Button, useTheme, useMediaQuery, Paper, Tooltip, Zoom } from '@mui/material';
+import { Box, Typography, IconButton, Button, useTheme, useMediaQuery, Paper, Tooltip, Zoom, Skeleton } from '@mui/material';
 import { ArrowBackIosNew, ArrowForwardIos, Settings } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -41,6 +41,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
   const [currentMonth, setCurrentMonth] = useState(new Date()); // for desktop
   const [mobileStartOfWeek, setMobileStartOfWeek] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }));
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [fabMenuAnchor, setFabMenuAnchor] = useState<null | HTMLElement>(null);
@@ -52,10 +53,12 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
     // Don't fetch calendar sessions if user is not authenticated
     if (!isAuthenticated) {
       setSessions([]);
+      setIsLoadingSessions(false);
       return;
     }
 
     const fetchSessions = async () => {
+      setIsLoadingSessions(true);
       try {
         if (isMobile) {
           // Mobile view: fetch sessions for the current week using week endpoint
@@ -75,6 +78,8 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
       } catch (error) {
         console.error('Error fetching calendar sessions:', error);
         setSessions([]);
+      } finally {
+        setIsLoadingSessions(false);
       }
     };
 
@@ -104,7 +109,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
         isCurrentMonth: isSameMonth(day, monthStart),
         isToday: isToday(day),
         isSelected: selectedDate && isSameDay(day, selectedDate),
-        sessions: sessions.filter(s => s.date === formattedDate),
+        sessions: isLoadingSessions ? [] : sessions.filter(s => s.date === formattedDate),
       });
       day = addDays(day, 1);
     }
@@ -195,21 +200,58 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
               pb: 2,
             }}>
               <Stack spacing={1.5} sx={{ py: 1 }}>
-                {Array.from({ length: 7 }, (_, i) => {
-                  const date = addDays(mobileStartOfWeek, i);
-                  const formatted = format(date, 'yyyy-MM-dd');
-                  const daySessions = sessions.filter(s => s.date === formatted);
-                  const isTodayCell = isToday(date);
-                  return (
-                    <CalendarDayCard
-                      key={formatted}
-                      date={date}
-                      isToday={isTodayCell}
-                      sessions={daySessions.map(s => ({ id: s.id, type: s.type, status: s.status }))}
-                      onClick={() => { setSelectedDate(date); setDayDialogOpen(true); }}
-                    />
-                  );
-                })}
+                {isLoadingSessions ? (
+                  Array.from({ length: 7 }, (_, i) => {
+                    const date = addDays(mobileStartOfWeek, i);
+                    // Create a pseudo-random but consistent pattern based on date
+                    const dayOfWeek = date.getDay();
+                    const dayOfMonth = date.getDate();
+                    const seed = (dayOfMonth * 7 + dayOfWeek) % 5;
+                    const skeletonCount = seed === 0 ? 0 : seed === 1 ? 1 : seed === 2 ? 2 : 3;
+                    
+                    return (
+                      <Paper
+                        key={`skeleton-${i}`}
+                        elevation={1}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          backgroundColor: theme.palette.background.paper,
+                          minHeight: 48,
+                          maxHeight: 160,
+                        }}
+                      >
+                        <Skeleton variant="text" width="60%" height={24} sx={{ mb: 1 }} />
+                        {skeletonCount > 0 && (
+                          <Box sx={{ mt: 0.5, overflow: 'hidden', width: '100%' }}>
+                            {Array.from({ length: Math.min(skeletonCount, 3) }, (_, j) => (
+                              <Box key={j} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.25, width: '100%' }}>
+                                <Skeleton variant="circular" width={5} height={5} sx={{ flexShrink: 0 }} />
+                                <Skeleton variant="rectangular" width={`${55 + (j * 10)}%`} height={16} sx={{ borderRadius: 1, flexShrink: 1, maxWidth: 'calc(100% - 10px)' }} />
+                              </Box>
+                            ))}
+                          </Box>
+                        )}
+                      </Paper>
+                    );
+                  })
+                ) : (
+                  Array.from({ length: 7 }, (_, i) => {
+                    const date = addDays(mobileStartOfWeek, i);
+                    const formatted = format(date, 'yyyy-MM-dd');
+                    const daySessions = sessions.filter(s => s.date === formatted);
+                    const isTodayCell = isToday(date);
+                    return (
+                      <CalendarDayCard
+                        key={formatted}
+                        date={date}
+                        isToday={isTodayCell}
+                        sessions={daySessions.map(s => ({ id: s.id, type: s.type, status: s.status }))}
+                        onClick={() => { setSelectedDate(date); setDayDialogOpen(true); }}
+                      />
+                    );
+                  })
+                )}
               </Stack>
             </Box>
             
@@ -434,45 +476,104 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                                 width: '100%',
                                 pr: 0.5,
                               }}>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%' }}>
-                                  {cellSessions.slice(0, maxSessionsToShow).map(session => (
-                                    <Tooltip
-                                      key={session.id}
-                                      title={<>
-                                        <Typography fontWeight={700}>{session.type}</Typography>
-                                        <Typography fontSize="0.92rem">{session.time} - {session.endTime}</Typography>
-                                        <Typography fontSize="0.92rem" color="text.secondary">{session.client}</Typography>
-                                      </>}
-                                      arrow
-                                      placement="top"
-                                      slots={{ transition: Zoom }}
-                                    >
-                                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: { xs: 14, sm: 16, md: 18 } }}>
-                                        <Box sx={{ 
-                                          width: { xs: 6, sm: 7, md: 8, lg: 9 }, 
-                                          height: { xs: 6, sm: 7, md: 8, lg: 9 }, 
-                                          borderRadius: '50%', 
-                                          bgcolor: getSessionDotColor(session.status), 
-                                          display: 'inline-block', 
-                                          mr: 0.5, 
-                                          mb: '-1.5px',
-                                          flexShrink: 0,
-                                          minWidth: { xs: 6, sm: 7, md: 8, lg: 9 },
-                                          minHeight: { xs: 6, sm: 7, md: 8, lg: 9 }
-                                        }} />
-                                        <Typography variant="body2" sx={{ 
-                                          color: 'text.secondary', 
-                                          fontWeight: 500, 
-                                          fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.85rem' }, 
-                                          whiteSpace: 'nowrap', 
-                                          overflow: 'hidden', 
-                                          textOverflow: 'ellipsis',
-                                          lineHeight: 1.2
-                                        }}>{session.type} {session.client ? `– ${session.client}` : ''}</Typography>
+                                {isLoadingSessions ? (
+                                  // Show realistic skeleton count - only for current month days, vary by day
+                                  (() => {
+                                    // Only show skeletons for current month days
+                                    if (!cell.isCurrentMonth) {
+                                      return null;
+                                    }
+                                    
+                                    const dayOfWeek = cell.date.getDay();
+                                    const dayOfMonth = cell.date.getDate();
+                                    // Create a pseudo-random but consistent pattern based on date
+                                    const seed = (dayOfMonth * 7 + dayOfWeek) % 6;
+                                    // More days with 0-1 sessions, fewer with 2
+                                    const skeletonCount = seed === 0 || seed === 1 ? 0 : seed === 2 || seed === 3 ? 1 : 2;
+                                    
+                                    if (skeletonCount === 0) {
+                                      return null; // No sessions for this day
+                                    }
+                                    
+                                    return (
+                                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, mt: 0.5, width: '100%', overflow: 'hidden' }}>
+                                        {Array.from({ length: skeletonCount }, (_, i) => (
+                                          <Box key={i} sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: { xs: 14, sm: 16, md: 18 }, mb: 0 }}>
+                                            <Skeleton 
+                                              variant="circular" 
+                                              width={6} 
+                                              height={6} 
+                                              sx={{ 
+                                                mr: 0.5, 
+                                                flexShrink: 0, 
+                                                minWidth: 6,
+                                                animation: 'pulse 1.5s ease-in-out infinite'
+                                              }} 
+                                            />
+                                            <Skeleton 
+                                              variant="text" 
+                                              width={`${45 + (i * 12)}%`} 
+                                              height={12} 
+                                              sx={{ 
+                                                flexShrink: 1, 
+                                                maxWidth: 'calc(100% - 10px)',
+                                                animation: 'pulse 1.5s ease-in-out infinite'
+                                              }} 
+                                            />
+                                          </Box>
+                                        ))}
                                       </Box>
-                                    </Tooltip>
-                                  ))}
-                                </Box>
+                                    );
+                                  })()
+                                ) : (
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%' }}>
+                                    {cellSessions.slice(0, maxSessionsToShow).map((session, sessionIdx) => (
+                                      <Fade
+                                        key={session.id}
+                                        in={!isLoadingSessions}
+                                        timeout={300}
+                                        style={{ transitionDelay: `${sessionIdx * 50}ms` }}
+                                      >
+                                        <Box>
+                                          <Tooltip
+                                            title={<>
+                                              <Typography fontWeight={700}>{session.type}</Typography>
+                                              <Typography fontSize="0.92rem">{session.time} - {session.endTime}</Typography>
+                                              <Typography fontSize="0.92rem" color="text.secondary">{session.client}</Typography>
+                                            </>}
+                                            arrow
+                                            placement="top"
+                                            slots={{ transition: Zoom }}
+                                          >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: { xs: 14, sm: 16, md: 18 } }}>
+                                              <Box sx={{ 
+                                                width: { xs: 6, sm: 7, md: 8, lg: 9 }, 
+                                                height: { xs: 6, sm: 7, md: 8, lg: 9 }, 
+                                                borderRadius: '50%', 
+                                                bgcolor: getSessionDotColor(session.status), 
+                                                display: 'inline-block', 
+                                                mr: 0.5, 
+                                                mb: '-1.5px',
+                                                flexShrink: 0,
+                                                minWidth: { xs: 6, sm: 7, md: 8, lg: 9 },
+                                                minHeight: { xs: 6, sm: 7, md: 8, lg: 9 }
+                                              }} />
+                                              <Typography variant="body2" sx={{ 
+                                                color: 'text.secondary', 
+                                                fontWeight: 500, 
+                                                fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.85rem' }, 
+                                                whiteSpace: 'nowrap', 
+                                                overflow: 'hidden', 
+                                                textOverflow: 'ellipsis',
+                                                lineHeight: 1.2
+                                              }}>{session.type} {session.client ? `– ${session.client}` : ''}</Typography>
+                                            </Box>
+                                          </Tooltip>
+                                        </Box>
+                                      </Fade>
+                                    ))}
+                                  </Box>
+                                )}
                               </Box>
                               {/* +X more indicator - outside overflow container */}
                               {cellSessions.length > maxSessionsToShow && (

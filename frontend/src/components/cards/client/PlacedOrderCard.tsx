@@ -9,7 +9,7 @@ import {
   useTheme
 } from '@mui/material';
 import { DateRange, AttachMoney } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PlacedOrderDetailPopover, type PlacedOrderDetail, type PaymentOption } from '../../popovers/client/PlacedOrderDetailPopover';
 
 interface PlacedOrderCardProps {
@@ -35,6 +35,7 @@ interface PlacedOrderCardProps {
   creativeServicesCount?: number;
   creativeColor?: string;
   onOrderCanceled?: () => void;
+  defaultOpen?: boolean; // Allow parent to control popover open state
 }
 
 export function PlacedOrderCard({
@@ -59,11 +60,19 @@ export function PlacedOrderCard({
   creativeReviewCount,
   creativeServicesCount,
   creativeColor,
-  onOrderCanceled
+  onOrderCanceled,
+  defaultOpen = false
 }: PlacedOrderCardProps) {
   const theme = useTheme();
   const statusColor = '#ff9800';
-  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+
+  // Update popover state when defaultOpen changes
+  useEffect(() => {
+    if (defaultOpen) {
+      setPopoverOpen(true);
+    }
+  }, [defaultOpen]);
 
   const handleCardClick = () => {
     setPopoverOpen(true);

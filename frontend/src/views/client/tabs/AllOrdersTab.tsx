@@ -19,7 +19,7 @@ import {
 import type { SelectChangeEvent } from '@mui/material';
 import { Search, FilterList, DateRange, ShoppingBag } from '@mui/icons-material';
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PlacedOrderCard } from '../../../components/cards/client/PlacedOrderCard';
 import { PaymentApprovalOrderCard } from '../../../components/cards/client/PaymentApprovalOrderCard';
 import { InProgressOrderCard } from '../../../components/cards/client/InProgressOrderCard';
@@ -122,6 +122,7 @@ export function AllServicesTab() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [creativeFilter, setCreativeFilter] = useState<string>('all');
@@ -381,6 +382,23 @@ export function AllServicesTab() {
   };
 
   const filteredOrders = getFilteredOrders();
+
+  // Check for orderId in URL params and open popover for that order
+  useEffect(() => {
+    const orderId = searchParams.get('orderId');
+    if (orderId && filteredOrders.length > 0) {
+      // Find the order with matching ID
+      const order = filteredOrders.find(o => o.id === orderId);
+      if (order) {
+        // The defaultOpen prop will be passed to the order card below
+        // Clean up the URL parameter after a short delay to allow the popover to open
+        setTimeout(() => {
+          searchParams.delete('orderId');
+          setSearchParams(searchParams, { replace: true });
+        }, 100);
+      }
+    }
+  }, [searchParams, filteredOrders, setSearchParams]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1332,6 +1350,9 @@ export function AllServicesTab() {
           </Box>
         ) : (
           filteredOrders.map((order) => {
+            const orderId = searchParams.get('orderId');
+            const defaultOpen = orderId === order.id;
+            
             const commonProps = {
               id: order.id,
               serviceName: order.serviceName,
@@ -1353,6 +1374,7 @@ export function AllServicesTab() {
                   serviceDeliveryTime={order.serviceDeliveryTime}
                   serviceColor={order.serviceColor}
                   onOrderCanceled={handleRefreshOrders}
+                  defaultOpen={defaultOpen}
                 />;
               
               case 'payment-required':
@@ -1376,6 +1398,7 @@ export function AllServicesTab() {
                   creativeReviewCount={order.creativeReviewCount}
                   creativeServicesCount={order.creativeServicesCount}
                   creativeColor={order.creativeColor}
+                  defaultOpen={defaultOpen}
                 />;
               
               case 'in-progress':
@@ -1401,6 +1424,7 @@ export function AllServicesTab() {
                     creativeServicesCount={order.creativeServicesCount}
                     creativeColor={order.creativeColor}
                     creativeAvatarUrl={order.creativeAvatarUrl}
+                    defaultOpen={defaultOpen}
                   />
                 );
               
@@ -1432,6 +1456,7 @@ export function AllServicesTab() {
                     creativeServicesCount={order.creativeServicesCount}
                     creativeColor={order.creativeColor}
                     creativeAvatarUrl={order.creativeAvatarUrl}
+                    defaultOpen={defaultOpen}
                   />
                 );
               
@@ -1462,6 +1487,7 @@ export function AllServicesTab() {
                     creativeColor={order.creativeColor}
                     creativeAvatarUrl={order.creativeAvatarUrl}
                     invoices={order.invoices}
+                    defaultOpen={defaultOpen}
                   />
                 );
               
@@ -1491,6 +1517,7 @@ export function AllServicesTab() {
                     creativeColor={order.creativeColor}
                     creativeAvatarUrl={order.creativeAvatarUrl}
                     invoices={order.invoices}
+                    defaultOpen={defaultOpen}
                   />
                 );
               
@@ -1515,6 +1542,7 @@ export function AllServicesTab() {
                     creativeColor={order.creativeColor}
                     creativeAvatarUrl={order.creativeAvatarUrl}
                     invoices={order.invoices}
+                    defaultOpen={defaultOpen}
                   />
                 );
               

@@ -156,6 +156,32 @@ async def get_client_history_orders(
         raise HTTPException(status_code=500, detail=f"Failed to fetch client history orders: {str(e)}")
 
 
+@router.get("/client/upcoming", response_model=OrdersListResponse)
+@limiter.limit("20 per minute")
+async def get_client_upcoming_bookings(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Get upcoming scheduled bookings for the current client user
+    Requires authentication - will return 401 if not authenticated.
+    Returns scheduled bookings (with booking_date and start_time) that are upcoming (booking_date >= today)
+    and not cancelled, sorted by booking_date and start_time ascending.
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        return await BookingController.get_client_upcoming_bookings(user_id, client)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching client upcoming bookings: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch client upcoming bookings: {str(e)}")
+
+
 @router.get("/creative", response_model=OrdersListResponse)
 @limiter.limit("20 per minute")
 async def get_creative_orders(
