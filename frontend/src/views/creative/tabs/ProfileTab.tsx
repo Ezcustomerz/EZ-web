@@ -8,6 +8,7 @@ import {
   CardContent,
   Avatar,
   CircularProgress,
+  Skeleton,
 } from '@mui/material';
 import {
   Star,
@@ -165,14 +166,18 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
 
   // Use creative profile from props (passed from LayoutCreative)
   useEffect(() => {
+    // Always show loading initially, then update when profile is available
     if (propCreativeProfile) {
-      // Use profile from props (already fetched by LayoutCreative)
-      setCreativeProfile(propCreativeProfile);
-      setProfileLoading(false);
-      setProfileError(null);
+      // Add a delay to show skeleton loaders briefly for better UX
+      // This ensures users see the loading animation even if data loads quickly
+      const timer = setTimeout(() => {
+        setCreativeProfile(propCreativeProfile);
+        setProfileLoading(false);
+        setProfileError(null);
+      }, 800); // Delay to show loading state - ensures skeleton is visible
+      return () => clearTimeout(timer);
     } else {
-      // If no prop provided, show loading state
-      // Don't make API call - let LayoutCreative handle it
+      // If no prop provided, keep loading state
       setProfileLoading(true);
       setProfileError(null);
     }
@@ -258,13 +263,248 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   if (profileLoading) {
     return (
       <Box sx={{
-        height: { xs: '100vh', md: 'auto' },
-        minHeight: { xs: '100vh', md: '100vh' },
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
+        height: { xs: '100vh', md: '100vh' },
+        py: { xs: 0.5, md: 2 },
+        overflow: { xs: 'auto', md: 'hidden' },
+        overflowX: 'hidden',
+        display: 'block',
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        mx: 0,
+        px: 0,
+        animation: 'fadeIn 0.5s ease-in',
+        '@keyframes fadeIn': {
+          from: { opacity: 0 },
+          to: { opacity: 1 },
+        },
       }}>
-        <CircularProgress size={60} />
+        <Container 
+          maxWidth="lg" 
+          sx={{ 
+            px: { xs: 1, sm: 1.5, md: 3 },
+            minHeight: 265,
+            width: '100%',
+            maxWidth: { xs: '100%', md: '1200px' },
+            boxSizing: 'border-box',
+            mx: 'auto',
+            '&.MuiContainer-root': {
+              paddingLeft: { xs: '8px !important', sm: '12px !important', md: '24px !important' },
+              paddingRight: { xs: '8px !important', sm: '12px !important', md: '24px !important' }
+            }
+          }}
+        >
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', md: 'row' }, 
+            gap: { xs: 1, md: 4 },
+            alignItems: { xs: 'stretch', md: 'stretch' },
+            height: '100%',
+            overflow: 'visible',
+            pb: { xs: 20, md: 0 },
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+            minWidth: 0
+          }}>
+            {/* Left Column - Profile Card Skeleton */}
+            <Box sx={{ 
+              width: { xs: '100%', md: '33.333%' },
+              minWidth: 0,
+              maxWidth: { xs: '100%', md: '33.333%' },
+              display: 'flex',
+              flexDirection: 'column',
+              boxSizing: 'border-box',
+              flexShrink: 0,
+              flexGrow: 0
+            }}>
+              <Card sx={{ 
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                borderRadius: 3,
+                position: { xs: 'relative', md: 'sticky' },
+                top: { xs: 0, md: 24 },
+                height: { xs: 'auto', md: '100%' },
+                minHeight: { xs: 'auto', md: '100%' },
+                maxHeight: { xs: 'none', md: '100%' },
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
+                boxSizing: 'border-box',
+                overflow: 'hidden',
+                mx: 0,
+                mb: { xs: 2, md: 0 }
+              }}>
+                {/* Profile Header Skeleton */}
+                <Box sx={{
+                  background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+                  pt: { xs: 1.5, sm: 2, md: 3 },
+                  pb: { xs: 1.5, sm: 2, md: 3 },
+                  px: { xs: 1.5, sm: 2, md: 3 },
+                  textAlign: 'center',
+                  position: 'relative',
+                  borderTopLeftRadius: 24,
+                  borderTopRightRadius: 24
+                }}>
+                  {/* Action Buttons Skeleton */}
+                  <Box sx={{ 
+                    position: 'absolute',
+                    top: { xs: 8, md: 16 },
+                    right: { xs: 8, md: 16 },
+                    display: 'flex',
+                    gap: { xs: 0.5, md: 1 },
+                  }}>
+                    <Skeleton variant="rectangular" width={36} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.2)' }} />
+                    <Skeleton variant="rectangular" width={36} height={36} sx={{ borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.2)' }} />
+                  </Box>
+                  
+                  {/* Avatar Skeleton */}
+                  <Skeleton 
+                    variant="circular" 
+                    width={100} 
+                    height={100} 
+                    sx={{ 
+                      mx: 'auto', 
+                      mb: { xs: 1, md: 2 },
+                      bgcolor: 'rgba(255, 255, 255, 0.2)',
+                    }} 
+                  />
+                  
+                  {/* Name Skeleton */}
+                  <Skeleton 
+                    variant="text" 
+                    width="60%" 
+                    height={32} 
+                    sx={{ 
+                      mx: 'auto', 
+                      mb: 1,
+                      bgcolor: 'rgba(255, 255, 255, 0.3)',
+                    }} 
+                  />
+                  
+                  {/* Title Skeleton */}
+                  <Skeleton 
+                    variant="text" 
+                    width="50%" 
+                    height={24} 
+                    sx={{ 
+                      mx: 'auto',
+                      bgcolor: 'rgba(255, 255, 255, 0.25)',
+                    }} 
+                  />
+                </Box>
+
+                {/* Profile Content Skeleton */}
+                <CardContent sx={{ 
+                  pt: { xs: 1.5, sm: 2, md: 3 },
+                  pb: { xs: 2, sm: 2.5, md: 3 },
+                  px: { xs: 1.5, sm: 2, md: 3 },
+                  flex: { xs: '0 1 auto', md: 1 },
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}>
+                  {/* Stats Skeleton */}
+                  <Box sx={{ mb: { xs: 1.5, md: 2 } }}>
+                    {[1, 2, 3].map((i) => (
+                      <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: { xs: 1, md: 1.5 } }}>
+                        <Skeleton variant="circular" width={20} height={20} />
+                        <Skeleton variant="text" width="70%" height={20} />
+                      </Box>
+                    ))}
+                  </Box>
+
+                  {/* Profile Highlights Skeleton */}
+                  <Box sx={{ 
+                    p: { xs: 0.75, sm: 1, md: 1 }, 
+                    pb: { xs: 1.5, sm: 2, md: 3 },
+                    bgcolor: 'grey.50', 
+                    borderRadius: 2, 
+                    border: '1px solid',
+                    borderColor: 'grey.200',
+                  }}>
+                    <Skeleton variant="text" width="40%" height={20} sx={{ mb: 1 }} />
+                    {[1, 2, 3].map((i) => (
+                      <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', mb: i < 3 ? 0.5 : 0 }}>
+                        <Skeleton variant="text" width="45%" height={16} />
+                        <Skeleton variant="text" width="30%" height={16} />
+                      </Box>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+
+            {/* Right Column - About & Services Skeleton */}
+            <Box sx={{ 
+              width: { xs: '100%', md: '66.667%' },
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1
+            }}>
+              {/* About Section Skeleton */}
+              <Card sx={{ 
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                borderRadius: 3,
+                minHeight: '155px',
+              }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Skeleton variant="text" width="40%" height={28} sx={{ mb: 2 }} />
+                  <Skeleton variant="text" width="100%" height={20} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="95%" height={20} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="85%" height={20} />
+                </CardContent>
+              </Card>
+
+              {/* Services Section Skeleton */}
+              <Card sx={{ 
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                borderRadius: 3,
+              }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                    <Skeleton variant="text" width="40%" height={28} />
+                    <Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 1 }} />
+                  </Box>
+                  
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: { xs: 'column', sm: 'row' }, 
+                    gap: 2,
+                    minHeight: 265
+                  }}>
+                    {/* Service Card Skeletons */}
+                    {[1, 2].map((i) => (
+                      <Box key={i} sx={{ 
+                        width: { xs: '100%', sm: '50%' },
+                        display: 'flex',
+                        flexDirection: 'column'
+                      }}>
+                        <Card sx={{ 
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                          borderRadius: 2,
+                          height: '100%',
+                        }}>
+                          <CardContent sx={{ p: 2 }}>
+                            <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: 1, mb: 2 }} />
+                            <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
+                            <Skeleton variant="text" width="100%" height={16} sx={{ mb: 0.5 }} />
+                            <Skeleton variant="text" width="80%" height={16} sx={{ mb: 2 }} />
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                              <Skeleton variant="text" width="30%" height={20} />
+                              <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      </Box>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+          </Box>
+        </Container>
       </Box>
     );
   }
@@ -298,7 +538,18 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
         maxWidth: '100%',
         boxSizing: 'border-box',
         mx: 0,
-        px: 0
+        px: 0,
+        animation: 'pageSlideIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        '@keyframes pageSlideIn': {
+          '0%': {
+            opacity: 0,
+            transform: 'translateY(20px)',
+          },
+          '100%': {
+            opacity: 1,
+            transform: 'translateY(0)',
+          },
+        },
       }}>
         <Container 
           maxWidth="lg" 
@@ -732,8 +983,38 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                   
                   <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                     {servicesLoading ? (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-                        <CircularProgress size={40} />
+                      <Box sx={{ 
+                        display: 'flex', 
+                        flexDirection: { xs: 'column', sm: 'row' }, 
+                        gap: 2,
+                        pb: 2,
+                        minHeight: 265
+                      }}>
+                        {/* Service Card Skeletons */}
+                        {[1, 2].map((i) => (
+                          <Box key={i} sx={{ 
+                            width: { xs: '100%', sm: '50%' },
+                            display: 'flex',
+                            flexDirection: 'column'
+                          }}>
+                            <Card sx={{ 
+                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                              borderRadius: 2,
+                              height: '100%',
+                            }}>
+                              <CardContent sx={{ p: 2 }}>
+                                <Skeleton variant="rectangular" width="100%" height={120} sx={{ borderRadius: 1, mb: 2 }} />
+                                <Skeleton variant="text" width="70%" height={24} sx={{ mb: 1 }} />
+                                <Skeleton variant="text" width="100%" height={16} sx={{ mb: 0.5 }} />
+                                <Skeleton variant="text" width="80%" height={16} sx={{ mb: 2 }} />
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                                  <Skeleton variant="text" width="30%" height={20} />
+                                  <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+                                </Box>
+                              </CardContent>
+                            </Card>
+                          </Box>
+                        ))}
                       </Box>
                     ) : services.length === 0 ? (
                       <Box sx={{ 
