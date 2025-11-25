@@ -221,6 +221,7 @@ export function DashCreative() {
               totalBookings: dashboardStats.total_bookings,
               completedSessions: dashboardStats.completed_sessions,
             } : undefined}
+            statsLoading={statsLoading}
           />
 
           {/* Section Divider */}

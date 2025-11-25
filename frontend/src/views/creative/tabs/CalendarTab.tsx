@@ -237,19 +237,19 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                   })
                 ) : (
                   Array.from({ length: 7 }, (_, i) => {
-                    const date = addDays(mobileStartOfWeek, i);
-                    const formatted = format(date, 'yyyy-MM-dd');
-                    const daySessions = sessions.filter(s => s.date === formatted);
-                    const isTodayCell = isToday(date);
-                    return (
-                      <CalendarDayCard
-                        key={formatted}
-                        date={date}
-                        isToday={isTodayCell}
-                        sessions={daySessions.map(s => ({ id: s.id, type: s.type, status: s.status }))}
-                        onClick={() => { setSelectedDate(date); setDayDialogOpen(true); }}
-                      />
-                    );
+                  const date = addDays(mobileStartOfWeek, i);
+                  const formatted = format(date, 'yyyy-MM-dd');
+                  const daySessions = sessions.filter(s => s.date === formatted);
+                  const isTodayCell = isToday(date);
+                  return (
+                    <CalendarDayCard
+                      key={formatted}
+                      date={date}
+                      isToday={isTodayCell}
+                      sessions={daySessions.map(s => ({ id: s.id, type: s.type, status: s.status }))}
+                      onClick={() => { setSelectedDate(date); setDayDialogOpen(true); }}
+                    />
+                  );
                   })
                 )}
               </Stack>
@@ -526,7 +526,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                                     );
                                   })()
                                 ) : (
-                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%' }}>
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%' }}>
                                     {cellSessions.slice(0, maxSessionsToShow).map((session, sessionIdx) => (
                                       <Fade
                                         key={session.id}
@@ -535,44 +535,44 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                                         style={{ transitionDelay: `${sessionIdx * 50}ms` }}
                                       >
                                         <Box>
-                                          <Tooltip
-                                            title={<>
-                                              <Typography fontWeight={700}>{session.type}</Typography>
-                                              <Typography fontSize="0.92rem">{session.time} - {session.endTime}</Typography>
-                                              <Typography fontSize="0.92rem" color="text.secondary">{session.client}</Typography>
-                                            </>}
-                                            arrow
-                                            placement="top"
-                                            slots={{ transition: Zoom }}
-                                          >
-                                            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: { xs: 14, sm: 16, md: 18 } }}>
-                                              <Box sx={{ 
-                                                width: { xs: 6, sm: 7, md: 8, lg: 9 }, 
-                                                height: { xs: 6, sm: 7, md: 8, lg: 9 }, 
-                                                borderRadius: '50%', 
-                                                bgcolor: getSessionDotColor(session.status), 
-                                                display: 'inline-block', 
-                                                mr: 0.5, 
-                                                mb: '-1.5px',
-                                                flexShrink: 0,
-                                                minWidth: { xs: 6, sm: 7, md: 8, lg: 9 },
-                                                minHeight: { xs: 6, sm: 7, md: 8, lg: 9 }
-                                              }} />
-                                              <Typography variant="body2" sx={{ 
-                                                color: 'text.secondary', 
-                                                fontWeight: 500, 
-                                                fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.85rem' }, 
-                                                whiteSpace: 'nowrap', 
-                                                overflow: 'hidden', 
-                                                textOverflow: 'ellipsis',
-                                                lineHeight: 1.2
-                                              }}>{session.type} {session.client ? `– ${session.client}` : ''}</Typography>
-                                            </Box>
-                                          </Tooltip>
+                                    <Tooltip
+                                      title={<>
+                                        <Typography fontWeight={700}>{session.type}</Typography>
+                                        <Typography fontSize="0.92rem">{session.time} - {session.endTime}</Typography>
+                                        <Typography fontSize="0.92rem" color="text.secondary">{session.client}</Typography>
+                                      </>}
+                                      arrow
+                                      placement="top"
+                                      slots={{ transition: Zoom }}
+                                    >
+                                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: { xs: 14, sm: 16, md: 18 } }}>
+                                        <Box sx={{ 
+                                          width: { xs: 6, sm: 7, md: 8, lg: 9 }, 
+                                          height: { xs: 6, sm: 7, md: 8, lg: 9 }, 
+                                          borderRadius: '50%', 
+                                          bgcolor: getSessionDotColor(session.status), 
+                                          display: 'inline-block', 
+                                          mr: 0.5, 
+                                          mb: '-1.5px',
+                                          flexShrink: 0,
+                                          minWidth: { xs: 6, sm: 7, md: 8, lg: 9 },
+                                          minHeight: { xs: 6, sm: 7, md: 8, lg: 9 }
+                                        }} />
+                                        <Typography variant="body2" sx={{ 
+                                          color: 'text.secondary', 
+                                          fontWeight: 500, 
+                                          fontSize: { xs: '0.75rem', sm: '0.8rem', md: '0.85rem' }, 
+                                          whiteSpace: 'nowrap', 
+                                          overflow: 'hidden', 
+                                          textOverflow: 'ellipsis',
+                                          lineHeight: 1.2
+                                        }}>{session.type} {session.client ? `– ${session.client}` : ''}</Typography>
+                                      </Box>
+                                    </Tooltip>
                                         </Box>
                                       </Fade>
-                                    ))}
-                                  </Box>
+                                  ))}
+                                </Box>
                                 )}
                               </Box>
                               {/* +X more indicator - outside overflow container */}

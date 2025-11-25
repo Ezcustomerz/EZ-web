@@ -1,4 +1,4 @@
-import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions, Skeleton, Card } from '@mui/material';
 import { MusicNote, Search, FilterList } from '@mui/icons-material';
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
@@ -420,13 +420,129 @@ export function ConnectedServicesTab() {
   if (loading) {
     return (
       <Box sx={{
+        height: '100vh',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
         display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100%',
-        minHeight: '300px',
+        flexDirection: 'column',
+        py: 1,
+        width: '100%',
+        maxWidth: '100%',
       }}>
-        <CircularProgress />
+        {/* Search and Filter Skeletons */}
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            background: { xs: '#fff' },
+            boxShadow: { xs: '0 2px 8px 0 rgba(122,95,255,0.04)', sm: 'none' },
+            px: 0,
+            pt: { xs: 0, sm: 0.5 },
+          }}
+        >
+          <Box
+            sx={{
+              px: { xs: 1, sm: 2 },
+              display: 'flex',
+              flexDirection: { xs: 'row', sm: 'row' },
+              gap: 2,
+              justifyContent: { xs: 'flex-start', sm: 'space-between' },
+              alignItems: 'center',
+              mb: 0,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: { xs: 1, sm: 'none' } }}>
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, width: { xs: 'calc(100% - 120px)', sm: 220 } }} />
+              {isMobile ? (
+                <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: 100, flexShrink: 0 }} />
+              ) : (
+                <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, width: 140 }} />
+              )}
+            </Box>
+            {!isMobile && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, width: 140 }} />
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        {/* Service/Bundle Card Skeletons */}
+        <Box sx={{
+          display: 'grid',
+          gap: { xs: 1.5, sm: 2 },
+          px: { xs: 1, sm: 2 },
+          pt: 2,
+          pb: 4,
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+            lg: 'repeat(3, 1fr)',
+          },
+        }}>
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <Box
+              key={`skeleton-${idx}`}
+              sx={{
+                animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${idx * 0.1}s both`,
+                '@keyframes fadeInCard': {
+                  '0%': { opacity: 0, transform: 'translateY(20px) scale(0.95)' },
+                  '100%': { opacity: 1, transform: 'translateY(0) scale(1)' },
+                },
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                overflow: 'visible',
+                boxSizing: 'border-box',
+              }}
+            >
+              <Card sx={{
+                height: '100%',
+                width: '100%',
+                maxWidth: '100%',
+                minHeight: { xs: 135, sm: 170 },
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                borderRadius: 1,
+                boxShadow: '0px 1.5px 6px rgba(59,130,246,0.05)',
+                p: { xs: 1.2, sm: 1.6 },
+                backgroundColor: 'background.paper',
+                boxSizing: 'border-box',
+                overflow: 'visible',
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Skeleton variant="circular" width={14} height={14} />
+                      <Skeleton variant="text" width="70%" height={24} />
+                    </Box>
+                    <Skeleton variant="text" width="50%" height={18} sx={{ mb: 0.5 }} />
+                    <Skeleton variant="rectangular" width={50} height={4} sx={{ borderRadius: '2px' }} />
+                  </Box>
+                </Box>
+                <Box sx={{ flexGrow: 1, mb: 1.5 }}>
+                  <Skeleton variant="text" width="100%" height={16} />
+                  <Skeleton variant="text" width="90%" height={16} />
+                  <Skeleton variant="text" width="80%" height={16} />
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Skeleton variant="circular" width={16} height={16} />
+                    <Skeleton variant="text" width={60} height={20} />
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Skeleton variant="circular" width={16} height={16} />
+                    <Skeleton variant="text" width={80} height={20} />
+                  </Box>
+                </Box>
+              </Card>
+            </Box>
+          ))}
+        </Box>
       </Box>
     );
   }
@@ -966,7 +1082,6 @@ export function ConnectedServicesTab() {
         onClose={handleBookingClose}
         service={serviceToBook}
         onConfirmBooking={handleConfirmBooking}
-        onCreativeClick={handleCreativeClick}
       />
 
       {/* Creative Detail Popover */}

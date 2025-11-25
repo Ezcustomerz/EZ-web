@@ -9,12 +9,14 @@ import {
   MenuItem, 
   useTheme,
   useMediaQuery,
-  CircularProgress,
   Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Skeleton,
+  Card,
+  CardContent,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { Search, DateRange, FilterList, AttachMoney } from '@mui/icons-material';
@@ -285,6 +287,85 @@ export function ActiveTab() {
     filteredOrders.sort((a, b) => a.price - b.price);
   } else if (priceSort === 'high-low') {
     filteredOrders.sort((a, b) => b.price - a.price);
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', pt: 2 }}>
+        {/* Search and Filters Skeletons */}
+        <Box sx={{ 
+          mb: 3, 
+          display: 'flex', 
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          alignItems: { xs: 'stretch', md: 'center' }
+        }}>
+          <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, flex: { xs: 1, md: 2 } }} />
+          {isMobile ? (
+            <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: '100%' }} />
+          ) : (
+            <>
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: 200 }} />
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: 180 }} />
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: 150 }} />
+            </>
+          )}
+        </Box>
+
+        {/* Order Card Skeletons */}
+        <Box sx={{ 
+          flex: 1, 
+          overflowY: 'auto',
+          overflowX: 'visible',
+          pr: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          pt: 3,
+        }}>
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <Card
+              key={`skeleton-${idx}`}
+              sx={{
+                borderRadius: 2,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                border: '1px solid rgba(0, 0, 0, 0.06)',
+                animation: `fadeIn 0.5s ease-in ${idx * 0.1}s both`,
+                '@keyframes fadeIn': {
+                  from: { opacity: 0, transform: 'translateY(10px)' },
+                  to: { opacity: 1, transform: 'translateY(0)' },
+                },
+              }}
+            >
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
+                  <Skeleton variant="circular" width={48} height={48} />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                      <Skeleton variant="text" width="35%" height={20} />
+                      <Skeleton variant="text" width="25%" height={14} />
+                    </Box>
+                    <Skeleton variant="text" width="40%" height={14} sx={{ mb: 1.5 }} />
+                    <Skeleton variant="rectangular" height={1} width="100%" sx={{ mb: 1.5 }} />
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 0.5 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                        <Skeleton variant="text" width={60} height={12} />
+                        <Skeleton variant="text" width={80} height={16} />
+                      </Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                        <Skeleton variant="text" width={50} height={12} />
+                        <Skeleton variant="text" width={70} height={16} />
+                      </Box>
+                    </Box>
+                  </Box>
+                  <Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1.5, alignSelf: 'flex-start' }} />
+                </Box>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      </Box>
+    );
   }
 
   return (
@@ -872,21 +953,7 @@ export function ActiveTab() {
           },
         },
       }}>
-        {loading ? (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            py: 8,
-            gap: 2
-          }}>
-            <CircularProgress />
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Loading in progress orders...
-            </Typography>
-          </Box>
-        ) : error ? (
+        {error ? (
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
