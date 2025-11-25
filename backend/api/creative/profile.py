@@ -5,7 +5,7 @@ from schemas.creative import (
     CreativeProfileSettingsRequest, CreativeProfileSettingsResponse,
     ProfilePhotoUploadResponse, CreativeDashboardStatsResponse
 )
-from services.booking import BookingController
+from services.booking.order_service import OrderService
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
@@ -125,7 +125,7 @@ async def get_creative_dashboard_stats(
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        stats = await BookingController.get_creative_dashboard_stats(user_id, client)
+        stats = await OrderService.get_creative_dashboard_stats(user_id, client)
         return CreativeDashboardStatsResponse(**stats)
         
     except HTTPException:
