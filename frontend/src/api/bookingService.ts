@@ -428,6 +428,7 @@ export interface OrderFile {
   name: string;
   type: string;
   size: string;
+  downloaded_at?: string | null;
 }
 
 export interface Invoice {

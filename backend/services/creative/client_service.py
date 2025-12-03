@@ -45,6 +45,24 @@ class ClientService:
             client_data_map = {c['user_id']: c for c in clients_result.data}
             user_data_map = {u['user_id']: u for u in users_result.data}
             
+            # Check for active bookings for each client
+            # A client is active if they have at least one booking that is not cancelled or completed
+            # (client_status not in ['cancelled', 'completed'] AND creative_status not in ['rejected', 'completed'])
+            all_bookings_result = client.table('bookings').select(
+                'client_user_id, client_status, creative_status'
+            ).eq('creative_user_id', user_id).in_('client_user_id', client_user_ids).execute()
+            
+            # Filter for active bookings and create set of client_user_ids with active bookings
+            active_client_ids = set()
+            if all_bookings_result.data:
+                for booking in all_bookings_result.data:
+                    client_status = booking.get('client_status', '')
+                    creative_status = booking.get('creative_status', '')
+                    # Booking is active if it's not cancelled/completed and not rejected/completed
+                    if (client_status not in ['cancelled', 'completed'] and 
+                        creative_status not in ['rejected', 'completed']):
+                        active_client_ids.add(booking['client_user_id'])
+            
             clients = []
             for relationship in relationships_result.data:
                 client_user_id = relationship['client_user_id']
@@ -66,12 +84,16 @@ class ClientService:
                 # Use display_name if available, otherwise use name
                 client_name = client_data.get('display_name') or user_data.get('name', 'Unknown Client')
                 
+                # Determine status based on active bookings
+                # Client is active if they have at least one active booking
+                client_status = 'active' if client_user_id in active_client_ids else 'inactive'
+                
                 client = CreativeClientResponse(
                     id=relationship['id'],
                     name=client_name,
                     contact=contact,
                     contactType=contact_type,
-                    status=relationship.get('status', 'inactive'),
+                    status=client_status,
                     totalSpent=float(relationship.get('total_spent', 0)),
                     projects=int(relationship.get('projects_count', 0)),
                     profile_picture_url=user_data.get('profile_picture_url'),

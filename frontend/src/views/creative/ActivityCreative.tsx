@@ -1,6 +1,6 @@
 import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ReceiptLong, BarChart, MusicNote, Payment } from '@mui/icons-material';
 import { CurrentOrdersTab } from './tabs/CurrentOrdersTab';
 import { PastOrdersTab } from './tabs/PastOrdersTab';
@@ -31,6 +31,62 @@ export function ActivityCreative() {
     setActiveTab(newValue);
     localStorage.setItem('activity-active-tab', String(newValue));
   };
+
+  // Check for order popover to open from notification
+  const [orderIdToOpen, setOrderIdToOpen] = useState<string | null>(() => {
+    const stored = localStorage.getItem('open-order-popover');
+    if (stored) {
+      localStorage.removeItem('open-order-popover');
+      return stored;
+    }
+    return null;
+  });
+
+  // When orderIdToOpen is set, also check and apply the correct tab from localStorage
+  useEffect(() => {
+    if (orderIdToOpen) {
+      const storedTab = localStorage.getItem('activity-active-tab');
+      if (storedTab !== null) {
+        const tabToUse = Number(storedTab);
+        if (activeTab !== tabToUse) {
+          setActiveTab(tabToUse);
+        }
+      }
+    }
+  }, [orderIdToOpen]); // Only depend on orderIdToOpen, not activeTab to avoid loops
+
+  // Also check on mount in case we're navigating to this page with a pending order
+  useEffect(() => {
+    const pendingOrder = localStorage.getItem('open-order-popover');
+    if (pendingOrder && !orderIdToOpen) {
+      const storedTab = localStorage.getItem('activity-active-tab');
+      if (storedTab !== null) {
+        const tabToUse = Number(storedTab);
+        if (activeTab !== tabToUse) {
+          setActiveTab(tabToUse);
+        }
+      }
+    }
+  }, []); // Only run on mount
+
+  // Fallback: if order not found in the selected tab, try the other tab
+  const hasTriedOtherTabRef = useRef<string | null>(null);
+  const handleOrderNotFound = useCallback(() => {
+    if (orderIdToOpen && hasTriedOtherTabRef.current !== orderIdToOpen) {
+      hasTriedOtherTabRef.current = orderIdToOpen;
+      // Switch to the other tab
+      const otherTab = activeTab === 0 ? 1 : 0;
+      setActiveTab(otherTab);
+      localStorage.setItem('activity-active-tab', String(otherTab));
+      // Clear the ref when orderIdToOpen changes so we can search again
+      if (orderIdToOpen) {
+        // Reset the ref after a short delay to allow the new tab to load
+        setTimeout(() => {
+          hasTriedOtherTabRef.current = null;
+        }, 100);
+      }
+    }
+  }, [orderIdToOpen, activeTab]);
 
   return (
     <LayoutCreative selectedNavItem="activity">
@@ -308,9 +364,22 @@ export function ActivityCreative() {
             }}
           >
             {activeTab === 0 ? (
-              <CurrentOrdersTab />
+              <CurrentOrdersTab 
+                orderIdToOpen={orderIdToOpen} 
+                onOrderOpened={() => {
+                  setOrderIdToOpen(null);
+                  hasTriedOtherTabRef.current = null;
+                }}
+                onOrderNotFound={handleOrderNotFound}
+              />
             ) : activeTab === 1 ? (
-              <PastOrdersTab />
+              <PastOrdersTab 
+                orderIdToOpen={orderIdToOpen} 
+                onOrderOpened={() => {
+                  setOrderIdToOpen(null);
+                  hasTriedOtherTabRef.current = null;
+                }}
+              />
             ) : (
               <AnalyticsTab />
             )}

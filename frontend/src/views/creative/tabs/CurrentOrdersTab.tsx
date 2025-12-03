@@ -5,6 +5,8 @@ import { bookingService, type Order } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
 import { useTheme, useMediaQuery } from '@mui/material';
 
+// Reset check flag when orderIdToOpen changes
+
 // Module-level cache to prevent duplicate fetches across remounts
 // This persists across StrictMode remounts to prevent duplicate API calls
 let fetchCache: {
@@ -88,7 +90,8 @@ function transformOrders(fetchedOrders: Order[]) {
   });
 }
  
-export function CurrentOrdersTab() {
+export function CurrentOrdersTab({ orderIdToOpen, onOrderOpened, onOrderNotFound }: { orderIdToOpen?: string | null; onOrderOpened?: () => void; onOrderNotFound?: () => void }) {
+  const hasCheckedForOrderRef = useRef<string | null>(null);
   const { isAuthenticated } = useAuth();
   const [orders, setOrders] = useState<Array<any>>([]);
   const [loading, setLoading] = useState(true);
@@ -135,6 +138,7 @@ export function CurrentOrdersTab() {
     }
   }, [isAuthenticated]);
 
+
   // Fetch orders on mount - only once
   useEffect(() => {
     mountedRef.current = true;
@@ -158,6 +162,21 @@ export function CurrentOrdersTab() {
         const transformedOrders = transformOrders(fetchCache.data);
         setOrders(transformedOrders);
         setLoading(false);
+        
+        // Check if we're looking for an order and it's not in the list
+        // Use setTimeout to ensure this runs after state update
+        if (orderIdToOpen && onOrderNotFound && hasCheckedForOrderRef.current !== orderIdToOpen) {
+          setTimeout(() => {
+            if (mountedRef.current && hasCheckedForOrderRef.current !== orderIdToOpen) {
+              hasCheckedForOrderRef.current = orderIdToOpen;
+              const orderFound = transformedOrders.some(order => order.id === orderIdToOpen);
+              if (!orderFound) {
+                // Order not found in Current Orders, notify parent to try Past Orders
+                onOrderNotFound();
+              }
+            }
+          }, 200);
+        }
       }
       return;
     }
@@ -170,6 +189,21 @@ export function CurrentOrdersTab() {
         const transformedOrders = transformOrders(fetchedOrders);
         setOrders(transformedOrders);
         setLoading(false);
+        
+        // Check if we're looking for an order and it's not in the list
+        // Use setTimeout to ensure this runs after state update
+        if (orderIdToOpen && onOrderNotFound && hasCheckedForOrderRef.current !== orderIdToOpen) {
+          setTimeout(() => {
+            if (mountedRef.current && hasCheckedForOrderRef.current !== orderIdToOpen) {
+              hasCheckedForOrderRef.current = orderIdToOpen;
+              const orderFound = transformedOrders.some(order => order.id === orderIdToOpen);
+              if (!orderFound) {
+                // Order not found in Current Orders, notify parent to try Past Orders
+                onOrderNotFound();
+              }
+            }
+          }, 200);
+        }
       }).catch(error => {
         if (!mountedRef.current) return;
         console.error('Failed to fetch orders:', error);
@@ -194,6 +228,18 @@ export function CurrentOrdersTab() {
         if (mountedRef.current) {
           setOrders(transformedOrders);
           setLoading(false);
+          
+          // Check if we're looking for an order and it's not in the list
+          // Use setTimeout to ensure this runs after state update
+          if (orderIdToOpen && onOrderNotFound) {
+            setTimeout(() => {
+              const orderFound = transformedOrders.some(order => order.id === orderIdToOpen);
+              if (!orderFound) {
+                // Order not found in Current Orders, notify parent to try Past Orders
+                onOrderNotFound();
+              }
+            }, 100);
+          }
         }
         // Cache the resolved data
         fetchCache.data = fetchedOrders;
@@ -392,7 +438,7 @@ export function CurrentOrdersTab() {
       py: 1,
       overflow: 'visible',
     }}>
-      <RequestsTable requests={orders} context="orders" onRefresh={refreshOrders} />
+      <RequestsTable requests={orders} context="orders" onRefresh={refreshOrders} orderIdToOpen={orderIdToOpen} onOrderOpened={onOrderOpened} onOrderNotFound={onOrderNotFound} />
     </Box>
   );
 }

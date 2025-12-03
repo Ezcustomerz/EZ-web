@@ -23,6 +23,7 @@ class OrderFile(BaseModel):
     name: str
     type: str
     size: str
+    downloaded_at: Optional[str] = None
 
 class Invoice(BaseModel):
     type: str  # 'ez_invoice' | 'stripe_receipt'

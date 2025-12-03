@@ -10,5 +10,6 @@ export interface ActivityItem {
   notificationType?: string; // notification type for special rendering
   metadata?: Record<string, any>; // metadata for highlighting specific text
   notificationId?: string; // notification ID for marking as read
+  relatedEntityId?: string; // related entity ID (e.g., booking_id) for navigation
 }
 

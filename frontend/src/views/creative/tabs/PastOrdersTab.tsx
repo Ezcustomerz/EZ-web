@@ -20,7 +20,7 @@ let fetchCache: {
   resolved: false,
 };
 
-const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remounts
+const CACHE_DURATION = 2000; // Cache for 2 seconds to handle StrictMode remounts (reduced for better data freshness)
 
 // Helper function to transform orders
 function transformOrders(fetchedOrders: Order[]) {
@@ -51,16 +51,19 @@ function transformOrders(fetchedOrders: Order[]) {
         amount: order.price,
         status: displayStatus,
         date: order.order_date,
+        completedDate: order.order_date, // Use order_date as completed date for past orders
+        bookingDate: order.booking_date || null,
         canceledDate: order.canceled_date, // Include canceled_date from backend
         description: order.description || order.service_description || '',
         clientEmail: order.creative_email,
         clientPhone: undefined, // TODO: Add client phone if available
         specialRequirements: order.description,
+        files: order.files || [], // Include files with download status
       };
     });
 }
  
-export function PastOrdersTab() {
+export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?: string | null; onOrderOpened?: () => void }) {
   const { isAuthenticated } = useAuth();
   const [orders, setOrders] = useState<Array<any>>([]);
   const [loading, setLoading] = useState(true);
@@ -320,7 +323,7 @@ export function PastOrdersTab() {
       py: 1,
       overflow: 'visible',
     }}>
-      <PastOrdersTable orders={orders} />
+      <PastOrdersTable orders={orders} orderIdToOpen={orderIdToOpen} onOrderOpened={onOrderOpened} />
     </Box>
   );
 }

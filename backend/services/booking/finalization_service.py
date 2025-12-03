@@ -216,7 +216,8 @@ class FinalizationService:
                             "service_title": service_title,
                             "client_display_name": client_display_name,
                             "booking_id": booking_id,
-                            "has_files": True
+                            "has_files": True,
+                            "creative_status": creative_status  # Include status to determine which tab to navigate to
                         },
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
@@ -307,7 +308,8 @@ class FinalizationService:
                             "service_title": service_title,
                             "client_display_name": client_display_name,
                             "booking_id": booking_id,
-                            "has_files": True
+                            "has_files": True,
+                            "creative_status": creative_status  # Include status to determine which tab to navigate to
                         },
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()

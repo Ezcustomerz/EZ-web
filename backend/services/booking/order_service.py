@@ -151,6 +151,16 @@ class OrderService:
         amount_paid = float(booking.get('amount_paid', 0)) if booking.get('amount_paid') else 0.0
         
         if is_creative_view:
+            # Convert files to OrderFile format if provided
+            order_files = None
+            if files and len(files) > 0:
+                try:
+                    order_files = [OrderFile(**f) if isinstance(f, dict) else f for f in files]
+                    logger.debug(f"[_build_order_response] Converted {len(order_files)} files for booking {booking.get('id')} (creative view)")
+                except Exception as e:
+                    logger.error(f"[_build_order_response] Error converting files to OrderFile: {e}", exc_info=True)
+                    order_files = None
+            
             return OrderResponse(
                 id=booking['id'],
                 service_id=booking['service_id'],
@@ -178,7 +188,8 @@ class OrderService:
                 description=booking.get('notes'),
                 status=display_status,
                 client_status=client_status,
-                creative_status=creative_status
+                creative_status=creative_status,
+                files=order_files
             )
         else:
             # Convert files to OrderFile format if provided
@@ -850,9 +861,51 @@ class OrderService:
             
             creatives_dict = {}
             
+            # Fetch deliverables with download status
+            booking_ids = [b['id'] for b in bookings_response.data]
+            deliverables_dict = {}
+            if booking_ids:
+                try:
+                    deliverables_response = client.table('booking_deliverables')\
+                        .select('id, booking_id, file_name, file_type, file_size_bytes, downloaded_at')\
+                        .in_('booking_id', booking_ids)\
+                        .execute()
+                    
+                    for deliverable in (deliverables_response.data or []):
+                        booking_id = str(deliverable['booking_id'])
+                        if booking_id not in deliverables_dict:
+                            deliverables_dict[booking_id] = []
+                        file_size_bytes = deliverable.get('file_size_bytes', 0) or 0
+                        if file_size_bytes > 1024 * 1024:
+                            file_size_str = f"{(file_size_bytes / 1024 / 1024):.2f} MB"
+                        else:
+                            file_size_str = f"{(file_size_bytes / 1024):.2f} KB"
+                        deliverables_dict[booking_id].append({
+                            'id': str(deliverable['id']),
+                            'name': deliverable.get('file_name', 'Unknown'),
+                            'type': deliverable.get('file_type', 'file'),
+                            'size': file_size_str,
+                            'downloaded_at': deliverable.get('downloaded_at')
+                        })
+                except Exception as e:
+                    logger.error(f"Error fetching deliverables in get_creative_past_orders: {e}", exc_info=True)
+                    deliverables_dict = {}
+            
             orders = []
             for booking in bookings_response.data:
-                order = OrderService._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=True)
+                booking_id_str = str(booking['id'])
+                booking_files = deliverables_dict.get(booking_id_str, [])
+                # Convert to OrderFile format
+                order_files = []
+                for f in booking_files:
+                    order_files.append(OrderFile(
+                        id=f['id'],
+                        name=f['name'],
+                        type=f['type'],
+                        size=f['size'],
+                        downloaded_at=f.get('downloaded_at')
+                    ))
+                order = OrderService._build_order_response(booking, services_dict, creatives_dict, users_dict, is_creative_view=True, files=order_files)
                 orders.append(order)
             
             return OrdersListResponse(success=True, orders=orders)

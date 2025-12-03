@@ -84,6 +84,14 @@ export interface CompleteOrder {
   review?: string;
   deliverables?: string[];
   completionNotes?: string;
+  // Files with download status
+  files?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    size: string;
+    downloaded_at?: string | null;
+  }>;
   // PDF documents
   receiptPdf?: string;
   serviceSummaryPdf?: string;
@@ -719,6 +727,86 @@ export function CompletePopover({
                       </Typography>
                     </Box>
                   ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Files Download Status - Only show when files were actually returned */}
+          {order.files && order.files.length > 0 && (
+            <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+                  File Download Status
+                </Typography>
+                <Stack spacing={1.5}>
+                  {order.files.map((file) => {
+                    const isDownloaded = file.downloaded_at !== null && file.downloaded_at !== undefined;
+                    const downloadDate = file.downloaded_at ? new Date(file.downloaded_at).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: '2-digit', 
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : null;
+                    
+                    return (
+                      <Box 
+                        key={file.id} 
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 1.5,
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          backgroundColor: isDownloaded ? '#f0fdf4' : '#fefefe',
+                          border: `1px solid ${isDownloaded ? '#86efac' : '#e2e8f0'}`
+                        }}
+                      >
+                        {isDownloaded ? (
+                          <CheckCircle sx={{ fontSize: 20, color: '#10b981' }} />
+                        ) : (
+                          <Download sx={{ fontSize: 20, color: '#6b7280' }} />
+                        )}
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            {file.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {file.size} • {file.type}
+                          </Typography>
+                          {isDownloaded && downloadDate && (
+                            <Typography variant="caption" sx={{ color: '#10b981', display: 'block', mt: 0.5 }}>
+                              Downloaded on {downloadDate}
+                            </Typography>
+                          )}
+                        </Box>
+                        {isDownloaded ? (
+                          <Chip
+                            label="Downloaded"
+                            size="small"
+                            sx={{
+                              backgroundColor: '#10b981',
+                              color: '#fff',
+                              fontWeight: 500,
+                              fontSize: '0.75rem',
+                            }}
+                          />
+                        ) : (
+                          <Chip
+                            label="Not Downloaded"
+                            size="small"
+                            sx={{
+                              backgroundColor: '#f3f4f6',
+                              color: '#6b7280',
+                              fontWeight: 500,
+                              fontSize: '0.75rem',
+                            }}
+                          />
+                        )}
+                      </Box>
+                    );
+                  })}
                 </Stack>
               </CardContent>
             </Card>

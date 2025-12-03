@@ -15,6 +15,7 @@ import { CalendarDayCard } from '../../../components/cards/creative/CalendarDayC
 import { bookingService } from '../../../api/bookingService';
 import type { CalendarSession } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
+import { AuthPopover } from '../../../components/popovers/auth/AuthPopover';
 
 type Session = CalendarSession;
 
@@ -47,6 +48,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
   const [fabMenuAnchor, setFabMenuAnchor] = useState<null | HTMLElement>(null);
   const handleFabMenuOpen = (e: React.MouseEvent<HTMLElement>) => setFabMenuAnchor(e.currentTarget);
   const handleFabMenuClose = () => setFabMenuAnchor(null);
+  const [authPopoverOpen, setAuthPopoverOpen] = useState(false);
 
   // Fetch sessions when month changes (desktop) or week changes (mobile)
   useEffect(() => {
@@ -119,6 +121,10 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
 
   // Open day dialog
   function openDayDialog(date: Date) {
+    if (!isAuthenticated) {
+      setAuthPopoverOpen(true);
+      return;
+    }
     setSelectedDate(date);
     setDayDialogOpen(true);
   }
@@ -247,7 +253,14 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                       date={date}
                       isToday={isTodayCell}
                       sessions={daySessions.map(s => ({ id: s.id, type: s.type, status: s.status }))}
-                      onClick={() => { setSelectedDate(date); setDayDialogOpen(true); }}
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          setAuthPopoverOpen(true);
+                          return;
+                        }
+                        setSelectedDate(date);
+                        setDayDialogOpen(true);
+                      }}
                     />
                   );
                   })
@@ -631,6 +644,14 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
             setSessionDialogOpen(false);
             setDayDialogOpen(true);
           }}
+        />
+
+        {/* Auth Popover */}
+        <AuthPopover
+          open={authPopoverOpen}
+          onClose={() => setAuthPopoverOpen(false)}
+          title="Sign in to view calendar"
+          subtitle="Sign in with Google to access your calendar and manage sessions"
         />
       </Box>
     </LocalizationProvider>

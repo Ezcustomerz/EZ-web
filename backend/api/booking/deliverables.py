@@ -293,14 +293,22 @@ async def download_deliverables_batch(
         # Generate signed URLs for all files
         bucket_name = "booking-deliverables"
         files_with_urls = []
+        deliverable_ids_to_update = []
+        from datetime import datetime, timezone
         
+        # Get current timestamp once for all updates
+        downloaded_at_iso = datetime.now(timezone.utc).isoformat()
+        
+        # First pass: Generate all signed URLs and collect deliverable IDs
         for deliverable in deliverables_result.data:
+            deliverable_id = deliverable.get('id')
+            file_path = deliverable.get('file_url')
+            
+            if not file_path:
+                logger.warning(f"File path not found for deliverable {deliverable_id}")
+                continue
+            
             try:
-                file_path = deliverable.get('file_url')
-                if not file_path:
-                    logger.warning(f"File path not found for deliverable {deliverable.get('id')}")
-                    continue
-                
                 # Generate signed URL (expires in 1 hour = 3600 seconds)
                 signed_url_result = db_admin.storage.from_(bucket_name).create_signed_url(
                     file_path,
@@ -315,20 +323,53 @@ async def download_deliverables_batch(
                 else:
                     signed_url = getattr(signed_url_result, 'signedURL', None) or getattr(signed_url_result, 'signed_url', None) or getattr(signed_url_result, 'url', None)
                 
-                if signed_url:
-                    files_with_urls.append({
-                        "deliverable_id": deliverable.get('id'),
-                        "file_name": deliverable.get('file_name'),
-                        "signed_url": signed_url,
-                        "expires_in": 3600
-                    })
-                else:
-                    logger.error(f"Failed to generate signed URL for deliverable {deliverable.get('id')}")
+                if not signed_url:
+                    logger.error(f"Failed to generate signed URL for deliverable {deliverable_id}")
+                    continue
+                
+                files_with_urls.append({
+                    "deliverable_id": deliverable_id,
+                    "file_name": deliverable.get('file_name'),
+                    "signed_url": signed_url,
+                    "expires_in": 3600
+                })
+                
+                # Collect deliverable ID for batch update
+                deliverable_ids_to_update.append(deliverable_id)
                     
             except Exception as url_error:
-                logger.error(f"Error generating signed URL for deliverable {deliverable.get('id')}: {str(url_error)}")
+                logger.error(f"Error processing deliverable {deliverable_id} ({deliverable.get('file_name')}): {str(url_error)}", exc_info=True)
                 # Continue with other files even if one fails
                 continue
+        
+        # Second pass: Update all files as downloaded in a single batch operation
+        if deliverable_ids_to_update:
+            try:
+                # Update all deliverables at once using IN clause
+                update_result = db_admin.table('booking_deliverables')\
+                    .update({'downloaded_at': downloaded_at_iso})\
+                    .in_('id', deliverable_ids_to_update)\
+                    .execute()
+                
+                logger.info(f"Batch download: Marked {len(deliverable_ids_to_update)} files as downloaded at {downloaded_at_iso} for booking {booking_id}")
+                logger.info(f"Batch download: Updated deliverable IDs: {deliverable_ids_to_update}")
+            except Exception as batch_update_error:
+                # If batch update fails, try individual updates as fallback
+                logger.error(f"Batch update failed, attempting individual updates: {str(batch_update_error)}", exc_info=True)
+                success_count = 0
+                for deliverable_id in deliverable_ids_to_update:
+                    try:
+                        db_admin.table('booking_deliverables')\
+                            .update({'downloaded_at': downloaded_at_iso})\
+                            .eq('id', deliverable_id)\
+                            .execute()
+                        success_count += 1
+                        logger.info(f"Fallback: Marked deliverable {deliverable_id} as downloaded")
+                    except Exception as individual_error:
+                        logger.error(f"CRITICAL: Failed to update deliverable {deliverable_id}: {str(individual_error)}", exc_info=True)
+                logger.warning(f"Fallback update: Successfully updated {success_count} of {len(deliverable_ids_to_update)} files")
+        
+        logger.info(f"Batch download: Generated {len(files_with_urls)} signed URLs for booking {booking_id}")
         
         return {
             "success": True,
@@ -432,6 +473,22 @@ async def download_deliverable(
             
             if not signed_url:
                 raise HTTPException(status_code=500, detail="Failed to generate download URL")
+            
+            # Mark the file as downloaded (update downloaded_at timestamp)
+            # Use db_admin to bypass RLS since this is a system tracking update
+            from datetime import datetime, timezone
+            try:
+                # Format timestamp as ISO 8601 string for PostgreSQL
+                downloaded_at_iso = datetime.now(timezone.utc).isoformat()
+                # Execute update - Supabase Python client may not return data, but update still works
+                db_admin.table('booking_deliverables')\
+                    .update({'downloaded_at': downloaded_at_iso})\
+                    .eq('id', deliverable_id)\
+                    .execute()
+                logger.info(f"Updated downloaded_at for deliverable {deliverable_id} to {downloaded_at_iso}")
+            except Exception as update_error:
+                # Log error but don't fail the download
+                logger.error(f"Failed to update downloaded_at for deliverable {deliverable_id}: {str(update_error)}", exc_info=True)
             
             return {
                 "success": True,

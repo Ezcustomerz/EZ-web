@@ -142,10 +142,44 @@ export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardP
                     // Customize behavior per notification type
                     if (item.label === 'New Client Added') {
                       navigate('/creative/clients'); // Navigate to clients page
-                    } else if (item.label === 'New Booking Request' || item.label === 'New Booking') {
-                      navigate('/creative/activity'); // Navigate to activity page
+                    } else if ((item.label === 'New Booking Request' || item.label === 'New Booking') && item.relatedEntityId) {
+                      // Navigate to activity page and open the specific order popover
+                      navigate('/creative/activity');
+                      // Store booking_id in localStorage to open popover after navigation
+                      localStorage.setItem('open-order-popover', item.relatedEntityId);
+                      // New booking requests are typically in Current Orders (Pending Approval status)
+                      localStorage.setItem('activity-active-tab', '0');
                     } else if (item.label === 'Payment Received') {
                       navigate('/creative/payments'); // 
+                    } else if (item.label === 'Files Sent' && item.relatedEntityId) {
+                      // Navigate to activity page and open the specific order popover
+                      navigate('/creative/activity');
+                      // Store booking_id in localStorage to open popover after navigation
+                      localStorage.setItem('open-order-popover', item.relatedEntityId);
+                      // Determine tab based on creative_status from metadata
+                      const creativeStatus = item.metadata?.creative_status;
+                      if (creativeStatus) {
+                        const isPastOrder = creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled';
+                        const tabIndex = isPastOrder ? '1' : '0';
+                        localStorage.setItem('activity-active-tab', tabIndex);
+                      } else {
+                        // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
+                        localStorage.setItem('activity-active-tab', '0');
+                      }
+                    } else if (item.label === 'Service Approved' && item.relatedEntityId) {
+                      // Navigate to activity page and open the specific order popover
+                      navigate('/creative/activity');
+                      // Store booking_id in localStorage to open popover after navigation
+                      localStorage.setItem('open-order-popover', item.relatedEntityId);
+                      // Determine tab based on creative_status from metadata
+                      const creativeStatus = item.metadata?.creative_status;
+                      if (creativeStatus) {
+                        const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
+                        localStorage.setItem('activity-active-tab', tabIndex);
+                      } else {
+                        // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
+                        localStorage.setItem('activity-active-tab', '0');
+                      }
                     }
                     // We can add more cases in the future
                   }}

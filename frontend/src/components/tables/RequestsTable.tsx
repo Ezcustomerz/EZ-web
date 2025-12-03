@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Table,
@@ -90,11 +90,17 @@ function formatBookingDate(bookingDateStr: string | null) {
 export function RequestsTable({ 
   requests = [], 
   context = 'requests',
-  onRefresh
+  onRefresh,
+  orderIdToOpen,
+  onOrderOpened,
+  onOrderNotFound
 }: { 
   requests?: any[];
   context?: 'orders' | 'payments' | 'requests';
   onRefresh?: () => Promise<void> | void;
+  orderIdToOpen?: string | null;
+  onOrderOpened?: () => void;
+  onOrderNotFound?: () => void;
 }) {
   const theme = useTheme();
   
@@ -334,6 +340,46 @@ export function RequestsTable({
     setCancelledPopoverOpen(false);
     setSelectedCancelledOrder(null);
   };
+
+  // Track if we've attempted to find the order (using ref to avoid re-renders)
+  const hasSearchedForOrderRef = useRef<string | null>(null);
+
+  // Open popover for specific order when orderIdToOpen is provided
+  useEffect(() => {
+    // Only search once per orderIdToOpen, and only if no popover is currently open
+    if (orderIdToOpen && requests.length > 0 && !pendingApprovalPopoverOpen && !awaitingPaymentPopoverOpen && !inProgressPopoverOpen && !completePopoverOpen && !cancelledPopoverOpen && hasSearchedForOrderRef.current !== orderIdToOpen) {
+      hasSearchedForOrderRef.current = orderIdToOpen;
+      const orderToOpen = requests.find(order => order.id === orderIdToOpen);
+      if (orderToOpen) {
+        const status = orderToOpen.status;
+        
+        // Handle different statuses - open appropriate popover
+        if (status === 'Pending Approval') {
+          handleOpenPendingApprovalPopover(orderToOpen);
+        } else if (status === 'Awaiting Payment') {
+          handleOpenAwaitingPaymentPopover(orderToOpen);
+        } else if (status === 'In Progress') {
+          handleOpenInProgressPopover(orderToOpen);
+        } else if (status === 'Complete' || status === 'completed') {
+          handleOpenCompletePopover(orderToOpen);
+        } else if (status === 'Canceled' || status === 'Rejected') {
+          handleOpenCancelledPopover(orderToOpen);
+        }
+        
+        // Notify parent that order has been opened (only once)
+        if (onOrderOpened) {
+          onOrderOpened();
+        }
+      } else {
+        // Order not found in this tab - notify parent to try other tab
+        // Only notify if we haven't already tried the other tab
+        if (onOrderNotFound) {
+          onOrderNotFound();
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderIdToOpen, requests, pendingApprovalPopoverOpen, awaitingPaymentPopoverOpen, inProgressPopoverOpen, completePopoverOpen, cancelledPopoverOpen]);
 
   // Approval handlers - check Stripe account first, then open confirmation dialog
   const handleApprove = async (orderId: string) => {

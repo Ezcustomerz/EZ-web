@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from supabase import Client
 from dotenv import load_dotenv
 import logging
+from datetime import datetime
 from db.db_session import db_admin
 
 load_dotenv()
@@ -186,21 +187,27 @@ class StripeService:
                 # For other types (standard, custom), leave as None
                 
                 # Get last payout date
-                last_payout_date = None
+                last_payout_date_unix = None
+                last_payout_date_iso = None
                 try:
                     payouts = stripe.Payout.list(limit=1, stripe_account=account_id)
                     if payouts.data and len(payouts.data) > 0:
-                        last_payout_date = payouts.data[0].created
+                        # Keep Unix timestamp for API response (frontend expects this)
+                        last_payout_date_unix = payouts.data[0].created
+                        if last_payout_date_unix:
+                            # Convert Unix timestamp to ISO format string for PostgreSQL
+                            # Stripe timestamps are in seconds, convert to datetime then ISO string
+                            last_payout_date_iso = datetime.utcfromtimestamp(last_payout_date_unix).isoformat() + 'Z'
                 except Exception:
                     # If payouts list fails, account might not be fully set up yet
                     pass
                 
-                # Update database
+                # Update database with ISO format timestamp
                 client.table('creatives').update({
                     'stripe_onboarding_complete': details_submitted,
                     'stripe_payouts_enabled': payouts_enabled,
                     'stripe_account_type': account_type,  # Will be None, 'individual', or 'company'
-                    'stripe_last_payout_date': last_payout_date
+                    'stripe_last_payout_date': last_payout_date_iso
                 }).eq('user_id', user_id).execute()
                 
                 return {
@@ -209,7 +216,7 @@ class StripeService:
                     "payouts_enabled": payouts_enabled,
                     "onboarding_complete": details_submitted,
                     "account_type": account_type,
-                    "last_payout_date": last_payout_date,
+                    "last_payout_date": last_payout_date_unix,  # Return Unix timestamp for frontend
                     "payout_disable_reason": payout_disable_reason,
                     "currently_due_requirements": currently_due_requirements
                 }

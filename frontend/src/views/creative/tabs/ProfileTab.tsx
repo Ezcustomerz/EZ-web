@@ -259,8 +259,8 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
   // Note: Removed parent-controlled dialog logic that was interfering with SessionPopover
   // The SessionPopover should be independent of the parent's seeAllDialogOpen state
 
-  // Show loading state
-  if (profileLoading) {
+  // Show loading state - only if tab is active
+  if (profileLoading && isActive) {
     return (
       <Box sx={{
         height: { xs: '100vh', md: '100vh' },
@@ -509,7 +509,12 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
     );
   }
 
-  // Show error state
+  // Don't render anything if tab is not active
+  if (!isActive) {
+    return null;
+  }
+
+  // Show error state - only if tab is active
   if (profileError || !creativeProfile) {
     return (
       <Box sx={{
