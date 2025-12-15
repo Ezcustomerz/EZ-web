@@ -85,6 +85,18 @@ export function PaymentApprovalOrderCard({
       const calculatedDeposit = depositAmount || Math.round(price * 0.5 * 100) / 100;
       const calculatedRemaining = remainingAmount || (price - calculatedDeposit);
       
+      // Debug log
+      console.log('[PaymentApprovalOrderCard] Split payment calculation:', {
+        id,
+        serviceName,
+        price,
+        depositAmount,
+        calculatedDeposit,
+        remainingAmount,
+        calculatedRemaining,
+        amountPaid
+      });
+      
       // Ensure amountPaid is a number
       const paidAmount = typeof amountPaid === 'number' ? amountPaid : (parseFloat(String(amountPaid || 0)) || 0);
       

@@ -155,6 +155,19 @@ export function PaymentApprovalOrderDetailPopover({
   const remainingAmount = order.remainingAmount || Math.round((order.price - depositAmount) * 100) / 100;
   const amountPaid = typeof order.amountPaid === 'number' ? order.amountPaid : (parseFloat(String(order.amountPaid || 0)) || 0);
   
+  // Debug log
+  console.log('[PaymentApprovalOrderDetailPopover] Split payment calculation:', {
+    id: order.id,
+    serviceName: order.serviceName,
+    price: order.price,
+    'order.depositAmount': order.depositAmount,
+    depositAmount,
+    'order.remainingAmount': order.remainingAmount,
+    remainingAmount,
+    amountPaid,
+    paymentOption: order.paymentOption
+  });
+  
   // Determine if this is the first or second payment for split payments
   // If amountPaid >= depositAmount (with tolerance), it's the second payment
   const paymentTolerance = 0.01;

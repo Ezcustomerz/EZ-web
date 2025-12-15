@@ -255,7 +255,9 @@ class ClientController:
                     'creative_user_id': service_data['creative_user_id'],
                     'creative_name': service_data['creative_name'] or 'Unknown Creative',
                     'requires_booking': service_data['requires_booking'],
-                    'photos': service_data['photos'] if service_data['photos'] else []
+                    'photos': service_data['photos'] if service_data['photos'] else [],
+                    'payment_option': service_data.get('payment_option'),
+                    'split_deposit_amount': float(service_data['split_deposit_amount']) if service_data.get('split_deposit_amount') is not None else None
                 }
                 services.append(service)
             
@@ -284,7 +286,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id, requires_booking'
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id, requires_booking, payment_option, split_deposit_amount'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).order('created_at', desc=True).execute()
             
             if not services_result.data:
@@ -344,7 +346,9 @@ class ClientController:
                     'creative_user_id': creative_user_id,
                     'creative_name': creative_name,
                     'requires_booking': service_data['requires_booking'],
-                    'photos': photos_by_service.get(service_data['id'], [])
+                    'photos': photos_by_service.get(service_data['id'], []),
+                    'payment_option': service_data.get('payment_option'),
+                    'split_deposit_amount': float(service_data['split_deposit_amount']) if service_data.get('split_deposit_amount') is not None else None
                 }
                 services.append(service)
             
@@ -374,7 +378,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = client.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id, requires_booking'
+                'id, title, description, price, delivery_time, status, color, payment_option, split_deposit_amount, is_active, created_at, updated_at, creative_user_id, requires_booking'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             # Get all bundles from these creatives
@@ -446,6 +450,7 @@ class ClientController:
                         'status': service_data['status'],
                         'color': service_data['color'],
                         'payment_option': service_data['payment_option'],
+                        'split_deposit_amount': float(service_data['split_deposit_amount']) if service_data.get('split_deposit_amount') is not None else None,
                         'is_active': service_data['is_active'],
                         'created_at': service_data['created_at'],
                         'updated_at': service_data['updated_at'],

@@ -461,6 +461,7 @@ export interface Order {
   approved_at?: string;
   price: number;
   payment_option?: string;
+  split_deposit_amount?: number;
   amount_paid?: number;
   description?: string;
   status: string;

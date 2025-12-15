@@ -2,7 +2,7 @@ import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputL
 import { MusicNote, Search, FilterList } from '@mui/icons-material';
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
-import { ServicesDetailPopover } from '../../../components/popovers/ServicesDetailPopover';
+import { ServicesDetailPopover, type ServiceDetail } from '../../../components/popovers/ServicesDetailPopover';
 import { BundleDetailPopover } from '../../../components/popovers/BundleDetailPopover';
 import { BookingServicePopover } from '../../../components/popovers/client/BookingServicePopover';
 import { CreativeDetailPopover } from '../../../components/popovers/client/CreativeDetailPopover';
@@ -31,6 +31,8 @@ interface Service {
   updated_at: string;
   creative_user_id: string;
   requires_booking: boolean;
+  payment_option?: 'upfront' | 'split' | 'later';
+  split_deposit_amount?: number;
   photos?: Array<{
     photo_url: string;
     photo_filename?: string;
@@ -194,13 +196,21 @@ export function ConnectedServicesTab() {
     if (serviceId && services.length > 0 && !bookingOpen) {
       const service = services.find(s => s.id === serviceId);
       if (service) {
-        // Add creative profile information to the service object
+        // Add creative profile information to the service object, preserving all fields
         const serviceWithCreative = {
           ...service,
           creative_display_name: service.creative_display_name || service.creative_name,
           creative_title: service.creative_title,
-          creative_avatar_url: service.creative_avatar_url
+          creative_avatar_url: service.creative_avatar_url,
+          // Explicitly preserve payment fields
+          payment_option: service.payment_option,
+          split_deposit_amount: service.split_deposit_amount
         };
+        console.log('URL param service - setting serviceToBook:', {
+          id: serviceWithCreative.id,
+          payment_option: serviceWithCreative.payment_option,
+          split_deposit_amount: serviceWithCreative.split_deposit_amount
+        });
         setServiceToBook(serviceWithCreative as any);
         setBookingOpen(true);
         // Remove serviceId from URL to clean it up
@@ -343,13 +353,21 @@ export function ConnectedServicesTab() {
   const handleServiceClick = (serviceId: string) => {
     const service = services.find(s => s.id === serviceId);
     if (service) {
-      // Add creative profile information to the service object
+      // Add creative profile information to the service object, preserving all fields
       const serviceWithCreative = {
         ...service,
         creative_display_name: service.creative_display_name || service.creative_name,
         creative_title: service.creative_title,
-        creative_avatar_url: service.creative_avatar_url
+        creative_avatar_url: service.creative_avatar_url,
+        // Explicitly preserve payment fields
+        payment_option: service.payment_option,
+        split_deposit_amount: service.split_deposit_amount
       };
+      console.log('handleServiceClick - service with creative:', {
+        id: serviceWithCreative.id,
+        payment_option: serviceWithCreative.payment_option,
+        split_deposit_amount: serviceWithCreative.split_deposit_amount
+      });
       setSelectedService(serviceWithCreative as any);
       setServiceDetailOpen(true);
     }
@@ -373,13 +391,29 @@ export function ConnectedServicesTab() {
     setSelectedBundle(null);
   };
 
-  const handleBookService = () => {
-    if (selectedService) {
-      setServiceToBook(selectedService);
+  const handleBookService = (service: ServiceDetail | null) => {
+    const serviceToUse = service || selectedService;
+    if (serviceToUse) {
+      // Ensure all fields are preserved, especially payment_option and split_deposit_amount
+      const serviceWithAllFields = {
+        ...serviceToUse,
+        payment_option: serviceToUse.payment_option,
+        split_deposit_amount: serviceToUse.split_deposit_amount
+      };
+      console.log('Setting serviceToBook with fields:', {
+        id: serviceWithAllFields.id,
+        payment_option: serviceWithAllFields.payment_option,
+        split_deposit_amount: serviceWithAllFields.split_deposit_amount,
+        price: serviceWithAllFields.price,
+        fullService: serviceWithAllFields
+      });
+      setServiceToBook(serviceWithAllFields);
       setBookingOpen(true);
       // Close the service detail popover
       setServiceDetailOpen(false);
       setSelectedService(null);
+    } else {
+      console.error('handleBookService called but no service provided');
     }
   };
 

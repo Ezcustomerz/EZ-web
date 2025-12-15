@@ -206,6 +206,7 @@ export interface CreativeService {
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   payment_option: 'upfront' | 'split' | 'later';
+  split_deposit_amount?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -265,6 +266,7 @@ export interface CreateServiceRequest {
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   payment_option: 'upfront' | 'split' | 'later';
+  split_deposit_amount?: number;
   calendar_settings?: CalendarSettings;
   photos?: ServicePhoto[];
 }
@@ -644,6 +646,10 @@ export const userService = {
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);
     
+    if (serviceData.split_deposit_amount !== undefined && serviceData.split_deposit_amount !== null) {
+      formData.append('split_deposit_amount', serviceData.split_deposit_amount.toString());
+    }
+
     // Add calendar settings if provided
     if (serviceData.calendar_settings) {
       formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
@@ -698,6 +704,10 @@ export const userService = {
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);
     
+    if (serviceData.split_deposit_amount !== undefined && serviceData.split_deposit_amount !== null) {
+      formData.append('split_deposit_amount', serviceData.split_deposit_amount.toString());
+    }
+
     if (serviceData.calendar_settings) {
       formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
     }

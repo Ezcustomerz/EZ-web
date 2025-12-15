@@ -70,22 +70,57 @@ export function NotificationsCreative() {
 
   const handleNotificationClick = (item: ActivityItem) => {
     // Customize behavior per notification type
+    const notificationType = item.notificationType;
+    
+    // Try to resolve a booking/order id from multiple possible sources
+    const bookingId =
+      item.relatedEntityId ||
+      (item.metadata && (item.metadata.booking_id || item.metadata.order_id));
+
     if (item.label === 'New Client Added') {
       navigate('/creative/clients');
-    } else if ((item.label === 'New Booking Request' || item.label === 'New Booking') && item.relatedEntityId) {
+    } else if ((item.label === 'New Booking Request' || item.label === 'New Booking') && bookingId) {
       // Navigate to activity page and open the specific order popover
       navigate('/creative/activity');
       // Store booking_id in localStorage to open popover after navigation
-      localStorage.setItem('open-order-popover', item.relatedEntityId);
+      localStorage.setItem('open-order-popover', bookingId);
       // New booking requests are typically in Current Orders (Pending Approval status)
       localStorage.setItem('activity-active-tab', '0');
-    } else if (item.label === 'Payment Received') {
-      navigate('/creative/activity');
-    } else if (item.label === 'Files Sent' && item.relatedEntityId) {
+    } else if (notificationType === 'payment_received' && bookingId) {
       // Navigate to activity page and open the specific order popover
       navigate('/creative/activity');
       // Store booking_id in localStorage to open popover after navigation
-      localStorage.setItem('open-order-popover', item.relatedEntityId);
+      localStorage.setItem('open-order-popover', bookingId);
+      // Determine tab based on creative_status from metadata
+      // Payment received notifications could be in Current or Past Orders depending on status
+      const creativeStatus = item.metadata?.creative_status;
+      if (creativeStatus) {
+        const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
+        localStorage.setItem('activity-active-tab', tabIndex);
+      } else {
+        // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
+        localStorage.setItem('activity-active-tab', '0');
+      }
+    } else if (notificationType === 'session_completed' && bookingId) {
+      // Navigate to activity page and open the specific order popover
+      navigate('/creative/activity');
+      // Store booking_id in localStorage to open popover after navigation
+      localStorage.setItem('open-order-popover', bookingId);
+      // Service completed notifications are typically in Past Orders (tab 1)
+      // But check metadata to be sure
+      const creativeStatus = item.metadata?.creative_status;
+      if (creativeStatus) {
+        const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
+        localStorage.setItem('activity-active-tab', tabIndex);
+      } else {
+        // Default to Past Orders for completed services
+        localStorage.setItem('activity-active-tab', '1');
+      }
+    } else if (item.label === 'Files Sent' && bookingId) {
+      // Navigate to activity page and open the specific order popover
+      navigate('/creative/activity');
+      // Store booking_id in localStorage to open popover after navigation
+      localStorage.setItem('open-order-popover', bookingId);
       // Determine tab based on creative_status from metadata
       // If status is completed/rejected/canceled, go to Past Orders (tab 1), otherwise Current Orders (tab 0)
       // If status is not in metadata (old notifications), we'll try Current Orders first, then fallback to Past Orders
@@ -98,11 +133,11 @@ export function NotificationsCreative() {
         // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
         localStorage.setItem('activity-active-tab', '0');
       }
-    } else if (item.label === 'Service Approved' && item.relatedEntityId) {
+    } else if (item.label === 'Service Approved' && bookingId) {
       // Navigate to activity page and open the specific order popover
       navigate('/creative/activity');
       // Store booking_id in localStorage to open popover after navigation
-      localStorage.setItem('open-order-popover', item.relatedEntityId);
+      localStorage.setItem('open-order-popover', bookingId);
       // Determine tab based on creative_status from metadata
       // Approved orders are typically in Current Orders (awaiting_payment or in_progress)
       // But if status is completed/rejected/canceled, go to Past Orders

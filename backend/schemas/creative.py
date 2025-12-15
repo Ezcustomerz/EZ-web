@@ -38,6 +38,7 @@ class CreativeServiceResponse(BaseModel):
     status: str
     color: str
     payment_option: str
+    split_deposit_amount: Optional[float] = None
     is_active: bool
     created_at: str
     updated_at: str
@@ -90,6 +91,7 @@ class CreateServiceRequest(BaseModel):
     status: Literal['Public', 'Private', 'Bundle-Only'] = 'Private'
     color: str = '#3b82f6'
     payment_option: Literal['upfront', 'split', 'later'] = 'later'
+    split_deposit_amount: Optional[float] = None
     calendar_settings: Optional[CalendarSettingsRequest] = None
     photos: Optional[List[ServicePhotoRequest]] = None
 

@@ -52,6 +52,8 @@ export interface ServiceDetail {
   updated_at?: string;
   creative_user_id?: string;
   requires_booking?: boolean;
+  payment_option?: 'upfront' | 'split' | 'later';
+  split_deposit_amount?: number;
   // Creative profile information
   creative_display_name?: string;
   creative_title?: string;
@@ -71,7 +73,7 @@ export interface ServicesDetailPopoverProps {
   onClose: () => void;
   service: ServiceDetail | null;
   context: 'client-connected' | 'invite-page' | 'services-tab' | 'profile-tab' | 'creative-view';
-  onBook?: () => void;
+  onBook?: (service: ServiceDetail) => void;
   onCreativeClick?: (creativeData: any) => void;
 }
 
@@ -101,8 +103,8 @@ export function ServicesDetailPopover({
   const showBookButton = context === 'client-connected' && context !== 'creative-view';
 
   const handleBook = () => {
-    if (onBook) {
-      onBook();
+    if (onBook && service) {
+      onBook(service);
     }
     onClose();
   };

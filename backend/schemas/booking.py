@@ -54,6 +54,7 @@ class OrderResponse(BaseModel):
     approved_at: Optional[str]
     price: float
     payment_option: Optional[str]
+    split_deposit_amount: Optional[float] = None
     amount_paid: Optional[float] = 0.0
     description: Optional[str]
     status: str

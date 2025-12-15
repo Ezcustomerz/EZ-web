@@ -75,6 +75,17 @@ const getStatusColor = (status: string) => {
 // Helper function to transform orders
 function transformOrders(fetchedOrders: Order[]) {
   return fetchedOrders.map((order: Order) => {
+    // Debug log for split payment orders
+    if (order.payment_option === 'split') {
+      console.log('[ActionNeededTab] Split payment order:', {
+        id: order.id,
+        service_name: order.service_name,
+        price: order.price,
+        split_deposit_amount: order.split_deposit_amount,
+        amount_paid: order.amount_paid
+      });
+    }
+    
     return {
     id: order.id,
     serviceName: order.service_name,
@@ -98,8 +109,8 @@ function transformOrders(fetchedOrders: Order[]) {
             order.status === 'canceled' ? 'canceled' : 'placed',
     amountPaid: order.amount_paid || 0,
     amountRemaining: order.price - (order.amount_paid || 0),
-    depositAmount: order.payment_option === 'split' ? Math.round(order.price * 0.5 * 100) / 100 : undefined,
-    remainingAmount: order.payment_option === 'split' ? Math.round((order.price - Math.round(order.price * 0.5 * 100) / 100) * 100) / 100 : undefined,
+    depositAmount: order.payment_option === 'split' ? (order.split_deposit_amount || Math.round(order.price * 0.5 * 100) / 100) : undefined,
+    remainingAmount: order.payment_option === 'split' ? Math.round((order.price - (order.split_deposit_amount || Math.round(order.price * 0.5 * 100) / 100)) * 100) / 100 : undefined,
     serviceId: order.service_id,
     serviceDescription: order.service_description,
     serviceDeliveryTime: order.service_delivery_time,
@@ -139,7 +150,7 @@ function transformOrders(fetchedOrders: Order[]) {
         })()
       : null,
     invoices: order.invoices || [],
-  };
+    };
   });
 }
 
@@ -1207,12 +1218,13 @@ export function ActionNeededTab() {
               switch (order.status) {
                 case 'payment-required':
                   // Calculate deposit and remaining amounts based on payment option
-                  const calculatePaymentAmounts = (paymentOption: string, price: number) => {
+                  const calculatePaymentAmounts = (order: any, paymentOption: string, price: number) => {
                     if (price === 0 || paymentOption === 'free') {
                       return { depositAmount: 0, remainingAmount: 0 };
                     }
                     if (paymentOption === 'split_payment') {
-                      const depositAmount = Math.round(price * 0.5 * 100) / 100;
+                      // Use depositAmount from order if available, otherwise calculate 50%
+                      const depositAmount = order.depositAmount || Math.round(price * 0.5 * 100) / 100;
                       return { depositAmount, remainingAmount: price - depositAmount };
                     }
                     if (paymentOption === 'payment_upfront') {
@@ -1221,7 +1233,7 @@ export function ActionNeededTab() {
                     // payment_later
                     return { depositAmount: 0, remainingAmount: price };
                   };
-                  const paymentAmounts = calculatePaymentAmounts(order.paymentOption, order.price);
+                  const paymentAmounts = calculatePaymentAmounts(order, order.paymentOption, order.price);
                   
                   return (
                     <PaymentApprovalOrderCard

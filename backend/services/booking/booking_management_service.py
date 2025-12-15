@@ -34,23 +34,34 @@ class BookingManagementService:
         try:
             # Get service details including creative_user_id
             service_response = client.table('creative_services')\
-                .select('creative_user_id, price, payment_option, title')\
+                .select('creative_user_id, price, payment_option, split_deposit_amount, title')\
                 .eq('id', booking_data.service_id)\
                 .single()\
                 .execute()
-            
+
             if not service_response.data:
                 raise HTTPException(status_code=404, detail="Service not found")
-            
+
             service = service_response.data
+            payment_option = service['payment_option'] or 'later'
             
+            # Calculate split deposit amount if payment option is split
+            split_deposit_amount = None
+            if payment_option == 'split':
+                if service.get('split_deposit_amount') is not None:
+                    split_deposit_amount = service['split_deposit_amount']
+                else:
+                    # Default to 50% if not specified
+                    split_deposit_amount = round(float(service['price']) * 0.5, 2)
+
             # Prepare booking insert
             booking_insert = {
                 'service_id': booking_data.service_id,
                 'client_user_id': user_id,
                 'creative_user_id': service['creative_user_id'],
                 'price': service['price'],
-                'payment_option': service['payment_option'] or 'later',
+                'payment_option': payment_option,
+                'split_deposit_amount': split_deposit_amount,
                 'notes': booking_data.notes,
                 'client_status': 'placed',
                 'creative_status': 'pending_approval',

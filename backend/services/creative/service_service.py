@@ -65,6 +65,19 @@ class ServiceService:
                 if not delivery_time_validation['valid']:
                     raise HTTPException(status_code=422, detail=delivery_time_validation['error'])
             
+            # Validate split_deposit_amount if payment_option is 'split'
+            split_deposit_amount = None
+            if service_request.payment_option == 'split':
+                if service_request.split_deposit_amount is not None:
+                    if service_request.split_deposit_amount < 0:
+                        raise HTTPException(status_code=422, detail="Split deposit amount cannot be negative")
+                    if service_request.split_deposit_amount > service_request.price:
+                        raise HTTPException(status_code=422, detail="Split deposit amount cannot exceed the total price")
+                    split_deposit_amount = service_request.split_deposit_amount
+                else:
+                    # Default to 50% if not specified
+                    split_deposit_amount = round(service_request.price * 0.5, 2)
+            
             # Prepare service data
             service_data = {
                 'creative_user_id': user_id,
@@ -75,6 +88,7 @@ class ServiceService:
                 'status': service_request.status,
                 'color': service_request.color,
                 'payment_option': service_request.payment_option,
+                'split_deposit_amount': split_deposit_amount,
                 'is_active': True,
                 'requires_booking': service_request.calendar_settings is not None
             }
@@ -155,6 +169,23 @@ class ServiceService:
                 if not delivery_time_validation['valid']:
                     raise HTTPException(status_code=422, detail=delivery_time_validation['error'])
             
+            # Validate split_deposit_amount if payment_option is 'split'
+            split_deposit_amount = None
+            split_deposit_str = form.get('split_deposit_amount')
+            if payment_option == 'split':
+                if split_deposit_str:
+                    try:
+                        split_deposit_amount = float(split_deposit_str)
+                        if split_deposit_amount < 0:
+                            raise HTTPException(status_code=422, detail="Split deposit amount cannot be negative")
+                        if split_deposit_amount > price:
+                            raise HTTPException(status_code=422, detail="Split deposit amount cannot exceed the total price")
+                    except ValueError:
+                        raise HTTPException(status_code=422, detail="Invalid split deposit amount")
+                else:
+                    # Default to 50% if not specified
+                    split_deposit_amount = round(price * 0.5, 2)
+            
             # Prepare service data
             service_data = {
                 'creative_user_id': user_id,
@@ -165,6 +196,7 @@ class ServiceService:
                 'status': status,
                 'color': color,
                 'payment_option': payment_option,
+                'split_deposit_amount': split_deposit_amount,
                 'is_active': True,
                 'requires_booking': calendar_settings is not None,
             }
@@ -230,6 +262,19 @@ class ServiceService:
                 if not delivery_time_validation['valid']:
                     raise HTTPException(status_code=422, detail=delivery_time_validation['error'])
 
+            # Validate split_deposit_amount if payment_option is 'split'
+            split_deposit_amount = None
+            if service_request.payment_option == 'split':
+                if service_request.split_deposit_amount is not None:
+                    if service_request.split_deposit_amount < 0:
+                        raise HTTPException(status_code=422, detail="Split deposit amount cannot be negative")
+                    if service_request.split_deposit_amount > service_request.price:
+                        raise HTTPException(status_code=422, detail="Split deposit amount cannot exceed the total price")
+                    split_deposit_amount = service_request.split_deposit_amount
+                else:
+                    # Default to 50% if not specified
+                    split_deposit_amount = round(service_request.price * 0.5, 2)
+
             update_data = {
                 'title': service_request.title.strip(),
                 'description': service_request.description.strip(),
@@ -238,6 +283,7 @@ class ServiceService:
                 'status': service_request.status,
                 'color': service_request.color,
                 'payment_option': service_request.payment_option,
+                'split_deposit_amount': split_deposit_amount,
                 'updated_at': 'now()',
                 'requires_booking': service_request.calendar_settings is not None,
             }
@@ -307,6 +353,20 @@ class ServiceService:
                 if not delivery_time_validation['valid']:
                     raise HTTPException(status_code=422, detail=delivery_time_validation['error'])
 
+            # Validate split_deposit_amount if payment_option is 'split'
+            split_deposit_amount = None
+            payment_option = service_data.get('payment_option', 'later')
+            if payment_option == 'split':
+                if service_data.get('split_deposit_amount') is not None:
+                    if service_data['split_deposit_amount'] < 0:
+                        raise HTTPException(status_code=422, detail="Split deposit amount cannot be negative")
+                    if service_data['split_deposit_amount'] > service_data['price']:
+                        raise HTTPException(status_code=422, detail="Split deposit amount cannot exceed the total price")
+                    split_deposit_amount = service_data['split_deposit_amount']
+                else:
+                    # Default to 50% if not specified
+                    split_deposit_amount = round(service_data['price'] * 0.5, 2)
+
             # Update service data
             update_data = {
                 'title': service_data['title'].strip(),
@@ -315,7 +375,8 @@ class ServiceService:
                 'delivery_time': service_data.get('delivery_time', ''),
                 'status': service_data['status'],
                 'color': service_data['color'],
-                'payment_option': service_data.get('payment_option', 'later'),
+                'payment_option': payment_option,
+                'split_deposit_amount': split_deposit_amount,
                 'updated_at': 'now()',
                 'requires_booking': calendar_settings is not None,
             }
@@ -398,7 +459,7 @@ class ServiceService:
         try:
             # Build services query
             services_query = client.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, requires_booking'
+                'id, title, description, price, delivery_time, status, color, payment_option, split_deposit_amount, is_active, created_at, updated_at, requires_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True)
             
             # Filter for public only if requested
@@ -442,6 +503,7 @@ class ServiceService:
                         status=service_data['status'],
                         color=service_data['color'],
                         payment_option=service_data['payment_option'],
+                        split_deposit_amount=float(service_data['split_deposit_amount']) if service_data.get('split_deposit_amount') is not None else None,
                         is_active=service_data['is_active'],
                         created_at=service_data['created_at'],
                         updated_at=service_data['updated_at'],
