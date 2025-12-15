@@ -536,11 +536,11 @@ class BookingManagementService:
                     detail=f"Cannot cancel booking with status '{current_client_status}'. Only placed orders awaiting approval can be canceled."
                 )
             
-            # Update booking status
+            # Update booking status - only change client_status, leave creative_status unchanged
+            # This maintains symmetry with reject_booking which only changes creative_status
             update_response = client.table('bookings')\
                 .update({
                     'client_status': 'cancelled',
-                    'creative_status': 'rejected',
                     'canceled_date': datetime.utcnow().isoformat()
                 })\
                 .eq('id', booking_id)\

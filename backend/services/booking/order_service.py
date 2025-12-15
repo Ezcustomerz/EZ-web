@@ -140,9 +140,8 @@ class OrderService:
         if is_creative_view:
             display_status = creative_status or 'pending_approval'
         else:
-            if creative_status == 'rejected':
-                display_status = 'canceled'
-            elif client_status == 'cancelled':
+            # For client view: show 'canceled' if either creative rejected OR client cancelled
+            if creative_status == 'rejected' or client_status == 'cancelled':
                 display_status = 'canceled'
             else:
                 display_status = client_status
