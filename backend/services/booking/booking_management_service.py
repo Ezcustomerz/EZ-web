@@ -360,7 +360,10 @@ class BookingManagementService:
 
     @staticmethod
     async def reject_booking(user_id: str, booking_id: str, client: Client) -> RejectBookingResponse:
-        """Reject a booking/order
+        """Reject a booking/order (creative-initiated)
+        
+        Updates creative_status to 'rejected' while leaving client_status unchanged.
+        This maintains symmetry with cancel_booking which only updates client_status.
         
         Args:
             user_id: The creative user ID rejecting the booking
@@ -497,6 +500,9 @@ class BookingManagementService:
     @staticmethod
     async def cancel_booking(user_id: str, booking_id: str, client: Client) -> CancelBookingResponse:
         """Cancel a booking/order (client-initiated)
+        
+        Updates client_status to 'cancelled' while leaving creative_status unchanged.
+        This maintains symmetry with reject_booking which only updates creative_status.
         
         Args:
             user_id: The client user ID canceling the booking

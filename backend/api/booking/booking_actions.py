@@ -117,8 +117,11 @@ async def cancel_booking(
     Cancel a booking/order (client-initiated)
     Requires authentication - will return 401 if not authenticated.
     - Verifies the booking belongs to the client
-    - Updates both client_status and creative_status to 'canceled'
+    - Updates client_status to 'cancelled' (creative_status remains unchanged)
     - Sets canceled_date to track when the booking was canceled
+    
+    Note: This maintains symmetry with reject_booking which only updates creative_status.
+    The distinction preserves who initiated the cancellation.
     """
     try:
         user_id = current_user.get('sub')
