@@ -118,22 +118,34 @@ export function RecentActivityCard({ items = [], isLoading = false }: RecentActi
                     index={index}
                     onMarkAsRead={handleMarkAsRead}
                     onClick={() => {
-                      // Customize behavior per notification type
+                      // Customize behavior per notification type (mirror NotificationsClient)
                       const notificationType = item.notificationType;
-                      
-                      if (notificationType === 'payment_required') {
-                        // Navigate to Action Needed tab (tab index 2)
-                        navigate('/client/orders');
-                        localStorage.setItem('orders-active-tab', '2');
-                      } else if (notificationType === 'booking_rejected' || notificationType === 'booking_canceled') {
-                        // Navigate to History tab (tab index 3)
-                        navigate('/client/orders');
-                        localStorage.setItem('orders-active-tab', '3');
-                      } else if (item.label === 'Placed Booking' || item.label === 'Booking Approved') {
-                        // Navigate to orders page (default tab)
-                        navigate('/client/orders');
+
+                      // Try to resolve a booking/order id from multiple possible sources
+                      const bookingId =
+                        item.relatedEntityId ||
+                        (item.metadata && (item.metadata.booking_id || item.metadata.order_id));
+
+                      // Treat all booking-related notifications the same: go to All Orders
+                      // and open the specific booking popover, regardless of current status.
+                      const isBookingRelated =
+                        notificationType === 'booking_placed' ||
+                        notificationType === 'booking_created' ||
+                        notificationType === 'booking_approved' ||
+                        notificationType === 'booking_rejected' ||
+                        notificationType === 'booking_canceled' ||
+                        notificationType === 'payment_required' ||
+                        notificationType === 'payment_received' ||
+                        notificationType === 'session_completed';
+
+                      if (bookingId && isBookingRelated) {
+                        localStorage.setItem('orders-active-tab', '0'); // All Orders
+                        navigate(`/client/orders?tab=0&orderId=${bookingId}`);
+                        return;
                       }
-                      // We can add more cases in the future
+
+                      // Fallback for any non-booking notifications (if added later)
+                      navigate('/client/orders');
                     }}
                   />
                 ))}

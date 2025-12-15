@@ -71,19 +71,35 @@ export function NotificationsClient() {
   const handleNotificationClick = (item: ActivityItem) => {
     // Customize behavior per notification type
     const notificationType = item.notificationType;
-    
-    if (notificationType === 'payment_required') {
-      // Navigate to Action Needed tab (tab index 2)
-      navigate('/client/orders');
-      localStorage.setItem('orders-active-tab', '2');
-    } else if (notificationType === 'booking_rejected' || notificationType === 'booking_canceled') {
-      // Navigate to History tab (tab index 3)
-      navigate('/client/orders');
-      localStorage.setItem('orders-active-tab', '3');
-    } else if (item.label === 'Placed Booking' || item.label === 'Booking Approved') {
-      // Navigate to orders page (default tab)
-      navigate('/client/orders');
+
+    // Try to resolve a booking/order id from multiple possible sources
+    const bookingId =
+      item.relatedEntityId ||
+      (item.metadata && (item.metadata.booking_id || item.metadata.order_id));
+
+    // For any booking-related notification that has a related booking/order id,
+    // navigate to the Orders page, select the **All Orders** tab (index 0),
+    // and pass the booking id via URL so the appropriate popover opens.
+    const isBookingRelated =
+      notificationType === 'booking_placed' ||
+      notificationType === 'booking_created' ||
+      notificationType === 'booking_approved' ||
+      notificationType === 'booking_rejected' ||
+      notificationType === 'booking_canceled' ||
+      notificationType === 'payment_required' ||
+      notificationType === 'payment_received' ||
+      notificationType === 'session_completed';
+
+    if (bookingId && isBookingRelated) {
+      // Ensure All Orders tab is active so the order is always visible,
+      // regardless of its current status.
+      localStorage.setItem('orders-active-tab', '0');
+      navigate(`/client/orders?tab=0&orderId=${bookingId}`);
+      return;
     }
+
+    // Fallback behaviour for any non-booking notifications (if we ever add them)
+    navigate('/client/orders');
   };
 
   return (
