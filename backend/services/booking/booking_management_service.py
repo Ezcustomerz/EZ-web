@@ -365,6 +365,9 @@ class BookingManagementService:
         Updates creative_status to 'rejected' while leaving client_status unchanged.
         This maintains symmetry with cancel_booking which only updates client_status.
         
+        Business Rule: Creatives can only reject bookings they haven't approved yet.
+        Once approved (creative_status != 'pending_approval'), rejection is no longer allowed.
+        
         Args:
             user_id: The creative user ID rejecting the booking
             booking_id: The booking ID to reject
@@ -372,6 +375,7 @@ class BookingManagementService:
             
         Raises:
             ValueError: If client is not provided
+            HTTPException: If booking is not in 'pending_approval' state
         """
         if not client:
             raise ValueError("Authenticated client is required for this operation")
@@ -504,6 +508,10 @@ class BookingManagementService:
         Updates client_status to 'cancelled' while leaving creative_status unchanged.
         This maintains symmetry with reject_booking which only updates creative_status.
         
+        Business Rule: Clients can only cancel bookings that are still pending creative approval.
+        Once a creative approves a booking (creative_status != 'pending_approval'), the 
+        booking has progressed too far for unilateral client cancellation.
+        
         Args:
             user_id: The client user ID canceling the booking
             booking_id: The booking ID to cancel
@@ -511,6 +519,7 @@ class BookingManagementService:
             
         Raises:
             ValueError: If client is not provided
+            HTTPException: If booking is not in 'placed'/'pending_approval' state
         """
         if not client:
             raise ValueError("Authenticated client is required for this operation")

@@ -117,6 +117,7 @@ async def cancel_booking(
     Cancel a booking/order (client-initiated)
     Requires authentication - will return 401 if not authenticated.
     - Verifies the booking belongs to the client
+    - Only allowed while booking is pending creative approval (business rule)
     - Updates client_status to 'cancelled' (creative_status remains unchanged)
     - Sets canceled_date to track when the booking was canceled
     
