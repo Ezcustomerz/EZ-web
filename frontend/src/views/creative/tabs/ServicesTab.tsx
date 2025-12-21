@@ -1,5 +1,6 @@
 import { Box, Card, Tooltip, Skeleton, CardContent } from '@mui/material';
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ServiceCard } from '../../../components/cards/creative/ServiceCard';
 import { userService, type CreativeService, type CreativeProfile, type CreativeBundle } from '../../../api/userService';
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
@@ -50,6 +51,29 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   
   const hasFetchedRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Check for serviceId in URL params and open service popover
+  useEffect(() => {
+    const serviceId = searchParams.get('serviceId');
+    if (serviceId && services.length > 0 && !serviceDetailOpen) {
+      const service = services.find(s => s.id === serviceId);
+      if (service) {
+        const serviceWithCreative = {
+          ...service,
+          creative_display_name: creativeProfile?.display_name || userProfile?.name,
+          creative_title: creativeProfile?.title,
+          creative_avatar_url: creativeProfile?.profile_banner_url
+        };
+        setSelectedService(serviceWithCreative as any);
+        setServiceDetailOpen(true);
+        // Remove serviceId from URL to clean it up
+        searchParams.delete('serviceId');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, services, serviceDetailOpen, creativeProfile, userProfile, setSearchParams]);
 
   // Fetch services when component mounts or when authenticated
   useEffect(() => {

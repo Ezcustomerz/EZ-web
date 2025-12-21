@@ -14,8 +14,15 @@ class CreativeSetupResponse(BaseModel):
     success: bool
     message: str
 
+class AnalyticsMetricsResponse(BaseModel):
+    total_earnings: float
+    plan: str
+    unpaid_pending: float
+    completed_projects: int
+
 class CreativeClientResponse(BaseModel):
     id: str
+    user_id: str  # The actual client user_id for matching
     name: str
     contact: str
     contactType: str

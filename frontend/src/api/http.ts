@@ -44,8 +44,13 @@ import axios, {
     http.interceptors.response.use(
       (response) => response as ApiResponse,
       (error) => {
+        // Don't show error toast for canceled requests (AbortController)
+        if (error.code === 'ERR_CANCELED' || error.name === 'CanceledError' || error.message === 'canceled') {
+          return Promise.reject(error);
+        }
+
         const status = error.response?.status;
-  
+
         if (status === 401) {
           toast({
             variant: 'error',
@@ -58,14 +63,16 @@ import axios, {
             title: 'Forbidden',
             description: 'You do not have permission to perform this action.',
           });
-        } else {
+        } else if (status) {
+          // Only show error toast if there's a status code (actual HTTP error)
           toast({
             variant: 'error',
             title: 'Server Error',
             description: 'An unexpected error occurred. Please try again.',
           });
         }
-  
+        // If no status code, it's likely a network error - don't show toast as it might be temporary
+
         return Promise.reject({
           ...error.response,
           data: {

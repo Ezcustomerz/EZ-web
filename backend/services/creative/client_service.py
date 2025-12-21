@@ -90,6 +90,7 @@ class ClientService:
                 
                 client = CreativeClientResponse(
                     id=relationship['id'],
+                    user_id=client_user_id,  # Include user_id for matching
                     name=client_name,
                     contact=contact,
                     contactType=contact_type,

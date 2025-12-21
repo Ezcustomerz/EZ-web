@@ -926,7 +926,7 @@ export function ClientTable({
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  Total Spent
+                  Total Revenue
                   <Tooltip title={getSortTooltip('totalSpent')} arrow placement="top" open={hoveredSort === 'totalSpent'}>
                     <span>{getSortIcon('totalSpent')}</span>
                   </Tooltip>

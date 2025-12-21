@@ -182,6 +182,7 @@ export interface ClientUpdateResponse {
 
 export interface CreativeClient {
   id: string;
+  user_id: string;  // The actual client user_id for matching
   name: string;
   contact: string;
   contactType: 'email' | 'phone';

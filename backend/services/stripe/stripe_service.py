@@ -554,10 +554,43 @@ class StripeService:
                     client_status = 'completed'
                     creative_status = 'completed'
             
+            # Get payment timestamp from payment intent (most accurate - when payment was actually processed)
+            payment_timestamp = None
+            try:
+                # Try to get payment intent for accurate payment timestamp
+                if hasattr(checkout_session, 'payment_intent') and checkout_session.payment_intent:
+                    payment_intent = stripe.PaymentIntent.retrieve(
+                        checkout_session.payment_intent,
+                        stripe_account=stripe_account_id
+                    )
+                    if hasattr(payment_intent, 'created'):
+                        # Stripe timestamps are in UTC, create timezone-aware datetime
+                        from datetime import timezone
+                        payment_timestamp = datetime.fromtimestamp(payment_intent.created, tz=timezone.utc)
+            except Exception:
+                pass
+            
+            # Fallback to checkout session created time if payment intent not available
+            if not payment_timestamp:
+                try:
+                    if hasattr(checkout_session, 'created'):
+                        from datetime import timezone
+                        payment_timestamp = datetime.fromtimestamp(checkout_session.created, tz=timezone.utc)
+                except Exception:
+                    pass
+            
+            # Final fallback: use current time (timezone-aware)
+            if not payment_timestamp:
+                from datetime import timezone
+                payment_timestamp = datetime.now(timezone.utc)
+            
             # Update booking with new amount_paid and statuses
+            # Explicitly set updated_at to payment timestamp to ensure accurate last payment date
+            # Format as ISO string with timezone for Supabase
             update_data = {
                 'amount_paid': new_amount_paid,
                 'payment_status': payment_status,
+                'updated_at': payment_timestamp.isoformat(),
             }
             
             # Update statuses if they're changing to in_progress
