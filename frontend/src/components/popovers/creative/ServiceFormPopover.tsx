@@ -40,7 +40,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
-import { userService, type CreateServiceRequest, type ServicePhoto } from '../../../api/userService';
+import { userService, type CreateServiceRequest, type ServicePhoto, type CreativeProfile } from '../../../api/userService';
 import { successToast, errorToast } from '../../toast/toast';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
 import { 
@@ -65,6 +65,7 @@ export interface ServiceFormPopoverProps {
   onBack: () => void;
   onSubmit: (formData: ServiceFormData) => void;
   mode?: 'create' | 'edit';
+  creativeProfile?: CreativeProfile | null;
   initialService?: {
     id: string;
     title: string;
@@ -144,6 +145,7 @@ export function ServiceFormPopover({
   onBack,
   onSubmit,
   mode = 'create',
+  creativeProfile = null,
   initialService = null,
 }: ServiceFormPopoverProps) {
   const theme = useTheme();
@@ -737,7 +739,7 @@ export function ServiceFormPopover({
         const primaryPhotoIndex = existingPhotos.findIndex(photo => photo.is_primary);
         
         // Prefill from service
-        const hasDeliveryTime = initialService.delivery_time && initialService.delivery_time.trim().length > 0;
+        const hasDeliveryTime = !!(initialService.delivery_time && initialService.delivery_time.trim().length > 0);
         setIsDeliveryTimeEnabled(hasDeliveryTime);
         
         // Calculate default split deposit amount if not provided
@@ -995,6 +997,75 @@ export function ServiceFormPopover({
               helperText="Set your service price in USD"
             />
 
+            {/* Earnings Breakdown - Only show when price is set and creative profile is available */}
+            {(() => {
+              // Debug logging
+              console.log('[ServiceFormPopover] Earnings breakdown check:', {
+                hasPrice: !!(formData.price && parseFloat(formData.price) > 0),
+                hasProfile: !!creativeProfile,
+                feePercentage: creativeProfile?.subscription_tier_fee_percentage,
+                fullProfile: creativeProfile
+              });
+              return null;
+            })()}
+            {formData.price && parseFloat(formData.price) > 0 && creativeProfile?.subscription_tier_fee_percentage !== undefined && (
+              <Box sx={{
+                p: 2.5,
+                borderRadius: 2,
+                backgroundColor: 'rgba(76, 175, 80, 0.05)',
+                border: '1px solid rgba(76, 175, 80, 0.2)'
+              }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'success.main' }}>
+                  💰 Your Earnings Breakdown
+                </Typography>
+                {(() => {
+                  const price = parseFloat(formData.price);
+                  const feePercentage = creativeProfile.subscription_tier_fee_percentage;
+                  const platformFee = price * feePercentage;
+                  const yourEarnings = price - platformFee;
+                  const feePercentageDisplay = (feePercentage * 100).toFixed(1);
+                  
+                  return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Service Price:
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          ${price.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Transaction Fee ({feePercentageDisplay}%):
+                        </Typography>
+                        <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
+                          -${platformFee.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        pt: 1,
+                        borderTop: '1px solid rgba(76, 175, 80, 0.2)'
+                      }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main' }}>
+                          Your Earnings:
+                        </Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
+                          ${yourEarnings.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                        You're on the {creativeProfile.subscription_tier_name || 'Basic'} plan
+                      </Typography>
+                    </Box>
+                  );
+                })()}
+              </Box>
+            )}
+
             {/* Payment Options - Only show when price is not free */}
             {formData.price && parseFloat(formData.price) > 0 && (
               <Box>
@@ -1140,6 +1211,53 @@ export function ServiceFormPopover({
                           }
                           sx={{ mb: 0 }}
                         />
+                        
+                        {/* Split Payment Earnings Breakdown */}
+                        {formData.price && formData.splitDepositAmount && creativeProfile?.subscription_tier_fee_percentage !== undefined && (
+                          <Box sx={{
+                            mt: 2,
+                            p: 2,
+                            borderRadius: 2,
+                            backgroundColor: 'rgba(156, 39, 176, 0.05)',
+                            border: '1px solid rgba(156, 39, 176, 0.2)'
+                          }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: '#9c27b0' }}>
+                              💜 Split Payment Earnings
+                            </Typography>
+                            {(() => {
+                              const price = parseFloat(formData.price);
+                              const depositAmount = parseFloat(formData.splitDepositAmount);
+                              const remainingAmount = price - depositAmount;
+                              const feePercentage = creativeProfile.subscription_tier_fee_percentage;
+                              
+                              const depositFee = depositAmount * feePercentage;
+                              const remainingFee = remainingAmount * feePercentage;
+                              const depositEarnings = depositAmount - depositFee;
+                              const remainingEarnings = remainingAmount - remainingFee;
+                              
+                              return (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, fontSize: '0.875rem' }}>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      First Payment (${depositAmount.toFixed(2)} - fee):
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#9c27b0' }}>
+                                      ${depositEarnings.toFixed(2)}
+                                    </Typography>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Later Payment (${remainingAmount.toFixed(2)} - fee):
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#9c27b0' }}>
+                                      ${remainingEarnings.toFixed(2)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              );
+                            })()}
+                          </Box>
+                        )}
                       </Box>
                     )}
 

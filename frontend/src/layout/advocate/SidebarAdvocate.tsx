@@ -160,6 +160,30 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
     loadProfile();
   }, [userProfile, isSetupInProgress]);
 
+  // Listen for profile updates (e.g., from settings popover)
+  useEffect(() => {
+    const handleProfileUpdate = async () => {
+      if (userProfile && !isSetupInProgress && !userProfile.first_login) {
+        console.log('[SidebarAdvocate] Profile update event received, refetching profile');
+        try {
+          const profile = await userService.getAdvocateProfile();
+          console.log('[SidebarAdvocate] Profile refetched after update:', profile);
+          setAdvocateProfile(profile);
+          if (userProfile.user_id) {
+            cacheProfileForUser(userProfile.user_id, profile);
+          }
+        } catch (e) {
+          console.error('[SidebarAdvocate] Failed to refetch profile after update:', e);
+        }
+      }
+    };
+
+    window.addEventListener('advocateProfileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('advocateProfileUpdated', handleProfileUpdate);
+    };
+  }, [userProfile, isSetupInProgress]);
+
   function handleUserPanelClick(event: React.MouseEvent<HTMLElement>) {
     setUserMenuAnchor(event.currentTarget);
   }

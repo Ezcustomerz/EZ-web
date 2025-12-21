@@ -723,6 +723,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           setEditingService(null);
         }}
         mode={editingService ? 'edit' : 'create'}
+        creativeProfile={creativeProfile}
         initialService={editingService ? {
           id: editingService.id,
           title: editingService.title,
@@ -732,6 +733,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           status: editingService.status,
           color: editingService.color,
           payment_option: editingService.payment_option,
+          split_deposit_amount: editingService.split_deposit_amount,
           photos: editingService.photos || [],
           requires_booking: editingService.requires_booking,
           calendar_settings: editingService.calendar_settings,

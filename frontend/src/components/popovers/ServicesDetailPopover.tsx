@@ -24,6 +24,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import BookOnlineIcon from '@mui/icons-material/BookOnline';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import PaymentIcon from '@mui/icons-material/Payment';
 import Visibility from '@mui/icons-material/Visibility';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
@@ -500,6 +501,80 @@ export function ServicesDetailPopover({
               {/* Booking Type removed: single booking flow now */}
 
             </Box>
+
+            {/* Payment Option - Full Width at Bottom */}
+            {service.payment_option && (
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 2,
+                p: 2,
+                mt: 2,
+                borderRadius: 2,
+                backgroundColor: service.payment_option === 'split' ? 'rgba(156, 39, 176, 0.08)' : 
+                                service.payment_option === 'upfront' ? 'rgba(255, 152, 0, 0.08)' : 
+                                'rgba(96, 125, 139, 0.08)',
+                border: service.payment_option === 'split' ? '1px solid rgba(156, 39, 176, 0.2)' : 
+                       service.payment_option === 'upfront' ? '1px solid rgba(255, 152, 0, 0.2)' : 
+                       '1px solid rgba(96, 125, 139, 0.2)',
+                width: '100%'
+              }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 1.5,
+                  backgroundColor: service.payment_option === 'split' ? '#9c27b0' : 
+                                 service.payment_option === 'upfront' ? '#ff9800' : 
+                                 '#607d8b',
+                  color: 'white'
+                }}>
+                  <PaymentIcon sx={{ fontSize: 20 }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
+                    Payment Option
+                  </Typography>
+                  <Typography variant="h6" fontWeight={600} sx={{ 
+                    color: service.payment_option === 'split' ? '#9c27b0' : 
+                           service.payment_option === 'upfront' ? '#ff9800' : 
+                           '#607d8b',
+                    mb: service.payment_option === 'split' ? 0.5 : 0
+                  }}>
+                    {service.payment_option === 'upfront' ? 'Payment Upfront' : 
+                     service.payment_option === 'split' ? 'Split Payment' : 
+                     'Payment Later'}
+                  </Typography>
+                  {service.payment_option === 'split' && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Typography variant="body2" sx={{ 
+                        fontSize: '0.75rem', 
+                        color: '#9c27b0',
+                        fontWeight: 500
+                      }}>
+                        Upfront: ${(() => {
+                          const depositAmount = service.split_deposit_amount ?? (service.price * 0.5);
+                          return depositAmount.toFixed(2);
+                        })()}
+                      </Typography>
+                      <Typography variant="body2" sx={{ 
+                        fontSize: '0.75rem', 
+                        color: '#9c27b0',
+                        fontWeight: 500
+                      }}>
+                        Later: ${(() => {
+                          const depositAmount = service.split_deposit_amount ?? (service.price * 0.5);
+                          const remainingAmount = service.price - depositAmount;
+                          return remainingAmount.toFixed(2);
+                        })()}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            )}
            </Box>
         </Box>
       </DialogContent>

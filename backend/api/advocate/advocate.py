@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, UploadFile, File
 from services.advocate.advocate_service import AdvocateController
+from schemas.advocate import AdvocateUpdateRequest, AdvocateUpdateResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
@@ -25,3 +26,46 @@ async def get_advocate_profile(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch advocate profile: {str(e)}")
+
+@router.put("/profile", response_model=AdvocateUpdateResponse)
+@limiter.limit("2 per second")
+async def update_advocate_profile(
+    request: Request,
+    update_data: AdvocateUpdateRequest,
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Update the current user's advocate profile
+    Requires authentication - will return 401 if not authenticated.
+    """
+    try:
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
+        
+        return await AdvocateController.update_advocate_profile(user_id, update_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update advocate profile: {str(e)}")
+
+@router.post("/profile/upload-photo")
+@limiter.limit("2 per second")
+async def upload_profile_photo(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(require_auth)
+):
+    """Upload a profile photo for the advocate
+    Requires authentication - will return 401 if not authenticated.
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        return await AdvocateController.upload_profile_photo(user_id, file)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")

@@ -175,6 +175,30 @@ export function LayoutClient({
     loadProfile();
   }, [userProfile, isSetupInProgress]);
 
+  // Listen for profile updates (e.g., from settings popover)
+  useEffect(() => {
+    const handleProfileUpdate = async () => {
+      if (userProfile && !isSetupInProgress && !userProfile.first_login) {
+        console.log('[LayoutClient] Profile update event received, refetching profile');
+        try {
+          const profile = await userService.getClientProfile();
+          console.log('[LayoutClient] Profile refetched after update:', profile);
+          setClientProfile(profile);
+          if (userProfile.user_id) {
+            cacheProfileForUser(userProfile.user_id, profile);
+          }
+        } catch (e) {
+          console.error('[LayoutClient] Failed to refetch profile after update:', e);
+        }
+      }
+    };
+
+    window.addEventListener('clientProfileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('clientProfileUpdated', handleProfileUpdate);
+    };
+  }, [userProfile, isSetupInProgress]);
+
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
     if (!isMobile) {

@@ -506,6 +506,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
           console.log('Profile photo uploaded:', uploadResponse);
         } catch (uploadError) {
           console.error('Failed to upload profile photo:', uploadError);
+          errorToast('Failed to upload profile photo', 'Your other settings will still be saved.');
           // Continue with other settings even if photo upload fails
         }
       }
@@ -529,6 +530,9 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       // Call the API
       await userService.updateCreativeProfileSettings(settingsRequest);
       
+      // Show success toast
+      successToast('Profile Updated!', 'Your creative profile has been updated successfully.');
+      
       // Update the original form data to reflect the saved state
       setOriginalFormData({ ...formData });
       
@@ -543,9 +547,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       // Close the popover
       onClose();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save profile settings:', error);
-      // You could add a toast notification here for error handling
+      const errorMessage = error.response?.data?.detail || 'Failed to update profile';
+      errorToast('Update Failed', errorMessage);
     } finally {
       setSaving(false);
     }

@@ -109,6 +109,7 @@ export interface CreativeProfile {
   subscription_tier_id: string;
   subscription_tier?: string; // Subscription tier name (e.g., 'basic', 'growth', 'pro') - for backward compatibility
   subscription_tier_name?: string; // Explicit subscription tier name
+  subscription_tier_fee_percentage?: number; // Fee percentage for the subscription tier (e.g., 0.10 for 10%)
   primary_contact?: string;
   secondary_contact?: string;
   profile_banner_url?: string;
@@ -137,6 +138,7 @@ export interface ClientProfile {
 export interface AdvocateProfile {
   user_id: string;
   display_name?: string;
+  email?: string;
   profile_banner_url?: string;
   profile_source: string;
   tier: string;
@@ -153,6 +155,29 @@ export interface AdvocateProfile {
   last_synced_at?: string;
   sync_source: string;
   created_at: string;
+}
+
+export interface AdvocateUpdateRequest {
+  display_name?: string;
+  email?: string;
+  profile_banner_url?: string;
+}
+
+export interface AdvocateUpdateResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface ClientUpdateRequest {
+  display_name?: string;
+  title?: string;
+  email?: string;
+  profile_banner_url?: string;
+}
+
+export interface ClientUpdateResponse {
+  success: boolean;
+  message: string;
 }
 
 export interface CreativeClient {
@@ -581,6 +606,74 @@ export const userService = {
     const response = await axios.get<AdvocateProfile>(
       `${API_BASE_URL}/advocate/profile`,
       { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Update the current user's advocate profile
+   */
+  async updateAdvocateProfile(updateData: AdvocateUpdateRequest): Promise<AdvocateUpdateResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.put<AdvocateUpdateResponse>(
+      `${API_BASE_URL}/advocate/profile`,
+      updateData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Upload profile photo for advocate
+   */
+  async uploadAdvocateProfilePhoto(file: File): Promise<ProfilePhotoUploadResponse> {
+    const headers = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await axios.post<ProfilePhotoUploadResponse>(
+      `${API_BASE_URL}/advocate/profile/upload-photo`,
+      formData,
+      { 
+        headers: {
+          ...headers,
+          'Content-Type': 'multipart/form-data',
+        }
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Update the current user's client profile
+   */
+  async updateClientProfile(updateData: ClientUpdateRequest): Promise<ClientUpdateResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.put<ClientUpdateResponse>(
+      `${API_BASE_URL}/client/profile`,
+      updateData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Upload profile photo for client
+   */
+  async uploadClientProfilePhoto(file: File): Promise<ProfilePhotoUploadResponse> {
+    const headers = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await axios.post<ProfilePhotoUploadResponse>(
+      `${API_BASE_URL}/client/profile/upload-photo`,
+      formData,
+      { 
+        headers: {
+          ...headers,
+          'Content-Type': 'multipart/form-data',
+        }
+      }
     );
     return response.data;
   },

@@ -11,6 +11,16 @@ class ClientSetupResponse(BaseModel):
     success: bool
     message: str
 
+class ClientUpdateRequest(BaseModel):
+    display_name: Optional[str] = None
+    title: Optional[str] = None
+    email: Optional[str] = None
+    profile_banner_url: Optional[str] = None
+
+class ClientUpdateResponse(BaseModel):
+    success: bool
+    message: str
+
 class ClientCreativeResponse(BaseModel):
     id: str
     name: str

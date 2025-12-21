@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -19,6 +19,8 @@ import {
   CardContent,
   Avatar,
   Divider,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Close,
@@ -30,6 +32,8 @@ import {
   AccountCircle,
   Check,
 } from '@mui/icons-material';
+import { userService } from '../../../api/userService';
+import { successToast, errorToast } from '../../toast/toast';
 
 interface AdvocateSettingsPopoverProps {
   open: boolean;
@@ -44,16 +48,50 @@ export function AdvocateSettingsPopover({ open, onClose, onProfileUpdated }: Adv
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
   const [selectedTheme, setSelectedTheme] = useState('light');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
     displayName: '',
     profilePhoto: null as File | null,
+    profilePhotoUrl: '', // Existing photo URL from database
     primaryContact: '',
   });
 
+  // Fetch profile data when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchProfileData();
+    }
+  }, [open]);
+
+  const fetchProfileData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const profile = await userService.getAdvocateProfile();
+      setFormData({
+        displayName: profile.display_name || '',
+        profilePhoto: null,
+        profilePhotoUrl: profile.profile_banner_url || '',
+        primaryContact: profile.email || '',
+      });
+    } catch (err: any) {
+      console.error('Failed to fetch advocate profile:', err);
+      setError(err.response?.data?.detail || 'Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear messages when user starts editing
+    setError(null);
+    setSuccess(null);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,16 +102,59 @@ export function AdvocateSettingsPopover({ open, onClose, onProfileUpdated }: Adv
   };
 
   const handleClose = () => {
+    setError(null);
+    setSuccess(null);
     onClose();
   };
 
-  const handleSaveChanges = () => {
-    // Dispatch event for other components to react
-    window.dispatchEvent(new CustomEvent('advocateProfileUpdated'));
+  const handleSaveChanges = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
     
-    // Call callback if provided
-    if (onProfileUpdated) {
-      onProfileUpdated();
+    try {
+      // Upload profile photo if a new one was selected
+      if (formData.profilePhoto) {
+        try {
+          const uploadResponse = await userService.uploadAdvocateProfilePhoto(formData.profilePhoto);
+          console.log('Profile photo uploaded:', uploadResponse);
+        } catch (uploadError) {
+          console.error('Failed to upload profile photo:', uploadError);
+          errorToast('Failed to upload profile photo', 'Your other settings will still be saved.');
+          // Continue with other settings even if photo upload fails
+        }
+      }
+
+      // Prepare update data
+      const updateData: any = {
+        display_name: formData.displayName,
+        email: formData.primaryContact,
+      };
+
+      // Call update API
+      const response = await userService.updateAdvocateProfile(updateData);
+      
+      if (response.success) {
+        successToast('Profile Updated!', 'Your advocate profile has been updated successfully.');
+        
+        // Dispatch event for other components to react
+        window.dispatchEvent(new CustomEvent('advocateProfileUpdated'));
+        
+        // Call callback if provided
+        if (onProfileUpdated) {
+          onProfileUpdated();
+        }
+        
+        // Close the popover
+        handleClose();
+      }
+    } catch (err: any) {
+      console.error('Failed to update advocate profile:', err);
+      const errorMessage = err.response?.data?.detail || 'Failed to update profile';
+      setError(errorMessage);
+      errorToast('Update Failed', errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -103,107 +184,128 @@ export function AdvocateSettingsPopover({ open, onClose, onProfileUpdated }: Adv
       case 'account':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {/* Profile Photo Section */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <PhotoCamera color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Profile Photo
+            {loading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            )}
+            
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
+            
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+                {success}
+              </Alert>
+            )}
+            
+            {!loading && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* Profile Photo Section */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <PhotoCamera color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Profile Photo
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <Avatar
+                        src={formData.profilePhoto ? URL.createObjectURL(formData.profilePhoto) : formData.profilePhotoUrl || undefined}
+                        sx={{ width: 80, height: 80 }}
+                      >
+                        {!formData.profilePhoto && !formData.profilePhotoUrl && formData.displayName.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Button
+                        variant="outlined"
+                        component="label"
+                        size="small"
+                        sx={{
+                          textTransform: 'none',
+                          fontWeight: 500,
+                        }}
+                      >
+                        Upload Photo
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                        />
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+
+                {/* Display Name */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <Person color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Display Name
+                      </Typography>
+                    </Box>
+                    <TextField
+                      fullWidth
+                      value={formData.displayName}
+                      onChange={(e) => handleInputChange('displayName', e.target.value)}
+                      placeholder="Enter your display name"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Primary Contact */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <ContactPhone color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Email
+                      </Typography>
+                    </Box>
+                    <TextField
+                      fullWidth
+                      type="email"
+                      value={formData.primaryContact}
+                      onChange={(e) => handleInputChange('primaryContact', e.target.value)}
+                      placeholder="email@example.com"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Delete Advocate Role Section */}
+                <Card variant="outlined" sx={{ borderColor: 'error.light' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <Typography variant="h6" fontWeight={600} color="error">
+                        Delete Advocate Role
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
+                      ⚠️ <strong>Warning:</strong> Role deletion is permanent and irreversible. 
+                      All your data related to the advocate role, including connections, recommendations, and profile information,
+                      will be permanently removed. This action cannot be undone.
                     </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <Avatar
-                      src={formData.profilePhoto ? URL.createObjectURL(formData.profilePhoto) : undefined}
-                      sx={{ width: 80, height: 80 }}
-                    >
-                      {!formData.profilePhoto && formData.displayName.charAt(0).toUpperCase()}
-                    </Avatar>
                     <Button
                       variant="outlined"
-                      component="label"
-                      size="small"
+                      color="error"
                       sx={{
                         textTransform: 'none',
                         fontWeight: 500,
                       }}
                     >
-                      Upload Photo
-                      <input
-                        type="file"
-                        hidden
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                      />
-                    </Button>
-                  </Box>
-                </CardContent>
-              </Card>
-
-              {/* Display Name */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Person color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Display Name
-                    </Typography>
-                  </Box>
-                  <TextField
-                    fullWidth
-                    value={formData.displayName}
-                    onChange={(e) => handleInputChange('displayName', e.target.value)}
-                    placeholder="Enter your display name"
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Primary Contact */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <ContactPhone color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Primary Contact
-                    </Typography>
-                  </Box>
-                  <TextField
-                    fullWidth
-                    value={formData.primaryContact}
-                    onChange={(e) => handleInputChange('primaryContact', e.target.value)}
-                    placeholder="email@example.com or +1234567890"
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Delete Advocate Role Section */}
-              <Card variant="outlined" sx={{ borderColor: 'error.light' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Typography variant="h6" fontWeight={600} color="error">
                       Delete Advocate Role
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
-                    ⚠️ <strong>Warning:</strong> Role deletion is permanent and irreversible. 
-                    All your data related to the advocate role, including connections, recommendations, and profile information,
-                    will be permanently removed. This action cannot be undone.
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    sx={{
-                      textTransform: 'none',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Delete Advocate Role
-                  </Button>
-                </CardContent>
-              </Card>
+                    </Button>
+                  </CardContent>
+                </Card>
 
-            </Box>
+              </Box>
+            )}
           </Box>
         );
       case 'billing':
@@ -499,12 +601,13 @@ export function AdvocateSettingsPopover({ open, onClose, onProfileUpdated }: Adv
                   variant="contained"
                   size="small"
                   onClick={handleSaveChanges}
+                  disabled={saving || loading}
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
                   }}
                 >
-                  Save Changes
+                  {saving ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
                 </Button>
               )}
 

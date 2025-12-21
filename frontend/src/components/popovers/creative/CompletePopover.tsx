@@ -737,7 +737,7 @@ export function CompletePopover({
             <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
-                  File Download Status
+                  Client File Download Status
                 </Typography>
                 <Stack spacing={1.5}>
                   {order.files.map((file) => {
