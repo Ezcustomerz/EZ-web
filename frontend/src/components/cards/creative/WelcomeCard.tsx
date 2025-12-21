@@ -52,28 +52,28 @@ export function WelcomeCard({
 
   const statsCards: StatsCard[] = [
     {
-      title: 'Clients',
+      title: 'New Clients This Month',
       value: stats ? stats.totalClients.toString() : '0',
       icon: PeopleOutlined,
       color: theme.palette.success.main,
       bgColor: `${theme.palette.success.main}1A`,
     },
     {
-      title: 'Monthly Amount',
+      title: 'This Month\'s Income',
       value: stats ? formatCurrency(stats.monthlyAmount) : '$0',
       icon: AttachMoneyOutlined,
       color: theme.palette.info.main,
       bgColor: `${theme.palette.info.main}1A`,
     },
     {
-      title: 'Total Bookings',
+      title: 'Bookings This Month',
       value: stats ? stats.totalBookings.toString() : '0',
       icon: EventOutlined,
       color: theme.palette.custom.amber,
       bgColor: `${theme.palette.custom.amber}1A`,
     },
     {
-      title: 'Completed Sessions',
+      title: 'Sessions Completed',
       value: stats ? stats.completedSessions.toString() : '0',
       icon: HeadsetOutlined,
       color: theme.palette.primary.main,

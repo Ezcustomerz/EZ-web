@@ -112,13 +112,13 @@ async def get_creative_dashboard_stats(
     current_user: Dict[str, Any] = Depends(require_auth),
     client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get dashboard statistics for the current creative user
+    """Get dashboard statistics for the current creative user (current month only)
     Requires authentication - will return 401 if not authenticated.
     Returns:
-    - total_clients: Number of unique clients
-    - monthly_amount: Total amount paid in current month
-    - total_bookings: Total number of bookings
-    - completed_sessions: Number of completed bookings
+    - total_clients: Number of new clients this month
+    - monthly_amount: Net income from Stripe for current month
+    - total_bookings: Number of bookings created this month
+    - completed_sessions: Number of sessions completed this month
     """
     try:
         user_id = current_user.get('sub')

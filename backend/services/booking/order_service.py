@@ -919,18 +919,18 @@ class OrderService:
 
     @staticmethod
     async def get_creative_dashboard_stats(user_id: str, client: Client) -> Dict[str, Any]:
-        """Get dashboard statistics for the current creative user
+        """Get dashboard statistics for the current creative user (current month only)
         
         Args:
             user_id: The creative user ID
             client: Authenticated Supabase client (required, respects RLS policies)
             
         Returns:
-            Dictionary containing:
-            - total_clients: Number of unique clients
+            Dictionary containing current month statistics:
+            - total_clients: Number of new clients this month (clients with first booking this month)
             - monthly_amount: Net amount from Stripe for current month (matches Stripe Express dashboard)
-            - total_bookings: Total number of bookings
-            - completed_sessions: Number of completed bookings
+            - total_bookings: Number of bookings created this month
+            - completed_sessions: Number of sessions completed this month
         """
         if not client:
             raise ValueError("Authenticated client is required for this operation")
@@ -949,16 +949,51 @@ class OrderService:
             
             # Get all bookings for this creative
             bookings_response = client.table('bookings')\
-                .select('id, client_user_id, amount_paid, creative_status, order_date')\
+                .select('id, client_user_id, amount_paid, creative_status, order_date, updated_at')\
                 .eq('creative_user_id', user_id)\
                 .execute()
             
             bookings = bookings_response.data or []
             
-            # Calculate stats
-            unique_clients = len(set(b['client_user_id'] for b in bookings))
-            total_bookings = len(bookings)
-            completed_sessions = len([b for b in bookings if b.get('creative_status') == 'completed'])
+            # Calculate stats for current month
+            # Filter bookings created this month (based on order_date)
+            bookings_this_month = []
+            for booking in bookings:
+                order_date_str = booking.get('order_date')
+                if order_date_str:
+                    try:
+                        order_date = datetime.fromisoformat(order_date_str.replace('Z', '+00:00'))
+                        if month_start <= order_date < month_end:
+                            bookings_this_month.append(booking)
+                    except (ValueError, AttributeError):
+                        continue
+            
+            # New clients this month: count unique clients from bookings created this month
+            new_clients_this_month = len(set(b['client_user_id'] for b in bookings_this_month))
+            
+            # Total bookings created this month
+            total_bookings_this_month = len(bookings_this_month)
+            
+            # Completed sessions this month: sessions with completed status, updated within this month
+            completed_sessions_this_month = 0
+            for booking in bookings:
+                if booking.get('creative_status') == 'completed':
+                    updated_at_str = booking.get('updated_at')
+                    if updated_at_str:
+                        try:
+                            updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+                            if month_start <= updated_at < month_end:
+                                completed_sessions_this_month += 1
+                        except (ValueError, AttributeError):
+                            # If no valid updated_at, check order_date as fallback
+                            order_date_str = booking.get('order_date')
+                            if order_date_str:
+                                try:
+                                    order_date = datetime.fromisoformat(order_date_str.replace('Z', '+00:00'))
+                                    if month_start <= order_date < month_end:
+                                        completed_sessions_this_month += 1
+                                except (ValueError, AttributeError):
+                                    continue
             
             # Get monthly amount from Stripe if account is connected
             monthly_amount = 0.0
@@ -1026,10 +1061,10 @@ class OrderService:
                             continue
             
             return {
-                'total_clients': unique_clients,
+                'total_clients': new_clients_this_month,
                 'monthly_amount': round(monthly_amount, 2),
-                'total_bookings': total_bookings,
-                'completed_sessions': completed_sessions
+                'total_bookings': total_bookings_this_month,
+                'completed_sessions': completed_sessions_this_month
             }
             
         except HTTPException:
