@@ -12,6 +12,9 @@ import {
   Tooltip,
   Skeleton,
   IconButton,
+  Select,
+  MenuItem,
+  FormControl,
 } from '@mui/material';
 import { 
   PieChart as PieChartIcon,
@@ -43,6 +46,7 @@ interface ServiceData {
 interface ServiceBreakdownData {
   data: ServiceData[];
   total: number;
+  available_periods: number[];
 }
 
 interface ServiceBreakdownProps {
@@ -53,6 +57,7 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
   const theme = useTheme();
   const navigate = useNavigate();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('month');
+  const [periodOffset, setPeriodOffset] = useState(0);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [breakdownData, setBreakdownData] = useState<ServiceBreakdownData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,6 +83,7 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
         const response = await apiClient.get('/creative/analytics/service-breakdown', {
           params: {
             time_period: timePeriod,
+            period_offset: timePeriod !== 'all-time' ? periodOffset : undefined,
           },
           signal: abortController.signal,
         });
@@ -102,12 +108,24 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
       isMounted = false;
       abortController.abort();
     };
-  }, [expanded, timePeriod]);
+  }, [expanded, timePeriod, periodOffset]);
 
   // Save expanded state to localStorage
   useEffect(() => {
     localStorage.setItem('analytics-service-expanded', expanded.toString());
   }, [expanded]);
+
+  // Sync periodOffset with available periods when data changes
+  useEffect(() => {
+    if (breakdownData?.available_periods && breakdownData.available_periods.length > 0 && timePeriod !== 'all-time') {
+      setPeriodOffset(prev => {
+        if (!breakdownData.available_periods.includes(prev)) {
+          return breakdownData.available_periods[0];
+        }
+        return prev;
+      });
+    }
+  }, [breakdownData, timePeriod]);
 
   const handleAccordionChange = (_event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpanded(isExpanded);
@@ -122,7 +140,14 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
     if (newPeriod !== null) {
       setTimePeriod(newPeriod);
       setActiveIndex(null); // Reset active index when period changes
+      if (newPeriod !== 'all-time') {
+        setPeriodOffset(0); // Reset to current period when changing view
+      }
     }
+  };
+
+  const handlePeriodOffsetChange = (event: any) => {
+    setPeriodOffset(Number(event.target.value));
   };
 
   const calculateTotal = useMemo(() => {
@@ -301,18 +326,98 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
     );
   };
 
+  const getAvailablePeriodOptions = () => {
+    if (!breakdownData || !breakdownData.available_periods || breakdownData.available_periods.length === 0 || timePeriod === 'all-time') {
+      const now = new Date();
+      let label;
+      if (timePeriod === 'week') {
+        label = 'This Week';
+      } else if (timePeriod === 'month') {
+        label = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      } else if (timePeriod === 'year') {
+        label = `${now.getFullYear()}`;
+      } else {
+        return [{ value: 0, label: 'All Time' }];
+      }
+      return [{ value: 0, label }];
+    }
+    
+    const now = new Date();
+    const options = [];
+    
+    for (const offset of breakdownData.available_periods) {
+      let label;
+      
+      if (timePeriod === 'week') {
+        if (offset === 0) {
+          label = 'This Week';
+        } else if (offset === -1) {
+          label = 'Last Week';
+        } else {
+          const abs = Math.abs(offset);
+          label = `${abs} Weeks Ago`;
+        }
+      } else if (timePeriod === 'month') {
+        if (offset === 0) {
+          label = 'This Month';
+        } else if (offset === -1) {
+          label = 'Last Month';
+        } else {
+          const date = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+          label = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
+      } else {
+        if (offset === 0) {
+          label = 'This Year';
+        } else if (offset === -1) {
+          label = 'Last Year';
+        } else {
+          const year = now.getFullYear() + offset;
+          label = `${year}`;
+        }
+      }
+      
+      options.push({ value: offset, label });
+    }
+    return options;
+  };
+
   const getPeriodLabel = () => {
-    switch (timePeriod) {
-      case 'week':
+    if (timePeriod === 'all-time') {
+      return 'All Time';
+    }
+    
+    if (!breakdownData) return 'Loading...';
+    
+    const now = new Date();
+    
+    if (timePeriod === 'week') {
+      if (periodOffset === 0) {
         return 'This Week';
-      case 'month':
+      } else if (periodOffset === -1) {
+        return 'Last Week';
+      } else {
+        const abs = Math.abs(periodOffset);
+        return `${abs} Weeks Ago`;
+      }
+    } else if (timePeriod === 'month') {
+      if (periodOffset === 0) {
         return 'This Month';
-      case 'year':
+      } else if (periodOffset === -1) {
+        return 'Last Month';
+      } else {
+        const date = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
+        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      }
+    } else {
+      if (periodOffset === 0) {
         return 'This Year';
-      case 'all-time':
-        return 'All Time';
-      default:
-        return '';
+      } else if (periodOffset === -1) {
+        return 'Last Year';
+      } else {
+        const year = now.getFullYear() + periodOffset;
+        return `${year}`;
+      }
     }
   };
 
@@ -352,6 +457,7 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
         </Tooltip>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
           <IconButton
+            component="div"
             size="small"
             onClick={(e) => {
               e.stopPropagation();
@@ -361,6 +467,7 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
             }}
             sx={{
               color: 'error.main',
+              cursor: 'pointer',
               '&:hover': {
                 bgcolor: 'error.light',
                 color: 'error.dark',
@@ -372,7 +479,53 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
         </Box>
       </AccordionSummary>
       <AccordionDetails>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 200 }}>
+            {timePeriod !== 'all-time' && (
+              <>
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
+                  Time Period:
+                </Typography>
+                <FormControl size="small">
+                  <Select
+                    value={
+                      breakdownData?.available_periods?.includes(periodOffset)
+                        ? periodOffset
+                        : breakdownData?.available_periods?.[0] ?? 0
+                    }
+                    onChange={handlePeriodOffsetChange}
+                    disabled={loading}
+                    sx={{
+                      fontSize: '0.85rem',
+                      fontWeight: 500,
+                      minWidth: 140,
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: theme.palette.primary.main + '30',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: theme.palette.primary.main,
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: theme.palette.primary.main,
+                      },
+                    }}
+                  >
+                    {loading ? (
+                      <MenuItem value={0} sx={{ fontSize: '0.85rem' }}>
+                        Loading...
+                      </MenuItem>
+                    ) : (
+                      getAvailablePeriodOptions().map(option => (
+                        <MenuItem key={option.value} value={option.value} sx={{ fontSize: '0.85rem' }}>
+                          {option.label}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
+              </>
+            )}
+          </Box>
           <ToggleButtonGroup
             value={timePeriod}
             exclusive

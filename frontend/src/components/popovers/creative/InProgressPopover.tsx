@@ -94,6 +94,7 @@ export interface InProgressOrder {
   amountPaid?: number;
   amountRemaining?: number;
   depositPaid?: boolean;
+  split_deposit_amount?: number;
   // Additional order details
   description?: string;
   clientEmail?: string;
@@ -190,7 +191,7 @@ export function InProgressPopover({
   };
 
   // Payment breakdown calculations
-  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number, amountPaid: number = 0) => {
+  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number, amountPaid: number = 0, splitDepositAmount?: number) => {
     if (price === 0) {
       return {
         depositAmount: 0,
@@ -213,15 +214,35 @@ export function InProgressPopover({
           amountRemaining: price - amountPaid
         };
       case 'split':
-        const depositAmount = Math.round(price * 0.5 * 100) / 100; // 50% deposit
+        // Use split_deposit_amount if provided, otherwise default to 50%
+        const depositAmount = splitDepositAmount !== undefined && splitDepositAmount !== null
+          ? Math.round(splitDepositAmount * 100) / 100
+          : Math.round(price * 0.5 * 100) / 100;
         const remainingAmount = price - depositAmount;
+        // For display: if deposit has been paid (amountPaid >= depositAmount), show depositAmount
+        // Otherwise show the actual amountPaid (which would be 0 or partial)
+        const displayDepositPaid = amountPaid >= depositAmount ? depositAmount : amountPaid;
+        // Calculate remaining: For split payments, if deposit is paid, remaining is the second half
+        // If deposit is not paid, remaining is the full price
+        // If full amount is paid (amountPaid >= price), remaining is 0
+        let actualAmountRemaining: number;
+        if (amountPaid >= price) {
+          // Fully paid
+          actualAmountRemaining = 0;
+        } else if (amountPaid >= depositAmount) {
+          // Deposit paid, show remaining balance (second half)
+          actualAmountRemaining = remainingAmount;
+        } else {
+          // Deposit not paid, show full price as remaining
+          actualAmountRemaining = price;
+        }
         return {
           depositAmount,
           remainingAmount,
           amountDueNow: depositAmount,
           isFree: false,
-          amountPaid: amountPaid,
-          amountRemaining: price - amountPaid
+          amountPaid: displayDepositPaid, // Show deposit amount if deposit was paid, otherwise show actual amountPaid
+          amountRemaining: actualAmountRemaining // Use calculated remaining amount
         };
       case 'later':
         return {
@@ -398,7 +419,8 @@ export function InProgressPopover({
   const paymentBreakdown = getPaymentBreakdown(
     order.service.payment_option, 
     order.service.price, 
-    order.amountPaid || 0
+    order.amountPaid || 0,
+    order.split_deposit_amount
   );
 
   const statusColor = getPaymentOptionColor(order.service.payment_option, order.service.price);

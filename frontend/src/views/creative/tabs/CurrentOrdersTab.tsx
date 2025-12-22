@@ -79,6 +79,7 @@ function transformOrders(fetchedOrders: Order[]) {
       status: displayStatus,
       date: order.order_date,
       bookingDate: bookingDateDisplay,
+      split_deposit_amount: order.split_deposit_amount,
       description: order.description || order.service_description || '',
       clientEmail: order.creative_email,
       clientPhone: undefined, // TODO: Add client phone if available

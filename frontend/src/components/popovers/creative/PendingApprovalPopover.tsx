@@ -71,6 +71,8 @@ export interface PendingApprovalOrder {
   status: string;
   date: string;
   bookingDate: string | null;
+  // Payment details
+  split_deposit_amount?: number;
   // Additional order details
   description?: string;
   clientEmail?: string;
@@ -150,7 +152,7 @@ export function PendingApprovalPopover({
   };
 
   // Payment breakdown calculations
-  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number) => {
+  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number, splitDepositAmount?: number) => {
     if (price === 0) {
       return {
         depositAmount: 0,
@@ -169,8 +171,20 @@ export function PendingApprovalPopover({
           isFree: false
         };
       case 'split':
-        const depositAmount = Math.round(price * 0.5 * 100) / 100; // 50% deposit
+        // Use split_deposit_amount if provided, otherwise default to 50%
+        // Note: splitDepositAmount can be 0, so we check for !== undefined instead of > 0
+        const depositAmount = splitDepositAmount !== undefined && splitDepositAmount !== null
+          ? Math.round(splitDepositAmount * 100) / 100
+          : Math.round(price * 0.5 * 100) / 100;
         const remainingAmount = price - depositAmount;
+        
+        // Debug logging
+        console.log('[PendingApprovalPopover] Split payment calculation:', {
+          price,
+          splitDepositAmount,
+          depositAmount,
+          remainingAmount
+        });
         return {
           depositAmount,
           remainingAmount,
@@ -531,7 +545,7 @@ export function PendingApprovalPopover({
         </Card>
 
         {/* Payment Breakdown */}
-        {!getPaymentBreakdown(order.service.payment_option, order.service.price).isFree && (
+        {!getPaymentBreakdown(order.service.payment_option, order.service.price, order.split_deposit_amount).isFree && (
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -542,7 +556,7 @@ export function PendingApprovalPopover({
               </Box>
 
               {(() => {
-                const breakdown = getPaymentBreakdown(order.service.payment_option, order.service.price);
+                const breakdown = getPaymentBreakdown(order.service.payment_option, order.service.price, order.split_deposit_amount);
                 const statusColor = getPaymentOptionColor(order.service.payment_option, order.service.price);
                 
                 return (

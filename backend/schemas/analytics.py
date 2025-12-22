@@ -21,6 +21,7 @@ class ServiceBreakdownItem(BaseModel):
 class ServiceBreakdownResponse(BaseModel):
     data: List[ServiceBreakdownItem]
     total: float
+    available_periods: List[int]  # List of available period offsets (0, -1, -2, etc.)
 
 class ClientLeaderboardItem(BaseModel):
     id: str  # client_user_id

@@ -112,6 +112,19 @@ export function IncomeOverTime({ onDelete }: IncomeOverTimeProps) {
     localStorage.setItem('analytics-income-expanded', expanded.toString());
   }, [expanded]);
 
+  // Sync periodOffset with available periods when data changes
+  useEffect(() => {
+    if (incomeData?.available_periods && incomeData.available_periods.length > 0) {
+      // If current periodOffset is not in available periods, set it to the first available
+      setPeriodOffset(prev => {
+        if (!incomeData.available_periods.includes(prev)) {
+          return incomeData.available_periods[0];
+        }
+        return prev;
+      });
+    }
+  }, [incomeData]); // Only depend on incomeData, use functional update to read current periodOffset
+
   const handleAccordionChange = (_event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpanded(isExpanded);
   };
@@ -122,7 +135,8 @@ export function IncomeOverTime({ onDelete }: IncomeOverTimeProps) {
   ) => {
     if (newPeriod !== null) {
       setTimePeriod(newPeriod);
-      setPeriodOffset(0); // Reset to current period when changing view
+      // Reset to 0, but it will be synced with available periods when data loads
+      setPeriodOffset(0);
     }
   };
 
@@ -162,13 +176,25 @@ export function IncomeOverTime({ onDelete }: IncomeOverTimeProps) {
           label = `${abs} Weeks Ago`;
         }
       } else if (timePeriod === 'month') {
-        // For months, show actual month and year (including current)
-        const date = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-        label = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        // For months, show special label for current month, otherwise show month and year
+        if (offset === 0) {
+          label = 'This Month';
+        } else if (offset === -1) {
+          label = 'Last Month';
+        } else {
+          const date = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+          label = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
       } else {
-        // For years, show actual year (including current)
-        const year = now.getFullYear() + offset;
-        label = `${year}`;
+        // For years, show special label for current year, otherwise show year
+        if (offset === 0) {
+          label = 'This Year';
+        } else if (offset === -1) {
+          label = 'Last Year';
+        } else {
+          const year = now.getFullYear() + offset;
+          label = `${year}`;
+        }
       }
       
       options.push({ value: offset, label });
@@ -191,11 +217,23 @@ export function IncomeOverTime({ onDelete }: IncomeOverTimeProps) {
         return `${abs} Weeks Ago`;
       }
     } else if (timePeriod === 'month') {
-      const date = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
-      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if (periodOffset === 0) {
+        return 'This Month';
+      } else if (periodOffset === -1) {
+        return 'Last Month';
+      } else {
+        const date = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
+        return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      }
     } else {
-      const year = now.getFullYear() + periodOffset;
-      return `${year}`;
+      if (periodOffset === 0) {
+        return 'This Year';
+      } else if (periodOffset === -1) {
+        return 'Last Year';
+      } else {
+        const year = now.getFullYear() + periodOffset;
+        return `${year}`;
+      }
     }
   };
 
@@ -304,6 +342,7 @@ export function IncomeOverTime({ onDelete }: IncomeOverTimeProps) {
         </Tooltip>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
           <IconButton
+            component="div"
             size="small"
             onClick={(e) => {
               e.stopPropagation();
@@ -313,6 +352,7 @@ export function IncomeOverTime({ onDelete }: IncomeOverTimeProps) {
             }}
             sx={{
               color: 'error.main',
+              cursor: 'pointer',
               '&:hover': {
                 bgcolor: 'error.light',
                 color: 'error.dark',
@@ -332,7 +372,11 @@ export function IncomeOverTime({ onDelete }: IncomeOverTimeProps) {
             {/* Period Selector Dropdown */}
               <FormControl size="small">
                 <Select
-                  value={periodOffset}
+                  value={
+                    incomeData?.available_periods?.includes(periodOffset)
+                      ? periodOffset
+                      : incomeData?.available_periods?.[0] ?? 0
+                  }
                   onChange={handlePeriodOffsetChange}
                   disabled={loading}
                   sx={{

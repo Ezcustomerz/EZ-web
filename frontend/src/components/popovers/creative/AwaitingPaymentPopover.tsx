@@ -182,13 +182,27 @@ export function AwaitingPaymentPopover({
         // For display: if deposit has been paid (amountPaid >= depositAmount), show depositAmount
         // Otherwise show the actual amountPaid (which would be 0 or partial)
         const displayDepositPaid = amountPaid >= depositAmount ? depositAmount : amountPaid;
+        // Calculate remaining: For split payments, if deposit is paid, remaining is the second half
+        // If deposit is not paid, remaining is the full price
+        // If full amount is paid (amountPaid >= price), remaining is 0
+        let actualAmountRemaining: number;
+        if (amountPaid >= price) {
+          // Fully paid
+          actualAmountRemaining = 0;
+        } else if (amountPaid >= depositAmount) {
+          // Deposit paid, show remaining balance (second half)
+          actualAmountRemaining = remainingAmount;
+        } else {
+          // Deposit not paid, show full price as remaining
+          actualAmountRemaining = price;
+        }
         return {
           depositAmount,
           remainingAmount,
           amountDueNow: depositAmount,
           isFree: false,
           amountPaid: displayDepositPaid, // Show deposit amount if deposit was paid, otherwise show actual amountPaid
-          amountRemaining: price - amountPaid
+          amountRemaining: actualAmountRemaining // Use calculated remaining amount
         };
       case 'later':
         return {

@@ -124,27 +124,48 @@ export function ClientAnalytics({ onDelete }: ClientAnalyticsProps) {
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Never';
     
+    // Parse UTC date string and convert to local time
     const date = new Date(dateString);
     const now = new Date();
+    
+    // Get local time components for proper day comparison
+    const dateLocal = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const nowLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Calculate time difference in milliseconds
     const diffTime = now.getTime() - date.getTime();
     const diffSeconds = Math.floor(diffTime / 1000);
     const diffMinutes = Math.floor(diffSeconds / 60);
     const diffHours = Math.floor(diffMinutes / 60);
-    const diffDays = Math.floor(diffHours / 24);
+    
+    // Calculate calendar day difference (in local time)
+    const diffDays = Math.floor((nowLocal.getTime() - dateLocal.getTime()) / (1000 * 60 * 60 * 24));
     
     // More accurate relative time calculation
     if (diffSeconds < 60) return 'Just now';
     if (diffMinutes < 60) return `${diffMinutes} ${diffMinutes === 1 ? 'minute' : 'minutes'} ago`;
-    if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    if (diffHours < 24) {
+      // If same calendar day, show hours
+      if (diffDays === 0) {
+        return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+      }
+      // If different day but less than 24 hours, it's yesterday
+      return 'Yesterday';
+    }
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} ${Math.floor(diffDays / 7) === 1 ? 'week' : 'weeks'} ago`;
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+    }
     
+    // For older dates, show formatted date in local timezone
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric', 
-      year: 'numeric' 
+      year: 'numeric',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
   };
 
@@ -275,6 +296,7 @@ export function ClientAnalytics({ onDelete }: ClientAnalyticsProps) {
         </Tooltip>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
           <IconButton
+            component="div"
             size="small"
             onClick={(e) => {
               e.stopPropagation();
@@ -284,6 +306,7 @@ export function ClientAnalytics({ onDelete }: ClientAnalyticsProps) {
             }}
             sx={{
               color: 'error.main',
+              cursor: 'pointer',
               '&:hover': {
                 bgcolor: 'error.light',
                 color: 'error.dark',

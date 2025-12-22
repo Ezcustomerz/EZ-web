@@ -162,6 +162,15 @@ export function RequestsTable({
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
+    // Debug: log the order structure to see what fields are available
+    console.log('[RequestsTable] Order data for pending approval:', {
+      id: order.id,
+      split_deposit_amount: order.split_deposit_amount,
+      'order.service?.split_deposit_amount': order.service?.split_deposit_amount,
+      'order.service': order.service,
+      fullOrder: order
+    });
+    
     const pendingOrder: PendingApprovalOrder = {
       id: order.id,
       client: order.client,
@@ -179,11 +188,15 @@ export function RequestsTable({
       status: order.status,
       date: order.date,
       bookingDate: order.bookingDate,
+      split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
       description: order.description,
       clientEmail: order.clientEmail,
       clientPhone: order.clientPhone,
       specialRequirements: order.specialRequirements
     };
+    
+    console.log('[RequestsTable] Created pendingOrder with split_deposit_amount:', pendingOrder.split_deposit_amount);
+    
     setSelectedOrder(pendingOrder);
     setPendingApprovalPopoverOpen(true);
   };
@@ -246,6 +259,10 @@ export function RequestsTable({
       status: order.status,
       date: order.date,
       bookingDate: order.bookingDate,
+      amountPaid: order.amountPaid || 0,
+      amountRemaining: order.amountRemaining,
+      depositPaid: order.depositPaid,
+      split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
       description: order.description,
       clientEmail: order.clientEmail,
       clientPhone: order.clientPhone,
@@ -523,6 +540,7 @@ export function RequestsTable({
         amountPaid: order.amountPaid,
         amountRemaining: order.amountRemaining,
         depositPaid: order.depositPaid,
+        split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
         description: order.description,
         clientEmail: order.clientEmail,
         clientPhone: order.clientPhone,

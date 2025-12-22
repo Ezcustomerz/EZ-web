@@ -274,17 +274,109 @@ async def get_income_over_time(
     # Calculate total (excluding null values)
     total = sum(item["income"] for item in income_data if item["income"] is not None)
     
-    # Calculate available periods based on account creation date
-    available_periods = [0]
+    # Calculate available periods based on actual payment data
+    # Always include current period (0) even if there's no data yet
+    
     if time_period == "week":
-        weeks_since_creation = (now - account_created_at).days // 7
-        available_periods = list(range(0, -min(weeks_since_creation, 52), -1))
+        # Get all paid bookings to find which weeks have data
+        all_bookings_result = db.table("bookings")\
+            .select("order_date, amount_paid, payment_status, creative_status")\
+            .eq("creative_user_id", user_id)\
+            .eq("payment_status", "fully_paid")\
+            .eq("creative_status", "completed")\
+            .gte("order_date", account_created_at.isoformat())\
+            .lte("order_date", now.isoformat())\
+            .execute()
+        
+        # Calculate week start (Monday) for current week
+        current_week_start = now - timedelta(days=now.weekday())
+        current_week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Find unique weeks that have payments
+        weeks_with_data = set()
+        for booking in (all_bookings_result.data or []):
+            order_date = datetime.fromisoformat(booking["order_date"].replace("Z", "+00:00"))
+            # Calculate which week this booking belongs to (week offset from current week)
+            booking_week_start = order_date - timedelta(days=order_date.weekday())
+            booking_week_start = booking_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # Calculate offset (negative = weeks ago, 0 = this week)
+            days_diff = (booking_week_start - current_week_start).days
+            week_offset = days_diff // 7
+            
+            # Only include past weeks (offset <= 0) and within reasonable range
+            if week_offset <= 0 and week_offset >= -52:
+                weeks_with_data.add(week_offset)
+        
+        # Always include current week (0) even if there's no data
+        weeks_with_data.add(0)
+        
+        # Sort and create list (most recent first: 0, -1, -2, ...)
+        available_periods = sorted(weeks_with_data, reverse=True)
+            
     elif time_period == "month":
-        months_since_creation = (now.year - account_created_at.year) * 12 + (now.month - account_created_at.month)
-        available_periods = list(range(0, -min(months_since_creation, 24), -1))
+        # Get all paid bookings to find which months have data
+        all_bookings_result = db.table("bookings")\
+            .select("order_date, amount_paid, payment_status, creative_status")\
+            .eq("creative_user_id", user_id)\
+            .eq("payment_status", "fully_paid")\
+            .eq("creative_status", "completed")\
+            .gte("order_date", account_created_at.isoformat())\
+            .lte("order_date", now.isoformat())\
+            .execute()
+        
+        # Find unique months that have payments
+        months_with_data = set()
+        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        for booking in (all_bookings_result.data or []):
+            order_date = datetime.fromisoformat(booking["order_date"].replace("Z", "+00:00"))
+            booking_month_start = order_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # Calculate month offset
+            months_diff = (now.year - booking_month_start.year) * 12 + (now.month - booking_month_start.month)
+            
+            # Only include past months (offset <= 0) and within reasonable range
+            if months_diff <= 0 and months_diff >= -24:
+                months_with_data.add(months_diff)
+        
+        # Always include current month (0) even if there's no data
+        months_with_data.add(0)
+        
+        # Sort and create list (most recent first: 0, -1, -2, ...)
+        available_periods = sorted(months_with_data, reverse=True)
+            
     else:  # year
-        years_since_creation = now.year - account_created_at.year
-        available_periods = list(range(0, -min(years_since_creation, 10), -1))
+        # Get all paid bookings to find which years have data
+        all_bookings_result = db.table("bookings")\
+            .select("order_date, amount_paid, payment_status, creative_status")\
+            .eq("creative_user_id", user_id)\
+            .eq("payment_status", "fully_paid")\
+            .eq("creative_status", "completed")\
+            .gte("order_date", account_created_at.isoformat())\
+            .lte("order_date", now.isoformat())\
+            .execute()
+        
+        # Find unique years that have payments
+        years_with_data = set()
+        current_year = now.year
+        
+        for booking in (all_bookings_result.data or []):
+            order_date = datetime.fromisoformat(booking["order_date"].replace("Z", "+00:00"))
+            booking_year = order_date.year
+            
+            # Calculate year offset
+            year_offset = current_year - booking_year
+            
+            # Only include past years (offset <= 0) and within reasonable range
+            if year_offset <= 0 and year_offset >= -10:
+                years_with_data.add(year_offset)
+        
+        # Always include current year (0) even if there's no data
+        years_with_data.add(0)
+        
+        # Sort and create list (most recent first: 0, -1, -2, ...)
+        available_periods = sorted(years_with_data, reverse=True)
     
     return {
         "data": income_data,
@@ -297,6 +389,7 @@ async def get_income_over_time(
 @router.get("/service-breakdown", response_model=ServiceBreakdownResponse)
 async def get_service_breakdown(
     time_period: Literal["week", "month", "year", "all-time"] = Query(...),
+    period_offset: int = Query(0, ge=-100),  # 0 = current, -1 = previous, etc.
     db: Client = Depends(get_authenticated_client_dep),
     current_user: dict = Depends(get_current_user)
 ):
@@ -312,21 +405,63 @@ async def get_service_breakdown(
     """
     user_id = current_user.get("sub")
     
-    # Calculate period boundaries
-    now = datetime.now()
+    # Get creative's account creation date for available_periods calculation
+    creative_result = db.table("creatives")\
+        .select("created_at")\
+        .eq("user_id", user_id)\
+        .single()\
+        .execute()
     
+    if not creative_result.data:
+        return {
+            "data": [],
+            "total": 0,
+            "available_periods": [0]
+        }
+    
+    account_created_at = datetime.fromisoformat(creative_result.data["created_at"].replace("Z", "+00:00"))
+    now = datetime.now(account_created_at.tzinfo)
+    
+    # Calculate period boundaries based on period_offset
     if time_period == "week":
-        # Current week start (Monday)
-        period_start = now - timedelta(days=now.weekday())
-        period_start = period_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Calculate week start (Monday) for current week
+        current_week_start = now - timedelta(days=now.weekday())
+        current_week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Apply offset
+        period_start = current_week_start + timedelta(weeks=period_offset)
+        period_end = period_start + timedelta(days=7)
     elif time_period == "month":
-        # Current month start
-        period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Calculate month start for current month
+        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Apply offset
+        if period_offset == 0:
+            period_start = current_month_start
+        else:
+            month = now.month + period_offset
+            year = now.year
+            while month < 1:
+                month += 12
+                year -= 1
+            while month > 12:
+                month -= 12
+                year += 1
+            period_start = now.replace(year=year, month=month, day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Calculate next month for period_end
+        next_month = period_start.month + 1
+        next_year = period_start.year
+        if next_month > 12:
+            next_month = 1
+            next_year += 1
+        period_end = period_start.replace(year=next_year, month=next_month)
     elif time_period == "year":
-        # Current year start
-        period_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Calculate year start for current year
+        current_year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        # Apply offset
+        period_start = current_year_start.replace(year=current_year_start.year + period_offset)
+        period_end = period_start.replace(year=period_start.year + 1)
     else:  # all-time
         period_start = datetime(2000, 1, 1)  # Effectively no start limit
+        period_end = None
     
     # Get all completed and paid bookings with service details
     # Note: We don't filter by is_active to include historical data from deleted services
@@ -339,6 +474,8 @@ async def get_service_breakdown(
     # Only add time filter if not all-time
     if time_period != "all-time":
         bookings_query = bookings_query.gte("order_date", period_start.isoformat())
+        if period_end:
+            bookings_query = bookings_query.lt("order_date", period_end.isoformat())
     
     bookings_result = bookings_query.execute()
     
@@ -384,9 +521,99 @@ async def get_service_breakdown(
     # Calculate total
     total = sum(item["value"] for item in data)
     
+    # Calculate available periods based on actual payment data
+    # Always include current period (0) even if there's no data yet
+    available_periods = [0]
+    
+    if time_period == "week":
+        # Get all paid bookings to find which weeks have data
+        all_bookings_result = db.table("bookings")\
+            .select("order_date, amount_paid, payment_status, creative_status")\
+            .eq("creative_user_id", user_id)\
+            .eq("payment_status", "fully_paid")\
+            .eq("creative_status", "completed")\
+            .gte("order_date", account_created_at.isoformat())\
+            .lte("order_date", now.isoformat())\
+            .execute()
+        
+        # Calculate week start (Monday) for current week
+        current_week_start = now - timedelta(days=now.weekday())
+        current_week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Find unique weeks that have payments
+        weeks_with_data = set()
+        for booking in (all_bookings_result.data or []):
+            order_date = datetime.fromisoformat(booking["order_date"].replace("Z", "+00:00"))
+            booking_week_start = order_date - timedelta(days=order_date.weekday())
+            booking_week_start = booking_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            days_diff = (booking_week_start - current_week_start).days
+            week_offset = days_diff // 7
+            
+            if week_offset <= 0 and week_offset >= -52:
+                weeks_with_data.add(week_offset)
+        
+        weeks_with_data.add(0)
+        available_periods = sorted(weeks_with_data, reverse=True)
+        
+    elif time_period == "month":
+        # Get all paid bookings to find which months have data
+        all_bookings_result = db.table("bookings")\
+            .select("order_date, amount_paid, payment_status, creative_status")\
+            .eq("creative_user_id", user_id)\
+            .eq("payment_status", "fully_paid")\
+            .eq("creative_status", "completed")\
+            .gte("order_date", account_created_at.isoformat())\
+            .lte("order_date", now.isoformat())\
+            .execute()
+        
+        months_with_data = set()
+        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        for booking in (all_bookings_result.data or []):
+            order_date = datetime.fromisoformat(booking["order_date"].replace("Z", "+00:00"))
+            booking_month_start = order_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            months_diff = (now.year - booking_month_start.year) * 12 + (now.month - booking_month_start.month)
+            
+            if months_diff <= 0 and months_diff >= -24:
+                months_with_data.add(months_diff)
+        
+        months_with_data.add(0)
+        available_periods = sorted(months_with_data, reverse=True)
+        
+    elif time_period == "year":
+        # Get all paid bookings to find which years have data
+        all_bookings_result = db.table("bookings")\
+            .select("order_date, amount_paid, payment_status, creative_status")\
+            .eq("creative_user_id", user_id)\
+            .eq("payment_status", "fully_paid")\
+            .eq("creative_status", "completed")\
+            .gte("order_date", account_created_at.isoformat())\
+            .lte("order_date", now.isoformat())\
+            .execute()
+        
+        years_with_data = set()
+        current_year = now.year
+        
+        for booking in (all_bookings_result.data or []):
+            order_date = datetime.fromisoformat(booking["order_date"].replace("Z", "+00:00"))
+            booking_year = order_date.year
+            
+            year_offset = current_year - booking_year
+            
+            if year_offset <= 0 and year_offset >= -10:
+                years_with_data.add(year_offset)
+        
+        years_with_data.add(0)
+        available_periods = sorted(years_with_data, reverse=True)
+    else:  # all-time
+        available_periods = [0]  # Only one option for all-time
+    
     return {
         "data": data,
-        "total": round(total, 2)
+        "total": round(total, 2),
+        "available_periods": available_periods
     }
 
 
