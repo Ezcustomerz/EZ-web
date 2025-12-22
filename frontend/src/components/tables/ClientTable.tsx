@@ -36,33 +36,24 @@ import {
   Folder,
 } from '@mui/icons-material';
 import { useState } from 'react';
-
-export interface Client {
-  id: string;
-  name: string;
-  contact: string;
-  contactType: 'email' | 'phone';
-  status: 'active' | 'inactive';
-  totalSpent: number;
-  projects: number;
-}
+import { type CreativeClient } from '../../api/userService';
 
 type SortField = 'name' | 'totalSpent' | 'projects';
 type SortDirection = 'asc' | 'desc' | null;
 
 interface ClientTableProps {
-  clients: Client[];
+  clients: CreativeClient[];
   searchTerm: string;
   onSearchChange: (value: string) => void;
   statusFilter: 'all' | 'active' | 'inactive';
   onStatusFilterChange: (value: 'all' | 'active' | 'inactive') => void;
   onInviteClient: () => void;
-  onClientClick?: (client: Client) => void;
+  onClientClick?: (client: CreativeClient) => void;
   itemsPerPage?: number;
   loading?: boolean;
 }
 
-export const mockClients: Client[] = [
+export const mockClients: CreativeClient[] = [
  
 ];
 
