@@ -17,7 +17,7 @@ import {
 import {
   DashboardOutlined,
   PeopleOutlined,
-  AttachMoneyOutlined,
+  TimelineOutlined,
   PublicOutlined,
   Close,
   PersonOutlined,
@@ -87,7 +87,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: DashboardOutlined },
     { id: 'clients', label: 'Clients', icon: PeopleOutlined },
-    { id: 'activity', label: 'Activity', icon: AttachMoneyOutlined },
+    { id: 'activity', label: 'Activity', icon: TimelineOutlined },
     { id: 'public', label: 'Public', icon: PublicOutlined },
   ];
 
