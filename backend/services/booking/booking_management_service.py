@@ -8,7 +8,8 @@ from schemas.booking import (
     CreateBookingRequest, CreateBookingResponse,
     ApproveBookingResponse,
     RejectBookingResponse,
-    CancelBookingResponse
+    CancelBookingResponse,
+    SendPaymentReminderResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -639,4 +640,133 @@ class BookingManagementService:
         except Exception as e:
             logger.error(f"Error canceling booking: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to cancel booking: {str(e)}")
+    
+    @staticmethod
+    async def send_payment_reminder(creative_user_id: str, booking_id: str, client: Client) -> Dict[str, Any]:
+        """Send a payment reminder notification to the client for a booking
+        
+        Args:
+            creative_user_id: The creative user ID sending the reminder
+            booking_id: The booking ID to send reminder for
+            client: Authenticated Supabase client (required, respects RLS policies)
+            
+        Returns:
+            Dict with success status, message, and notification_id
+            
+        Raises:
+            HTTPException: If booking not found or user not authorized
+            ValueError: If client is not provided
+        """
+        if not client:
+            raise ValueError("Authenticated client is required for this operation")
+        
+        try:
+            # Get booking details
+            booking_response = client.table('bookings')\
+                .select('id, client_user_id, creative_user_id, service_id, price, payment_option, split_deposit_amount, amount_paid')\
+                .eq('id', booking_id)\
+                .single()\
+                .execute()
+            
+            if not booking_response.data:
+                raise HTTPException(status_code=404, detail="Booking not found")
+            
+            booking = booking_response.data
+            
+            # Verify the booking belongs to this creative
+            if booking.get('creative_user_id') != creative_user_id:
+                raise HTTPException(status_code=403, detail="You are not authorized to send reminders for this booking")
+            
+            client_user_id = booking.get('client_user_id')
+            if not client_user_id:
+                raise HTTPException(status_code=400, detail="Client user ID not found for this booking")
+            
+            # Get service details
+            service_response = client.table('creative_services')\
+                .select('id, title')\
+                .eq('id', booking.get('service_id'))\
+                .single()\
+                .execute()
+            
+            service_title = service_response.data.get('title', 'service') if service_response.data else 'service'
+            
+            # Get creative display name
+            creative_response = client.table('creatives')\
+                .select('display_name')\
+                .eq('user_id', creative_user_id)\
+                .single()\
+                .execute()
+            
+            creative_display_name = creative_response.data.get('display_name', 'Your creative') if creative_response.data else 'Your creative'
+            
+            # Calculate payment details
+            price = float(booking.get('price', 0))
+            amount_paid = float(booking.get('amount_paid', 0))
+            payment_option = booking.get('payment_option', 'later')
+            split_deposit_amount = booking.get('split_deposit_amount')
+            
+            # Determine amount due based on payment option
+            if payment_option == 'upfront':
+                amount_due = price - amount_paid
+                reminder_message = f"Please complete your payment of ${amount_due:.2f} for {service_title} to start your service."
+            elif payment_option == 'split':
+                deposit_amount = float(split_deposit_amount) if split_deposit_amount is not None else price * 0.5
+                if amount_paid < deposit_amount:
+                    amount_due = deposit_amount - amount_paid
+                    reminder_message = f"Please complete your deposit payment of ${amount_due:.2f} for {service_title} to start your service."
+                else:
+                    remaining = price - amount_paid
+                    reminder_message = f"Please complete your remaining payment of ${remaining:.2f} for {service_title}."
+            else:  # payment_option == 'later'
+                amount_due = price - amount_paid
+                reminder_message = f"Please complete your payment of ${amount_due:.2f} for {service_title}."
+            
+            # Create notification for client
+            client_notification_data = {
+                "recipient_user_id": client_user_id,
+                "notification_type": "payment_reminder",
+                "title": "Payment Reminder",
+                "message": reminder_message,
+                "is_read": False,
+                "related_user_id": creative_user_id,
+                "related_entity_id": booking_id,
+                "related_entity_type": "booking",
+                "target_roles": ["client"],
+                "metadata": {
+                    "service_title": service_title,
+                    "creative_display_name": creative_display_name,
+                    "booking_id": str(booking_id),
+                    "price": str(price),
+                    "amount_paid": str(amount_paid),
+                    "payment_option": payment_option
+                },
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+            
+            # Insert notification using db_admin to bypass RLS
+            try:
+                notification_result = db_admin.table("notifications")\
+                    .insert(client_notification_data)\
+                    .execute()
+                logger.info(f"Payment reminder notification created: {notification_result.data}")
+                
+                notification_id = None
+                if notification_result.data and len(notification_result.data) > 0:
+                    notification_id = notification_result.data[0].get('id')
+                
+                return {
+                    "success": True,
+                    "message": "Payment reminder sent successfully",
+                    "notification_id": notification_id
+                }
+            except Exception as notif_error:
+                logger.error(f"Failed to create payment reminder notification: {notif_error}")
+                raise HTTPException(status_code=500, detail=f"Failed to send payment reminder: {str(notif_error)}")
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error sending payment reminder: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to send payment reminder: {str(e)}")
 

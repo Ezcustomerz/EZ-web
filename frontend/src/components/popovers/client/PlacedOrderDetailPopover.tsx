@@ -15,7 +15,7 @@ import {
   Button,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { DateRange, AttachMoney, Payment, CalendarMonth, Cancel, Warning } from '@mui/icons-material';
+import { DateRange, AttachMoney, Payment, CalendarMonth, Cancel, Warning, AccountBalanceWallet } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
@@ -58,6 +58,9 @@ export interface PlacedOrderDetail {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  // Payment breakdown fields
+  amountPaid?: number;
+  split_deposit_amount?: number;
 }
 
 export interface PlacedOrderDetailPopoverProps {
@@ -128,6 +131,36 @@ export function PlacedOrderDetailPopover({
         return theme.palette.grey[500];
     }
   };
+
+  // Calculate payment amounts - use split_deposit_amount from order if available
+  // For placed orders, we always show the first payment since no payment has been made yet
+  const amountPaid = typeof order.amountPaid === 'number' 
+    ? order.amountPaid 
+    : (parseFloat(String(order.amountPaid || 0)) || 0);
+  
+  // For split payments, use split_deposit_amount if provided, otherwise default to 50%
+  // Note: split_deposit_amount can be 0, so we check for !== undefined && !== null, not truthy
+  const depositAmount = order.paymentOption === 'split_payment'
+    ? (order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+        ? Math.round(order.split_deposit_amount * 100) / 100
+        : Math.round(order.price * 0.5 * 100) / 100)
+    : 0;
+  
+  const remainingAmount = depositAmount > 0 
+    ? Math.round((order.price - depositAmount) * 100) / 100 
+    : order.price;
+  
+  // For placed orders, always show first payment view since no payment has been made
+  // Only show second payment view if amountPaid >= depositAmount (meaning deposit was paid)
+  const paymentTolerance = 0.01;
+  // For placed orders, amountPaid is always 0, so isFirstPayment should always be true
+  const isFirstPayment = order.paymentOption === 'split_payment' 
+    ? (amountPaid < depositAmount - paymentTolerance)
+    : false;
+  
+  const amountDueNow = order.paymentOption === 'split_payment' 
+    ? (isFirstPayment ? depositAmount : remainingAmount)
+    : order.price;
 
   const handleViewService = () => {
     setServiceDetailOpen(true);
@@ -383,7 +416,7 @@ export function PlacedOrderDetailPopover({
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, fontSize: '1rem' }}>
               Payment Details
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
               <Payment sx={{ fontSize: 20, color: getPaymentOptionColor(order.paymentOption), mt: 0.25 }} />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, display: 'block', mb: 0.5 }}>
@@ -405,6 +438,142 @@ export function PlacedOrderDetailPopover({
                 </Typography>
               </Box>
             </Box>
+
+            {/* Payment Breakdown */}
+            {order.price > 0 && order.paymentOption !== 'free' && (
+              <Box 
+                sx={{ 
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 152, 0, 0.1)' 
+                    : 'rgba(255, 152, 0, 0.05)',
+                  border: `1px solid ${statusColor}30`,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <AccountBalanceWallet sx={{ fontSize: 20, color: statusColor }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    Payment Breakdown
+                  </Typography>
+                </Box>
+
+                {order.paymentOption === 'split_payment' ? (
+                  <>
+                    {isFirstPayment ? (
+                      <>
+                        {/* First Payment - Deposit */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              Initial Deposit
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Due after creative approval
+                            </Typography>
+                          </Box>
+                          <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                            ${amountDueNow.toFixed(2)}
+                          </Typography>
+                        </Box>
+
+                        <Divider sx={{ my: 1.5 }} />
+
+                        {/* Remaining Amount */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              Remaining Balance
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Due after completion
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                            ${remainingAmount.toFixed(2)}
+                          </Typography>
+                        </Box>
+                      </>
+                    ) : (
+                      <>
+                        {/* Second Payment - Show what was paid and what's due */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              First Payment Paid
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Deposit received
+                            </Typography>
+                          </Box>
+                          <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.success.main }}>
+                            ${depositAmount.toFixed(2)}
+                          </Typography>
+                        </Box>
+
+                        <Divider sx={{ my: 1.5 }} />
+
+                        {/* Final Payment Due */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              Final Payment Due Now
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Complete your payment
+                            </Typography>
+                          </Box>
+                          <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                            ${amountDueNow.toFixed(2)}
+                          </Typography>
+                        </Box>
+                      </>
+                    )}
+                  </>
+                ) : order.paymentOption === 'payment_upfront' ? (
+                  /* Payment Upfront */
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Amount Due Now
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        Full payment required
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                      ${amountDueNow.toFixed(2)}
+                    </Typography>
+                  </Box>
+                ) : (
+                  /* Payment Later */
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Payment Due After Completion
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                        No upfront payment required
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: statusColor }}>
+                      ${order.price.toFixed(2)}
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Total Price Summary */}
+                <Divider sx={{ my: 1.5 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                    Total Service Price
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
+                    ${order.price.toFixed(2)}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
           </Box>
 
           <Divider sx={{ my: 2 }} />

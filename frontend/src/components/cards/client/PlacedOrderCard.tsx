@@ -34,6 +34,8 @@ interface PlacedOrderCardProps {
   creativeReviewCount?: number;
   creativeServicesCount?: number;
   creativeColor?: string;
+  split_deposit_amount?: number;
+  amountPaid?: number;
   onOrderCanceled?: () => void;
   defaultOpen?: boolean; // Allow parent to control popover open state
 }
@@ -60,6 +62,8 @@ export function PlacedOrderCard({
   creativeReviewCount,
   creativeServicesCount,
   creativeColor,
+  split_deposit_amount,
+  amountPaid,
   onOrderCanceled,
   defaultOpen = false
 }: PlacedOrderCardProps) {
@@ -104,6 +108,8 @@ export function PlacedOrderCard({
     creativeReviewCount,
     creativeServicesCount,
     creativeColor,
+    split_deposit_amount: split_deposit_amount, // Pass through directly
+    amountPaid: amountPaid,
   };
 
   return (

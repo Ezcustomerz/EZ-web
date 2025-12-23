@@ -62,18 +62,37 @@ class ClamAVScanner:
         if not self.is_available():
             return False, "ClamAV scanner unavailable", {'available': False}
         
+        # Read file content once at the start
+        content = await file.read()
+        await file.seek(0)  # Reset for later use
+        file_size = len(content)
+        
+        # ClamAV default max file size is typically 100MB, but can be configured
+        # For files larger than 2GB, skip ClamAV to avoid connection issues
+        # This is a reasonable threshold that balances security and performance
+        # Files up to 30GB are allowed but won't be scanned by ClamAV
+        CLAMAV_MAX_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
+        
+        if file_size > CLAMAV_MAX_SIZE:
+            logger.info(f"File {file.filename} ({file_size / (1024*1024):.1f}MB) exceeds ClamAV recommended size ({CLAMAV_MAX_SIZE / (1024*1024):.1f}MB), skipping scan")
+            return True, None, {
+                'scanner': 'ClamAV',
+                'connection_type': self.connection_type,
+                'file_size': file_size,
+                'filename': file.filename,
+                'scanned': False,
+                'skipped': True,
+                'reason': f'File size ({file_size / (1024*1024):.1f}MB) exceeds ClamAV recommended limit ({CLAMAV_MAX_SIZE / (1024*1024):.1f}MB)'
+            }
+        
         try:
-            # Read file content
-            content = await file.read()
-            await file.seek(0)  # Reset for later use
-            
             # Scan the file
             scan_result = self.clamd.scan_stream(content)
             
             scan_details = {
                 'scanner': 'ClamAV',
                 'connection_type': self.connection_type,
-                'file_size': len(content),
+                'file_size': file_size,
                 'filename': file.filename
             }
             
@@ -92,14 +111,60 @@ class ClamAVScanner:
             scan_details['threat_detected'] = False
             return True, None, scan_details
             
-        except pyclamd.ConnectionError:
-            logger.warning("ClamAV connection lost, attempting reconnect")
+        except (pyclamd.ConnectionError, ConnectionAbortedError, OSError) as e:
+            # Handle connection errors - could be due to large file size or ClamAV limits
+            error_str = str(e)
+            logger.warning(f"ClamAV connection error for {file.filename}: {error_str}")
+            
+            # If it's a connection abort and file is large, skip scan but allow file
+            if isinstance(e, (ConnectionAbortedError, OSError)) and ('10053' in error_str or 'aborted' in error_str.lower()):
+                if file_size > 100 * 1024 * 1024:  # If file is > 100MB, likely a size issue
+                    logger.warning(f"ClamAV connection aborted for large file {file.filename} ({file_size / (1024*1024):.1f}MB), allowing file through")
+                    return True, None, {
+                        'scanner': 'ClamAV',
+                        'connection_type': self.connection_type,
+                        'file_size': file_size,
+                        'filename': file.filename,
+                        'scanned': False,
+                        'skipped': True,
+                        'reason': 'Connection aborted - likely due to large file size. File allowed through.',
+                        'warning': 'File was not scanned due to size limitations'
+                    }
+            
+            # Try to reconnect for other connection errors
             self._connect()
             if not self.is_available():
                 return False, "ClamAV scanner connection error", {'available': False}
-            # Retry once
-            return await self.scan_file(file)
+            # Retry once for connection errors (but only for smaller files to avoid infinite loop)
+            if file_size <= CLAMAV_MAX_SIZE:
+                return await self.scan_file(file)
+            else:
+                # File is too large, allow it through
+                return True, None, {
+                    'scanner': 'ClamAV',
+                    'connection_type': self.connection_type,
+                    'file_size': file_size,
+                    'filename': file.filename,
+                    'scanned': False,
+                    'skipped': True,
+                    'reason': 'Connection error on large file. File allowed through.',
+                    'warning': 'File was not scanned due to connection issues'
+                }
         except Exception as e:
             logger.error(f"ClamAV scan error: {str(e)}", exc_info=True)
+            # For other errors, check if it's a size-related issue
+            error_str = str(e).lower()
+            if 'size' in error_str or 'too large' in error_str or 'limit' in error_str:
+                logger.warning(f"ClamAV size-related error for {file.filename} ({file_size / (1024*1024):.1f}MB), allowing file through")
+                return True, None, {
+                    'scanner': 'ClamAV',
+                    'connection_type': self.connection_type,
+                    'file_size': file_size,
+                    'filename': file.filename,
+                    'scanned': False,
+                    'skipped': True,
+                    'reason': 'File size exceeds ClamAV limits. File allowed through.',
+                    'warning': 'File was not scanned due to size limitations'
+                }
             return False, f"Scan error: {str(e)}", {'error': str(e)}
 

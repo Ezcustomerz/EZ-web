@@ -82,8 +82,13 @@ export function PaymentApprovalOrderCard({
   // Calculate payment details based on payment option and amount paid
   const calculatePaymentDetails = () => {
     if (paymentOption === 'split_payment') {
-      const calculatedDeposit = depositAmount || Math.round(price * 0.5 * 100) / 100;
-      const calculatedRemaining = remainingAmount || (price - calculatedDeposit);
+      // Use depositAmount/remainingAmount if provided, otherwise require them to be passed
+      const calculatedDeposit = depositAmount !== undefined && depositAmount !== null
+        ? Math.round(depositAmount * 100) / 100
+        : 0;
+      const calculatedRemaining = remainingAmount !== undefined && remainingAmount !== null
+        ? Math.round(remainingAmount * 100) / 100
+        : (calculatedDeposit > 0 ? Math.round((price - calculatedDeposit) * 100) / 100 : price);
       
       // Debug log
       console.log('[PaymentApprovalOrderCard] Split payment calculation:', {
@@ -156,8 +161,12 @@ export function PaymentApprovalOrderCard({
   };
 
   // Calculate deposit and remaining for order detail
-  const calculatedDeposit = depositAmount || (paymentOption === 'split_payment' ? Math.round(price * 0.5 * 100) / 100 : price);
-  const calculatedRemaining = remainingAmount || (paymentOption === 'split_payment' ? (price - calculatedDeposit) : 0);
+  const calculatedDeposit = depositAmount !== undefined && depositAmount !== null
+    ? Math.round(depositAmount * 100) / 100
+    : (paymentOption === 'split_payment' ? 0 : price);
+  const calculatedRemaining = remainingAmount !== undefined && remainingAmount !== null
+    ? Math.round(remainingAmount * 100) / 100
+    : (paymentOption === 'split_payment' ? (calculatedDeposit > 0 ? Math.round((price - calculatedDeposit) * 100) / 100 : price) : 0);
   
   const orderDetail: PaymentApprovalOrderDetail = {
     id,

@@ -36,7 +36,7 @@ async def download_compliance_sheet(
         
         # Get booking to verify client and status
         booking_result = client.table('bookings')\
-            .select('id, client_user_id, client_status, service_id, order_date, price, payment_option, approved_at, canceled_date, creative_user_id')\
+            .select('id, client_user_id, client_status, service_id, order_date, price, payment_option, approved_at, canceled_date, creative_user_id, split_deposit_amount')\
             .eq('id', booking_id)\
             .single()\
             .execute()
@@ -107,7 +107,8 @@ async def download_compliance_sheet(
             'client_status': booking.get('client_status'),
             'approved_at': booking.get('approved_at'),
             'canceled_date': booking.get('canceled_date'),
-            'completed_date': completed_date
+            'completed_date': completed_date,
+            'split_deposit_amount': booking.get('split_deposit_amount')
         }
         
         # Generate compliance sheet PDF
@@ -210,6 +211,10 @@ async def get_invoices(
                     and session.payment_status == 'paid'
                 ]
                 
+                # Sort sessions by creation date (oldest first) to ensure correct order for split payments
+                # First payment (deposit) should be Payment 1, second payment (final) should be Payment 2
+                booking_sessions.sort(key=lambda s: s.created if hasattr(s, 'created') else 0)
+                
                 # For split payments, there should be 2 sessions
                 # For upfront/later, there should be 1 session
                 payment_option = booking.get('payment_option', 'later').lower()
@@ -266,7 +271,7 @@ async def download_ez_invoice(
         
         # Get booking to verify client and status
         booking_result = client.table('bookings')\
-            .select('id, client_user_id, client_status, service_id, order_date, price, payment_option, approved_at, canceled_date, creative_user_id, amount_paid, booking_date')\
+            .select('id, client_user_id, client_status, service_id, order_date, price, payment_option, approved_at, canceled_date, creative_user_id, amount_paid, booking_date, split_deposit_amount')\
             .eq('id', booking_id)\
             .single()\
             .execute()
@@ -353,7 +358,8 @@ async def download_ez_invoice(
             'amount_paid': float(booking.get('amount_paid', 0)),
             'approved_at': booking.get('approved_at'),
             'completed_date': completed_date,
-            'description': service_description
+            'description': service_description,
+            'split_deposit_amount': booking.get('split_deposit_amount')
         }
         
         # Generate invoice PDF

@@ -109,8 +109,12 @@ function transformOrders(fetchedOrders: Order[]) {
             order.status === 'canceled' ? 'canceled' : 'placed',
     amountPaid: order.amount_paid || 0,
     amountRemaining: order.price - (order.amount_paid || 0),
-    depositAmount: order.payment_option === 'split' ? (order.split_deposit_amount || Math.round(order.price * 0.5 * 100) / 100) : undefined,
-    remainingAmount: order.payment_option === 'split' ? Math.round((order.price - (order.split_deposit_amount || Math.round(order.price * 0.5 * 100) / 100)) * 100) / 100 : undefined,
+    depositAmount: order.payment_option === 'split' && order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+      ? Math.round(order.split_deposit_amount * 100) / 100
+      : undefined,
+    remainingAmount: order.payment_option === 'split' && order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+      ? Math.round((order.price - order.split_deposit_amount) * 100) / 100
+      : undefined,
     serviceId: order.service_id,
     serviceDescription: order.service_description,
     serviceDeliveryTime: order.service_delivery_time,
@@ -1223,9 +1227,12 @@ export function ActionNeededTab() {
                       return { depositAmount: 0, remainingAmount: 0 };
                     }
                     if (paymentOption === 'split_payment') {
-                      // Use depositAmount from order if available, otherwise calculate 50%
-                      const depositAmount = order.depositAmount || Math.round(price * 0.5 * 100) / 100;
-                      return { depositAmount, remainingAmount: price - depositAmount };
+                      // Use split_deposit_amount from order, or depositAmount if available
+                      const depositAmount = order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                        ? Math.round(order.split_deposit_amount * 100) / 100
+                        : (order.depositAmount || 0);
+                      const remainingAmount = depositAmount > 0 ? Math.round((price - depositAmount) * 100) / 100 : price;
+                      return { depositAmount, remainingAmount };
                     }
                     if (paymentOption === 'payment_upfront') {
                       return { depositAmount: price, remainingAmount: 0 };

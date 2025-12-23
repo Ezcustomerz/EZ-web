@@ -14,7 +14,8 @@ from schemas.booking import (
     RejectBookingRequest, RejectBookingResponse,
     CancelBookingRequest, CancelBookingResponse,
     FinalizeServiceRequest, FinalizeServiceResponse,
-    MarkDownloadCompleteRequest, MarkDownloadCompleteResponse
+    MarkDownloadCompleteRequest, MarkDownloadCompleteResponse,
+    SendPaymentReminderRequest, SendPaymentReminderResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -200,4 +201,32 @@ async def mark_download_complete(
     except Exception as e:
         logger.error(f"Error marking download as complete: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to mark download as complete: {str(e)}")
+
+
+@router.post("/send-payment-reminder", response_model=SendPaymentReminderResponse)
+@limiter.limit("10 per minute")
+async def send_payment_reminder(
+    request: Request,
+    reminder_data: SendPaymentReminderRequest,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Send a payment reminder notification to the client for a booking
+    Requires authentication - will return 401 if not authenticated.
+    - Verifies the booking belongs to the creative
+    - Creates a payment reminder notification for the client
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        result = await BookingManagementService.send_payment_reminder(user_id, reminder_data.booking_id, client)
+        return SendPaymentReminderResponse(**result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending payment reminder: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send payment reminder: {str(e)}")
 

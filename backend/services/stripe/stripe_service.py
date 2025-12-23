@@ -535,8 +535,8 @@ class StripeService:
             is_locked_order = current_client_status == 'locked'
             is_fully_paid = new_amount_paid >= price
             
-            # If locked order is fully paid, check for files and update statuses
-            if is_locked_order and is_fully_paid:
+            # If order is fully paid (regardless of current status), check for files and update statuses
+            if is_fully_paid:
                 # Check if order has files
                 deliverables_response = client.table('booking_deliverables')\
                     .select('id')\
@@ -599,8 +599,8 @@ class StripeService:
             if creative_status == 'in_progress' and booking.get('creative_status') != 'in_progress':
                 update_data['creative_status'] = creative_status
             
-            # Update statuses if locked order is now fully paid
-            if is_locked_order and is_fully_paid:
+            # Update statuses if order is now fully paid (regardless of previous status)
+            if is_fully_paid:
                 update_data['client_status'] = client_status
                 update_data['creative_status'] = creative_status
             

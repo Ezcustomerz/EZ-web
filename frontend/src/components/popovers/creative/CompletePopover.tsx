@@ -79,6 +79,7 @@ export interface CompleteOrder {
   amountPaid?: number;
   amountRemaining?: number;
   depositPaid?: boolean;
+  split_deposit_amount?: number;
   // Completion details
   rating?: number;
   review?: string;
@@ -142,7 +143,7 @@ export function CompletePopover({
     }
   };
 
-  const getPaymentOptionDescription = (option: 'upfront' | 'split' | 'later', price: number) => {
+  const getPaymentOptionDescription = (option: 'upfront' | 'split' | 'later', price: number, splitDepositAmount?: number) => {
     if (price === 0) {
       return 'This was a complimentary service';
     }
@@ -150,7 +151,15 @@ export function CompletePopover({
       case 'upfront':
         return 'Full payment was required before service began. Payment was completed successfully.';
       case 'split':
-        return 'Client paid 50% deposit upfront to secure the booking, then paid the remaining 50% after service completion.';
+        const depositAmount = splitDepositAmount !== undefined && splitDepositAmount !== null
+          ? splitDepositAmount
+          : (order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+              ? order.split_deposit_amount
+              : 0);
+        const remainingAmount = depositAmount > 0 ? price - depositAmount : price;
+        return depositAmount > 0
+          ? `Client paid ${formatCurrency(depositAmount)} deposit upfront to secure the booking, then paid the remaining ${formatCurrency(remainingAmount)} after service completion.`
+          : `Client paid split payments for this service.`;
       case 'later':
         return 'Payment was due after the service was completed. Payment has been received.';
       default:
@@ -499,7 +508,7 @@ export function CompletePopover({
                     }}
                   />
                   <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                    {getPaymentOptionDescription(order.service.payment_option, order.service.price)}
+                    {getPaymentOptionDescription(order.service.payment_option, order.service.price, order.split_deposit_amount)}
                   </Typography>
                 </Box>
               </Box>
@@ -522,13 +531,17 @@ export function CompletePopover({
                           Deposit Payment
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          Initial 50% deposit
+                          Initial deposit
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CheckCircle sx={{ fontSize: 16, color: '#10b981' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981' }}>
-                          {formatCurrency(Math.round(order.amount * 0.5 * 100) / 100)}
+                          {formatCurrency(
+                            order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                              ? Math.round(order.split_deposit_amount * 100) / 100
+                              : Math.round(order.amount * 0.5 * 100) / 100
+                          )}
                         </Typography>
                       </Box>
                     </Box>
@@ -542,13 +555,17 @@ export function CompletePopover({
                           Final Payment
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          Remaining 50% after completion
+                          Remaining after completion
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CheckCircle sx={{ fontSize: 16, color: '#10b981' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981' }}>
-                          {formatCurrency(order.amount - Math.round(order.amount * 0.5 * 100) / 100)}
+                          {formatCurrency(
+                            order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                              ? Math.round((order.amount - order.split_deposit_amount) * 100) / 100
+                              : Math.round(order.amount * 0.5 * 100) / 100
+                          )}
                         </Typography>
                       </Box>
                     </Box>

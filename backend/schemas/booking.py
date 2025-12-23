@@ -132,3 +132,13 @@ class MarkDownloadCompleteResponse(BaseModel):
     message: str
     booking_id: str
     client_status: str
+
+
+class SendPaymentReminderRequest(BaseModel):
+    booking_id: str
+
+
+class SendPaymentReminderResponse(BaseModel):
+    success: bool
+    message: str
+    notification_id: Optional[str] = None

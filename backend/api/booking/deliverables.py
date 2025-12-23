@@ -1,5 +1,5 @@
 """Deliverables router for booking endpoints"""
-from fastapi import APIRouter, HTTPException, Request, Depends, File, UploadFile
+from fastapi import APIRouter, HTTPException, Request, Depends, File, UploadFile, Body
 from typing import Dict, Any, List
 import logging
 import uuid
@@ -10,9 +10,166 @@ from db.db_session import get_authenticated_client_dep, db_admin
 from supabase import Client
 from services.file_scanning.scanner_service import ScannerService
 from util.storage_setup import ensure_bucket_exists
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class FileUploadInfo(BaseModel):
+    file_name: str
+    file_size: int
+    file_type: str
+    storage_path: str
+
+
+class RegisterFilesRequest(BaseModel):
+    booking_id: str
+    files: List[FileUploadInfo]
+
+
+@router.post("/get-upload-paths")
+@limiter.limit("20 per minute")
+async def get_upload_paths(
+    request: Request,
+    booking_id: str,
+    file_count: int = Body(...),
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Generate storage paths for direct client-side uploads to Supabase Storage
+    Requires authentication - will return 401 if not authenticated.
+    - Verifies user is the creative for this booking
+    - Generates unique storage paths for each file
+    - Returns paths that can be used for direct upload from frontend
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Verify booking exists and user is the creative
+        booking_result = client.table('bookings')\
+            .select('id, creative_user_id')\
+            .eq('id', booking_id)\
+            .single()\
+            .execute()
+        
+        if not booking_result.data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        booking = booking_result.data
+        if booking.get('creative_user_id') != user_id:
+            raise HTTPException(status_code=403, detail="You are not authorized to upload files for this booking")
+        
+        # Ensure bucket exists
+        bucket_name = "booking-deliverables"
+        if not ensure_bucket_exists(bucket_name, is_public=False):
+            logger.error(f"Failed to ensure bucket '{bucket_name}' exists")
+            raise HTTPException(status_code=500, detail="Storage bucket not available. Please contact support.")
+        
+        # Generate unique storage paths for each file
+        upload_paths = []
+        for i in range(file_count):
+            unique_id = uuid.uuid4().hex
+            # Path will be completed with file extension on frontend
+            storage_path = f"{booking_id}/{unique_id}"
+            upload_paths.append({
+                "storage_path": storage_path,
+                "unique_id": unique_id
+            })
+        
+        return {
+            "success": True,
+            "upload_paths": upload_paths,
+            "bucket_name": bucket_name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating upload paths: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate upload paths: {str(e)}")
+
+
+@router.post("/register-uploaded-files")
+@limiter.limit("20 per minute")
+async def register_uploaded_files(
+    request: Request,
+    register_request: RegisterFilesRequest,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Register files that were uploaded directly to Supabase Storage
+    Requires authentication - will return 401 if not authenticated.
+    - Verifies user is the creative for this booking
+    - Registers file metadata in booking_deliverables table
+    - Returns registered file information
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        booking_id = register_request.booking_id
+        
+        # Verify booking exists and user is the creative
+        booking_result = client.table('bookings')\
+            .select('id, creative_user_id')\
+            .eq('id', booking_id)\
+            .single()\
+            .execute()
+        
+        if not booking_result.data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        booking = booking_result.data
+        if booking.get('creative_user_id') != user_id:
+            raise HTTPException(status_code=403, detail="You are not authorized to register files for this booking")
+        
+        if not register_request.files or len(register_request.files) == 0:
+            raise HTTPException(status_code=400, detail="No files provided")
+        
+        # Register files in database
+        registered_files = []
+        for file_info in register_request.files:
+            # Use the storage path provided (from the upload)
+            storage_path = file_info.storage_path
+            
+            # Insert into booking_deliverables table
+            try:
+                insert_result = db_admin.table('booking_deliverables').insert({
+                    'booking_id': booking_id,
+                    'file_url': storage_path,
+                    'file_name': file_info.file_name,
+                    'file_size_bytes': file_info.file_size,  # Column name is file_size_bytes, not file_size
+                    'file_type': file_info.file_type or 'application/octet-stream'
+                }).execute()
+                
+                registered_files.append({
+                    "file_url": storage_path,
+                    "file_name": file_info.file_name,
+                    "file_size": file_info.file_size,
+                    "file_type": file_info.file_type or "application/octet-stream",
+                    "storage_path": storage_path
+                })
+            except Exception as insert_error:
+                logger.error(f"Failed to register file {file_info.file_name}: {str(insert_error)}")
+                raise HTTPException(status_code=500, detail=f"Failed to register file '{file_info.file_name}': {str(insert_error)}")
+        
+        return {
+            "success": True,
+            "files": registered_files,
+            "total_files": len(registered_files)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error registering uploaded files: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to register files: {str(e)}")
 
 
 @router.post("/upload-deliverables")
@@ -62,7 +219,7 @@ async def upload_deliverables(
         
         # Validate and scan all files
         scanner = ScannerService()
-        max_size = 50 * 1024 * 1024  # 50MB limit
+        max_size = 30 * 1024 * 1024 * 1024  # 30GB limit
         uploaded_files = []
         
         for file in files:
@@ -166,7 +323,7 @@ async def upload_deliverable(
         
         # Validate and scan file
         scanner = ScannerService()
-        max_size = 50 * 1024 * 1024  # 50MB limit
+        max_size = 30 * 1024 * 1024 * 1024  # 30GB limit
         is_safe, error_message, scan_details = await scanner.scan_and_validate(
             file, 
             max_size=max_size,
@@ -506,4 +663,90 @@ async def download_deliverable(
     except Exception as e:
         logger.error(f"Error generating download URL: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(e)}")
+
+
+@router.delete("/deliverable/{deliverable_id}")
+@limiter.limit("20 per minute")
+async def delete_deliverable(
+    request: Request,
+    deliverable_id: str,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Delete a deliverable file from storage and database
+    Requires authentication - will return 401 if not authenticated.
+    - Verifies user is the creative for the booking
+    - Deletes file from Supabase Storage (booking-deliverables bucket)
+    - Deletes record from database
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Get deliverable info including booking
+        deliverable_result = client.table('booking_deliverables')\
+            .select('id, booking_id, file_url, file_name')\
+            .eq('id', deliverable_id)\
+            .single()\
+            .execute()
+        
+        if not deliverable_result.data:
+            raise HTTPException(status_code=404, detail="Deliverable not found")
+        
+        deliverable = deliverable_result.data
+        booking_id = deliverable.get('booking_id')
+        file_url = deliverable.get('file_url')
+        
+        if not file_url:
+            raise HTTPException(status_code=400, detail="File URL not found for deliverable")
+        
+        # Verify booking exists and user is the creative
+        booking_result = client.table('bookings')\
+            .select('id, creative_user_id')\
+            .eq('id', booking_id)\
+            .single()\
+            .execute()
+        
+        if not booking_result.data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        booking = booking_result.data
+        if booking.get('creative_user_id') != user_id:
+            raise HTTPException(status_code=403, detail="You are not authorized to delete files for this booking")
+        
+        # Extract storage path from file_url
+        # file_url is stored as a storage path (e.g., "booking_id/filename.ext")
+        file_path = file_url
+        
+        # Delete from storage
+        bucket_name = "booking-deliverables"
+        try:
+            db_admin.storage.from_(bucket_name).remove([file_path])
+            logger.info(f"Deleted file from storage: {file_path}")
+        except Exception as storage_error:
+            logger.error(f"Failed to delete file from storage: {str(storage_error)}")
+            # Continue with database delete even if storage delete fails
+            # This prevents orphaned database records
+        
+        # Delete from database
+        delete_result = db_admin.table('booking_deliverables')\
+            .delete()\
+            .eq('id', deliverable_id)\
+            .execute()
+        
+        if not delete_result.data:
+            logger.warning(f"Deliverable {deliverable_id} may not have been deleted from database")
+        
+        return {
+            "success": True,
+            "message": "Deliverable deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting deliverable: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete deliverable: {str(e)}")
 

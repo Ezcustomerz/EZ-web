@@ -86,7 +86,9 @@ function transformOrders(fetchedOrders: Order[]) {
       specialRequirements: order.description,
       amountPaid: order.amount_paid || 0,
       amountRemaining: order.price - (order.amount_paid || 0),
-      depositPaid: order.payment_option === 'split' && (order.amount_paid || 0) >= (order.split_deposit_amount || Math.round(order.price * 0.5 * 100) / 100),
+      depositPaid: order.payment_option === 'split' && order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+        ? (order.amount_paid || 0) >= order.split_deposit_amount
+        : false,
     };
   });
 }

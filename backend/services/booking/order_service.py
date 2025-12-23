@@ -73,6 +73,10 @@ class OrderService:
                         and session.payment_status == 'paid'
                     ]
                     
+                    # Sort sessions by creation date (oldest first) to ensure correct order for split payments
+                    # First payment (deposit) should be Payment 1, second payment (final) should be Payment 2
+                    booking_sessions.sort(key=lambda s: s.created if hasattr(s, 'created') else 0)
+                    
                     # For split payments, there should be 2 sessions
                     # For upfront/later, there should be 1 session
                     payment_option = booking.get('payment_option', 'later').lower()

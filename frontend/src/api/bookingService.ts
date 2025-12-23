@@ -359,6 +359,191 @@ class BookingService {
     return response.data;
   }
 
+  /**
+   * Upload files directly to Supabase Storage (faster for large files)
+   * Uses resumable uploads for files > 50MB for better reliability
+   * This bypasses the backend for the actual upload, improving speed
+   * 
+   * @param onProgress - Optional callback for progress updates (percent: number, currentFile: number, totalFiles: number, currentFileName: string)
+   * @param abortSignal - Optional AbortSignal to cancel the upload
+   */
+  async uploadDeliverablesDirect(
+    bookingId: string, 
+    files: File[],
+    onProgress?: (percent: number, currentFile: number, totalFiles: number, currentFileName: string) => void,
+    abortSignal?: AbortSignal
+  ): Promise<{ success: boolean; files: Array<{ file_url: string; file_name: string; file_size: number; file_type: string; storage_path: string }>; total_files: number }> {
+    // Step 0: Ensure we have a valid, fresh session before uploading
+    // Refresh the session to prevent "exp" claim timestamp check failed errors
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) {
+      throw new Error('Not authenticated. Please sign in again.');
+    }
+    
+    // Refresh the session to get a new token if needed
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      console.warn('Session refresh failed, continuing with current session:', refreshError);
+    }
+    
+    // Step 1: Get upload paths from backend (with permission validation)
+    const pathsResponse = await apiClient.post(
+      `${this.bookingsUrl}/get-upload-paths?booking_id=${bookingId}`,
+      files.length
+    );
+    
+    const { upload_paths, bucket_name } = pathsResponse.data;
+    
+    if (upload_paths.length !== files.length) {
+      throw new Error('Mismatch between file count and upload paths');
+    }
+    
+    // Step 2: Upload files directly to Supabase Storage
+    // Upload files sequentially to track progress and allow cancellation
+    const uploadedFiles: Array<{ file_name: string; file_size: number; file_type: string; storage_path: string }> = [];
+    
+    // Calculate total size for progress estimation
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    let uploadedSize = 0;
+    
+    for (let index = 0; index < files.length; index++) {
+      // Check if upload was cancelled
+      if (abortSignal?.aborted) {
+        throw new Error('Upload cancelled by user');
+      }
+      
+      const file = files[index];
+      
+      // Calculate progress based on completed files and current file
+      // Show 10% progress when starting a file, will update to 90% when file completes
+      const completedFilesProgress = (index / files.length) * 100;
+      const currentFileWeight = (file.size / totalSize) * 100;
+      
+      // Update progress - starting current file (10% of this file's weight)
+      if (onProgress) {
+        const startProgress = completedFilesProgress + (currentFileWeight * 0.1);
+        onProgress(Math.min(startProgress, 90), index + 1, files.length, file.name);
+      }
+      
+      // Check for cancellation before session operations
+      if (abortSignal?.aborted) {
+        throw new Error('Upload cancelled by user');
+      }
+      
+      // Refresh session before each upload to prevent token expiration
+      const { data: currentSession } = await supabase.auth.getSession();
+      if (!currentSession.session) {
+        throw new Error('Session expired. Please sign in again.');
+      }
+      
+      // Check for cancellation after session check
+      if (abortSignal?.aborted) {
+        throw new Error('Upload cancelled by user');
+      }
+      
+      // Check if token is about to expire (within 5 minutes)
+      const tokenExpiry = currentSession.session.expires_at;
+      if (tokenExpiry) {
+        const expiresIn = tokenExpiry - Math.floor(Date.now() / 1000);
+        if (expiresIn < 300) { // Less than 5 minutes
+          // Check for cancellation before refresh
+          if (abortSignal?.aborted) {
+            throw new Error('Upload cancelled by user');
+          }
+          // Refresh the session
+          await supabase.auth.refreshSession();
+          // Check again after refresh
+          if (abortSignal?.aborted) {
+            throw new Error('Upload cancelled by user');
+          }
+        }
+      }
+      
+      const { storage_path } = upload_paths[index];
+      
+      // Get file extension
+      const extension = file.name.split('.').pop() || '';
+      const finalPath = extension ? `${storage_path}.${extension}` : storage_path;
+      
+      // Upload directly to Supabase Storage
+      // Note: For very large files (>500MB), consider implementing TUS resumable uploads
+      // For now, standard uploads should work with the increased bucket limits
+      // Check for cancellation before starting upload
+      if (abortSignal?.aborted) {
+        throw new Error('Upload cancelled by user');
+      }
+      
+      const uploadStartTime = Date.now();
+      const { data, error } = await supabase.storage
+        .from(bucket_name)
+        .upload(finalPath, file, {
+          contentType: file.type || 'application/octet-stream',
+          cacheControl: '3600',
+          upsert: false // Don't overwrite existing files
+        });
+      
+      // Check for cancellation immediately after upload attempt
+      if (abortSignal?.aborted) {
+        throw new Error('Upload cancelled by user');
+      }
+      
+      if (error) {
+        // Check if cancelled
+        if (abortSignal?.aborted) {
+          throw new Error('Upload cancelled by user');
+        }
+        
+        // If token expired, try refreshing and retry once
+        if (error.message.includes('exp') || error.message.includes('timestamp')) {
+          console.log('Token expired during upload, refreshing and retrying...');
+          await supabase.auth.refreshSession();
+          
+          // Retry the upload with fresh token
+          const { data: retryData, error: retryError } = await supabase.storage
+            .from(bucket_name)
+            .upload(finalPath, file, {
+              contentType: file.type || 'application/octet-stream',
+              cacheControl: '3600',
+              upsert: false
+            });
+          
+          if (retryError) {
+            throw new Error(`Upload failed for ${file.name}: ${retryError.message}`);
+          }
+        } else {
+          throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+        }
+      }
+      
+      // File uploaded successfully
+      uploadedSize += file.size;
+      const fileProgress = (uploadedSize / totalSize) * 100;
+      
+      // Update progress - file completed (90% max, finalization will take it to 100%)
+      if (onProgress) {
+        onProgress(Math.min(fileProgress, 90), index + 1, files.length, file.name);
+      }
+      
+      uploadedFiles.push({
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type || 'application/octet-stream',
+        storage_path: finalPath
+      });
+    }
+    
+    // Step 3: Register files in database
+    const registerResponse = await apiClient.post(
+      `${this.bookingsUrl}/register-uploaded-files`,
+      {
+        booking_id: bookingId,
+        files: uploadedFiles
+      }
+    );
+    
+    return registerResponse.data;
+  }
+
   async uploadDeliverable(bookingId: string, file: File): Promise<{ success: boolean; file_url: string; file_name: string; file_size: number; file_type: string; storage_path: string }> {
     const formData = new FormData();
     formData.append('file', file);
@@ -368,6 +553,11 @@ class BookingService {
       `${this.bookingsUrl}/upload-deliverable?booking_id=${bookingId}`,
       formData
     );
+    return response.data;
+  }
+
+  async deleteDeliverable(deliverableId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.delete(`${this.bookingsUrl}/deliverable/${deliverableId}`);
     return response.data;
   }
 
@@ -417,6 +607,13 @@ class BookingService {
 
   async markDownloadComplete(bookingId: string): Promise<{ success: boolean; message: string; booking_id: string; client_status: string }> {
     const response = await apiClient.post(`${this.bookingsUrl}/mark-download-complete`, {
+      booking_id: bookingId
+    });
+    return response.data;
+  }
+
+  async sendPaymentReminder(bookingId: string): Promise<{ success: boolean; message: string; notification_id?: string }> {
+    const response = await apiClient.post(`${this.bookingsUrl}/send-payment-reminder`, {
       booking_id: bookingId
     });
     return response.data;
