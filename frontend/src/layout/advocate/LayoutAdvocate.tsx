@@ -6,6 +6,7 @@ import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import { useAuth } from '../../context/auth';
 import { userService, type AdvocateProfile } from '../../api/userService';
+import { DemoSignInBar } from '../../components/dialogs/DemoSignInBar';
 
 interface LayoutAdvocateProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; advocateProfile: AdvocateProfile | null }) => ReactNode);
@@ -265,7 +266,14 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Box sx={{ 
+          flexGrow: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          minHeight: 0,
+          // Add bottom padding in demo mode to prevent content from being hidden by sign-in bar
+          paddingBottom: (!userProfile || advocateProfile?.profile_source === 'demo') ? '100px' : 0,
+        }}>
           {typeof children === 'function' ? children({ isSidebarOpen, isMobile, advocateProfile }) : children}
         </Box>
       </Box>
@@ -349,6 +357,15 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
             ariaLabel="Loading application" 
           />
         </Box>
+      )}
+
+      {/* Demo Sign-in Bar */}
+      {(!userProfile || advocateProfile?.profile_source === 'demo') && (
+        <DemoSignInBar 
+          sidebarWidth={isSidebarOpen ? 280 : 64} 
+          isSidebarOpen={isSidebarOpen} 
+          isMobile={isMobile} 
+        />
       )}
     </Box>
   );
