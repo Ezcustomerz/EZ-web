@@ -920,20 +920,20 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                 minHeight: '155px',
                 flexDirection: 'column'
               }}>
-                <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column' }}>
+                <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', position: 'relative' }}>
                   <Typography variant="h6" fontWeight={600} gutterBottom>
                     About {creativeProfile.display_name}
                   </Typography>
-                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                     {creativeProfile.description ? (
                       <>
-                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, flex: 1 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, flex: 1, paddingBottom: '28px' }}>
                           {creativeProfile.description}
                         </Typography>
                         <Typography variant="caption" color="text.disabled" sx={{ 
                           position: 'absolute', 
-                          bottom: 0, 
-                          right: 0,
+                          bottom: 12, 
+                          right: 12,
                           fontSize: '0.7rem'
                         }}>
                           {creativeProfile.description.length}/500 characters
