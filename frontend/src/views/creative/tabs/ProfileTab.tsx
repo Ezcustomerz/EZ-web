@@ -918,9 +918,10 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                 borderRadius: 3,
                 display: 'flex',
                 minHeight: '155px',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                position: 'relative'
               }}>
-                <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" fontWeight={600} gutterBottom>
                     About {creativeProfile.display_name}
                   </Typography>
@@ -933,7 +934,7 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                         <Typography variant="caption" color="text.disabled" sx={{ 
                           position: 'absolute', 
                           bottom: 12, 
-                          right: 12,
+                          right: 28,
                           fontSize: '0.7rem'
                         }}>
                           {creativeProfile.description.length}/500 characters
