@@ -454,7 +454,8 @@ export function LayoutCreative({
             // Allow content to flow naturally
             minHeight: 0,
             // Add bottom padding in demo mode to prevent content from being hidden by sign-in bar
-            paddingBottom: (!userProfile || creativeProfile?.profile_source === 'demo') ? '100px' : 0,
+            // Remove padding only when sidebar is open on mobile
+            paddingBottom: (!(isMobile && isSidebarOpen) && (!userProfile || creativeProfile?.profile_source === 'demo')) ? '100px' : 0,
           }}
         >
           {typeof children === 'function' 
@@ -493,8 +494,8 @@ export function LayoutCreative({
         ) : null
       , [isAnyLoading])}
 
-      {/* Demo Sign-in Bar */}
-      {(!userProfile || creativeProfile?.profile_source === 'demo') && (
+      {/* Demo Sign-in Bar - Hidden only when sidebar is open on mobile */}
+      {!(isMobile && isSidebarOpen) && (!userProfile || creativeProfile?.profile_source === 'demo') && (
         <DemoSignInBar 
           sidebarWidth={isSidebarOpen ? 280 : 64} 
           isSidebarOpen={isSidebarOpen} 
