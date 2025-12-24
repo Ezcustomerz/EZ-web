@@ -23,6 +23,7 @@ class OrderFile(BaseModel):
     name: str
     type: str
     size: str
+    downloaded_at: Optional[str] = None
 
 class Invoice(BaseModel):
     type: str  # 'ez_invoice' | 'stripe_receipt'
@@ -53,6 +54,7 @@ class OrderResponse(BaseModel):
     approved_at: Optional[str]
     price: float
     payment_option: Optional[str]
+    split_deposit_amount: Optional[float] = None
     amount_paid: Optional[float] = 0.0
     description: Optional[str]
     status: str
@@ -130,3 +132,13 @@ class MarkDownloadCompleteResponse(BaseModel):
     message: str
     booking_id: str
     client_status: str
+
+
+class SendPaymentReminderRequest(BaseModel):
+    booking_id: str
+
+
+class SendPaymentReminderResponse(BaseModel):
+    success: bool
+    message: str
+    notification_id: Optional[str] = None

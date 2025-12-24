@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from supabase import Client
 from dotenv import load_dotenv
 import logging
+from datetime import datetime
 from db.db_session import db_admin
 
 load_dotenv()
@@ -186,21 +187,27 @@ class StripeService:
                 # For other types (standard, custom), leave as None
                 
                 # Get last payout date
-                last_payout_date = None
+                last_payout_date_unix = None
+                last_payout_date_iso = None
                 try:
                     payouts = stripe.Payout.list(limit=1, stripe_account=account_id)
                     if payouts.data and len(payouts.data) > 0:
-                        last_payout_date = payouts.data[0].created
+                        # Keep Unix timestamp for API response (frontend expects this)
+                        last_payout_date_unix = payouts.data[0].created
+                        if last_payout_date_unix:
+                            # Convert Unix timestamp to ISO format string for PostgreSQL
+                            # Stripe timestamps are in seconds, convert to datetime then ISO string
+                            last_payout_date_iso = datetime.utcfromtimestamp(last_payout_date_unix).isoformat() + 'Z'
                 except Exception:
                     # If payouts list fails, account might not be fully set up yet
                     pass
                 
-                # Update database
+                # Update database with ISO format timestamp
                 client.table('creatives').update({
                     'stripe_onboarding_complete': details_submitted,
                     'stripe_payouts_enabled': payouts_enabled,
                     'stripe_account_type': account_type,  # Will be None, 'individual', or 'company'
-                    'stripe_last_payout_date': last_payout_date
+                    'stripe_last_payout_date': last_payout_date_iso
                 }).eq('user_id', user_id).execute()
                 
                 return {
@@ -209,7 +216,7 @@ class StripeService:
                     "payouts_enabled": payouts_enabled,
                     "onboarding_complete": details_submitted,
                     "account_type": account_type,
-                    "last_payout_date": last_payout_date,
+                    "last_payout_date": last_payout_date_unix,  # Return Unix timestamp for frontend
                     "payout_disable_reason": payout_disable_reason,
                     "currently_due_requirements": currently_due_requirements
                 }
@@ -528,8 +535,8 @@ class StripeService:
             is_locked_order = current_client_status == 'locked'
             is_fully_paid = new_amount_paid >= price
             
-            # If locked order is fully paid, check for files and update statuses
-            if is_locked_order and is_fully_paid:
+            # If order is fully paid (regardless of current status), check for files and update statuses
+            if is_fully_paid:
                 # Check if order has files
                 deliverables_response = client.table('booking_deliverables')\
                     .select('id')\
@@ -547,10 +554,43 @@ class StripeService:
                     client_status = 'completed'
                     creative_status = 'completed'
             
+            # Get payment timestamp from payment intent (most accurate - when payment was actually processed)
+            payment_timestamp = None
+            try:
+                # Try to get payment intent for accurate payment timestamp
+                if hasattr(checkout_session, 'payment_intent') and checkout_session.payment_intent:
+                    payment_intent = stripe.PaymentIntent.retrieve(
+                        checkout_session.payment_intent,
+                        stripe_account=stripe_account_id
+                    )
+                    if hasattr(payment_intent, 'created'):
+                        # Stripe timestamps are in UTC, create timezone-aware datetime
+                        from datetime import timezone
+                        payment_timestamp = datetime.fromtimestamp(payment_intent.created, tz=timezone.utc)
+            except Exception:
+                pass
+            
+            # Fallback to checkout session created time if payment intent not available
+            if not payment_timestamp:
+                try:
+                    if hasattr(checkout_session, 'created'):
+                        from datetime import timezone
+                        payment_timestamp = datetime.fromtimestamp(checkout_session.created, tz=timezone.utc)
+                except Exception:
+                    pass
+            
+            # Final fallback: use current time (timezone-aware)
+            if not payment_timestamp:
+                from datetime import timezone
+                payment_timestamp = datetime.now(timezone.utc)
+            
             # Update booking with new amount_paid and statuses
+            # Explicitly set updated_at to payment timestamp to ensure accurate last payment date
+            # Format as ISO string with timezone for Supabase
             update_data = {
                 'amount_paid': new_amount_paid,
                 'payment_status': payment_status,
+                'updated_at': payment_timestamp.isoformat(),
             }
             
             # Update statuses if they're changing to in_progress
@@ -559,8 +599,8 @@ class StripeService:
             if creative_status == 'in_progress' and booking.get('creative_status') != 'in_progress':
                 update_data['creative_status'] = creative_status
             
-            # Update statuses if locked order is now fully paid
-            if is_locked_order and is_fully_paid:
+            # Update statuses if order is now fully paid (regardless of previous status)
+            if is_fully_paid:
                 update_data['client_status'] = client_status
                 update_data['creative_status'] = creative_status
             

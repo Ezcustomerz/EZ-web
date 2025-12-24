@@ -28,7 +28,8 @@ export function CompleteRow({ status, isMobile = false }: CompleteRowProps) {
             borderRadius: isMobile ? 1.5 : '12px',
             textTransform: 'capitalize',
             px: isMobile ? 1.5 : 2,
-            cursor: 'help',
+            cursor: 'inherit',
+            pointerEvents: 'auto',
           }}
         />
       </Tooltip>
@@ -46,7 +47,7 @@ export function CompleteRow({ status, isMobile = false }: CompleteRowProps) {
           backgroundColor: 'rgba(16, 185, 129, 0.1)',
           borderRadius: '50%',
           border: '1px solid rgba(16, 185, 129, 0.3)',
-          cursor: 'help',
+          cursor: 'inherit',
           transition: 'all 0.2s ease',
           pointerEvents: 'auto',
           flexShrink: 0,

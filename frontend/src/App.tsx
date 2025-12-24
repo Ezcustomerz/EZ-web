@@ -1,19 +1,31 @@
-import { StrictMode, useEffect, useState, type ReactNode } from 'react'
+import { StrictMode, useEffect, useState, lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material'
+import { createAppTheme } from './config/theme'
+import type { ColorConfig } from './config/color'
+
+// Keep lightweight pages as regular imports (needed immediately)
 import {LandingPage} from './views/web/LandingPage.tsx'
 import { ContactUs } from './views/web/ContactUs.tsx'
 import { PrivacyPolicy } from './views/web/PrivacyPolicy.tsx'
 import { TermsOfService } from './views/web/TermsOfService.tsx'
-import { DashCreative } from './views/creative/DashCreative.tsx'
-import { ClientCreative } from './views/creative/ClientCreative.tsx'
-import { ActivityCreative } from './views/creative/ActivityCreative.tsx'
-import { PublicCreative } from './views/creative/PublicCreative.tsx'
-import { ClientDashboard } from './views/client/DashClient.tsx'
-import { ClientBook } from './views/client/BookClient.tsx'
-import { ClientOrders } from './views/client/OrdersClient.tsx'
-import { ThemeProvider, CssBaseline } from '@mui/material'
-import { createAppTheme } from './config/theme'
-import type { ColorConfig } from './config/color'
+import { AuthCallback } from './views/AuthCallback'
+import { NoAccess } from './views/NoAccess'
+import { InvitePage } from './views/InvitePage'
+import { PaymentSuccess } from './views/PaymentSuccess'
+import { PaymentCancelled } from './views/PaymentCancelled'
+
+// Lazy load heavy route components for code splitting
+const DashCreative = lazy(() => import('./views/creative/DashCreative').then(module => ({ default: module.DashCreative })))
+const ClientCreative = lazy(() => import('./views/creative/ClientCreative').then(module => ({ default: module.ClientCreative })))
+const ActivityCreative = lazy(() => import('./views/creative/ActivityCreative').then(module => ({ default: module.ActivityCreative })))
+const PublicCreative = lazy(() => import('./views/creative/PublicCreative').then(module => ({ default: module.PublicCreative })))
+const NotificationsCreative = lazy(() => import('./views/creative/NotificationsCreative').then(module => ({ default: module.NotificationsCreative })))
+const ClientDashboard = lazy(() => import('./views/client/DashClient').then(module => ({ default: module.ClientDashboard })))
+const ClientBook = lazy(() => import('./views/client/BookClient').then(module => ({ default: module.ClientBook })))
+const ClientOrders = lazy(() => import('./views/client/OrdersClient').then(module => ({ default: module.ClientOrders })))
+const NotificationsClient = lazy(() => import('./views/client/NotificationsClient').then(module => ({ default: module.NotificationsClient })))
+const DashAdvocate = lazy(() => import('./views/advocate/DashAdvocate').then(module => ({ default: module.DashAdvocate })))
 
 // Inline theme configuration to avoid network request
 const defaultThemeConfig: ColorConfig = {
@@ -41,14 +53,25 @@ import { ClientSetupPopover } from './components/popovers/setup/ClientSetupPopov
 import { AdvocateSetupPopover } from './components/popovers/setup/AdvocateSetupPopover'
 import { SetupGate } from './components/popovers/auth/SetupGate'
 import { RoleGuard } from './components/guards/RoleGuard'
-import { DashAdvocate } from './views/advocate/DashAdvocate'
-import { InvitePage } from './views/InvitePage'
-import { AuthCallback } from './views/AuthCallback'
-import { NoAccess } from './views/NoAccess'
-import { PaymentSuccess } from './views/PaymentSuccess'
-import { PaymentCancelled } from './views/PaymentCancelled'
 import { ToastProvider } from './components/toast/toast'
 import { LoadingProvider } from './context/loading'
+
+// Loading fallback component for Suspense
+function RouteLoadingFallback() {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        width: '100%',
+      }}
+    >
+      <CircularProgress size={60} />
+    </Box>
+  );
+}
 
 function AppContent() {
   const { 
@@ -96,44 +119,74 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/creative" element={
-          <RoleGuard requiredRole="creative">
-            <DashCreative />
-          </RoleGuard>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="creative">
+              <DashCreative />
+            </RoleGuard>
+          </Suspense>
         } />
         <Route path="/creative/clients" element={
-          <RoleGuard requiredRole="creative">
-            <ClientCreative />
-          </RoleGuard>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="creative">
+              <ClientCreative />
+            </RoleGuard>
+          </Suspense>
         } />
         <Route path="/creative/activity" element={
-          <RoleGuard requiredRole="creative">
-            <ActivityCreative />
-          </RoleGuard>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="creative">
+              <ActivityCreative />
+            </RoleGuard>
+          </Suspense>
         } />
         <Route path="/creative/public" element={
-          <RoleGuard requiredRole="creative">
-            <PublicCreative />
-          </RoleGuard>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="creative">
+              <PublicCreative />
+            </RoleGuard>
+          </Suspense>
+        } />
+        <Route path="/creative/notifications" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="creative">
+              <NotificationsCreative />
+            </RoleGuard>
+          </Suspense>
         } />
         <Route path="/client" element={
-          <RoleGuard requiredRole="client">
-            <ClientDashboard />
-          </RoleGuard>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="client">
+              <ClientDashboard />
+            </RoleGuard>
+          </Suspense>
         } />
         <Route path="/client/book" element={
-          <RoleGuard requiredRole="client">
-            <ClientBook />
-          </RoleGuard>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="client">
+              <ClientBook />
+            </RoleGuard>
+          </Suspense>
         } />
         <Route path="/client/orders" element={
-          <RoleGuard requiredRole="client">
-            <ClientOrders />
-          </RoleGuard>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="client">
+              <ClientOrders />
+            </RoleGuard>
+          </Suspense>
+        } />
+        <Route path="/client/notifications" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="client">
+              <NotificationsClient />
+            </RoleGuard>
+          </Suspense>
         } />
         <Route path="/advocate" element={
-          <RoleGuard requiredRole="advocate">
-            <DashAdvocate />
-          </RoleGuard>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="advocate">
+              <DashAdvocate />
+            </RoleGuard>
+          </Suspense>
         } />
         <Route path="/invite/:inviteToken" element={<InvitePage />} />
         <Route path="/auth-callback" element={<AuthCallback />} />

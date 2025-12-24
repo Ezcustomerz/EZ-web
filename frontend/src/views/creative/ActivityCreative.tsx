@@ -1,15 +1,27 @@
-import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
+import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow, Tooltip } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
-import { useState } from 'react';
-import { ReceiptLong, BarChart, MusicNote, Payment } from '@mui/icons-material';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ReceiptLong, BarChart, MusicNote, Payment, InfoOutlined } from '@mui/icons-material';
 import { CurrentOrdersTab } from './tabs/CurrentOrdersTab';
 import { PastOrdersTab } from './tabs/PastOrdersTab';
 import { AnalyticsTab } from './tabs/AnalyticsTab';
 
 const tabLabels = [
-  { label: 'Current Orders', icon: <ReceiptLong sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'Past Orders', icon: <Payment sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'Analytics', icon: <BarChart sx={{ fontSize: 18, mr: 1 }} /> },
+  { 
+    label: 'Current Orders', 
+    icon: <ReceiptLong sx={{ fontSize: 18, mr: 1 }} />,
+    description: 'View and manage all your active orders currently in progress'
+  },
+  { 
+    label: 'Past Orders', 
+    icon: <Payment sx={{ fontSize: 18, mr: 1 }} />,
+    description: 'Review completed orders and payment history'
+  },
+  { 
+    label: 'Analytics', 
+    icon: <BarChart sx={{ fontSize: 18, mr: 1 }} />,
+    description: 'Track your earnings, performance metrics, and service breakdown'
+  },
 ];
 
 export function ActivityCreative() {
@@ -31,6 +43,62 @@ export function ActivityCreative() {
     setActiveTab(newValue);
     localStorage.setItem('activity-active-tab', String(newValue));
   };
+
+  // Check for order popover to open from notification
+  const [orderIdToOpen, setOrderIdToOpen] = useState<string | null>(() => {
+    const stored = localStorage.getItem('open-order-popover');
+    if (stored) {
+      localStorage.removeItem('open-order-popover');
+      return stored;
+    }
+    return null;
+  });
+
+  // When orderIdToOpen is set, also check and apply the correct tab from localStorage
+  useEffect(() => {
+    if (orderIdToOpen) {
+      const storedTab = localStorage.getItem('activity-active-tab');
+      if (storedTab !== null) {
+        const tabToUse = Number(storedTab);
+        if (activeTab !== tabToUse) {
+          setActiveTab(tabToUse);
+        }
+      }
+    }
+  }, [orderIdToOpen]); // Only depend on orderIdToOpen, not activeTab to avoid loops
+
+  // Also check on mount in case we're navigating to this page with a pending order
+  useEffect(() => {
+    const pendingOrder = localStorage.getItem('open-order-popover');
+    if (pendingOrder && !orderIdToOpen) {
+      const storedTab = localStorage.getItem('activity-active-tab');
+      if (storedTab !== null) {
+        const tabToUse = Number(storedTab);
+        if (activeTab !== tabToUse) {
+          setActiveTab(tabToUse);
+        }
+      }
+    }
+  }, []); // Only run on mount
+
+  // Fallback: if order not found in the selected tab, try the other tab
+  const hasTriedOtherTabRef = useRef<string | null>(null);
+  const handleOrderNotFound = useCallback(() => {
+    if (orderIdToOpen && hasTriedOtherTabRef.current !== orderIdToOpen) {
+      hasTriedOtherTabRef.current = orderIdToOpen;
+      // Switch to the other tab
+      const otherTab = activeTab === 0 ? 1 : 0;
+      setActiveTab(otherTab);
+      localStorage.setItem('activity-active-tab', String(otherTab));
+      // Clear the ref when orderIdToOpen changes so we can search again
+      if (orderIdToOpen) {
+        // Reset the ref after a short delay to allow the new tab to load
+        setTimeout(() => {
+          hasTriedOtherTabRef.current = null;
+        }, 100);
+      }
+    }
+  }, [orderIdToOpen, activeTab]);
 
   return (
     <LayoutCreative selectedNavItem="activity">
@@ -198,37 +266,45 @@ export function ActivityCreative() {
                 transformOrigin={{ vertical: 'top', horizontal: 'center' }}
               >
                 {tabLabels.map((tab, idx) => (
-                  <MenuItem
+                  <Tooltip 
                     key={tab.label}
-                    selected={activeTab === idx}
-                    aria-label={tab.label}
-                    aria-selected={activeTab === idx}
-                    onClick={() => {
-                      setActiveTab(idx);
-                      localStorage.setItem('activity-active-tab', String(idx));
-                      handleMenuClose();
-                    }}
-                    sx={{
-                      borderRadius: '8px',
-                      my: 0.5,
-                      px: 2,
-                      py: 1.2,
-                      background: activeTab === idx ? 'linear-gradient(90deg, #edeaff 0%, #f7f7fb 100%)' : 'none',
-                      color: activeTab === idx ? theme.palette.primary.main : theme.palette.text.primary,
-                      fontWeight: activeTab === idx ? 700 : 500,
-                      transition: 'background 0.18s, color 0.18s',
-                      '&:hover, &:focus': {
-                        background: 'linear-gradient(90deg, #edeaff 0%, #f7f7fb 100%)',
-                        color: theme.palette.primary.main,
-                      },
-                    }}
+                    title={tab.description}
+                    arrow
+                    placement="right"
+                    enterDelay={500}
                   >
-                    <ListItemIcon sx={{ minWidth: 0, mr: 1.2, color: theme.palette.primary.main }}>
-                      {tab.icon}
-                    </ListItemIcon>
-                    <ListItemText primary={tab.label} primaryTypographyProps={{ fontWeight: 700, fontSize: '1.01rem' }} />
-                    <MusicNote sx={{ fontSize: 16, color: '#b7aaff', ml: 1, opacity: activeTab === idx ? 1 : 0.5, transform: 'rotate(-25deg)' }} />
-                  </MenuItem>
+                    <MenuItem
+                      selected={activeTab === idx}
+                      aria-label={tab.label}
+                      aria-selected={activeTab === idx}
+                      onClick={() => {
+                        setActiveTab(idx);
+                        localStorage.setItem('activity-active-tab', String(idx));
+                        handleMenuClose();
+                      }}
+                      sx={{
+                        borderRadius: '8px',
+                        my: 0.5,
+                        px: 2,
+                        py: 1.2,
+                        background: activeTab === idx ? 'linear-gradient(90deg, #edeaff 0%, #f7f7fb 100%)' : 'none',
+                        color: activeTab === idx ? theme.palette.primary.main : theme.palette.text.primary,
+                        fontWeight: activeTab === idx ? 700 : 500,
+                        transition: 'background 0.18s, color 0.18s',
+                        '&:hover, &:focus': {
+                          background: 'linear-gradient(90deg, #edeaff 0%, #f7f7fb 100%)',
+                          color: theme.palette.primary.main,
+                        },
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 0, mr: 1.2, color: theme.palette.primary.main }}>
+                        {tab.icon}
+                      </ListItemIcon>
+                      <ListItemText primary={tab.label} primaryTypographyProps={{ fontWeight: 700, fontSize: '1.01rem' }} />
+                      <InfoOutlined sx={{ fontSize: 16, color: '#b7aaff', ml: 0.5, opacity: 0.6 }} />
+                      <MusicNote sx={{ fontSize: 16, color: '#b7aaff', ml: 0.5, opacity: activeTab === idx ? 1 : 0.5, transform: 'rotate(-25deg)' }} />
+                    </MenuItem>
+                  </Tooltip>
                 ))}
               </Menu>
             </Box>
@@ -246,7 +322,7 @@ export function ActivityCreative() {
                 <Tab
                   key={tab.label}
                   label={
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       {tab.icon}
                       <Typography
                         sx={{
@@ -261,6 +337,32 @@ export function ActivityCreative() {
                       >
                         {tab.label}
                       </Typography>
+                      <Tooltip 
+                        title={tab.description}
+                        arrow
+                        placement="top"
+                        enterDelay={300}
+                        sx={{
+                          '& .MuiTooltip-tooltip': {
+                            fontSize: '0.85rem',
+                            maxWidth: 250,
+                          },
+                        }}
+                      >
+                        <InfoOutlined 
+                          sx={{ 
+                            fontSize: 16, 
+                            ml: 0.5,
+                            color: activeTab === idx ? theme.palette.primary.main : 'text.secondary',
+                            opacity: 0.7,
+                            transition: 'opacity 0.2s, color 0.2s',
+                            '&:hover': {
+                              opacity: 1,
+                              color: theme.palette.primary.main,
+                            },
+                          }} 
+                        />
+                      </Tooltip>
                     </Box>
                   }
                   disableRipple
@@ -301,16 +403,25 @@ export function ActivityCreative() {
                   transform: 'translateY(0) scale(1)',
                 },
               },
-              ...(activeTab === 2 && {
-                alignItems: 'center',
-                justifyContent: 'center',
-              }),
             }}
           >
             {activeTab === 0 ? (
-              <CurrentOrdersTab />
+              <CurrentOrdersTab 
+                orderIdToOpen={orderIdToOpen} 
+                onOrderOpened={() => {
+                  setOrderIdToOpen(null);
+                  hasTriedOtherTabRef.current = null;
+                }}
+                onOrderNotFound={handleOrderNotFound}
+              />
             ) : activeTab === 1 ? (
-              <PastOrdersTab />
+              <PastOrdersTab 
+                orderIdToOpen={orderIdToOpen} 
+                onOrderOpened={() => {
+                  setOrderIdToOpen(null);
+                  hasTriedOtherTabRef.current = null;
+                }}
+              />
             ) : (
               <AnalyticsTab />
             )}

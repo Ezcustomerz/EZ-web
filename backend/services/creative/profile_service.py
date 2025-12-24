@@ -120,7 +120,7 @@ class ProfileService:
             subscription_tier_id = profile_data.get('subscription_tier_id')
             if subscription_tier_id:
                 subscription_result = client.table('subscription_tiers').select(
-                    'storage_amount_bytes, name'
+                    'storage_amount_bytes, name, fee_percentage'
                 ).eq('id', subscription_tier_id).single().execute()
                 
                 if subscription_result.data:
@@ -129,6 +129,7 @@ class ProfileService:
                     profile_data['storage_limit_bytes'] = subscription_result.data.get('storage_amount_bytes', 0)
                     profile_data['subscription_tier'] = tier_name_display
                     profile_data['subscription_tier_name'] = tier_name_display
+                    profile_data['subscription_tier_fee_percentage'] = float(subscription_result.data.get('fee_percentage', 0))
             
             return profile_data
             

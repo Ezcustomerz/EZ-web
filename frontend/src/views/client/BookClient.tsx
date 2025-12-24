@@ -1,14 +1,22 @@
-import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow } from '@mui/material';
+import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow, Tooltip, IconButton } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
 import { useState, useEffect } from 'react';
-import { People, MusicNote } from '@mui/icons-material';
+import { People, MusicNote, InfoOutlined } from '@mui/icons-material';
 import { ConnectedCreativesTab } from './tabs/ConnectedCreativesTab';
 import { ConnectedServicesTab } from './tabs/ConnectedServicesTab';
 import { useSearchParams } from 'react-router-dom';
 
 const tabLabels = [
-  { label: 'Connected Creatives', icon: <People sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'Connected Services', icon: <MusicNote sx={{ fontSize: 18, mr: 1 }} /> },
+  { 
+    label: 'Connected Creatives', 
+    icon: <People sx={{ fontSize: 18, mr: 1 }} />,
+    description: 'View and manage your connected creatives'
+  },
+  { 
+    label: 'Connected Services', 
+    icon: <MusicNote sx={{ fontSize: 18, mr: 1 }} />,
+    description: 'Browse and book services from your connected creatives'
+  },
 ];
 
 export function ClientBook() {
@@ -171,6 +179,22 @@ export function ClientBook() {
                 <Typography component="span" sx={{ fontWeight: 700, fontSize: '1.05rem', mr: 0.75, display: 'inline' }}>
                   {tabLabels[activeTab].label}
                 </Typography>
+                <Tooltip title={tabLabels[activeTab].description} arrow placement="top">
+                  <IconButton
+                    size="small"
+                    sx={{ 
+                      p: 0.25,
+                      color: theme.palette.primary.main,
+                      '&:hover': { color: theme.palette.primary.dark }
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                    }}
+                  >
+                    <InfoOutlined sx={{ fontSize: 14 }} />
+                  </IconButton>
+                </Tooltip>
                 <MusicNote sx={{ fontSize: 18, transform: 'rotate(-25deg)', ml: 0.5, color: '#7A5FFF', transition: 'transform 0.2s', }} />
                 {/* Down arrow for dropdown indication */}
                 <Box component="span" sx={{ ml: 1, display: 'flex', alignItems: 'center', transition: 'transform 0.2s', transform: Boolean(anchorEl) ? 'rotate(180deg)' : 'rotate(0deg)' }}>
@@ -248,7 +272,27 @@ export function ClientBook() {
                     <ListItemIcon sx={{ minWidth: 0, mr: 1.2, color: theme.palette.primary.main }}>
                       {tab.icon}
                     </ListItemIcon>
-                    <ListItemText primary={tab.label} primaryTypographyProps={{ fontWeight: 700, fontSize: '1.01rem' }} />
+                    <ListItemText 
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {tab.label}
+                          <Tooltip title={tab.description} arrow placement="top">
+                            <IconButton
+                              size="small"
+                              sx={{ 
+                                p: 0.25,
+                                color: 'text.secondary',
+                                '&:hover': { color: theme.palette.primary.main }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <InfoOutlined sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      } 
+                      primaryTypographyProps={{ fontWeight: 700, fontSize: '1.01rem' }} 
+                    />
                     <MusicNote sx={{ fontSize: 16, color: '#b7aaff', ml: 1, opacity: activeTab === idx ? 1 : 0.5, transform: 'rotate(-25deg)' }} />
                   </MenuItem>
                 ))}
@@ -268,7 +312,7 @@ export function ClientBook() {
                 <Tab
                   key={tab.label}
                   label={
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       {tab.icon}
                       <Typography
                         sx={{
@@ -283,6 +327,19 @@ export function ClientBook() {
                       >
                         {tab.label}
                       </Typography>
+                      <Tooltip title={tab.description} arrow placement="top">
+                        <IconButton
+                          size="small"
+                          sx={{ 
+                            p: 0.25,
+                            color: activeTab === idx ? theme.palette.primary.main : 'text.secondary',
+                            '&:hover': { color: theme.palette.primary.main }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <InfoOutlined sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   }
                   disableRipple

@@ -3,6 +3,7 @@ import {
   Box,
   Typography,
 } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { ClientTable, mockClients } from '../../components/tables/ClientTable';
 import { InviteClientPopover } from '../../components/popovers/creative/InviteClientPopover';
@@ -14,6 +15,7 @@ import { errorToast } from '../../components/toast/toast';
 
 export function ClientCreative() {
   const { isAuthenticated } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [clients, setClients] = useState<CreativeClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,7 +80,28 @@ export function ClientCreative() {
   const handleCloseClientDetail = () => {
     setClientDetailOpen(false);
     setSelectedClient(null);
+    // Remove clientId from URL when closing popover
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('clientId');
+    setSearchParams(newSearchParams, { replace: true });
   };
+
+  // Handle opening client popover from URL parameter
+  useEffect(() => {
+    const clientId = searchParams.get('clientId');
+    if (clientId && clients.length > 0) {
+      // Match by user_id (which is the client_user_id from leaderboard)
+      const client = clients.find(c => c.user_id === clientId);
+      if (client) {
+        setSelectedClient(client);
+        setClientDetailOpen(true);
+        // Remove clientId from URL after opening
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('clientId');
+        setSearchParams(newSearchParams, { replace: true });
+      }
+    }
+  }, [searchParams, clients, setSearchParams]);
 
   return (
     <LayoutCreative selectedNavItem="clients">

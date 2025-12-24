@@ -60,6 +60,7 @@ export interface PaymentStepProps {
     creative_avatar_url?: string;
     color: string;
     payment_option?: 'upfront' | 'split' | 'later';
+    split_deposit_amount?: number;
     requires_booking?: boolean;
   };
   schedulingData: BookingScheduleData | null;
@@ -75,6 +76,7 @@ export function PaymentStep({
   onSubmit,
   onBack
 }: PaymentStepProps) {
+
   const getPaymentOptionLabel = (option: 'upfront' | 'split' | 'later', price: number) => {
     if (price === 0) {
       return 'Free Service';
@@ -91,7 +93,7 @@ export function PaymentStep({
     }
   };
 
-  const getPaymentOptionDescription = (option: 'upfront' | 'split' | 'later', price: number) => {
+  const getPaymentOptionDescription = (option: 'upfront' | 'split' | 'later', price: number, splitDepositAmount?: number) => {
     if (price === 0) {
       return 'This is a complimentary service';
     }
@@ -99,7 +101,9 @@ export function PaymentStep({
       case 'upfront':
         return 'Full payment required before service begins';
       case 'split':
-        return '50% deposit required to secure booking, remaining 50% due after completion';
+        const depositAmount = splitDepositAmount || (price * 0.5);
+        const remainingAmount = price - depositAmount;
+        return `$${depositAmount.toFixed(2)} deposit required to secure booking, remaining $${remainingAmount.toFixed(2)} due after completion`;
       case 'later':
         return 'Payment due after service completion';
       default:
@@ -177,7 +181,7 @@ export function PaymentStep({
                   fontSize: '0.875rem',
                   lineHeight: 1.5
                 }}>
-                  {getPaymentOptionDescription(service.payment_option || 'upfront', service.price)}
+                  {getPaymentOptionDescription(service.payment_option || 'upfront', service.price, service.split_deposit_amount)}
                 </Typography>
                 {(service.payment_option === 'split' || service.payment_option === 'upfront') && (
                   <Typography variant="caption" sx={{ 
@@ -211,35 +215,43 @@ export function PaymentStep({
 
               {service.payment_option === 'split' ? (
                 <>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        Deposit Required
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        50% deposit required to secure booking
-                      </Typography>
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: service.color }}>
-                      {formatCurrency(paymentBreakdown.totalAmount * 0.5)}
-                    </Typography>
-                  </Box>
+                  {(() => {
+                    const depositAmount = service.split_deposit_amount || (paymentBreakdown.totalAmount * 0.5);
+                    const remainingAmount = paymentBreakdown.totalAmount - depositAmount;
+                    return (
+                      <>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              Deposit Required
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              First payment to secure booking
+                            </Typography>
+                          </Box>
+                          <Typography variant="h6" sx={{ fontWeight: 700, color: service.color }}>
+                            {formatCurrency(depositAmount)}
+                          </Typography>
+                        </Box>
 
-                  <Divider sx={{ my: 1.5 }} />
+                        <Divider sx={{ my: 1.5 }} />
 
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        Remaining Balance
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        Due after service completion
-                      </Typography>
-                    </Box>
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-                      {formatCurrency(paymentBreakdown.totalAmount * 0.5)}
-                    </Typography>
-                  </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              Remaining Balance
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Due after service completion
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                            {formatCurrency(remainingAmount)}
+                          </Typography>
+                        </Box>
+                      </>
+                    );
+                  })()}
                 </>
               ) : service.payment_option === 'upfront' ? (
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -352,6 +364,7 @@ export interface ScheduleSessionStepProps {
     creative_avatar_url?: string;
     color: string;
     payment_option?: 'upfront' | 'split' | 'later';
+    split_deposit_amount?: number;
     requires_booking?: boolean;
   };
   activeStep: number;
@@ -454,6 +467,7 @@ export interface ScheduleConfirmationStepProps {
     creative_avatar_url?: string;
     color: string;
     payment_option?: 'upfront' | 'split' | 'later';
+    split_deposit_amount?: number;
     requires_booking?: boolean;
   };
   schedulingData: BookingScheduleData | null;
@@ -474,6 +488,7 @@ export interface AdditionalNotesStepProps {
     creative_avatar_url?: string;
     color: string;
     payment_option?: 'upfront' | 'split' | 'later';
+    split_deposit_amount?: number;
     requires_booking?: boolean;
   };
   notes: string;
@@ -726,6 +741,7 @@ export interface BookingServicePopoverProps {
     creative_avatar_url?: string;
     color: string;
     payment_option?: 'upfront' | 'split' | 'later';
+    split_deposit_amount?: number;
     requires_booking?: boolean;
   } | null;
   calendarSettings?: {

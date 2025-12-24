@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -23,6 +23,8 @@ import {
   MenuItem,
   Avatar,
   Divider,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Close,
@@ -35,6 +37,8 @@ import {
   AccountCircle,
   Check,
 } from '@mui/icons-material';
+import { userService } from '../../../api/userService';
+import { successToast, errorToast } from '../../toast/toast';
 
 interface ClientSettingsPopoverProps {
   open: boolean;
@@ -47,40 +51,83 @@ type SettingsSection = 'account' | 'billing' | 'userAccount';
 const CLIENT_TITLES = [
   'Other', // Move to top for easy access
   
-  // Music & Entertainment
-  'Music Fan',
-  'Artist Manager',
+  // Music Industry Clients
+  'Recording Artist',
+  'Singer-Songwriter',
+  'Band Member',
+  'Music Producer',
   'Record Label',
-  'Music Venue',
-  'Event Organizer',
-  'Promoter',
-  'Festival Organizer',
-  'Booking Agent',
+  'Music Manager',
+  'A&R Representative',
+  'Music Publisher',
+  'Independent Artist',
+  'Country Artist',
+  'Hip Hop Artist',
+  'Pop Artist',
+  'Rock Artist',
+  'Electronic Artist',
+  'Jazz Musician',
+  'Classical Musician',
+  'Folk Artist',
+  'R&B Artist',
+  'Rapper',
+  'DJ',
+  'Songwriter',
+  'Composer',
+  'Music Director',
   
-  // Business
-  'Brand',
-  'Small Business',
-  'Startup',
-  'Enterprise',
-  'Marketing Agency',
-  'PR Agency',
-  'Advertising Agency',
-  
-  // Content & Media
+  // Media & Entertainment
+  'Filmmaker',
+  'Video Producer',
   'Content Creator',
-  'Influencer',
-  'Podcaster',
   'YouTuber',
-  'Streamer',
-  'Blogger',
-  'Media Company',
-  'Production Company',
+  'Podcaster',
+  'Radio Host',
+  'TV Producer',
+  'Documentary Maker',
+  'Commercial Producer',
+  'Music Video Director',
   
-  // Individual Clients
-  'Individual',
-  'Hobbyist',
-  'Student',
-  'Enthusiast',
+  // Business & Corporate
+  'Marketing Manager',
+  'Brand Manager',
+  'Creative Director',
+  'Advertising Executive',
+  'Small Business Owner',
+  'Startup Founder',
+  'Event Planner',
+  'Wedding Planner',
+  'Corporate Executive',
+  'Entrepreneur',
+  
+  // Publishing & Media
+  'Author',
+  'Publisher',
+  'Magazine Editor',
+  'Journalist',
+  'Blogger',
+  'Social Media Manager',
+  'Influencer',
+  
+  // Technology & Digital
+  'App Developer',
+  'Software Company',
+  'Tech Startup',
+  'Gaming Company',
+  'Digital Agency',
+  'Web Development Agency',
+  
+  // Other Creative Industries
+  'Fashion Designer',
+  'Interior Designer',
+  'Architect',
+  'Art Gallery',
+  'Museum',
+  'Theater Producer',
+  'Event Organizer',
+  'Non-Profit Organization',
+  'Educational Institution',
+  'Client',
 ];
 
 export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: ClientSettingsPopoverProps) {
@@ -88,18 +135,58 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
   const [selectedTheme, setSelectedTheme] = useState('light');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   
   // Form state
   const [formData, setFormData] = useState({
     displayName: '',
     profilePhoto: null as File | null,
+    profilePhotoUrl: '', // Existing photo URL from database
     title: '',
     customTitle: '',
     primaryContact: '',
   });
 
+  // Fetch profile data when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchProfileData();
+    }
+  }, [open]);
+
+  const fetchProfileData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const profile = await userService.getClientProfile();
+      
+      // Determine if the title is a standard one or custom
+      const isStandardTitle = CLIENT_TITLES.includes(profile.title || '');
+      
+      setFormData({
+        displayName: profile.display_name || '',
+        profilePhoto: null,
+        profilePhotoUrl: profile.profile_banner_url || '',
+        title: isStandardTitle ? (profile.title || '') : 'Other',
+        customTitle: isStandardTitle ? '' : (profile.title || ''),
+        primaryContact: profile.email || '',
+      });
+    } catch (err: any) {
+      console.error('Failed to fetch client profile:', err);
+      setError(err.response?.data?.detail || 'Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear messages when user starts editing
+    setError(null);
+    setSuccess(null);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,16 +197,63 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
   };
 
   const handleClose = () => {
+    setError(null);
+    setSuccess(null);
     onClose();
   };
 
-  const handleSaveChanges = () => {
-    // Dispatch event for other components to react
-    window.dispatchEvent(new CustomEvent('clientProfileUpdated'));
+  const handleSaveChanges = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
     
-    // Call callback if provided
-    if (onProfileUpdated) {
-      onProfileUpdated();
+    try {
+      // Upload profile photo if a new one was selected
+      if (formData.profilePhoto) {
+        try {
+          const uploadResponse = await userService.uploadClientProfilePhoto(formData.profilePhoto);
+          console.log('Profile photo uploaded:', uploadResponse);
+        } catch (uploadError) {
+          console.error('Failed to upload profile photo:', uploadError);
+          errorToast('Failed to upload profile photo', 'Your other settings will still be saved.');
+          // Continue with other settings even if photo upload fails
+        }
+      }
+
+      // Determine the title to send
+      const titleToSend = formData.title === 'Other' ? formData.customTitle : formData.title;
+
+      // Prepare update data
+      const updateData: any = {
+        display_name: formData.displayName,
+        title: titleToSend,
+        email: formData.primaryContact,
+      };
+
+      // Call update API
+      const response = await userService.updateClientProfile(updateData);
+      
+      if (response.success) {
+        successToast('Profile Updated!', 'Your client profile has been updated successfully.');
+        
+        // Dispatch event for other components to react
+        window.dispatchEvent(new CustomEvent('clientProfileUpdated'));
+        
+        // Call callback if provided
+        if (onProfileUpdated) {
+          onProfileUpdated();
+        }
+        
+        // Close the popover
+        handleClose();
+      }
+    } catch (err: any) {
+      console.error('Failed to update client profile:', err);
+      const errorMessage = err.response?.data?.detail || 'Failed to update profile';
+      setError(errorMessage);
+      errorToast('Update Failed', errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -149,144 +283,165 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
       case 'account':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {/* Profile Photo Section */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <PhotoCamera color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Profile Photo
+            {loading && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            )}
+            
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
+            
+            {success && (
+              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+                {success}
+              </Alert>
+            )}
+            
+            {!loading && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* Profile Photo Section */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <PhotoCamera color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Profile Photo
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <Avatar
+                        src={formData.profilePhoto ? URL.createObjectURL(formData.profilePhoto) : formData.profilePhotoUrl || undefined}
+                        sx={{ width: 80, height: 80 }}
+                      >
+                        {!formData.profilePhoto && !formData.profilePhotoUrl && formData.displayName.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Button
+                        variant="outlined"
+                        component="label"
+                        size="small"
+                        sx={{
+                          textTransform: 'none',
+                          fontWeight: 500,
+                        }}
+                      >
+                        Upload Photo
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                        />
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+
+                {/* Display Name */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <Person color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Display Name
+                      </Typography>
+                    </Box>
+                    <TextField
+                      fullWidth
+                      value={formData.displayName}
+                      onChange={(e) => handleInputChange('displayName', e.target.value)}
+                      placeholder="Enter your display name"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Title */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <Title color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Title
+                      </Typography>
+                    </Box>
+                    <FormControl fullWidth>
+                      <InputLabel>Select Title</InputLabel>
+                      <Select
+                        label="Select Title"
+                        value={formData.title}
+                        onChange={(e) => handleInputChange('title', e.target.value)}
+                      >
+                        {CLIENT_TITLES.map((title) => (
+                          <MenuItem key={title} value={title}>
+                            {title}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    
+                    {/* Custom Title Field - Only shown when "Other" is selected */}
+                    {formData.title === 'Other' && (
+                      <TextField
+                        fullWidth
+                        value={formData.customTitle}
+                        onChange={(e) => handleInputChange('customTitle', e.target.value)}
+                        placeholder="Enter custom title"
+                        sx={{ mt: 2 }}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Primary Contact */}
+                <Card variant="outlined">
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <ContactPhone color="primary" />
+                      <Typography variant="h6" fontWeight={600}>
+                        Email
+                      </Typography>
+                    </Box>
+                    <TextField
+                      fullWidth
+                      type="email"
+                      value={formData.primaryContact}
+                      onChange={(e) => handleInputChange('primaryContact', e.target.value)}
+                      placeholder="email@example.com"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* Delete Client Role Section */}
+                <Card variant="outlined" sx={{ borderColor: 'error.light' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <Typography variant="h6" fontWeight={600} color="error">
+                        Delete Client Role
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
+                      ⚠️ <strong>Warning:</strong> Role deletion is permanent and irreversible. 
+                      All your data related to the client role, including bookings, orders, and profile information,
+                      will be permanently removed. This action cannot be undone.
                     </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                    <Avatar
-                      src={formData.profilePhoto ? URL.createObjectURL(formData.profilePhoto) : undefined}
-                      sx={{ width: 80, height: 80 }}
-                    >
-                      {!formData.profilePhoto && formData.displayName.charAt(0).toUpperCase()}
-                    </Avatar>
                     <Button
                       variant="outlined"
-                      component="label"
-                      size="small"
+                      color="error"
                       sx={{
                         textTransform: 'none',
                         fontWeight: 500,
                       }}
                     >
-                      Upload Photo
-                      <input
-                        type="file"
-                        hidden
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                      />
-                    </Button>
-                  </Box>
-                </CardContent>
-              </Card>
-
-              {/* Display Name */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Person color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Display Name
-                    </Typography>
-                  </Box>
-                  <TextField
-                    fullWidth
-                    value={formData.displayName}
-                    onChange={(e) => handleInputChange('displayName', e.target.value)}
-                    placeholder="Enter your display name"
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Title */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Title color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Title
-                    </Typography>
-                  </Box>
-                  <FormControl fullWidth>
-                    <InputLabel>Select Title</InputLabel>
-                    <Select
-                      label="Select Title"
-                      value={formData.title}
-                      onChange={(e) => handleInputChange('title', e.target.value)}
-                    >
-                      {CLIENT_TITLES.map((title) => (
-                        <MenuItem key={title} value={title}>
-                          {title}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  
-                  {/* Custom Title Field - Only shown when "Other" is selected */}
-                  {formData.title === 'Other' && (
-                    <TextField
-                      fullWidth
-                      value={formData.customTitle}
-                      onChange={(e) => handleInputChange('customTitle', e.target.value)}
-                      placeholder="Enter custom title"
-                      sx={{ mt: 2 }}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Primary Contact */}
-              <Card variant="outlined">
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <ContactPhone color="primary" />
-                    <Typography variant="h6" fontWeight={600}>
-                      Primary Contact
-                    </Typography>
-                  </Box>
-                  <TextField
-                    fullWidth
-                    value={formData.primaryContact}
-                    onChange={(e) => handleInputChange('primaryContact', e.target.value)}
-                    placeholder="email@example.com or +1234567890"
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Delete Client Role Section */}
-              <Card variant="outlined" sx={{ borderColor: 'error.light' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Typography variant="h6" fontWeight={600} color="error">
                       Delete Client Role
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.5 }}>
-                    ⚠️ <strong>Warning:</strong> Role deletion is permanent and irreversible. 
-                    All your data related to the client role, including bookings, orders, and profile information,
-                    will be permanently removed. This action cannot be undone.
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    sx={{
-                      textTransform: 'none',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Delete Client Role
-                  </Button>
-                </CardContent>
-              </Card>
+                    </Button>
+                  </CardContent>
+                </Card>
 
-            </Box>
+              </Box>
+            )}
           </Box>
         );
       case 'billing':
@@ -582,12 +737,13 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
                   variant="contained"
                   size="small"
                   onClick={handleSaveChanges}
+                  disabled={saving || loading}
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
                   }}
                 >
-                  Save Changes
+                  {saving ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
                 </Button>
               )}
 

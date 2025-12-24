@@ -6,9 +6,19 @@ class AdvocateSetupResponse(BaseModel):
     success: bool
     message: str
 
+class AdvocateUpdateRequest(BaseModel):
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    profile_banner_url: Optional[str] = None
+
+class AdvocateUpdateResponse(BaseModel):
+    success: bool
+    message: str
+
 class AdvocateProfile(BaseModel):
     user_id: str
     display_name: Optional[str]
+    email: Optional[str]
     profile_banner_url: Optional[str]
     profile_source: str
     fp_affiliate_id: Optional[str]

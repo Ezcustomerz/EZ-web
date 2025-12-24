@@ -1,7 +1,8 @@
-import { Box, Typography, Paper, Tab, Tabs, useTheme, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Box, Typography, Paper, Tab, Tabs, useTheme, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Tooltip } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
-import { useState } from 'react';
-import { Build, Search, FilterList } from '@mui/icons-material';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Build, Search, FilterList, InfoOutlined } from '@mui/icons-material';
 import { ServicesTab } from './tabs/ServicesTab';
 import { CalendarTab } from './tabs/CalendarTab';
 import { ProfileTab } from './tabs/ProfileTab';
@@ -12,9 +13,21 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown, faGlobe, faLock, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 
 const tabLabels = [
-  { label: 'Services', icon: <Build sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'Calendar', icon: <CalendarMonth sx={{ fontSize: 18, mr: 1 }} /> },
-  { label: 'Profile', icon: <AccountCircle sx={{ fontSize: 18, mr: 1 }} /> },
+  { 
+    label: 'Services', 
+    icon: <Build sx={{ fontSize: 18, mr: 1 }} />,
+    description: 'Manage your services, bundles, and pricing. Control visibility and organize your offerings.'
+  },
+  { 
+    label: 'Calendar', 
+    icon: <CalendarMonth sx={{ fontSize: 18, mr: 1 }} />,
+    description: 'View and manage your availability schedule. Set up time slots for bookings and sessions.'
+  },
+  { 
+    label: 'Profile', 
+    icon: <AccountCircle sx={{ fontSize: 18, mr: 1 }} />,
+    description: 'Customize your public profile information, bio, and profile picture that clients see.'
+  },
 ];
 
 const sortOptions = [
@@ -24,13 +37,35 @@ const sortOptions = [
 ];
 
 export function PublicCreative() {
+  const [searchParams, setSearchParams] = useSearchParams();
   // Dialog open states for CalendarTab
   const [calendarDayDialogOpen, setCalendarDayDialogOpen] = useState(false);
   const [calendarSessionDialogOpen, setCalendarSessionDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
+    // Check if tab is specified in URL params
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== null) {
+      const tabNum = Number(tabParam);
+      if (!isNaN(tabNum) && tabNum >= 0 && tabNum <= 2) {
+        return tabNum;
+      }
+    }
+    // Otherwise use stored value
     const stored = localStorage.getItem('public-active-tab');
     return stored !== null ? Number(stored) : 0;
   });
+
+  // Update active tab when tab param changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam !== null) {
+      const tabNum = Number(tabParam);
+      if (!isNaN(tabNum) && tabNum >= 0 && tabNum <= 2) {
+        setActiveTab(tabNum);
+        localStorage.setItem('public-active-tab', String(tabNum));
+      }
+    }
+  }, [searchParams]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -250,7 +285,30 @@ export function PublicCreative() {
                     <ListItemIcon sx={{ minWidth: 0, mr: 1.2, color: theme.palette.primary.main }}>
                       {tab.icon}
                     </ListItemIcon>
-                    <ListItemText primary={tab.label} primaryTypographyProps={{ fontWeight: 700, fontSize: '1.01rem' }} />
+                    <ListItemText 
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <span>{tab.label}</span>
+                          <Tooltip
+                            title={tab.description}
+                            placement="right"
+                            arrow
+                          >
+                            <InfoOutlined 
+                              sx={{ 
+                                fontSize: '0.875rem', 
+                                color: 'text.secondary', 
+                                cursor: 'help',
+                                '&:hover': {
+                                  color: theme.palette.primary.main,
+                                },
+                              }} 
+                            />
+                          </Tooltip>
+                        </Box>
+                      } 
+                      primaryTypographyProps={{ fontWeight: 700, fontSize: '1.01rem' }} 
+                    />
                     <MusicNote sx={{ fontSize: 16, color: '#b7aaff', ml: 1, opacity: activeTab === idx ? 1 : 0.5, transform: 'rotate(-25deg)' }} />
                   </MenuItem>
                 ))}
@@ -270,7 +328,7 @@ export function PublicCreative() {
                 <Tab
                   key={tab.label}
                   label={
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       {tab.icon}
                       <Typography
                         sx={{
@@ -285,6 +343,23 @@ export function PublicCreative() {
                       >
                         {tab.label}
                       </Typography>
+                      <Tooltip
+                        title={tab.description}
+                        placement="top"
+                        arrow
+                      >
+                        <InfoOutlined 
+                          sx={{ 
+                            fontSize: '0.875rem', 
+                            color: 'text.secondary', 
+                            ml: 0.5, 
+                            cursor: 'help',
+                            '&:hover': {
+                              color: theme.palette.primary.main,
+                            },
+                          }} 
+                        />
+                      </Tooltip>
                     </Box>
                   }
                   disableRipple

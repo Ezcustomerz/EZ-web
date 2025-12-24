@@ -20,7 +20,8 @@ import {
   Tooltip,
   Stack,
   IconButton,
-  CircularProgress,
+  Skeleton,
+  Card,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
@@ -34,35 +35,25 @@ import {
   AttachMoney,
   Folder,
 } from '@mui/icons-material';
-import Card from '@mui/material/Card';
 import { useState } from 'react';
-
-export interface Client {
-  id: string;
-  name: string;
-  contact: string;
-  contactType: 'email' | 'phone';
-  status: 'active' | 'inactive';
-  totalSpent: number;
-  projects: number;
-}
+import { type CreativeClient } from '../../api/userService';
 
 type SortField = 'name' | 'totalSpent' | 'projects';
 type SortDirection = 'asc' | 'desc' | null;
 
 interface ClientTableProps {
-  clients: Client[];
+  clients: CreativeClient[];
   searchTerm: string;
   onSearchChange: (value: string) => void;
   statusFilter: 'all' | 'active' | 'inactive';
   onStatusFilterChange: (value: 'all' | 'active' | 'inactive') => void;
   onInviteClient: () => void;
-  onClientClick?: (client: Client) => void;
+  onClientClick?: (client: CreativeClient) => void;
   itemsPerPage?: number;
   loading?: boolean;
 }
 
-export const mockClients: Client[] = [
+export const mockClients: CreativeClient[] = [
  
 ];
 
@@ -480,31 +471,39 @@ export function ClientTable({
           },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TextField
-            placeholder="Search clients..."
-            value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            size="small"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              width: { xs: '100%', md: 280 },
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 1,
-                backgroundColor: 'background.paper',
-              },
-            }}
-          />
-          <Typography variant="body2" sx={{ color: 'text.secondary', ml: 1, minWidth: 80 }}>
-            {filteredAndSortedClients.length} client{filteredAndSortedClients.length !== 1 ? 's' : ''}
-          </Typography>
-        </Box>
+        {loading ? (
+          // Skeleton for search and count
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, width: { xs: '100%', md: 280 } }} />
+            <Skeleton variant="text" width={80} height={20} />
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+              placeholder="Search clients..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                width: { xs: '100%', md: 280 },
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1,
+                  backgroundColor: 'background.paper',
+                },
+              }}
+            />
+            <Typography variant="body2" sx={{ color: 'text.secondary', ml: 1, minWidth: 80 }}>
+              {filteredAndSortedClients.length} client{filteredAndSortedClients.length !== 1 ? 's' : ''}
+            </Typography>
+          </Box>
+        )}
         <Box
           sx={{
             display: 'flex',
@@ -514,67 +513,75 @@ export function ClientTable({
             width: { xs: '100%', md: 'auto' },
           }}
         >
-          <FormControl
-            size="small"
-            sx={{
-              minWidth: { xs: 110, sm: 120 },
-              width: { xs: 'auto', sm: 'auto' },
-              flex: { xs: 1, sm: 'none' },
-            }}
-          >
-            <InputLabel>Status Filter</InputLabel>
-            <Select
-              value={statusFilter}
-              onChange={(e) => handleStatusFilterChange(e.target.value as 'all' | 'active' | 'inactive')}
-              label="Status Filter"
-              startAdornment={<FilterIcon sx={{ mr: 1, color: 'text.secondary' }} />}
-              sx={{
-                borderRadius: 1,
-                backgroundColor: 'background.paper',
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: {
+          {loading ? (
+            // Skeleton for filter and invite button
+            <>
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, width: { xs: '100%', md: 120 } }} />
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1.5, width: { xs: '100%', md: 140 } }} />
+            </>
+          ) : (
+            <>
+              <FormControl
+                size="small"
+                sx={{
+                  minWidth: { xs: 110, sm: 120 },
+                  width: { xs: 'auto', sm: 'auto' },
+                  flex: { xs: 1, sm: 'none' },
+                }}
+              >
+                <InputLabel>Status Filter</InputLabel>
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => handleStatusFilterChange(e.target.value as 'all' | 'active' | 'inactive')}
+                  label="Status Filter"
+                  startAdornment={<FilterIcon sx={{ mr: 1, color: 'text.secondary' }} />}
+                  sx={{
                     borderRadius: 1,
-                    mt: 1,
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                    border: '1px solid rgba(0, 0, 0, 0.05)',
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    '& .MuiMenuItem-root': {
-                      py: 1,
-                      px: 2,
-                      borderRadius: 0,
-                      transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                      '&:hover': {
-                        backgroundColor: 'transparent',
-                        transform: 'translateX(4px)',
-                        fontWeight: 600,
-                        color: 'primary.main',
-                      },
-                      '&.Mui-selected': {
-                        backgroundColor: 'transparent',
-                        fontWeight: 600,
-                        color: 'text.primary',
-                      },
-                      '&.Mui-selected:hover': {
-                        backgroundColor: 'transparent',
-                        color: 'primary.main',
-                      },
-                      '&.Mui-focusVisible': {
-                        backgroundColor: 'transparent',
+                    backgroundColor: 'background.paper',
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        borderRadius: 1,
+                        mt: 1,
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        border: '1px solid rgba(0, 0, 0, 0.05)',
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        '& .MuiMenuItem-root': {
+                          py: 1,
+                          px: 2,
+                          borderRadius: 0,
+                          transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                          '&:hover': {
+                            backgroundColor: 'transparent',
+                            transform: 'translateX(4px)',
+                            fontWeight: 600,
+                            color: 'primary.main',
+                          },
+                          '&.Mui-selected': {
+                            backgroundColor: 'transparent',
+                            fontWeight: 600,
+                            color: 'text.primary',
+                          },
+                          '&.Mui-selected:hover': {
+                            backgroundColor: 'transparent',
+                            color: 'primary.main',
+                          },
+                          '&.Mui-focusVisible': {
+                            backgroundColor: 'transparent',
+                          },
+                        },
                       },
                     },
-                  },
-                },
-              }}
-            >
-              <MenuItem value="all" disableRipple>Both</MenuItem>
-              <MenuItem value="active" disableRipple>Active</MenuItem>
-              <MenuItem value="inactive" disableRipple>Inactive</MenuItem>
-            </Select>
-          </FormControl>
-          <Button
+                  }}
+                >
+                  <MenuItem value="all" disableRipple>Both</MenuItem>
+                  <MenuItem value="active" disableRipple>Active</MenuItem>
+                  <MenuItem value="inactive" disableRipple>Inactive</MenuItem>
+                </Select>
+              </FormControl>
+              <Button
             variant="contained"
             startIcon={<PersonAddOutlined sx={{ fontSize: 18 }} />}
             onClick={onInviteClient}
@@ -688,6 +695,8 @@ export function ClientTable({
             <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Invite Client</Box>
             <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>Invite</Box>
           </Button>
+            </>
+          )}
         </Box>
       </Box>
       {/* Clients Table */}
@@ -701,16 +710,41 @@ export function ClientTable({
         }}
       >
         {loading ? (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              py: 8,
-            }}
-          >
-            <CircularProgress size={40} />
-          </Box>
+          // Mobile card skeletons
+          <>
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <Card
+                key={`skeleton-${idx}`}
+                elevation={1}
+                sx={{
+                  borderRadius: 2,
+                  p: 2,
+                  mb: 2,
+                  animation: `fadeIn 0.5s ease-in ${idx * 0.1}s both`,
+                  '@keyframes fadeIn': {
+                    from: { opacity: 0, transform: 'translateY(10px)' },
+                    to: { opacity: 1, transform: 'translateY(0)' },
+                  },
+                }}
+              >
+                <Stack spacing={1}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Skeleton variant="text" width="40%" height={24} />
+                    <Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: '12px' }} />
+                  </Stack>
+                  <Skeleton variant="text" width="60%" height={20} />
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Skeleton variant="circular" width={20} height={20} />
+                    <Skeleton variant="text" width={80} height={18} />
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Skeleton variant="circular" width={20} height={20} />
+                    <Skeleton variant="text" width={100} height={18} />
+                  </Stack>
+                </Stack>
+              </Card>
+            ))}
+          </>
         ) : totalItems === 0 ? (
           <Box
             sx={{
@@ -777,10 +811,12 @@ export function ClientTable({
           border: '1px solid',
           borderColor: 'divider',
           borderRadius: 1,
-          flex: '1 1 0',
+          flex: totalItems === 0 ? '0 1 auto' : '1 1 0',
           height: totalItems === 0 ? 'auto' : undefined,
           minHeight: totalItems === 0 ? 'auto' : 0,
-          overflowY: totalItems === 0 ? 'visible' : 'auto',
+          maxHeight: totalItems === 0 ? 'none' : undefined,
+          overflowY: totalItems === 0 ? 'hidden' : 'auto',
+          overflowX: 'hidden',
           WebkitOverflowScrolling: 'touch',
           display: { xs: 'none', md: 'block' },
         }}
@@ -881,7 +917,7 @@ export function ClientTable({
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  Total Spent
+                  Total Revenue
                   <Tooltip title={getSortTooltip('totalSpent')} arrow placement="top" open={hoveredSort === 'totalSpent'}>
                     <span>{getSortIcon('totalSpent')}</span>
                   </Tooltip>
@@ -923,29 +959,25 @@ export function ClientTable({
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
+              // Desktop table row skeletons
+              Array.from({ length: 10 }).map((_, idx) => (
+                <TableRow
+                  key={`skeleton-row-${idx}`}
                   sx={{
-                    border: 0,
-                    p: 0,
-                    height: '100%',
-                    verticalAlign: 'middle',
-                    textAlign: 'center',
+                    animation: `fadeIn 0.5s ease-in ${idx * 0.08}s both`,
+                    '@keyframes fadeIn': {
+                      from: { opacity: 0 },
+                      to: { opacity: 1 },
+                    },
                   }}
                 >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      py: 8,
-                    }}
-                  >
-                    <CircularProgress size={40} />
-                  </Box>
-                </TableCell>
-              </TableRow>
+                  <TableCell><Skeleton variant="text" width="80%" height={20} /></TableCell>
+                  <TableCell><Skeleton variant="text" width="70%" height={20} /></TableCell>
+                  <TableCell><Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: '12px' }} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={80} height={20} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={40} height={20} /></TableCell>
+                </TableRow>
+              ))
             ) : totalItems === 0 ? (
               <TableRow>
                 <TableCell

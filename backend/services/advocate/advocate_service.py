@@ -1,6 +1,7 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from db.db_session import db_admin
-from schemas.advocate import AdvocateSetupResponse
+from schemas.advocate import AdvocateSetupResponse, AdvocateUpdateRequest, AdvocateUpdateResponse
+import uuid
 
 class AdvocateController:
     @staticmethod
@@ -53,11 +54,15 @@ class AdvocateController:
                 profile_banner_url = f"https://api.dicebear.com/7.x/initials/svg?seed={seed}"
 
             profile_source = user_data.get('avatar_source') or 'google'
+            
+            # Get user email with fallback
+            user_email = user_data.get('email') or fallback_email
 
             # Create advocate profile with computed data and defaults
             advocate_data = {
                 'user_id': user_id,
                 'display_name': display_name,
+                'email': user_email,  # Default to Google email
                 'profile_banner_url': profile_banner_url,
                 'profile_source': profile_source,
                 'tier': 'silver',  # Default tier
@@ -107,3 +112,113 @@ class AdvocateController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to fetch advocate profile: {str(e)}")
+
+    @staticmethod
+    async def update_advocate_profile(user_id: str, update_data: AdvocateUpdateRequest) -> AdvocateUpdateResponse:
+        """Update the current user's advocate profile"""
+        try:
+            # Build update dictionary with only provided fields
+            update_dict = {}
+            if update_data.display_name is not None:
+                update_dict['display_name'] = update_data.display_name
+            if update_data.email is not None:
+                update_dict['email'] = update_data.email
+            if update_data.profile_banner_url is not None:
+                update_dict['profile_banner_url'] = update_data.profile_banner_url
+            
+            # Only update if there are fields to update
+            if not update_dict:
+                return AdvocateUpdateResponse(
+                    success=True,
+                    message="No changes to update"
+                )
+            
+            # Update the advocate profile
+            result = db_admin.table('advocates').update(update_dict).eq('user_id', user_id).execute()
+            
+            if not result.data:
+                raise HTTPException(status_code=404, detail="Advocate profile not found")
+            
+            return AdvocateUpdateResponse(
+                success=True,
+                message="Advocate profile updated successfully"
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update advocate profile: {str(e)}")
+
+    @staticmethod
+    async def upload_profile_photo(user_id: str, file: UploadFile) -> dict:
+        """Upload a profile photo for the advocate"""
+        try:
+            # Validate file type
+            if not file.content_type or not file.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail="File must be an image")
+            
+            # Validate file size (5MB limit)
+            content = await file.read()
+            file_size = len(content)
+            if file_size > 5 * 1024 * 1024:  # 5MB
+                raise HTTPException(status_code=400, detail="File size must be less than 5MB")
+            
+            # Get current profile to find old photo URL
+            current_profile = db_admin.table('advocates').select('profile_banner_url').eq('user_id', user_id).single().execute()
+            old_photo_url = None
+            if current_profile.data and current_profile.data.get('profile_banner_url'):
+                old_photo_url = current_profile.data['profile_banner_url']
+            
+            # Generate unique filename
+            file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+            unique_filename = f"{user_id}_{uuid.uuid4().hex}.{file_extension}"
+            
+            # Upload to Supabase storage
+            bucket_name = "profile-photos"
+            file_path = f"advocates/{unique_filename}"
+            
+            try:
+                upload_result = db_admin.storage.from_(bucket_name).upload(
+                    path=file_path,
+                    file=content,
+                    file_options={"content-type": file.content_type}
+                )
+            except Exception as upload_error:
+                raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(upload_error)}")
+            
+            # Get the public URL
+            public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
+            
+            # Update the advocate profile with the new photo URL
+            update_result = db_admin.table('advocates').update({
+                'profile_banner_url': public_url,
+                'profile_source': 'custom'
+            }).eq('user_id', user_id).execute()
+            
+            if not update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update profile with new photo URL")
+            
+            # Delete the old profile photo if it exists
+            if old_photo_url and 'profile-photos' in old_photo_url:
+                try:
+                    clean_url = old_photo_url.split('?')[0].split('#')[0]
+                    old_file_path = clean_url.split('/profile-photos/')[-1]
+                    
+                    if old_file_path.startswith('advocates/'):
+                        try:
+                            db_admin.storage.from_(bucket_name).remove([old_file_path])
+                        except Exception as delete_error:
+                            print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+                except Exception as delete_error:
+                    print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+            
+            return {
+                "success": True,
+                "message": "Profile photo uploaded successfully",
+                "profile_banner_url": public_url
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")

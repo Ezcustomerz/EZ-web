@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, UploadFile, File
 from services.client.client_service import ClientController
-from schemas.client import ClientCreativesListResponse
+from schemas.client import ClientCreativesListResponse, ClientUpdateRequest, ClientUpdateResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from typing import Dict, Any
@@ -31,6 +31,53 @@ async def get_client_profile(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch client profile: {str(e)}")
+
+@router.put("/profile", response_model=ClientUpdateResponse)
+@limiter.limit("2 per second")
+async def update_client_profile(
+    request: Request,
+    update_data: ClientUpdateRequest,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """Update the current user's client profile
+    Requires authentication - will return 401 if not authenticated.
+    """
+    try:
+        # Get user ID from authenticated user (guaranteed by require_auth dependency)
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        return await ClientController.update_client_profile(user_id, update_data, client)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update client profile: {str(e)}")
+
+@router.post("/profile/upload-photo")
+@limiter.limit("2 per second")
+async def upload_profile_photo(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """Upload a profile photo for the client
+    Requires authentication - will return 401 if not authenticated.
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        return await ClientController.upload_profile_photo(user_id, file, client)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
 
 @router.get("/creatives", response_model=ClientCreativesListResponse)
 @limiter.limit("2 per second")

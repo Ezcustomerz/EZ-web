@@ -172,7 +172,8 @@ export function notificationToActivityItem(notification: Notification): Activity
     isNew: !notification.is_read,
     notificationType: notification.notification_type,
     metadata: notification.metadata || {},
-    notificationId: notification.id // Store notification ID for marking as read
+    notificationId: notification.id, // Store notification ID for marking as read
+    relatedEntityId: notification.related_entity_id // Store related entity ID (e.g., booking_id) for navigation
   };
 }
 

@@ -440,13 +440,10 @@ export function DownloadOrderDetailPopover({
   };
 
 
-  // Check if files are expired (30 days after completion)
+  // Check if files are expired
   const areFilesExpired = () => {
-    if (!order.completedDate) return false;
-    const completedDate = new Date(order.completedDate);
-    const now = new Date();
-    const daysSinceCompletion = Math.floor((now.getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24));
-    return daysSinceCompletion > 30;
+    // Files never expire
+    return false;
   };
 
   const filesExpired = areFilesExpired();
@@ -983,8 +980,8 @@ export function DownloadOrderDetailPopover({
             </Box>
              <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem', ml: 2.5 }}>
                {filesExpired 
-                 ? 'Your service is complete! Files were available for 30 days after completion. Contact the creative if you need the files again.'
-                 : 'Your service is complete! Download your files and invoice above. Files will be available for 30 days after completion.'
+                 ? 'Your service is complete! Contact the creative if you need the files again.'
+                 : 'Your service is complete! Download your files and invoice above.'
                }
              </Typography>
            </Box>

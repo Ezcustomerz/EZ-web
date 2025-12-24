@@ -10,11 +10,13 @@ import {
   useTheme,
   useMediaQuery,
   Button,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Skeleton,
+  Card,
+  CardContent,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import { Search, DateRange, ShoppingBag, FilterList } from '@mui/icons-material';
@@ -73,6 +75,17 @@ const getStatusColor = (status: string) => {
 // Helper function to transform orders
 function transformOrders(fetchedOrders: Order[]) {
   return fetchedOrders.map((order: Order) => {
+    // Debug log for split payment orders
+    if (order.payment_option === 'split') {
+      console.log('[ActionNeededTab] Split payment order:', {
+        id: order.id,
+        service_name: order.service_name,
+        price: order.price,
+        split_deposit_amount: order.split_deposit_amount,
+        amount_paid: order.amount_paid
+      });
+    }
+    
     return {
     id: order.id,
     serviceName: order.service_name,
@@ -96,8 +109,12 @@ function transformOrders(fetchedOrders: Order[]) {
             order.status === 'canceled' ? 'canceled' : 'placed',
     amountPaid: order.amount_paid || 0,
     amountRemaining: order.price - (order.amount_paid || 0),
-    depositAmount: order.payment_option === 'split' ? Math.round(order.price * 0.5 * 100) / 100 : undefined,
-    remainingAmount: order.payment_option === 'split' ? Math.round((order.price - Math.round(order.price * 0.5 * 100) / 100) * 100) / 100 : undefined,
+    depositAmount: order.payment_option === 'split' && order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+      ? Math.round(order.split_deposit_amount * 100) / 100
+      : undefined,
+    remainingAmount: order.payment_option === 'split' && order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+      ? Math.round((order.price - order.split_deposit_amount) * 100) / 100
+      : undefined,
     serviceId: order.service_id,
     serviceDescription: order.service_description,
     serviceDeliveryTime: order.service_delivery_time,
@@ -137,7 +154,7 @@ function transformOrders(fetchedOrders: Order[]) {
         })()
       : null,
     invoices: order.invoices || [],
-  };
+    };
   });
 }
 
@@ -392,6 +409,84 @@ export function ActionNeededTab() {
           return true;
       }
     });
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', pt: 2 }}>
+        {/* Search and Filters Skeletons */}
+        <Box sx={{ 
+          mb: 3, 
+          display: 'flex', 
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 2,
+          alignItems: { xs: 'stretch', md: 'center' }
+        }}>
+          <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, flex: { xs: 1, md: 2 } }} />
+          {isMobile ? (
+            <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: '100%' }} />
+          ) : (
+            <>
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: 200 }} />
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: 180 }} />
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: 180 }} />
+            </>
+          )}
+        </Box>
+
+        {/* Order Card Skeletons */}
+        <Box sx={{ 
+          flex: 1, 
+          overflowY: 'auto',
+          overflowX: 'visible',
+          pr: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}>
+          {Array.from({ length: 3 }).map((_, idx) => (
+            <Card
+              key={`skeleton-${idx}`}
+              sx={{
+                borderRadius: 2,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                border: '1px solid rgba(0, 0, 0, 0.06)',
+                animation: `fadeIn 0.5s ease-in ${idx * 0.1}s both`,
+                '@keyframes fadeIn': {
+                  from: { opacity: 0, transform: 'translateY(10px)' },
+                  to: { opacity: 1, transform: 'translateY(0)' },
+                },
+              }}
+            >
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
+                  <Skeleton variant="circular" width={48} height={48} />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                      <Skeleton variant="text" width="35%" height={20} />
+                      <Skeleton variant="text" width="25%" height={14} />
+                    </Box>
+                    <Skeleton variant="text" width="40%" height={14} sx={{ mb: 1.5 }} />
+                    <Skeleton variant="rectangular" height={1} width="100%" sx={{ mb: 1.5 }} />
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 0.5 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                        <Skeleton variant="text" width={60} height={12} />
+                        <Skeleton variant="text" width={80} height={16} />
+                      </Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                        <Skeleton variant="text" width={50} height={12} />
+                        <Skeleton variant="text" width={70} height={16} />
+                      </Box>
+                    </Box>
+                  </Box>
+                  <Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1.5, alignSelf: 'flex-start' }} />
+                </Box>
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      </Box>
+    );
   }
 
   return (
@@ -1070,11 +1165,7 @@ export function ActionNeededTab() {
           },
         },
       }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : filteredOrders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -1131,13 +1222,17 @@ export function ActionNeededTab() {
               switch (order.status) {
                 case 'payment-required':
                   // Calculate deposit and remaining amounts based on payment option
-                  const calculatePaymentAmounts = (paymentOption: string, price: number) => {
+                  const calculatePaymentAmounts = (order: any, paymentOption: string, price: number) => {
                     if (price === 0 || paymentOption === 'free') {
                       return { depositAmount: 0, remainingAmount: 0 };
                     }
                     if (paymentOption === 'split_payment') {
-                      const depositAmount = Math.round(price * 0.5 * 100) / 100;
-                      return { depositAmount, remainingAmount: price - depositAmount };
+                      // Use split_deposit_amount from order, or depositAmount if available
+                      const depositAmount = order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                        ? Math.round(order.split_deposit_amount * 100) / 100
+                        : (order.depositAmount || 0);
+                      const remainingAmount = depositAmount > 0 ? Math.round((price - depositAmount) * 100) / 100 : price;
+                      return { depositAmount, remainingAmount };
                     }
                     if (paymentOption === 'payment_upfront') {
                       return { depositAmount: price, remainingAmount: 0 };
@@ -1145,7 +1240,7 @@ export function ActionNeededTab() {
                     // payment_later
                     return { depositAmount: 0, remainingAmount: price };
                   };
-                  const paymentAmounts = calculatePaymentAmounts(order.paymentOption, order.price);
+                  const paymentAmounts = calculatePaymentAmounts(order, order.paymentOption, order.price);
                   
                   return (
                     <PaymentApprovalOrderCard

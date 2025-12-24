@@ -167,8 +167,12 @@ class InvoiceService:
             payment_rows = []
             
             if payment_option == 'split':
-                # Split payment: 50% upfront, 50% on completion
-                deposit_amount = round(total_price * 0.5, 2)
+                # Split payment: use configurable deposit amount or default to 50%
+                split_deposit_amount = order_data.get('split_deposit_amount')
+                if split_deposit_amount is not None:
+                    deposit_amount = round(float(split_deposit_amount), 2)
+                else:
+                    deposit_amount = round(total_price * 0.5, 2)
                 remaining_amount = round(total_price - deposit_amount, 2)
                 
                 # Booking Fee (deposit)

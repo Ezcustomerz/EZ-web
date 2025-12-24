@@ -1,8 +1,9 @@
-import { Box, CircularProgress } from '@mui/material';
+import { Box, Skeleton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Card, Stack } from '@mui/material';
 import { PastOrdersTable } from '../../../components/tables/PastOrdersTable';
 import { useEffect, useState, useRef } from 'react';
 import { bookingService, type Order } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
+import { useTheme, useMediaQuery } from '@mui/material';
 
 // Module-level cache to prevent duplicate fetches across remounts
 let fetchCache: {
@@ -19,7 +20,7 @@ let fetchCache: {
   resolved: false,
 };
 
-const CACHE_DURATION = 5000; // Cache for 5 seconds to handle StrictMode remounts
+const CACHE_DURATION = 2000; // Cache for 2 seconds to handle StrictMode remounts (reduced for better data freshness)
 
 // Helper function to transform orders
 function transformOrders(fetchedOrders: Order[]) {
@@ -50,16 +51,19 @@ function transformOrders(fetchedOrders: Order[]) {
         amount: order.price,
         status: displayStatus,
         date: order.order_date,
+        completedDate: order.order_date, // Use order_date as completed date for past orders
+        bookingDate: order.booking_date || null,
         canceledDate: order.canceled_date, // Include canceled_date from backend
         description: order.description || order.service_description || '',
         clientEmail: order.creative_email,
         clientPhone: undefined, // TODO: Add client phone if available
         specialRequirements: order.description,
+        files: order.files || [], // Include files with download status
       };
     });
 }
  
-export function PastOrdersTab() {
+export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?: string | null; onOrderOpened?: () => void }) {
   const { isAuthenticated } = useAuth();
   const [orders, setOrders] = useState<Array<any>>([]);
   const [loading, setLoading] = useState(true);
@@ -163,18 +167,151 @@ export function PastOrdersTab() {
     };
   }, [isAuthenticated]); // Re-run when authentication changes
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   if (loading) {
     return (
       <Box sx={{
         width: '100%',
         flexGrow: 1,
         py: 1,
+        overflow: 'visible',
         display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: 400,
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
       }}>
-        <CircularProgress />
+        {isMobile ? (
+          // Mobile view with search/filter and card skeletons
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+            {/* Search and Filter Skeletons */}
+            <Box
+              sx={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                backgroundColor: '#fff',
+                pb: 1,
+                px: 2,
+              }}
+            >
+              <Stack spacing={1}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+                  <Skeleton variant="text" width={80} height={20} />
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                  <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+                </Box>
+              </Stack>
+            </Box>
+            {/* Card skeletons */}
+            <Box sx={{ pt: 2, px: 2, flex: 1, overflowY: 'auto' }}>
+              {Array.from({ length: 5 }).map((_, idx) => (
+                <Card
+                  key={`skeleton-${idx}`}
+                  elevation={1}
+                  sx={{
+                    borderRadius: 2,
+                    p: 2,
+                    mb: 2,
+                    animation: `fadeIn 0.5s ease-in ${idx * 0.1}s both`,
+                    '@keyframes fadeIn': {
+                      from: { opacity: 0, transform: 'translateY(10px)' },
+                      to: { opacity: 1, transform: 'translateY(0)' },
+                    },
+                  }}
+                >
+                  <Stack spacing={1.5}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Skeleton variant="text" width="40%" height={24} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Skeleton variant="rectangular" width={60} height={22} sx={{ borderRadius: 1.5 }} />
+                        <Skeleton variant="circular" width={18} height={18} />
+                      </Box>
+                    </Stack>
+                    <Skeleton variant="text" width="60%" height={20} />
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Skeleton variant="text" width="30%" height={18} />
+                      <Skeleton variant="text" width="25%" height={18} />
+                    </Stack>
+                    <Skeleton variant="text" width="50%" height={16} />
+                  </Stack>
+                </Card>
+              ))}
+            </Box>
+          </Box>
+        ) : (
+          // Desktop view with search/filter and table skeleton
+          <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+            {/* Search and Filter Skeletons */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                mb: 0,
+                pb: 1,
+                flexDirection: 'row',
+                gap: 2,
+                flexShrink: 0,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Skeleton variant="rectangular" width={280} height={40} sx={{ borderRadius: 1 }} />
+                <Skeleton variant="text" width={80} height={20} />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: 'auto' }}>
+                <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 1 }} />
+              </Box>
+            </Box>
+            {/* Desktop table skeleton */}
+            <TableContainer
+              sx={{
+                borderRadius: 1,
+                border: `1px solid ${theme.palette.divider}`,
+                boxShadow: 'none',
+                width: '100%',
+                flex: '1 1 0',
+                minHeight: 0,
+                overflow: 'auto',
+              }}
+            >
+              <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: '#e6f3fa' }}>
+                    <TableCell><Skeleton variant="text" width={80} height={20} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={100} height={20} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={80} height={20} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={80} height={20} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={80} height={20} /></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {Array.from({ length: 10 }).map((_, idx) => (
+                    <TableRow
+                      key={`skeleton-row-${idx}`}
+                      sx={{
+                        animation: `fadeIn 0.5s ease-in ${idx * 0.08}s both`,
+                        '@keyframes fadeIn': {
+                          from: { opacity: 0 },
+                          to: { opacity: 1 },
+                        },
+                      }}
+                    >
+                      <TableCell><Skeleton variant="text" width="80%" height={20} /></TableCell>
+                      <TableCell><Skeleton variant="text" width="70%" height={20} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={60} height={20} /></TableCell>
+                      <TableCell><Skeleton variant="rectangular" width={70} height={24} sx={{ borderRadius: 1 }} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={80} height={20} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )}
       </Box>
     );
   }
@@ -186,7 +323,7 @@ export function PastOrdersTab() {
       py: 1,
       overflow: 'visible',
     }}>
-      <PastOrdersTable orders={orders} />
+      <PastOrdersTable orders={orders} orderIdToOpen={orderIdToOpen} onOrderOpened={onOrderOpened} />
     </Box>
   );
 }

@@ -40,7 +40,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
-import { userService, type CreateServiceRequest, type ServicePhoto } from '../../../api/userService';
+import { userService, type CreateServiceRequest, type ServicePhoto, type CreativeProfile } from '../../../api/userService';
 import { successToast, errorToast } from '../../toast/toast';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
 import { 
@@ -65,6 +65,7 @@ export interface ServiceFormPopoverProps {
   onBack: () => void;
   onSubmit: (formData: ServiceFormData) => void;
   mode?: 'create' | 'edit';
+  creativeProfile?: CreativeProfile | null;
   initialService?: {
     id: string;
     title: string;
@@ -74,6 +75,7 @@ export interface ServiceFormPopoverProps {
     status: 'Public' | 'Private' | 'Bundle-Only';
     color: string;
     payment_option?: 'upfront' | 'split' | 'later';
+    split_deposit_amount?: number;
     photos?: ServicePhoto[];
     requires_booking?: boolean;
     calendar_settings?: {
@@ -107,6 +109,7 @@ export interface ServiceFormData {
   existingPhotos: ServicePhoto[];
   primaryPhotoIndex: number;
   paymentOption: 'upfront' | 'split' | 'later';
+  splitDepositAmount: string;
 }
 
 interface DeliveryTimeState {
@@ -142,6 +145,7 @@ export function ServiceFormPopover({
   onBack,
   onSubmit,
   mode = 'create',
+  creativeProfile = null,
   initialService = null,
 }: ServiceFormPopoverProps) {
   const theme = useTheme();
@@ -158,7 +162,8 @@ export function ServiceFormPopover({
     photos: [],
     existingPhotos: [],
     primaryPhotoIndex: -1,
-    paymentOption: 'later'
+    paymentOption: 'later',
+    splitDepositAmount: ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -380,6 +385,31 @@ export function ServiceFormPopover({
 
   // Step navigation functions
   const handleNext = () => {
+    // Validate split payment amount before proceeding from Pricing & Delivery step (step 1)
+    if (activeStep === 1) {
+      if (formData.paymentOption === 'split') {
+        // Check if split deposit amount is configured
+        if (!formData.splitDepositAmount || formData.splitDepositAmount.trim() === '') {
+          errorToast('Please configure the initial payment amount for split payment');
+          return;
+        }
+        
+        const depositAmount = parseFloat(formData.splitDepositAmount);
+        const price = parseFloat(formData.price);
+        
+        // Validate the amount
+        if (isNaN(depositAmount) || depositAmount <= 0) {
+          errorToast('Initial payment amount must be greater than 0');
+          return;
+        }
+        
+        if (depositAmount >= price) {
+          errorToast('Initial payment amount must be less than the total price. Use "Upfront Payment" if you want full payment before work begins.');
+          return;
+        }
+      }
+    }
+    
     // Validate time blocks before proceeding from Calendar Scheduling step (step 3)
     if (activeStep === 3 && isSchedulingEnabled) {
       const validation = validateAllTimeBlocks();
@@ -629,7 +659,10 @@ export function ServiceFormPopover({
         delivery_time: isDeliveryTimeEnabled && formData.deliveryTime ? formData.deliveryTime : '',
         status: formData.status as 'Public' | 'Private' | 'Bundle-Only',
         color: formData.color,
-        payment_option: formData.paymentOption
+        payment_option: formData.paymentOption,
+        split_deposit_amount: formData.paymentOption === 'split' && formData.splitDepositAmount 
+          ? parseFloat(formData.splitDepositAmount) 
+          : undefined
       };
 
       // Note: Photos are handled separately via the updateServiceWithPhotos method
@@ -706,8 +739,20 @@ export function ServiceFormPopover({
         const primaryPhotoIndex = existingPhotos.findIndex(photo => photo.is_primary);
         
         // Prefill from service
-        const hasDeliveryTime = initialService.delivery_time && initialService.delivery_time.trim().length > 0;
+        const hasDeliveryTime = !!(initialService.delivery_time && initialService.delivery_time.trim().length > 0);
         setIsDeliveryTimeEnabled(hasDeliveryTime);
+        
+        // Calculate default split deposit amount if not provided
+        let splitDepositAmount = '';
+        if (initialService.payment_option === 'split') {
+          if (initialService.split_deposit_amount !== undefined && initialService.split_deposit_amount !== null) {
+            splitDepositAmount = String(initialService.split_deposit_amount.toFixed ? initialService.split_deposit_amount.toFixed(2) : initialService.split_deposit_amount);
+          } else {
+            // Default to 50% if not set
+            splitDepositAmount = String((initialService.price * 0.5).toFixed(2));
+          }
+        }
+        
         setFormData({
           title: initialService.title,
           description: initialService.description,
@@ -718,7 +763,8 @@ export function ServiceFormPopover({
           photos: [], // New photos to upload
           existingPhotos: existingPhotos, // Existing photos from service
           primaryPhotoIndex: primaryPhotoIndex,
-          paymentOption: initialService.payment_option || 'later' // Use existing or default to later
+          paymentOption: initialService.payment_option || 'later', // Use existing or default to later
+          splitDepositAmount: splitDepositAmount
         });
         // Attempt to parse delivery_time like "3-5 days" or "3 days"
         if (hasDeliveryTime) {
@@ -817,7 +863,8 @@ export function ServiceFormPopover({
           photos: [],
           existingPhotos: [],
           primaryPhotoIndex: -1,
-          paymentOption: 'later'
+          paymentOption: 'later',
+          splitDepositAmount: ''
         });
         setDeliveryTime({
           minTime: '3',
@@ -950,6 +997,75 @@ export function ServiceFormPopover({
               helperText="Set your service price in USD"
             />
 
+            {/* Earnings Breakdown - Only show when price is set and creative profile is available */}
+            {(() => {
+              // Debug logging
+              console.log('[ServiceFormPopover] Earnings breakdown check:', {
+                hasPrice: !!(formData.price && parseFloat(formData.price) > 0),
+                hasProfile: !!creativeProfile,
+                feePercentage: creativeProfile?.subscription_tier_fee_percentage,
+                fullProfile: creativeProfile
+              });
+              return null;
+            })()}
+            {formData.price && parseFloat(formData.price) > 0 && creativeProfile?.subscription_tier_fee_percentage !== undefined && (
+              <Box sx={{
+                p: 2.5,
+                borderRadius: 2,
+                backgroundColor: 'rgba(76, 175, 80, 0.05)',
+                border: '1px solid rgba(76, 175, 80, 0.2)'
+              }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'success.main' }}>
+                  💰 Your Earnings Breakdown
+                </Typography>
+                {(() => {
+                  const price = parseFloat(formData.price);
+                  const feePercentage = creativeProfile.subscription_tier_fee_percentage;
+                  const platformFee = price * feePercentage;
+                  const yourEarnings = price - platformFee;
+                  const feePercentageDisplay = (feePercentage * 100).toFixed(1);
+                  
+                  return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Service Price:
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          ${price.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Transaction Fee ({feePercentageDisplay}%):
+                        </Typography>
+                        <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
+                          -${platformFee.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        pt: 1,
+                        borderTop: '1px solid rgba(76, 175, 80, 0.2)'
+                      }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main' }}>
+                          Your Earnings:
+                        </Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
+                          ${yourEarnings.toFixed(2)}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                        You're on the {creativeProfile.subscription_tier_name || 'Basic'} plan
+                      </Typography>
+                    </Box>
+                  );
+                })()}
+              </Box>
+            )}
+
             {/* Payment Options - Only show when price is not free */}
             {formData.price && parseFloat(formData.price) > 0 && (
               <Box>
@@ -1031,13 +1147,119 @@ export function ServiceFormPopover({
                               Split Payment
                             </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                              Client pays 50% upfront, 50% upon completion
+                              Client pays configurable amount upfront, remaining upon completion
                             </Typography>
                           </Box>
                         }
                         sx={{ m: 0, width: '100%' }}
                       />
                     </Paper>
+
+                    {/* Split Deposit Amount Input - Only shown when split payment is selected */}
+                    {formData.paymentOption === 'split' && (
+                      <Box sx={{ mt: 2, p: 2, backgroundColor: 'rgba(59, 130, 246, 0.03)', borderRadius: 2, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'primary.main' }}>
+                          Configure Split Payment *
+                        </Typography>
+                        <TextField
+                          label="First Payment (Paid Upfront)"
+                          placeholder="e.g., 5.00"
+                          value={formData.splitDepositAmount}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            // Allow empty string or valid positive numbers with up to 2 decimal places
+                            if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
+                              handleInputChange('splitDepositAmount', value);
+                            }
+                          }}
+                          type="text"
+                          fullWidth
+                          required
+                          InputProps={{
+                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                          }}
+                          helperText={
+                            (() => {
+                              const price = parseFloat(formData.price);
+                              const depositAmount = parseFloat(formData.splitDepositAmount || '0');
+                              
+                              if (!formData.price || isNaN(price)) {
+                                return 'Amount client pays before work begins (required)';
+                              }
+                              
+                              if (!formData.splitDepositAmount || formData.splitDepositAmount.trim() === '') {
+                                return 'Amount client pays before work begins (required)';
+                              }
+                              
+                              if (isNaN(depositAmount) || depositAmount <= 0) {
+                                return 'Must be greater than $0';
+                              }
+                              
+                              if (depositAmount >= price) {
+                                return 'Must be less than total price (use Upfront Payment option for full payment)';
+                              }
+                              
+                              const remainingAmount = (price - depositAmount).toFixed(2);
+                              return `Later Payment (Paid After Completion): $${remainingAmount}`;
+                            })()
+                          }
+                          error={
+                            formData.splitDepositAmount !== '' && 
+                            formData.price !== '' && 
+                            (parseFloat(formData.splitDepositAmount) >= parseFloat(formData.price) || 
+                             parseFloat(formData.splitDepositAmount) <= 0)
+                          }
+                          sx={{ mb: 0 }}
+                        />
+                        
+                        {/* Split Payment Earnings Breakdown */}
+                        {formData.price && formData.splitDepositAmount && creativeProfile?.subscription_tier_fee_percentage !== undefined && (
+                          <Box sx={{
+                            mt: 2,
+                            p: 2,
+                            borderRadius: 2,
+                            backgroundColor: 'rgba(156, 39, 176, 0.05)',
+                            border: '1px solid rgba(156, 39, 176, 0.2)'
+                          }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: '#9c27b0' }}>
+                              💜 Split Payment Earnings
+                            </Typography>
+                            {(() => {
+                              const price = parseFloat(formData.price);
+                              const depositAmount = parseFloat(formData.splitDepositAmount);
+                              const remainingAmount = price - depositAmount;
+                              const feePercentage = creativeProfile.subscription_tier_fee_percentage;
+                              
+                              const depositFee = depositAmount * feePercentage;
+                              const remainingFee = remainingAmount * feePercentage;
+                              const depositEarnings = depositAmount - depositFee;
+                              const remainingEarnings = remainingAmount - remainingFee;
+                              
+                              return (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, fontSize: '0.875rem' }}>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      First Payment (${depositAmount.toFixed(2)} - fee):
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#9c27b0' }}>
+                                      ${depositEarnings.toFixed(2)}
+                                    </Typography>
+                                  </Box>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Later Payment (${remainingAmount.toFixed(2)} - fee):
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#9c27b0' }}>
+                                      ${remainingEarnings.toFixed(2)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              );
+                            })()}
+                          </Box>
+                        )}
+                      </Box>
+                    )}
 
                     {/* Payment Later */}
                     <Paper

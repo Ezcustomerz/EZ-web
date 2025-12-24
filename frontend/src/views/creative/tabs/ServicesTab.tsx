@@ -1,5 +1,6 @@
-import { Box, Card, Tooltip } from '@mui/material';
+import { Box, Card, Tooltip, Skeleton, CardContent } from '@mui/material';
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ServiceCard } from '../../../components/cards/creative/ServiceCard';
 import { userService, type CreativeService, type CreativeProfile, type CreativeBundle } from '../../../api/userService';
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
@@ -25,6 +26,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   const { isAuthenticated, userProfile, openAuth } = useAuth();
   const [services, setServices] = useState<CreativeService[]>([]);
   const [bundles, setBundles] = useState<CreativeBundle[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
   const [serviceCreationOpen, setServiceCreationOpen] = useState(false);
   const [serviceFormOpen, setServiceFormOpen] = useState(false);
   const [bundleCreationOpen, setBundleCreationOpen] = useState(false);
@@ -50,11 +52,36 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   const hasFetchedRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Check for serviceId in URL params and open service popover
+  useEffect(() => {
+    const serviceId = searchParams.get('serviceId');
+    if (serviceId && services.length > 0 && !serviceDetailOpen) {
+      const service = services.find(s => s.id === serviceId);
+      if (service) {
+        const serviceWithCreative = {
+          ...service,
+          creative_display_name: creativeProfile?.display_name || userProfile?.name,
+          creative_title: creativeProfile?.title,
+          creative_avatar_url: creativeProfile?.profile_banner_url
+        };
+        setSelectedService(serviceWithCreative as any);
+        setServiceDetailOpen(true);
+        // Remove serviceId from URL to clean it up
+        searchParams.delete('serviceId');
+        setSearchParams(searchParams, { replace: true });
+      }
+    }
+  }, [searchParams, services, serviceDetailOpen, creativeProfile, userProfile, setSearchParams]);
+
   // Fetch services when component mounts or when authenticated
   useEffect(() => {
     const fetchServices = async () => {
       if (!isAuthenticated || !userProfile?.roles.includes('creative')) {
         setServices([]);
+        setBundles([]);
+        setServicesLoading(false);
         hasFetchedRef.current = false;
         lastUserIdRef.current = null;
         return;
@@ -68,6 +95,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
       }
 
       try {
+        setServicesLoading(true);
         hasFetchedRef.current = true;
         lastUserIdRef.current = currentUserId;
         const response = await userService.getCreativeServices();
@@ -79,6 +107,8 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
         setServices([]);
         setBundles([]);
         hasFetchedRef.current = false;
+      } finally {
+        setServicesLoading(false);
       }
     };
 
@@ -92,12 +122,15 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
     }
 
     try {
+      setServicesLoading(true);
       const response = await userService.getCreativeServices();
       setServices(response.services);
       setBundles(response.bundles);
     } catch (error) {
       console.error('Failed to refresh services and bundles:', error);
       errorToast('Failed to refresh services and bundles');
+    } finally {
+      setServicesLoading(false);
     }
   };
 
@@ -575,45 +608,109 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           </Tooltip>
         </Box>
         {/* Service and Bundle Cards */}
-        {sortedItems.map((item, idx) => (
-          <Box
-            key={`${item.type}-${item.data.id}-${animationKey}`}
-            sx={{
-              animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${(idx + 1) * 0.07}s both`,
-              minWidth: 0,
-              width: '100%',
-              maxWidth: '100%',
-              overflow: 'visible',
-              boxSizing: 'border-box',
-            }}
-          >
-            {item.type === 'service' ? (
-              <ServiceCard
-                title={item.data.title}
-                description={item.data.description}
-                price={item.data.price}
-                delivery={item.data.delivery_time}
-                status={item.data.status}
-                creative={creativeProfile?.display_name || userProfile?.name || 'Unknown Creative'}
-                onEdit={() => handleEditService(item.data)}
-                onDelete={() => handleDeleteService(item.data)}
-                color={item.data.color}
-                showMenu={true}
-                onClick={() => handleServiceClick(item.data)}
-                requires_booking={item.data.requires_booking}
-              />
-            ) : (
-              <BundleCard
-                bundle={item.data}
-                creative={creativeProfile?.display_name || userProfile?.name || 'Unknown Creative'}
-                showMenu={true}
-                onEdit={() => handleEditBundle(item.data)}
-                onDelete={() => handleDeleteBundle(item.data)}
-                onClick={() => handleBundleClick(item.data)}
-              />
-            )}
-          </Box>
-        ))}
+        {servicesLoading ? (
+          // Show skeleton loaders while loading
+          Array.from({ length: 6 }).map((_, idx) => (
+            <Box
+              key={`skeleton-${idx}`}
+              sx={{
+                animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${(idx + 1) * 0.07}s both`,
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                overflow: 'visible',
+                boxSizing: 'border-box',
+              }}
+            >
+              <Card
+                sx={{
+                  height: '100%',
+                  width: '100%',
+                  maxWidth: '100%',
+                  minHeight: { xs: 135, sm: 170 },
+                  display: 'flex',
+                  flexDirection: 'column',
+                  borderRadius: 1,
+                  boxShadow: '0px 1.5px 6px rgba(59,130,246,0.05)',
+                  p: { xs: 1.2, sm: 1.6 },
+                  backgroundColor: 'background.paper',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <CardContent sx={{ flexGrow: 1, p: 0, display: 'flex', flexDirection: 'column', height: '100%', minWidth: 0, width: '100%' }}>
+                  {/* Top row: Title + Menu skeleton */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, minWidth: 0, width: '100%' }}>
+                    <Box sx={{ mb: 1, flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, minWidth: 0 }}>
+                        <Skeleton variant="circular" width={14} height={14} />
+                        <Skeleton variant="text" width="60%" height={24} />
+                      </Box>
+                      <Skeleton variant="text" width="40%" height={16} sx={{ mb: 0.5 }} />
+                      <Skeleton variant="rectangular" width={50} height={4} sx={{ borderRadius: '2px', mt: 0.5 }} />
+                    </Box>
+                    <Skeleton variant="circular" width={32} height={32} />
+                  </Box>
+                  
+                  {/* Description skeleton */}
+                  <Box sx={{ flex: 1, mb: 2 }}>
+                    <Skeleton variant="text" width="100%" height={16} sx={{ mb: 0.5 }} />
+                    <Skeleton variant="text" width="90%" height={16} sx={{ mb: 0.5 }} />
+                    <Skeleton variant="text" width="75%" height={16} />
+                  </Box>
+                  
+                  {/* Bottom row: Price and delivery skeleton */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto' }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      <Skeleton variant="text" width={60} height={20} />
+                      <Skeleton variant="text" width={80} height={16} />
+                    </Box>
+                    <Skeleton variant="rectangular" width={24} height={24} sx={{ borderRadius: 1 }} />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+          ))
+        ) : (
+          sortedItems.map((item, idx) => (
+            <Box
+              key={`${item.type}-${item.data.id}-${animationKey}`}
+              sx={{
+                animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${(idx + 1) * 0.07}s both`,
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                overflow: 'visible',
+                boxSizing: 'border-box',
+              }}
+            >
+              {item.type === 'service' ? (
+                <ServiceCard
+                  title={item.data.title}
+                  description={item.data.description}
+                  price={item.data.price}
+                  delivery={item.data.delivery_time}
+                  status={item.data.status}
+                  creative={creativeProfile?.display_name || userProfile?.name || 'Unknown Creative'}
+                  onEdit={() => handleEditService(item.data)}
+                  onDelete={() => handleDeleteService(item.data)}
+                  color={item.data.color}
+                  showMenu={true}
+                  onClick={() => handleServiceClick(item.data)}
+                  requires_booking={item.data.requires_booking}
+                />
+              ) : (
+                <BundleCard
+                  bundle={item.data}
+                  creative={creativeProfile?.display_name || userProfile?.name || 'Unknown Creative'}
+                  showMenu={true}
+                  onEdit={() => handleEditBundle(item.data)}
+                  onDelete={() => handleDeleteBundle(item.data)}
+                  onClick={() => handleBundleClick(item.data)}
+                />
+              )}
+            </Box>
+          ))
+        )}
       </Box>
 
       {/* Service Creation Popover */}
@@ -650,6 +747,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           setEditingService(null);
         }}
         mode={editingService ? 'edit' : 'create'}
+        creativeProfile={creativeProfile}
         initialService={editingService ? {
           id: editingService.id,
           title: editingService.title,
@@ -659,6 +757,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           status: editingService.status,
           color: editingService.color,
           payment_option: editingService.payment_option,
+          split_deposit_amount: editingService.split_deposit_amount,
           photos: editingService.photos || [],
           requires_booking: editingService.requires_booking,
           calendar_settings: editingService.calendar_settings,

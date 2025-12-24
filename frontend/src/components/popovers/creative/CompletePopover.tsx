@@ -79,11 +79,20 @@ export interface CompleteOrder {
   amountPaid?: number;
   amountRemaining?: number;
   depositPaid?: boolean;
+  split_deposit_amount?: number;
   // Completion details
   rating?: number;
   review?: string;
   deliverables?: string[];
   completionNotes?: string;
+  // Files with download status
+  files?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    size: string;
+    downloaded_at?: string | null;
+  }>;
   // PDF documents
   receiptPdf?: string;
   serviceSummaryPdf?: string;
@@ -134,7 +143,7 @@ export function CompletePopover({
     }
   };
 
-  const getPaymentOptionDescription = (option: 'upfront' | 'split' | 'later', price: number) => {
+  const getPaymentOptionDescription = (option: 'upfront' | 'split' | 'later', price: number, splitDepositAmount?: number) => {
     if (price === 0) {
       return 'This was a complimentary service';
     }
@@ -142,7 +151,15 @@ export function CompletePopover({
       case 'upfront':
         return 'Full payment was required before service began. Payment was completed successfully.';
       case 'split':
-        return 'Client paid 50% deposit upfront to secure the booking, then paid the remaining 50% after service completion.';
+        const depositAmount = splitDepositAmount !== undefined && splitDepositAmount !== null
+          ? splitDepositAmount
+          : (order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+              ? order.split_deposit_amount
+              : 0);
+        const remainingAmount = depositAmount > 0 ? price - depositAmount : price;
+        return depositAmount > 0
+          ? `Client paid ${formatCurrency(depositAmount)} deposit upfront to secure the booking, then paid the remaining ${formatCurrency(remainingAmount)} after service completion.`
+          : `Client paid split payments for this service.`;
       case 'later':
         return 'Payment was due after the service was completed. Payment has been received.';
       default:
@@ -491,7 +508,7 @@ export function CompletePopover({
                     }}
                   />
                   <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                    {getPaymentOptionDescription(order.service.payment_option, order.service.price)}
+                    {getPaymentOptionDescription(order.service.payment_option, order.service.price, order.split_deposit_amount)}
                   </Typography>
                 </Box>
               </Box>
@@ -514,13 +531,17 @@ export function CompletePopover({
                           Deposit Payment
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          Initial 50% deposit
+                          Initial deposit
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CheckCircle sx={{ fontSize: 16, color: '#10b981' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981' }}>
-                          {formatCurrency(Math.round(order.amount * 0.5 * 100) / 100)}
+                          {formatCurrency(
+                            order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                              ? Math.round(order.split_deposit_amount * 100) / 100
+                              : Math.round(order.amount * 0.5 * 100) / 100
+                          )}
                         </Typography>
                       </Box>
                     </Box>
@@ -534,13 +555,17 @@ export function CompletePopover({
                           Final Payment
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          Remaining 50% after completion
+                          Remaining after completion
                         </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CheckCircle sx={{ fontSize: 16, color: '#10b981' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981' }}>
-                          {formatCurrency(order.amount - Math.round(order.amount * 0.5 * 100) / 100)}
+                          {formatCurrency(
+                            order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                              ? Math.round((order.amount - order.split_deposit_amount) * 100) / 100
+                              : Math.round(order.amount * 0.5 * 100) / 100
+                          )}
                         </Typography>
                       </Box>
                     </Box>
@@ -719,6 +744,86 @@ export function CompletePopover({
                       </Typography>
                     </Box>
                   ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Files Download Status - Only show when files were actually returned */}
+          {order.files && order.files.length > 0 && (
+            <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+                  Client File Download Status
+                </Typography>
+                <Stack spacing={1.5}>
+                  {order.files.map((file) => {
+                    const isDownloaded = file.downloaded_at !== null && file.downloaded_at !== undefined;
+                    const downloadDate = file.downloaded_at ? new Date(file.downloaded_at).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: '2-digit', 
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : null;
+                    
+                    return (
+                      <Box 
+                        key={file.id} 
+                        sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 1.5,
+                          p: 1.5,
+                          borderRadius: 1.5,
+                          backgroundColor: isDownloaded ? '#f0fdf4' : '#fefefe',
+                          border: `1px solid ${isDownloaded ? '#86efac' : '#e2e8f0'}`
+                        }}
+                      >
+                        {isDownloaded ? (
+                          <CheckCircle sx={{ fontSize: 20, color: '#10b981' }} />
+                        ) : (
+                          <Download sx={{ fontSize: 20, color: '#6b7280' }} />
+                        )}
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            {file.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {file.size} • {file.type}
+                          </Typography>
+                          {isDownloaded && downloadDate && (
+                            <Typography variant="caption" sx={{ color: '#10b981', display: 'block', mt: 0.5 }}>
+                              Downloaded on {downloadDate}
+                            </Typography>
+                          )}
+                        </Box>
+                        {isDownloaded ? (
+                          <Chip
+                            label="Downloaded"
+                            size="small"
+                            sx={{
+                              backgroundColor: '#10b981',
+                              color: '#fff',
+                              fontWeight: 500,
+                              fontSize: '0.75rem',
+                            }}
+                          />
+                        ) : (
+                          <Chip
+                            label="Not Downloaded"
+                            size="small"
+                            sx={{
+                              backgroundColor: '#f3f4f6',
+                              color: '#6b7280',
+                              fontWeight: 500,
+                              fontSize: '0.75rem',
+                            }}
+                          />
+                        )}
+                      </Box>
+                    );
+                  })}
                 </Stack>
               </CardContent>
             </Card>

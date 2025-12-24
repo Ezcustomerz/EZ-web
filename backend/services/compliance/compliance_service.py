@@ -121,7 +121,7 @@ class ComplianceService:
                 ['Order Date:', format_date(order_data.get('order_date'))],
                 ['Order Status:', format_status(order_data.get('client_status', 'N/A'))],
                 ['Service Price:', f"${order_data.get('price', 0):.2f}"],
-                ['Payment Option:', format_payment_option(order_data.get('payment_option', 'N/A'))],
+                ['Payment Option:', format_payment_option(order_data.get('payment_option', 'N/A'), order_data)],
             ]
             
             # Add conditional dates
@@ -258,13 +258,30 @@ def format_status(status: str) -> str:
     return status_map.get(status.lower(), status.title())
 
 
-def format_payment_option(option: str) -> str:
+def format_payment_option(option: str, order_data: Dict[str, Any] = None) -> str:
     """Format payment option for display"""
+    option_lower = option.lower()
+    
+    if option_lower == 'split' and order_data:
+        # Use split_deposit_amount if available, otherwise default to 50%
+        price = float(order_data.get('price', 0))
+        split_deposit_amount = order_data.get('split_deposit_amount')
+        
+        if split_deposit_amount is not None:
+            deposit_amount = round(float(split_deposit_amount), 2)
+            remaining_amount = round(price - deposit_amount, 2)
+            return f'Split Payment (${deposit_amount:.2f} upfront, ${remaining_amount:.2f} on completion)'
+        else:
+            # Fallback to 50% if split_deposit_amount not provided
+            deposit_amount = round(price * 0.5, 2)
+            remaining_amount = round(price - deposit_amount, 2)
+            return f'Split Payment (${deposit_amount:.2f} upfront, ${remaining_amount:.2f} on completion)'
+    
     option_map = {
         'upfront': 'Payment Upfront',
-        'split': 'Split Payment (50% upfront, 50% on completion)',
+        'split': 'Split Payment',
         'later': 'Payment Later',
         'free': 'Free Service'
     }
-    return option_map.get(option.lower(), option.title())
+    return option_map.get(option_lower, option.title())
 

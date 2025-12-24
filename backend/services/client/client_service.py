@@ -1,8 +1,9 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from db.db_session import db_admin
-from schemas.client import ClientSetupRequest, ClientSetupResponse, ClientCreativesListResponse, ClientCreativeResponse
+from schemas.client import ClientSetupRequest, ClientSetupResponse, ClientCreativesListResponse, ClientCreativeResponse, ClientUpdateRequest, ClientUpdateResponse
 from core.validation import validate_email
 from supabase import Client
+import uuid
 
 class ClientController:
     @staticmethod
@@ -89,6 +90,127 @@ class ClientController:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to fetch client profile: {str(e)}")
+
+    @staticmethod
+    async def update_client_profile(user_id: str, update_data: ClientUpdateRequest, client: Client) -> ClientUpdateResponse:
+        """Update the current user's client profile
+        
+        Args:
+            user_id: The user ID to update client profile for
+            update_data: The request containing update data
+            client: Authenticated Supabase client (respects RLS policies)
+        """
+        try:
+            # Build update dictionary with only provided fields
+            update_dict = {}
+            if update_data.display_name is not None:
+                update_dict['display_name'] = update_data.display_name
+            if update_data.title is not None:
+                update_dict['title'] = update_data.title
+            if update_data.email is not None:
+                # Validate email format
+                if not validate_email(update_data.email):
+                    raise HTTPException(status_code=422, detail="Invalid email format")
+                update_dict['email'] = update_data.email
+            if update_data.profile_banner_url is not None:
+                update_dict['profile_banner_url'] = update_data.profile_banner_url
+            
+            # Only update if there are fields to update
+            if not update_dict:
+                return ClientUpdateResponse(
+                    success=True,
+                    message="No changes to update"
+                )
+            
+            # Update the client profile using authenticated client (respects RLS)
+            result = client.table('clients').update(update_dict).eq('user_id', user_id).execute()
+            
+            if not result.data:
+                raise HTTPException(status_code=404, detail="Client profile not found")
+            
+            return ClientUpdateResponse(
+                success=True,
+                message="Client profile updated successfully"
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to update client profile: {str(e)}")
+
+    @staticmethod
+    async def upload_profile_photo(user_id: str, file: UploadFile, client: Client) -> dict:
+        """Upload a profile photo for the client"""
+        try:
+            # Validate file type
+            if not file.content_type or not file.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail="File must be an image")
+            
+            # Validate file size (5MB limit)
+            content = await file.read()
+            file_size = len(content)
+            if file_size > 5 * 1024 * 1024:  # 5MB
+                raise HTTPException(status_code=400, detail="File size must be less than 5MB")
+            
+            # Get current profile to find old photo URL
+            current_profile = client.table('clients').select('profile_banner_url').eq('user_id', user_id).single().execute()
+            old_photo_url = None
+            if current_profile.data and current_profile.data.get('profile_banner_url'):
+                old_photo_url = current_profile.data['profile_banner_url']
+            
+            # Generate unique filename
+            file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+            unique_filename = f"{user_id}_{uuid.uuid4().hex}.{file_extension}"
+            
+            # Upload to Supabase storage
+            bucket_name = "profile-photos"
+            file_path = f"clients/{unique_filename}"
+            
+            try:
+                upload_result = db_admin.storage.from_(bucket_name).upload(
+                    path=file_path,
+                    file=content,
+                    file_options={"content-type": file.content_type}
+                )
+            except Exception as upload_error:
+                raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(upload_error)}")
+            
+            # Get the public URL
+            public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
+            
+            # Update the client profile with the new photo URL
+            update_result = client.table('clients').update({
+                'profile_banner_url': public_url,
+                'profile_source': 'custom'
+            }).eq('user_id', user_id).execute()
+            
+            if not update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update profile with new photo URL")
+            
+            # Delete the old profile photo if it exists
+            if old_photo_url and 'profile-photos' in old_photo_url:
+                try:
+                    clean_url = old_photo_url.split('?')[0].split('#')[0]
+                    old_file_path = clean_url.split('/profile-photos/')[-1]
+                    
+                    if old_file_path.startswith('clients/'):
+                        try:
+                            db_admin.storage.from_(bucket_name).remove([old_file_path])
+                        except Exception as delete_error:
+                            print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+                except Exception as delete_error:
+                    print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+            
+            return {
+                "success": True,
+                "message": "Profile photo uploaded successfully",
+                "profile_banner_url": public_url
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
 
     @staticmethod
     async def get_client_creatives(user_id: str, client: Client) -> ClientCreativesListResponse:
@@ -255,7 +377,9 @@ class ClientController:
                     'creative_user_id': service_data['creative_user_id'],
                     'creative_name': service_data['creative_name'] or 'Unknown Creative',
                     'requires_booking': service_data['requires_booking'],
-                    'photos': service_data['photos'] if service_data['photos'] else []
+                    'photos': service_data['photos'] if service_data['photos'] else [],
+                    'payment_option': service_data.get('payment_option'),
+                    'split_deposit_amount': float(service_data['split_deposit_amount']) if service_data.get('split_deposit_amount') is not None else None
                 }
                 services.append(service)
             
@@ -284,7 +408,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = db_admin.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id, requires_booking'
+                'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id, requires_booking, payment_option, split_deposit_amount'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).order('created_at', desc=True).execute()
             
             if not services_result.data:
@@ -344,7 +468,9 @@ class ClientController:
                     'creative_user_id': creative_user_id,
                     'creative_name': creative_name,
                     'requires_booking': service_data['requires_booking'],
-                    'photos': photos_by_service.get(service_data['id'], [])
+                    'photos': photos_by_service.get(service_data['id'], []),
+                    'payment_option': service_data.get('payment_option'),
+                    'split_deposit_amount': float(service_data['split_deposit_amount']) if service_data.get('split_deposit_amount') is not None else None
                 }
                 services.append(service)
             
@@ -374,7 +500,7 @@ class ClientController:
             
             # Get all services from these creatives
             services_result = client.table('creative_services').select(
-                'id, title, description, price, delivery_time, status, color, payment_option, is_active, created_at, updated_at, creative_user_id, requires_booking'
+                'id, title, description, price, delivery_time, status, color, payment_option, split_deposit_amount, is_active, created_at, updated_at, creative_user_id, requires_booking'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).eq('status', 'Public').order('created_at', desc=True).execute()
             
             # Get all bundles from these creatives
@@ -446,6 +572,7 @@ class ClientController:
                         'status': service_data['status'],
                         'color': service_data['color'],
                         'payment_option': service_data['payment_option'],
+                        'split_deposit_amount': float(service_data['split_deposit_amount']) if service_data.get('split_deposit_amount') is not None else None,
                         'is_active': service_data['is_active'],
                         'created_at': service_data['created_at'],
                         'updated_at': service_data['updated_at'],

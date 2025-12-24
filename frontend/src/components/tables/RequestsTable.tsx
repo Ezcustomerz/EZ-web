@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Table,
@@ -90,11 +90,17 @@ function formatBookingDate(bookingDateStr: string | null) {
 export function RequestsTable({ 
   requests = [], 
   context = 'requests',
-  onRefresh
+  onRefresh,
+  orderIdToOpen,
+  onOrderOpened,
+  onOrderNotFound
 }: { 
   requests?: any[];
   context?: 'orders' | 'payments' | 'requests';
   onRefresh?: () => Promise<void> | void;
+  orderIdToOpen?: string | null;
+  onOrderOpened?: () => void;
+  onOrderNotFound?: () => void;
 }) {
   const theme = useTheme();
   
@@ -133,8 +139,11 @@ export function RequestsTable({
   const [inProgressPopoverOpen, setInProgressPopoverOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [uploadProgressPercent, setUploadProgressPercent] = useState<number>(0);
   const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
   const [uploadingOrderTitle, setUploadingOrderTitle] = useState<string>('');
+  const [uploadAbortController, setUploadAbortController] = useState<AbortController | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [selectedInProgressOrder, setSelectedInProgressOrder] = useState<InProgressOrder | null>(null);
   const [completePopoverOpen, setCompletePopoverOpen] = useState(false);
   const [selectedCompleteOrder, setSelectedCompleteOrder] = useState<CompleteOrder | null>(null);
@@ -156,6 +165,15 @@ export function RequestsTable({
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
+    // Debug: log the order structure to see what fields are available
+    console.log('[RequestsTable] Order data for pending approval:', {
+      id: order.id,
+      split_deposit_amount: order.split_deposit_amount,
+      'order.service?.split_deposit_amount': order.service?.split_deposit_amount,
+      'order.service': order.service,
+      fullOrder: order
+    });
+    
     const pendingOrder: PendingApprovalOrder = {
       id: order.id,
       client: order.client,
@@ -173,11 +191,15 @@ export function RequestsTable({
       status: order.status,
       date: order.date,
       bookingDate: order.bookingDate,
+      split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
       description: order.description,
       clientEmail: order.clientEmail,
       clientPhone: order.clientPhone,
       specialRequirements: order.specialRequirements
     };
+    
+    console.log('[RequestsTable] Created pendingOrder with split_deposit_amount:', pendingOrder.split_deposit_amount);
+    
     setSelectedOrder(pendingOrder);
     setPendingApprovalPopoverOpen(true);
   };
@@ -208,6 +230,7 @@ export function RequestsTable({
       amountPaid: order.amountPaid || 0,
       amountRemaining: order.amountRemaining || order.amount,
       depositPaid: order.depositPaid || false,
+      split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
       description: order.description,
       clientEmail: order.clientEmail,
       clientPhone: order.clientPhone,
@@ -240,6 +263,10 @@ export function RequestsTable({
       status: order.status,
       date: order.date,
       bookingDate: order.bookingDate,
+      amountPaid: order.amountPaid || 0,
+      amountRemaining: order.amountRemaining,
+      depositPaid: order.depositPaid,
+      split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
       description: order.description,
       clientEmail: order.clientEmail,
       clientPhone: order.clientPhone,
@@ -279,6 +306,7 @@ export function RequestsTable({
       amountPaid: order.amountPaid,
       amountRemaining: order.amountRemaining,
       depositPaid: order.depositPaid,
+      split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
       rating: order.rating,
       review: order.review,
       deliverables: order.deliverables,
@@ -334,6 +362,46 @@ export function RequestsTable({
     setCancelledPopoverOpen(false);
     setSelectedCancelledOrder(null);
   };
+
+  // Track if we've attempted to find the order (using ref to avoid re-renders)
+  const hasSearchedForOrderRef = useRef<string | null>(null);
+
+  // Open popover for specific order when orderIdToOpen is provided
+  useEffect(() => {
+    // Only search once per orderIdToOpen, and only if no popover is currently open
+    if (orderIdToOpen && requests.length > 0 && !pendingApprovalPopoverOpen && !awaitingPaymentPopoverOpen && !inProgressPopoverOpen && !completePopoverOpen && !cancelledPopoverOpen && hasSearchedForOrderRef.current !== orderIdToOpen) {
+      hasSearchedForOrderRef.current = orderIdToOpen;
+      const orderToOpen = requests.find(order => order.id === orderIdToOpen);
+      if (orderToOpen) {
+        const status = orderToOpen.status;
+        
+        // Handle different statuses - open appropriate popover
+        if (status === 'Pending Approval') {
+          handleOpenPendingApprovalPopover(orderToOpen);
+        } else if (status === 'Awaiting Payment') {
+          handleOpenAwaitingPaymentPopover(orderToOpen);
+        } else if (status === 'In Progress') {
+          handleOpenInProgressPopover(orderToOpen);
+        } else if (status === 'Complete' || status === 'completed') {
+          handleOpenCompletePopover(orderToOpen);
+        } else if (status === 'Canceled' || status === 'Rejected') {
+          handleOpenCancelledPopover(orderToOpen);
+        }
+        
+        // Notify parent that order has been opened (only once)
+        if (onOrderOpened) {
+          onOrderOpened();
+        }
+      } else {
+        // Order not found in this tab - notify parent to try other tab
+        // Only notify if we haven't already tried the other tab
+        if (onOrderNotFound) {
+          onOrderNotFound();
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderIdToOpen, requests, pendingApprovalPopoverOpen, awaitingPaymentPopoverOpen, inProgressPopoverOpen, completePopoverOpen, cancelledPopoverOpen]);
 
   // Approval handlers - check Stripe account first, then open confirmation dialog
   const handleApprove = async (orderId: string) => {
@@ -477,6 +545,7 @@ export function RequestsTable({
         amountPaid: order.amountPaid,
         amountRemaining: order.amountRemaining,
         depositPaid: order.depositPaid,
+        split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
         description: order.description,
         clientEmail: order.clientEmail,
         clientPhone: order.clientPhone,
@@ -491,14 +560,43 @@ export function RequestsTable({
   };
 
   // Awaiting payment handlers
-  const handleSendReminder = (orderId: string) => {
-    console.log('Sending payment reminder for order:', orderId);
-    // TODO: Implement reminder logic - send email/SMS to client
-    handleCloseAwaitingPaymentPopover();
+  const handleSendReminder = async (orderId: string) => {
+    try {
+      console.log('Sending payment reminder for order:', orderId);
+      const result = await bookingService.sendPaymentReminder(orderId);
+      if (result.success) {
+        successToast('Payment reminder sent successfully to client');
+        handleCloseAwaitingPaymentPopover();
+      } else {
+        errorToast('Failed to send payment reminder');
+      }
+    } catch (error: any) {
+      console.error('Error sending payment reminder:', error);
+      errorToast(error.response?.data?.detail || 'Failed to send payment reminder');
+    }
+  };
+
+  // Cancel upload handler
+  const handleCancelUpload = () => {
+    if (uploadAbortController && !isCancelling) {
+      setIsCancelling(true);
+      uploadAbortController.abort();
+      setIsUploading(false);
+      setUploadProgress('Cancelling upload...');
+      setUploadProgressPercent(0);
+      setUploadingOrderId(null);
+      setUploadingOrderTitle('');
+      setUploadAbortController(null);
+      setIsCancelling(false);
+      successToast('Upload cancelled', 'The file upload has been cancelled successfully.');
+    }
   };
 
   // In Progress handlers
   const handleFinalizeService = async (orderId: string, files: any[]): Promise<void> => {
+    const abortController = new AbortController();
+    setUploadAbortController(abortController);
+    
     try {
       // Set upload state - persist even if popover is closed
       setIsUploading(true);
@@ -506,27 +604,54 @@ export function RequestsTable({
       const order = selectedInProgressOrder;
       setUploadingOrderTitle(order?.service?.title || 'Service');
       setUploadProgress('Preparing files for upload...');
+      setUploadProgressPercent(0);
       
       // Convert blob URLs to File objects and batch upload
       const fileObjects: File[] = [];
       for (const file of files) {
+        if (abortController.signal.aborted) {
+          throw new Error('Upload cancelled');
+        }
         try {
           // Convert blob URL to File object
           const response = await fetch(file.url);
+          // Check for cancellation during fetch
+          if (abortController.signal.aborted) {
+            throw new Error('Upload cancelled');
+          }
           const blob = await response.blob();
+          // Check again after blob conversion
+          if (abortController.signal.aborted) {
+            throw new Error('Upload cancelled');
+          }
           const fileObj = new File([blob], file.name, { type: file.type });
           fileObjects.push(fileObj);
-        } catch (error) {
+        } catch (error: any) {
+          if (error?.message?.includes('cancelled') || abortController.signal.aborted) {
+            throw new Error('Upload cancelled');
+          }
           console.error(`Error converting file ${file.name}:`, error);
           throw new Error(`Failed to prepare ${file.name} for upload. Please try again.`);
         }
       }
       
-      // Batch upload all files at once
+      // Batch upload all files at once using direct Supabase upload (faster for large files)
       let uploadedFiles: any[] = [];
       if (fileObjects.length > 0) {
-        setUploadProgress(`Uploading ${fileObjects.length} file${fileObjects.length > 1 ? 's' : ''}...`);
-        const uploadResult = await bookingService.uploadDeliverables(orderId, fileObjects);
+        setUploadProgress(`Uploading ${fileObjects.length} file${fileObjects.length > 1 ? 's' : ''} directly to storage...`);
+        
+        // Progress callback
+        const onProgress = (percent: number, currentFile: number, totalFiles: number, currentFileName: string) => {
+          setUploadProgressPercent(Math.round(percent));
+          setUploadProgress(`Uploading file ${currentFile} of ${totalFiles}: ${currentFileName}`);
+        };
+        
+        const uploadResult = await bookingService.uploadDeliverablesDirect(
+          orderId, 
+          fileObjects,
+          onProgress,
+          abortController.signal
+        );
         uploadedFiles = uploadResult.files.map(f => ({
           url: f.file_url, // This is the storage path
           name: f.file_name,
@@ -535,9 +660,22 @@ export function RequestsTable({
         }));
       }
       
+      if (abortController.signal.aborted) {
+        throw new Error('Upload cancelled');
+      }
+      
       // Now finalize with uploaded file metadata
       setUploadProgress('Finalizing service...');
+      setUploadProgressPercent(90);
+      
+      // Small delay to show the progress update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       await bookingService.finalizeService(orderId, uploadedFiles);
+      
+      // Only set to 100% after finalization completes
+      setUploadProgressPercent(100);
+      setUploadProgress('Upload complete!');
       
       // Refresh the requests list
       if (onRefresh) {
@@ -547,18 +685,33 @@ export function RequestsTable({
       // Clear upload state
       setIsUploading(false);
       setUploadProgress('');
+      setUploadProgressPercent(0);
       setUploadingOrderId(null);
       setUploadingOrderTitle('');
+      setUploadAbortController(null);
       
       handleCloseInProgressPopover();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error finalizing service:', error);
+      const wasCancelled = error?.message?.includes('cancelled') || abortController.signal.aborted;
+      
       setIsUploading(false);
-      setUploadProgress('');
+      setUploadProgress(wasCancelled ? 'Upload cancelled' : '');
+      setUploadProgressPercent(0);
       setUploadingOrderId(null);
       setUploadingOrderTitle('');
-      // TODO: Show error notification to user
-      throw error;
+      setUploadAbortController(null);
+      
+      if (wasCancelled) {
+        // Don't show error toast for cancellation - it's already shown in handleCancelUpload
+        // But if it was cancelled from within the catch, show it here
+        if (!uploadAbortController) {
+          successToast('Upload cancelled', 'The file upload has been cancelled successfully.');
+        }
+      } else {
+        errorToast('Upload failed', error?.message || 'An error occurred while uploading files. Please try again.');
+        throw error;
+      }
     }
   };
 
@@ -2146,6 +2299,9 @@ export function RequestsTable({
         onFinalizeService={handleFinalizeService}
         showFinalizationStep={showFinalizationStep}
         onUploadProgress={handleUploadProgress}
+        uploadProgressPercent={uploadProgressPercent}
+        onCancelUpload={handleCancelUpload}
+        isCancelling={isCancelling}
       />
 
       {/* Bank Account Checking Loading Card */}
@@ -2223,7 +2379,7 @@ export function RequestsTable({
               borderBottom: `1px solid ${theme.palette.divider}`,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
               <CircularProgress size={24} />
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -2233,16 +2389,59 @@ export function RequestsTable({
                   {uploadingOrderTitle}
                 </Typography>
               </Box>
+              <IconButton
+                size="small"
+                onClick={handleCancelUpload}
+                disabled={isCancelling}
+                sx={{
+                  color: theme.palette.error.main,
+                  '&:hover': {
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(211, 47, 47, 0.1)' 
+                      : 'rgba(211, 47, 47, 0.08)',
+                  },
+                  '&:disabled': {
+                    opacity: 0.5,
+                  },
+                }}
+              >
+                <Close />
+              </IconButton>
             </Box>
-            <LinearProgress sx={{ mt: 1 }} />
+            <Box sx={{ mb: 1 }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={uploadProgressPercent} 
+                sx={{ 
+                  height: 8, 
+                  borderRadius: 4,
+                  backgroundColor: theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.1)' 
+                    : 'rgba(0, 0, 0, 0.1)',
+                }} 
+              />
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary">
+                {uploadProgress || 'Uploading files to server...'}
+              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                {uploadProgressPercent}%
+              </Typography>
+            </Box>
           </Box>
           <Box sx={{ p: 2 }}>
-            <Typography variant="body2" sx={{ mb: 1, color: 'text.primary', fontWeight: 500 }}>
-              {uploadProgress || 'Uploading files to server...'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Please wait while your files are being uploaded. You can continue working while this completes.
-            </Typography>
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              fullWidth
+              onClick={handleCancelUpload}
+              disabled={isCancelling}
+              startIcon={<Close />}
+            >
+              {isCancelling ? 'Cancelling...' : 'Cancel Upload'}
+            </Button>
           </Box>
         </Box>
       )}

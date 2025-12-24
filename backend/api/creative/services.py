@@ -182,7 +182,8 @@ async def update_service_with_photos(
             'delivery_time': form.get('delivery_time'),
             'status': form.get('status'),
             'color': form.get('color'),
-            'payment_option': form.get('payment_option', 'later')
+            'payment_option': form.get('payment_option', 'later'),
+            'split_deposit_amount': float(form.get('split_deposit_amount')) if form.get('split_deposit_amount') else None
         }
         
         # Extract calendar settings if provided

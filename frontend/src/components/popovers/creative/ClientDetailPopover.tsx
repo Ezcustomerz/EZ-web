@@ -222,7 +222,7 @@ export function ClientDetailPopover({ open, onClose, client }: ClientDetailPopov
                   <AttachMoney sx={{ color: 'success.main', fontSize: 28 }} />
                   <Box>
                     <Typography variant="body2" color="text.secondary">
-                      Total Spent
+                      Total Revenue
                     </Typography>
                     <Typography variant="h5" fontWeight={700} color="success.main">
                       {formatCurrency(client.totalSpent)}

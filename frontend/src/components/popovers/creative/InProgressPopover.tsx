@@ -94,6 +94,7 @@ export interface InProgressOrder {
   amountPaid?: number;
   amountRemaining?: number;
   depositPaid?: boolean;
+  split_deposit_amount?: number;
   // Additional order details
   description?: string;
   clientEmail?: string;
@@ -111,6 +112,9 @@ export interface InProgressPopoverProps {
   onFinalizeService: (orderId: string, files: UploadedFile[]) => Promise<void>;
   showFinalizationStep?: boolean;
   onUploadProgress?: (progress: string) => void;
+  uploadProgressPercent?: number;
+  onCancelUpload?: () => void;
+  isCancelling?: boolean;
 }
 
 export function InProgressPopover({ 
@@ -119,7 +123,10 @@ export function InProgressPopover({
   order,
   onFinalizeService,
   showFinalizationStep: initialShowFinalizationStep = false,
-  onUploadProgress
+  onUploadProgress,
+  uploadProgressPercent = 0,
+  onCancelUpload,
+  isCancelling = false
 }: InProgressPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -165,7 +172,7 @@ export function InProgressPopover({
       case 'upfront':
         return 'Full payment required before service begins. Client must complete payment to start the project.';
       case 'split':
-        return 'Client pays 50% deposit upfront to secure the booking, then pays the remaining 50% after service completion.';
+        return 'Client pays a deposit upfront to secure the booking, then pays the remaining amount after service completion.';
       case 'later':
         return 'Payment is due after the service is completed. No upfront payment required to start the project.';
       default:
@@ -190,7 +197,7 @@ export function InProgressPopover({
   };
 
   // Payment breakdown calculations
-  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number, amountPaid: number = 0) => {
+  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number, amountPaid: number = 0, splitDepositAmount?: number) => {
     if (price === 0) {
       return {
         depositAmount: 0,
@@ -213,15 +220,35 @@ export function InProgressPopover({
           amountRemaining: price - amountPaid
         };
       case 'split':
-        const depositAmount = Math.round(price * 0.5 * 100) / 100; // 50% deposit
+        // Use split_deposit_amount if provided, otherwise default to 50%
+        const depositAmount = splitDepositAmount !== undefined && splitDepositAmount !== null
+          ? Math.round(splitDepositAmount * 100) / 100
+          : Math.round(price * 0.5 * 100) / 100;
         const remainingAmount = price - depositAmount;
+        // For display: if deposit has been paid (amountPaid >= depositAmount), show depositAmount
+        // Otherwise show the actual amountPaid (which would be 0 or partial)
+        const displayDepositPaid = amountPaid >= depositAmount ? depositAmount : amountPaid;
+        // Calculate remaining: For split payments, if deposit is paid, remaining is the second half
+        // If deposit is not paid, remaining is the full price
+        // If full amount is paid (amountPaid >= price), remaining is 0
+        let actualAmountRemaining: number;
+        if (amountPaid >= price) {
+          // Fully paid
+          actualAmountRemaining = 0;
+        } else if (amountPaid >= depositAmount) {
+          // Deposit paid, show remaining balance (second half)
+          actualAmountRemaining = remainingAmount;
+        } else {
+          // Deposit not paid, show full price as remaining
+          actualAmountRemaining = price;
+        }
         return {
           depositAmount,
           remainingAmount,
           amountDueNow: depositAmount,
           isFree: false,
-          amountPaid: amountPaid,
-          amountRemaining: price - amountPaid
+          amountPaid: displayDepositPaid, // Show deposit amount if deposit was paid, otherwise show actual amountPaid
+          amountRemaining: actualAmountRemaining // Use calculated remaining amount
         };
       case 'later':
         return {
@@ -398,7 +425,8 @@ export function InProgressPopover({
   const paymentBreakdown = getPaymentBreakdown(
     order.service.payment_option, 
     order.service.price, 
-    order.amountPaid || 0
+    order.amountPaid || 0,
+    order.split_deposit_amount
   );
 
   const statusColor = getPaymentOptionColor(order.service.payment_option, order.service.price);
@@ -523,14 +551,70 @@ export function InProgressPopover({
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
               <CircularProgress size={24} />
-              <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
-                {uploadProgress || 'Uploading files to server...'}
-              </Typography>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  {isCancelling
+                    ? 'Cancelling upload...'
+                    : uploadProgress || 'Uploading files to server...'}
+                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {isCancelling ? 'Please wait while we cancel your upload.' : 'Uploading to storage...'}
+                  </Typography>
+                  {!isCancelling && (
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                      {uploadProgressPercent}%
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+              {onCancelUpload && (
+                <IconButton
+                  size="small"
+                  onClick={onCancelUpload}
+                  disabled={isCancelling}
+                  sx={{
+                    color: theme.palette.error.main,
+                    '&:hover': {
+                      bgcolor: theme.palette.mode === 'dark' 
+                        ? 'rgba(211, 47, 47, 0.1)' 
+                        : 'rgba(211, 47, 47, 0.08)',
+                    },
+                    '&:disabled': {
+                      opacity: 0.5,
+                    },
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+              )}
             </Box>
-            <LinearProgress sx={{ mb: 1 }} />
-            <Typography variant="caption" color="text.secondary">
-              Please wait while your files are being uploaded. This may take a moment depending on file sizes.
-            </Typography>
+            <LinearProgress 
+              variant="determinate" 
+              value={uploadProgressPercent} 
+              sx={{ 
+                height: 8, 
+                borderRadius: 4,
+                mb: 1,
+                backgroundColor: theme.palette.mode === 'dark' 
+                  ? 'rgba(255, 255, 255, 0.1)' 
+                  : 'rgba(0, 0, 0, 0.1)',
+              }} 
+            />
+            {onCancelUpload && (
+              <Button
+                variant="outlined"
+                color="error"
+                size="small"
+                fullWidth
+                onClick={onCancelUpload}
+                disabled={isCancelling}
+                startIcon={<CloseIcon />}
+                sx={{ mt: 1 }}
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel Upload'}
+              </Button>
+            )}
           </Box>
         )}
         {!showFinalizationStep ? (
@@ -750,7 +834,9 @@ export function InProgressPopover({
                             Remaining Balance
                           </Typography>
                           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {paymentBreakdown.amountPaid > 0 ? 'Due after service completion' : '50% deposit required to start'}
+                            {paymentBreakdown.amountPaid > 0 
+                              ? 'Due after service completion' 
+                              : `${formatCurrency(paymentBreakdown.depositAmount)} deposit required to start`}
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

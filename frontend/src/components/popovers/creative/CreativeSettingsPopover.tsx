@@ -29,6 +29,7 @@ import {
   Alert,
   AlertTitle,
   CircularProgress,
+  LinearProgress,
   Skeleton,
   DialogActions,
 } from '@mui/material';
@@ -50,12 +51,21 @@ import {
   AccountBalance,
   Info,
   Storage,
+  Delete,
+  Folder,
+  InsertDriveFile,
+  PictureAsPdf,
+  VideoFile,
+  AudioFile,
+  Image,
 } from '@mui/icons-material';
 import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
+import { bookingService } from '../../../api/bookingService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
+import { supabase } from '../../../config/supabase';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
@@ -259,6 +269,24 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   
+  // Storage state
+  const [deliverables, setDeliverables] = useState<Array<{
+    id: string;
+    booking_id: string;
+    file_name: string;
+    file_type: string;
+    file_size_bytes: number;
+    file_url: string;
+    booking?: {
+      id: string;
+      service_name?: string;
+      client_name?: string;
+      created_at?: string;
+    };
+  }>>([]);
+  const [loadingDeliverables, setLoadingDeliverables] = useState(false);
+  const [deletingDeliverableId, setDeletingDeliverableId] = useState<string | null>(null);
+  
   // Fetch creative profile and services when popover opens
   useEffect(() => {
     if (open && isAuthenticated) {
@@ -270,6 +298,13 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   useEffect(() => {
     if (open && isAuthenticated && selectedSection === 'billing') {
       fetchStripeAccountStatus();
+    }
+  }, [open, isAuthenticated, selectedSection]);
+
+  // Fetch deliverables when storage section is selected
+  useEffect(() => {
+    if (open && isAuthenticated && selectedSection === 'storage') {
+      fetchDeliverables();
     }
   }, [open, isAuthenticated, selectedSection]);
   
@@ -506,6 +541,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
           console.log('Profile photo uploaded:', uploadResponse);
         } catch (uploadError) {
           console.error('Failed to upload profile photo:', uploadError);
+          errorToast('Failed to upload profile photo', 'Your other settings will still be saved.');
           // Continue with other settings even if photo upload fails
         }
       }
@@ -529,6 +565,9 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       // Call the API
       await userService.updateCreativeProfileSettings(settingsRequest);
       
+      // Show success toast
+      successToast('Profile Updated!', 'Your creative profile has been updated successfully.');
+      
       // Update the original form data to reflect the saved state
       setOriginalFormData({ ...formData });
       
@@ -543,9 +582,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       // Close the popover
       onClose();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save profile settings:', error);
-      // You could add a toast notification here for error handling
+      const errorMessage = error.response?.data?.detail || 'Failed to update profile';
+      errorToast('Update Failed', errorMessage);
     } finally {
       setSaving(false);
     }
@@ -571,6 +611,113 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     } finally {
       setDeleting(false);
     }
+  };
+
+  const fetchDeliverables = async () => {
+    try {
+      setLoadingDeliverables(true);
+      
+      // Get all bookings for this creative with service info
+      const { data: bookings, error: bookingsError } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          service_id,
+          client_user_id,
+          created_at,
+          creative_services!inner(title)
+        `)
+        .eq('creative_user_id', creativeProfile?.user_id || '')
+        .order('created_at', { ascending: false });
+
+      if (bookingsError) throw bookingsError;
+
+      if (!bookings || bookings.length === 0) {
+        setDeliverables([]);
+        return;
+      }
+
+      // Get client names
+      const clientUserIds = [...new Set(bookings.map(b => b.client_user_id).filter(Boolean))];
+      const { data: users } = await supabase
+        .from('users')
+        .select('user_id, name')
+        .in('user_id', clientUserIds);
+
+      const usersMap = new Map(users?.map(u => [u.user_id, u.name]) || []);
+
+      // Get all deliverables for these bookings
+      const bookingIds = bookings.map(b => b.id);
+      const { data: deliverablesData, error: deliverablesError } = await supabase
+        .from('booking_deliverables')
+        .select('id, booking_id, file_name, file_type, file_size_bytes, file_url')
+        .in('booking_id', bookingIds)
+        .order('created_at', { ascending: false });
+
+      if (deliverablesError) throw deliverablesError;
+
+      // Combine deliverables with booking info
+      const deliverablesWithBooking = (deliverablesData || []).map(deliverable => {
+        const booking = bookings.find(b => b.id === deliverable.booking_id);
+        const serviceTitle = (booking as any)?.creative_services?.title || 'Service';
+        return {
+          ...deliverable,
+          booking: booking ? {
+            id: booking.id,
+            service_name: serviceTitle,
+            client_name: usersMap.get(booking.client_user_id) || 'Unknown Client',
+            created_at: booking.created_at,
+          } : undefined,
+        };
+      });
+
+      setDeliverables(deliverablesWithBooking);
+    } catch (error) {
+      console.error('Failed to fetch deliverables:', error);
+      errorToast('Failed to load deliverables');
+    } finally {
+      setLoadingDeliverables(false);
+    }
+  };
+
+  const handleDeleteDeliverable = async (deliverableId: string, fileUrl: string) => {
+    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeletingDeliverableId(deliverableId);
+      
+      // Use the backend API endpoint which handles both storage and database deletion
+      // This ensures proper permissions and follows the same pattern as profile photo deletion
+      await bookingService.deleteDeliverable(deliverableId);
+
+      // Refresh the list
+      await fetchDeliverables();
+      successToast('File deleted successfully');
+    } catch (error: any) {
+      console.error('Failed to delete deliverable:', error);
+      errorToast(error?.response?.data?.detail || error?.message || 'Failed to delete file');
+    } finally {
+      setDeletingDeliverableId(null);
+    }
+  };
+
+  const formatStorage = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+  };
+
+  const getFileIcon = (fileType: string) => {
+    const type = fileType.toLowerCase();
+    if (type.includes('pdf')) return <PictureAsPdf sx={{ color: '#f44336' }} />;
+    if (type.includes('video') || type.includes('mp4') || type.includes('mov') || type.includes('avi')) return <VideoFile sx={{ color: '#2196f3' }} />;
+    if (type.includes('audio') || type.includes('mp3') || type.includes('wav') || type.includes('flac')) return <AudioFile sx={{ color: '#4caf50' }} />;
+    if (type.includes('image') || type.includes('jpg') || type.includes('png') || type.includes('jpeg')) return <Image sx={{ color: '#ff9800' }} />;
+    return <InsertDriveFile sx={{ color: theme.palette.text.secondary }} />;
   };
 
 
@@ -1501,10 +1648,194 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
           </Box>
         );
       case 'storage':
+        // Calculate actual storage used from deliverables
+        const actualStorageUsed = deliverables.reduce((sum, deliverable) => {
+          const size = deliverable.file_size_bytes;
+          return sum + (typeof size === 'number' && !isNaN(size) ? size : 0);
+        }, 0);
+        
+        // Use actual storage if available, otherwise fall back to profile value
+        const storageUsedBytes = actualStorageUsed > 0 ? actualStorageUsed : (creativeProfile?.storage_used_bytes || 0);
+        const storageLimitBytes = creativeProfile?.storage_limit_bytes || 0;
+        
+        const storagePercentage = storageLimitBytes > 0
+          ? (storageUsedBytes / storageLimitBytes) * 100
+          : 0;
+        const storageUsed = formatStorage(storageUsedBytes);
+        const storageLimit = formatStorage(storageLimitBytes);
+        const storageRemaining = formatStorage(Math.max(0, storageLimitBytes - storageUsedBytes));
+
+        // Group deliverables by booking
+        const deliverablesByBooking = deliverables.reduce((acc, deliverable) => {
+          const bookingId = deliverable.booking_id;
+          if (!acc[bookingId]) {
+            acc[bookingId] = {
+              booking: deliverable.booking,
+              deliverables: [],
+            };
+          }
+          acc[bookingId].deliverables.push(deliverable);
+          return acc;
+        }, {} as Record<string, { booking?: any; deliverables: typeof deliverables }>);
+
         return (
           <Box sx={{ px: 3, pb: 3 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {/* Storage section - placeholder for future implementation */}
+              {/* Storage Overview */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Storage color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Storage Overview
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ mb: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Plan: {creativeProfile?.subscription_tier_name || 'Basic'}
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>
+                        {storageUsed} / {storageLimit}
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.min(storagePercentage, 100)}
+                      sx={{
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: theme.palette.grey[200],
+                        '& .MuiLinearProgress-bar': {
+                          backgroundColor: storagePercentage > 80 
+                            ? theme.palette.error.main 
+                            : storagePercentage > 60 
+                            ? theme.palette.warning.main 
+                            : theme.palette.success.main,
+                        },
+                      }}
+                    />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {storageRemaining} remaining
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {storagePercentage.toFixed(1)}% used
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      Storage is used for deliverable files you send to clients. Files are stored securely and can be managed below.
+                    </Typography>
+                  </Alert>
+                </CardContent>
+              </Card>
+
+              {/* Deliverables List */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Folder color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Deliverables
+                    </Typography>
+                    {!loadingDeliverables && (
+                      <Chip 
+                        label={`${deliverables.length} file${deliverables.length !== 1 ? 's' : ''}`}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+
+                  {loadingDeliverables ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} variant="rectangular" height={60} sx={{ borderRadius: 1 }} />
+                      ))}
+                    </Box>
+                  ) : deliverables.length === 0 ? (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Folder sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                      <Typography variant="body1" color="text.secondary">
+                        No deliverables yet
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Files you upload for completed bookings will appear here.
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {Object.entries(deliverablesByBooking).map(([bookingId, { booking, deliverables: bookingDeliverables }]) => (
+                        <Box key={bookingId}>
+                          <Box sx={{ mb: 1.5, pb: 1, borderBottom: `1px solid ${theme.palette.divider}` }}>
+                            <Typography variant="subtitle2" fontWeight={600} color="primary">
+                              {booking?.service_name || 'Service'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Client: {booking?.client_name || 'Unknown'} • {booking?.created_at ? new Date(booking.created_at).toLocaleDateString() : ''}
+                            </Typography>
+                          </Box>
+                          <List sx={{ bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)', borderRadius: 1, p: 0 }}>
+                            {bookingDeliverables.map((deliverable, index) => (
+                              <ListItem
+                                key={deliverable.id}
+                                sx={{
+                                  borderBottom: index < bookingDeliverables.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
+                                  '&:hover': {
+                                    bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                                  },
+                                }}
+                                secondaryAction={
+                                  <IconButton
+                                    edge="end"
+                                    size="small"
+                                    onClick={() => handleDeleteDeliverable(deliverable.id, deliverable.file_url)}
+                                    disabled={deletingDeliverableId === deliverable.id}
+                                    sx={{
+                                      color: 'error.main',
+                                      '&:hover': {
+                                        bgcolor: 'error.main',
+                                        color: 'white',
+                                      },
+                                    }}
+                                  >
+                                    {deletingDeliverableId === deliverable.id ? (
+                                      <CircularProgress size={20} />
+                                    ) : (
+                                      <Delete />
+                                    )}
+                                  </IconButton>
+                                }
+                              >
+                                <ListItemIcon>
+                                  {getFileIcon(deliverable.file_type)}
+                                </ListItemIcon>
+                                <ListItemText
+                                  primary={
+                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                      {deliverable.file_name}
+                                    </Typography>
+                                  }
+                                  secondary={
+                                    <Typography variant="caption" color="text.secondary">
+                                      {deliverable.file_type} • {formatStorage(deliverable.file_size_bytes)}
+                                    </Typography>
+                                  }
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
             </Box>
           </Box>
         );

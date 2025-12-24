@@ -62,9 +62,9 @@ export function ServiceFinalizationStep({
     
     // Validate all files first
     fileArray.forEach((file) => {
-      // Validate file size (max 50MB to match backend)
-      if (file.size > 50 * 1024 * 1024) {
-        invalidFiles.push(`${file.name} (exceeds 50MB limit)`);
+      // Validate file size (max 30GB to match backend)
+      if (file.size > 30 * 1024 * 1024 * 1024) {
+        invalidFiles.push(`${file.name} (exceeds 30GB limit)`);
       } else {
         validFiles.push(file);
       }
@@ -72,7 +72,7 @@ export function ServiceFinalizationStep({
     
     // Show error for invalid files
     if (invalidFiles.length > 0) {
-      alert(`The following files exceed the 50MB size limit:\n${invalidFiles.join('\n')}`);
+      alert(`The following files exceed the 30GB size limit:\n${invalidFiles.join('\n')}`);
     }
     
     if (validFiles.length === 0) {
@@ -189,7 +189,7 @@ export function ServiceFinalizationStep({
               {dragActive ? 'Drop files here' : 'Upload Files (Optional)'}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Drag and drop multiple files here, or click to browse and select multiple files. Any file type is supported (max 50MB per file).
+              Drag and drop multiple files here, or click to browse and select multiple files. Any file type is supported (max 30GB per file).
             </Typography>
             <Button
               variant="outlined"

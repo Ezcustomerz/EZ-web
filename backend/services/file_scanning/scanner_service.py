@@ -11,15 +11,12 @@ class ScannerService:
     """Main service that orchestrates file validation and scanning"""
     
     def __init__(self):
-        # Check if we're in dev_deploy mode - skip ClamAV in that case
+        # ClamAV scanning is disabled for all environments
         self.env = os.getenv("ENV", "dev").lower()
-        self.skip_clamav = self.env == "dev_deploy"
+        self.skip_clamav = True
         
-        if self.skip_clamav:
-            logger.info("dev_deploy mode detected - ClamAV scanning will be skipped")
-            self.clamav = None
-        else:
-            self.clamav = ClamAVScanner()
+        logger.info("ClamAV scanning is disabled")
+        self.clamav = None
         
         self.validator = FileValidator()
     
@@ -51,14 +48,14 @@ class ScannerService:
         
         scan_details['validation'] = 'passed'
         
-        # Step 2: ClamAV scan (primary) - skip in dev_deploy mode
+        # Step 2: ClamAV scan (primary) - currently disabled
         if self.skip_clamav:
-            logger.info(f"ClamAV scanning skipped for {file.filename} (dev_deploy mode)")
+            logger.info(f"ClamAV scanning skipped for {file.filename}")
             scan_details['clamav'] = {
                 'available': False,
                 'scanned': False,
                 'skipped': True,
-                'reason': 'dev_deploy mode - ClamAV scanning disabled'
+                'reason': 'ClamAV scanning disabled'
             }
         elif not self.clamav.is_available():
             if fail_if_scanner_unavailable:

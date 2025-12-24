@@ -58,7 +58,7 @@ def ensure_bucket_exists(bucket_name: str, is_public: bool = False) -> bool:
             data = {
                 "name": bucket_name,
                 "public": is_public,
-                "file_size_limit": 52428800,  # 50MB in bytes
+                "file_size_limit": 30 * 1024 * 1024 * 1024,  # 30GB in bytes
                 "allowed_mime_types": None  # Allow all file types
             }
             

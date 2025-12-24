@@ -282,8 +282,7 @@ export function TermsOfService() {
               color: 'text.primary'
             }}
           >
-            EZC hosts files only to enable service transactions between Clients and Creatives. Files are retained for 45
-            days and then permanently deleted. EZC is not a backup provider. Locked/unlocked file access depends on
+            EZC hosts files only to enable service transactions between Clients and Creatives. EZC is not a backup provider. Locked/unlocked file access depends on
             payment status and milestones. Storage growth applies monthly according to plan rules.
           </Typography>
         </Box>
@@ -564,10 +563,9 @@ export function TermsOfService() {
               mb: 2
             }}
           >
-            <Box component="span" sx={{ fontWeight: 600 }}>Basic (Free):</Box> 2.8% fee per transaction, 2 GB base storage, +1 GB per $100 earned in the previous month
-            (45-day retention). <Box component="span" sx={{ fontWeight: 600 }}>Plus ($25/month):</Box> 1.6% fee per transaction, 100 GB base storage, +5 GB per $100 earned
-            in the previous month (45-day retention). Storage increases are recalculated monthly based on prior earnings.
-            Files are deleted after 45 days.
+            <Box component="span" sx={{ fontWeight: 600 }}>Basic (Free):</Box> 2.8% fee per transaction, 2 GB base storage, +1 GB per $100 earned in the previous month.
+            <Box component="span" sx={{ fontWeight: 600 }}>Plus ($25/month):</Box> 1.6% fee per transaction, 100 GB base storage, +5 GB per $100 earned
+            in the previous month. Storage increases are recalculated monthly based on prior earnings.
           </Typography>
         </Box>
 

@@ -465,8 +465,7 @@ export const ActivityNotificationCard = memo(function ActivityNotificationCard({
         p: 2,
         mb: 2,
         mt: 1,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
-        border: `1px solid rgba(255, 255, 255, 0.4)`,
+        border: `1px solid rgba(0, 0, 0, 0.08)`,
         borderLeft: `4px solid ${borderColor}`,
         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         cursor: onClick ? 'pointer' : 'default',
@@ -488,10 +487,8 @@ export const ActivityNotificationCard = memo(function ActivityNotificationCard({
         '&:hover': {
           transform: onClick ? 'translateY(-2px)' : 'none',
           backgroundColor: 'rgba(255, 255, 255, 0.75)',
-          boxShadow: onClick 
-            ? `0 8px 24px rgba(0, 0, 0, 0.1), 0 0 0 1px ${borderColor}15`
-            : '0 8px 32px rgba(0, 0, 0, 0.08)',
-          borderColor: `${borderColor}40`,
+          border: `1px solid rgba(0, 0, 0, 0.12)`,
+          borderLeft: `4px solid ${borderColor}`,
           '&::before': {
             opacity: onClick ? 0.6 : 0,
           },

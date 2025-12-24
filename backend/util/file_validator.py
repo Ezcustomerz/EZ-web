@@ -13,7 +13,7 @@ class FileValidator:
         '.applescript', '.scpt', '.vb', '.vbe', '.jse', '.ws', '.msp'
     }
     
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB default
+    MAX_FILE_SIZE = 30 * 1024 * 1024 * 1024  # 30GB default
     
     @staticmethod
     async def validate_file(

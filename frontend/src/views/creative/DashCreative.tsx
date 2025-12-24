@@ -1,8 +1,8 @@
-import { Box, Typography, Divider, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Divider, useTheme, useMediaQuery } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { WelcomeCard } from '../../components/cards/creative/WelcomeCard';
 import { ActivityFeedCard } from '../../components/cards/creative/ActivityFeedCard';
-import type { CreativeProfile, CreativeDashboardStats } from '../../api/userService';
+import type { CreativeDashboardStats } from '../../api/userService';
 import { userService } from '../../api/userService';
 import { useState, useEffect, useRef } from 'react';
 import { getNotifications } from '../../api/notificationsService';
@@ -221,6 +221,7 @@ export function DashCreative() {
               totalBookings: dashboardStats.total_bookings,
               completedSessions: dashboardStats.completed_sessions,
             } : undefined}
+            statsLoading={statsLoading}
           />
 
           {/* Section Divider */}

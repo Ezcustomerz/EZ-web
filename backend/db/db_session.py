@@ -100,10 +100,10 @@ def test_connection_sync():
         # Try a simple operation to test connection
         # Using the client to get session info (doesn't require auth)
         session = db_client.auth.get_session()
-        print("✅ Database connection successful!")
+        print("Database connection successful!")
         return True
     except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+        print(f"Database connection failed: {e}")
         return False
 
 # Test connection when module is imported

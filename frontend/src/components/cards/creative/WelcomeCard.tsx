@@ -1,4 +1,4 @@
-import { Box, Typography, Card, CardContent, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Card, CardContent, useTheme, useMediaQuery, Skeleton } from '@mui/material';
 import { 
   PeopleOutlined, 
   AttachMoneyOutlined, 
@@ -24,13 +24,15 @@ interface WelcomeCardProps {
     totalBookings: number;
     completedSessions: number;
   };
+  statsLoading?: boolean;
 }
 
 export function WelcomeCard({ 
   userName = "Demo User", 
   userRole = "Music Creative", 
   isSidebarOpen = true,
-  stats
+  stats,
+  statsLoading = false
 }: WelcomeCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -50,28 +52,28 @@ export function WelcomeCard({
 
   const statsCards: StatsCard[] = [
     {
-      title: 'Clients',
+      title: 'New Clients This Month',
       value: stats ? stats.totalClients.toString() : '0',
       icon: PeopleOutlined,
       color: theme.palette.success.main,
       bgColor: `${theme.palette.success.main}1A`,
     },
     {
-      title: 'Monthly Amount',
+      title: 'This Month\'s Income',
       value: stats ? formatCurrency(stats.monthlyAmount) : '$0',
       icon: AttachMoneyOutlined,
       color: theme.palette.info.main,
       bgColor: `${theme.palette.info.main}1A`,
     },
     {
-      title: 'Total Bookings',
+      title: 'Bookings This Month',
       value: stats ? stats.totalBookings.toString() : '0',
       icon: EventOutlined,
       color: theme.palette.custom.amber,
       bgColor: `${theme.palette.custom.amber}1A`,
     },
     {
-      title: 'Completed Sessions',
+      title: 'Sessions Completed',
       value: stats ? stats.completedSessions.toString() : '0',
       icon: HeadsetOutlined,
       color: theme.palette.primary.main,
@@ -140,38 +142,16 @@ export function WelcomeCard({
         gap: 2,
         maxWidth: '100%',
       }}>
-        {statsCards.map((card, index) => {
-          const IconComponent = card.icon;
-          return (
+        {statsLoading ? (
+          // Skeleton loaders for stats cards
+          Array.from({ length: 4 }).map((_, index) => (
             <Card
-              key={card.title}
+              key={`skeleton-${index}`}
               sx={{
-                backgroundColor: card.bgColor,
-                border: `1px solid ${card.color}30`,
+                backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                border: '1px solid rgba(0, 0, 0, 0.08)',
                 borderRadius: 2,
-                boxShadow: `0 2px 8px ${card.color}20`,
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                cursor: 'pointer',
-                position: 'relative',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'scale(1.05) translateY(-4px)',
-                  boxShadow: `0 8px 25px ${card.color}40`,
-                  '&::before': {
-                    opacity: 0.1,
-                  },
-                },
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: `linear-gradient(135deg, ${card.color}20 0%, transparent 100%)`,
-                  opacity: 0,
-                  transition: 'opacity 0.3s ease',
-                },
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
                 animation: `slideInUp 0.6s ease-out ${index * 0.1 + 0.3}s both`,
                 '@keyframes slideInUp': {
                   from: { opacity: 0, transform: 'translateY(30px)' },
@@ -179,42 +159,92 @@ export function WelcomeCard({
                 },
               }}
             >
-              <CardContent sx={{ p: 2, position: 'relative', zIndex: 1 }}>
+              <CardContent sx={{ p: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <IconComponent
-                    sx={{
-                      width: 20,
-                      height: 20,
-                      color: card.color,
-                      mr: 1,
-                    }}
-                  />
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontSize: '0.75rem',
-                      color: 'text.secondary',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {card.title}
-                  </Typography>
+                  <Skeleton variant="circular" width={20} height={20} sx={{ mr: 1 }} />
+                  <Skeleton variant="text" width={60} height={16} />
                 </Box>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontSize: '1.25rem',
-                    fontWeight: 700,
-                    color: card.color,
-                    letterSpacing: '-0.025em',
-                  }}
-                >
-                  {card.value}
-                </Typography>
+                <Skeleton variant="text" width={80} height={32} />
               </CardContent>
             </Card>
-          );
-        })}
+          ))
+        ) : (
+          statsCards.map((card, index) => {
+            const IconComponent = card.icon;
+            return (
+              <Card
+                key={card.title}
+                sx={{
+                  backgroundColor: card.bgColor,
+                  border: `1px solid ${card.color}30`,
+                  borderRadius: 2,
+                  boxShadow: `0 2px 8px ${card.color}20`,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    transform: 'scale(1.05) translateY(-4px)',
+                    boxShadow: `0 8px 25px ${card.color}40`,
+                    '&::before': {
+                      opacity: 0.1,
+                    },
+                  },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: `linear-gradient(135deg, ${card.color}20 0%, transparent 100%)`,
+                    opacity: 0,
+                    transition: 'opacity 0.3s ease',
+                  },
+                  animation: `slideInUp 0.6s ease-out ${index * 0.1 + 0.3}s both`,
+                  '@keyframes slideInUp': {
+                    from: { opacity: 0, transform: 'translateY(30px)' },
+                    to: { opacity: 1, transform: 'translateY(0)' },
+                  },
+                }}
+              >
+                <CardContent sx={{ p: 2, position: 'relative', zIndex: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <IconComponent
+                      sx={{
+                        width: 20,
+                        height: 20,
+                        color: card.color,
+                        mr: 1,
+                      }}
+                    />
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontSize: '0.75rem',
+                        color: 'text.secondary',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {card.title}
+                    </Typography>
+                  </Box>
+                  <Typography
+                    variant="h5"
+                    sx={{
+                      fontSize: '1.25rem',
+                      fontWeight: 700,
+                      color: card.color,
+                      letterSpacing: '-0.025em',
+                    }}
+                  >
+                    {card.value}
+                  </Typography>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </Box>
     </Box>
   );

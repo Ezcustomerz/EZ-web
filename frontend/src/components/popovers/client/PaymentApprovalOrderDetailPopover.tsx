@@ -150,10 +150,27 @@ export function PaymentApprovalOrderDetailPopover({
     onClose();
   };
 
-  // Calculate payment amounts - use same rounding as card component
-  const depositAmount = order.depositAmount || Math.round(order.price * 0.5 * 100) / 100;
-  const remainingAmount = order.remainingAmount || Math.round((order.price - depositAmount) * 100) / 100;
+  // Calculate payment amounts - use split_deposit_amount from order if available
+  const depositAmount = order.depositAmount !== undefined && order.depositAmount !== null
+    ? Math.round(order.depositAmount * 100) / 100
+    : 0;
+  const remainingAmount = order.remainingAmount !== undefined && order.remainingAmount !== null
+    ? Math.round(order.remainingAmount * 100) / 100
+    : (depositAmount > 0 ? Math.round((order.price - depositAmount) * 100) / 100 : order.price);
   const amountPaid = typeof order.amountPaid === 'number' ? order.amountPaid : (parseFloat(String(order.amountPaid || 0)) || 0);
+  
+  // Debug log
+  console.log('[PaymentApprovalOrderDetailPopover] Split payment calculation:', {
+    id: order.id,
+    serviceName: order.serviceName,
+    price: order.price,
+    'order.depositAmount': order.depositAmount,
+    depositAmount,
+    'order.remainingAmount': order.remainingAmount,
+    remainingAmount,
+    amountPaid,
+    paymentOption: order.paymentOption
+  });
   
   // Determine if this is the first or second payment for split payments
   // If amountPaid >= depositAmount (with tolerance), it's the second payment

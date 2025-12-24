@@ -270,7 +270,7 @@ export function PrivacyPolicy() {
             }}
           >
             User Content remains the intellectual property of the uploader. EZC claims no ownership rights. Files are
-            hosted solely for operational purposes and are automatically deleted after 45 days. Personal data is retained
+            hosted solely for operational purposes. Personal data is retained
             only as long as necessary to fulfill the purposes described or as required by law.
           </Typography>
         </Box>

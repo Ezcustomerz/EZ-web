@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Table,
@@ -24,6 +24,7 @@ import Card from '@mui/material/Card';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import EventIcon from '@mui/icons-material/Event';
 import { CancelledPopover, type CancelledOrder } from '../popovers/creative/CancelledPopover';
+import { CompletePopover, type CompleteOrder } from '../popovers/creative/CompletePopover';
 
 type SortField = 'client' | 'service' | 'amount' | 'date' | undefined;
 type SortDirection = 'asc' | 'desc' | undefined;
@@ -38,9 +39,13 @@ function formatDate(dateStr: string) {
 }
 
 export function PastOrdersTable({ 
-  orders = []
+  orders = [],
+  orderIdToOpen,
+  onOrderOpened
 }: { 
   orders?: any[];
+  orderIdToOpen?: string | null;
+  onOrderOpened?: () => void;
 }) {
   const theme = useTheme();
   
@@ -51,6 +56,8 @@ export function PastOrdersTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<CancelledOrder | null>(null);
+  const [completePopoverOpen, setCompletePopoverOpen] = useState(false);
+  const [selectedCompleteOrder, setSelectedCompleteOrder] = useState<CompleteOrder | null>(null);
 
   const filteredOrders = useMemo(() => {
     let data = filter === 'All' 
@@ -141,7 +148,7 @@ export function PastOrdersTable({
   }
 
   const handleCardClick = (order: any) => {
-    // Only open popover for Canceled/Rejected orders
+    // Handle Canceled/Rejected orders
     if (order.status === 'Canceled' || order.status === 'Rejected') {
       const cancelledOrder: CancelledOrder = {
         id: order.id,
@@ -172,6 +179,35 @@ export function PastOrdersTable({
       };
       setSelectedOrder(cancelledOrder);
       setPopoverOpen(true);
+    } 
+    // Handle Complete orders
+    else if (order.status === 'Complete' || order.status === 'completed') {
+      const completeOrder: CompleteOrder = {
+        id: order.id,
+        client: order.client,
+        service: {
+          id: order.service.id,
+          title: order.service.title,
+          description: order.service.description || '',
+          price: order.amount,
+          delivery_time: order.service.delivery_time || '3-5 days',
+          color: order.service.color || '#667eea',
+          payment_option: order.service.payment_option === 'upfront' ? 'upfront' :
+                         order.service.payment_option === 'split' ? 'split' :
+                         order.service.payment_option === 'later' ? 'later' : 'later',
+          photos: [], // TODO: Add if available in order data
+        },
+        amount: order.amount,
+        status: order.status,
+        date: order.date,
+        completedDate: order.completedDate || order.date,
+        bookingDate: order.bookingDate || null,
+        description: order.description || '',
+        specialRequirements: order.description,
+        files: order.files || [],
+      };
+      setSelectedCompleteOrder(completeOrder);
+      setCompletePopoverOpen(true);
     }
   };
 
@@ -179,6 +215,94 @@ export function PastOrdersTable({
     setPopoverOpen(false);
     setSelectedOrder(null);
   };
+
+  const handleCompletePopoverClose = () => {
+    setCompletePopoverOpen(false);
+    setSelectedCompleteOrder(null);
+  };
+
+  // Track if we've already searched for this order
+  const hasSearchedForOrderRef = useRef<string | null>(null);
+
+  // Open popover for specific order when orderIdToOpen is provided
+  useEffect(() => {
+    // Only search once per orderIdToOpen
+    if (orderIdToOpen && orders.length > 0 && !popoverOpen && !completePopoverOpen && hasSearchedForOrderRef.current !== orderIdToOpen) {
+      hasSearchedForOrderRef.current = orderIdToOpen;
+      const orderToOpen = orders.find(order => order.id === orderIdToOpen);
+      if (orderToOpen) {
+        // Handle Canceled/Rejected orders
+        if (orderToOpen.status === 'Canceled' || orderToOpen.status === 'Rejected') {
+          const cancelledOrder: CancelledOrder = {
+            id: orderToOpen.id,
+            client: orderToOpen.client,
+            service: {
+              id: orderToOpen.service.id,
+              title: orderToOpen.service.title,
+              description: orderToOpen.service.description || '',
+              price: orderToOpen.amount,
+              delivery_time: orderToOpen.service.delivery_time || '3-5 days',
+              color: orderToOpen.service.color || '#667eea',
+              payment_option: orderToOpen.service.payment_option === 'upfront' ? 'upfront' :
+                             orderToOpen.service.payment_option === 'split' ? 'split' :
+                             orderToOpen.service.payment_option === 'later' ? 'later' : 'later',
+              photos: [],
+            },
+            amount: orderToOpen.amount,
+            status: orderToOpen.status === 'Rejected' ? 'Canceled' : orderToOpen.status,
+            date: orderToOpen.date,
+            bookingDate: orderToOpen.bookingDate || null,
+            cancelledDate: orderToOpen.canceledDate || orderToOpen.date,
+            cancelledBy: 'creative',
+            cancellationReason: undefined,
+            description: orderToOpen.description || '',
+            clientEmail: undefined,
+            clientPhone: undefined,
+            specialRequirements: orderToOpen.description,
+          };
+          setSelectedOrder(cancelledOrder);
+          setPopoverOpen(true);
+          // Notify parent that order has been opened
+          if (onOrderOpened) {
+            onOrderOpened();
+          }
+        } 
+        // Handle Complete orders
+        else if (orderToOpen.status === 'Complete' || orderToOpen.status === 'completed') {
+          const completeOrder: CompleteOrder = {
+            id: orderToOpen.id,
+            client: orderToOpen.client,
+            service: {
+              id: orderToOpen.service.id,
+              title: orderToOpen.service.title,
+              description: orderToOpen.service.description || '',
+              price: orderToOpen.amount,
+              delivery_time: orderToOpen.service.delivery_time || '3-5 days',
+              color: orderToOpen.service.color || '#667eea',
+              payment_option: orderToOpen.service.payment_option === 'upfront' ? 'upfront' :
+                             orderToOpen.service.payment_option === 'split' ? 'split' :
+                             orderToOpen.service.payment_option === 'later' ? 'later' : 'later',
+              photos: [],
+            },
+            amount: orderToOpen.amount,
+            status: orderToOpen.status,
+            date: orderToOpen.date,
+            completedDate: orderToOpen.completedDate || orderToOpen.date,
+            bookingDate: orderToOpen.bookingDate || null,
+            description: orderToOpen.description || '',
+            specialRequirements: orderToOpen.description,
+            files: orderToOpen.files || [],
+          };
+          setSelectedCompleteOrder(completeOrder);
+          setCompletePopoverOpen(true);
+          // Notify parent that order has been opened
+          if (onOrderOpened) {
+            onOrderOpened();
+          }
+        }
+      }
+    }
+  }, [orderIdToOpen, orders, popoverOpen, completePopoverOpen, onOrderOpened]);
 
   return (
     <Box
@@ -332,7 +456,7 @@ export function PastOrdersTable({
                   borderRadius: 2,
                   p: 2,
                   mb: 2,
-                  cursor: (order.status === 'Canceled' || order.status === 'Rejected') ? 'pointer' : 'default',
+                  cursor: (order.status === 'Canceled' || order.status === 'Rejected' || order.status === 'Complete') ? 'pointer' : 'default',
                   position: 'relative',
                   transition: 'box-shadow 0.2s, border 0.2s',
                   '&:hover, &:focus': {
@@ -703,9 +827,9 @@ export function PastOrdersTable({
                     onClick={() => handleCardClick(order)}
                     sx={{
                       transition: 'background 0.18s',
-                      cursor: (order.status === 'Canceled' || order.status === 'Rejected') ? 'pointer' : 'default',
+                      cursor: (order.status === 'Canceled' || order.status === 'Rejected' || order.status === 'Complete') ? 'pointer' : 'default',
                       '&:hover': {
-                        backgroundColor: (order.status === 'Canceled' || order.status === 'Rejected') ? 'grey.50' : undefined,
+                        backgroundColor: (order.status === 'Canceled' || order.status === 'Rejected' || order.status === 'Complete') ? 'grey.50' : undefined,
                       },
                     }}
                   >
@@ -790,6 +914,13 @@ export function PastOrdersTable({
         open={popoverOpen}
         onClose={handlePopoverClose}
         order={selectedOrder}
+      />
+
+      {/* Complete Order Popover */}
+      <CompletePopover
+        open={completePopoverOpen}
+        onClose={handleCompletePopoverClose}
+        order={selectedCompleteOrder}
       />
     </Box>
   );

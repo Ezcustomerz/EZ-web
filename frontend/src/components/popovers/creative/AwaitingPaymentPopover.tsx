@@ -75,6 +75,7 @@ export interface AwaitingPaymentOrder {
   amountPaid?: number;
   amountRemaining?: number;
   depositPaid?: boolean;
+  split_deposit_amount?: number;
   // Additional order details
   description?: string;
   clientEmail?: string;
@@ -129,7 +130,7 @@ export function AwaitingPaymentPopover({
       case 'upfront':
         return 'Full payment required before service begins. Client must complete payment to start the project.';
       case 'split':
-        return 'Client pays 50% deposit upfront to secure the booking, then pays the remaining 50% after service completion.';
+        return 'Client pays a deposit upfront to secure the booking, then pays the remaining amount after service completion.';
       case 'later':
         return 'Payment is due after the service is completed. No upfront payment required to start the project.';
       default:
@@ -154,7 +155,7 @@ export function AwaitingPaymentPopover({
   };
 
   // Payment breakdown calculations
-  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number, amountPaid: number = 0) => {
+  const getPaymentBreakdown = (option: 'upfront' | 'split' | 'later', price: number, amountPaid: number = 0, splitDepositAmount?: number) => {
     if (price === 0) {
       return {
         depositAmount: 0,
@@ -177,18 +178,35 @@ export function AwaitingPaymentPopover({
           amountRemaining: price - amountPaid
         };
       case 'split':
-        const depositAmount = Math.round(price * 0.5 * 100) / 100; // 50% deposit
+        // Use split_deposit_amount if provided, otherwise default to 50%
+        const depositAmount = splitDepositAmount !== undefined && splitDepositAmount !== null
+          ? Math.round(splitDepositAmount * 100) / 100
+          : Math.round(price * 0.5 * 100) / 100;
         const remainingAmount = price - depositAmount;
         // For display: if deposit has been paid (amountPaid >= depositAmount), show depositAmount
         // Otherwise show the actual amountPaid (which would be 0 or partial)
         const displayDepositPaid = amountPaid >= depositAmount ? depositAmount : amountPaid;
+        // Calculate remaining: For split payments, if deposit is paid, remaining is the second half
+        // If deposit is not paid, remaining is the full price
+        // If full amount is paid (amountPaid >= price), remaining is 0
+        let actualAmountRemaining: number;
+        if (amountPaid >= price) {
+          // Fully paid
+          actualAmountRemaining = 0;
+        } else if (amountPaid >= depositAmount) {
+          // Deposit paid, show remaining balance (second half)
+          actualAmountRemaining = remainingAmount;
+        } else {
+          // Deposit not paid, show full price as remaining
+          actualAmountRemaining = price;
+        }
         return {
           depositAmount,
           remainingAmount,
           amountDueNow: depositAmount,
           isFree: false,
           amountPaid: displayDepositPaid, // Show deposit amount if deposit was paid, otherwise show actual amountPaid
-          amountRemaining: price - amountPaid
+          amountRemaining: actualAmountRemaining // Use calculated remaining amount
         };
       case 'later':
         return {
@@ -305,7 +323,8 @@ export function AwaitingPaymentPopover({
   const paymentBreakdown = getPaymentBreakdown(
     order.service.payment_option, 
     order.service.price, 
-    order.amountPaid || 0
+    order.amountPaid || 0,
+    order.split_deposit_amount
   );
 
   const statusColor = getPaymentOptionColor(order.service.payment_option, order.service.price);
@@ -566,43 +585,87 @@ export function AwaitingPaymentPopover({
                 >
                   {order.service.payment_option === 'split' ? (
                     <>
-                      {/* Amount Paid */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                            Deposit Paid
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {paymentBreakdown.amountPaid > 0 ? 'Deposit received - service can begin' : 'No deposit received yet'}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <CheckCircle sx={{ fontSize: 16, color: theme.palette.success.main }} />
-                          <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.success.main }}>
-                            {formatCurrency(paymentBreakdown.amountPaid)}
-                          </Typography>
-                        </Box>
-                      </Box>
+                      {paymentBreakdown.amountPaid >= paymentBreakdown.depositAmount ? (
+                        <>
+                          {/* Deposit Paid - Show what was received */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                Deposit Paid
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                Deposit received - service can begin
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <CheckCircle sx={{ fontSize: 16, color: theme.palette.success.main }} />
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.success.main }}>
+                                {formatCurrency(paymentBreakdown.depositAmount)}
+                              </Typography>
+                            </Box>
+                          </Box>
 
-                      <Divider sx={{ my: 1.5 }} />
+                          <Divider sx={{ my: 1.5 }} />
 
-                      {/* Remaining Amount */}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                            Remaining Balance
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {paymentBreakdown.amountPaid > 0 ? 'Due after service completion' : '50% deposit required to start'}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <PendingActions sx={{ fontSize: 16, color: theme.palette.warning.main }} />
-                          <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.warning.main }}>
-                            {formatCurrency(paymentBreakdown.amountRemaining)}
-                          </Typography>
-                        </Box>
-                      </Box>
+                          {/* Remaining Amount */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                Remaining Balance
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                Due after service completion
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <PendingActions sx={{ fontSize: 16, color: theme.palette.warning.main }} />
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.warning.main }}>
+                                {formatCurrency(paymentBreakdown.remainingAmount)}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </>
+                      ) : (
+                        <>
+                          {/* Awaiting Initial Deposit */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                Awaiting Initial Deposit
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                Client needs to pay initial deposit to start service
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Schedule sx={{ fontSize: 16, color: theme.palette.warning.main }} />
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.warning.main }}>
+                                {formatCurrency(paymentBreakdown.depositAmount)}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          <Divider sx={{ my: 1.5 }} />
+
+                          {/* Remaining Amount */}
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                Final Payment
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                Due after service completion
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <PendingActions sx={{ fontSize: 16, color: theme.palette.text.secondary }} />
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: theme.palette.text.secondary }}>
+                                {formatCurrency(paymentBreakdown.remainingAmount)}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </>
+                      )}
                     </>
                   ) : order.service.payment_option === 'upfront' ? (
                     /* Payment Upfront - Awaiting Full Payment */

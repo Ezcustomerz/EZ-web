@@ -1,8 +1,8 @@
-import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment, Button, FormControl, InputLabel, Select, MenuItem, useTheme, useMediaQuery, Dialog, DialogTitle, DialogContent, DialogActions, Skeleton, Card } from '@mui/material';
 import { MusicNote, Search, FilterList } from '@mui/icons-material';
 import { ServiceCardSimple } from '../../../components/cards/creative/ServiceCard';
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
-import { ServicesDetailPopover } from '../../../components/popovers/ServicesDetailPopover';
+import { ServicesDetailPopover, type ServiceDetail } from '../../../components/popovers/ServicesDetailPopover';
 import { BundleDetailPopover } from '../../../components/popovers/BundleDetailPopover';
 import { BookingServicePopover } from '../../../components/popovers/client/BookingServicePopover';
 import { CreativeDetailPopover } from '../../../components/popovers/client/CreativeDetailPopover';
@@ -31,6 +31,8 @@ interface Service {
   updated_at: string;
   creative_user_id: string;
   requires_booking: boolean;
+  payment_option?: 'upfront' | 'split' | 'later';
+  split_deposit_amount?: number;
   photos?: Array<{
     photo_url: string;
     photo_filename?: string;
@@ -194,13 +196,21 @@ export function ConnectedServicesTab() {
     if (serviceId && services.length > 0 && !bookingOpen) {
       const service = services.find(s => s.id === serviceId);
       if (service) {
-        // Add creative profile information to the service object
+        // Add creative profile information to the service object, preserving all fields
         const serviceWithCreative = {
           ...service,
           creative_display_name: service.creative_display_name || service.creative_name,
           creative_title: service.creative_title,
-          creative_avatar_url: service.creative_avatar_url
+          creative_avatar_url: service.creative_avatar_url,
+          // Explicitly preserve payment fields
+          payment_option: service.payment_option,
+          split_deposit_amount: service.split_deposit_amount
         };
+        console.log('URL param service - setting serviceToBook:', {
+          id: serviceWithCreative.id,
+          payment_option: serviceWithCreative.payment_option,
+          split_deposit_amount: serviceWithCreative.split_deposit_amount
+        });
         setServiceToBook(serviceWithCreative as any);
         setBookingOpen(true);
         // Remove serviceId from URL to clean it up
@@ -343,13 +353,21 @@ export function ConnectedServicesTab() {
   const handleServiceClick = (serviceId: string) => {
     const service = services.find(s => s.id === serviceId);
     if (service) {
-      // Add creative profile information to the service object
+      // Add creative profile information to the service object, preserving all fields
       const serviceWithCreative = {
         ...service,
         creative_display_name: service.creative_display_name || service.creative_name,
         creative_title: service.creative_title,
-        creative_avatar_url: service.creative_avatar_url
+        creative_avatar_url: service.creative_avatar_url,
+        // Explicitly preserve payment fields
+        payment_option: service.payment_option,
+        split_deposit_amount: service.split_deposit_amount
       };
+      console.log('handleServiceClick - service with creative:', {
+        id: serviceWithCreative.id,
+        payment_option: serviceWithCreative.payment_option,
+        split_deposit_amount: serviceWithCreative.split_deposit_amount
+      });
       setSelectedService(serviceWithCreative as any);
       setServiceDetailOpen(true);
     }
@@ -373,13 +391,39 @@ export function ConnectedServicesTab() {
     setSelectedBundle(null);
   };
 
-  const handleBookService = () => {
-    if (selectedService) {
-      setServiceToBook(selectedService);
+  const handleBookService = (service: ServiceDetail | null) => {
+    const serviceToUse = service || selectedService;
+    if (serviceToUse) {
+      // Ensure all fields are preserved, especially payment_option and split_deposit_amount
+      // Provide defaults for required fields that might be undefined
+      const serviceWithAllFields: Service = {
+        ...serviceToUse,
+        delivery_time: serviceToUse.delivery_time || '',
+        creative_name: serviceToUse.creative_name || '',
+        color: serviceToUse.color || '#3b82f6',
+        status: serviceToUse.status || 'Private',
+        is_active: serviceToUse.is_active ?? true,
+        created_at: serviceToUse.created_at || new Date().toISOString(),
+        updated_at: serviceToUse.updated_at || new Date().toISOString(),
+        creative_user_id: serviceToUse.creative_user_id || '',
+        requires_booking: serviceToUse.requires_booking ?? false,
+        payment_option: serviceToUse.payment_option,
+        split_deposit_amount: serviceToUse.split_deposit_amount
+      };
+      console.log('Setting serviceToBook with fields:', {
+        id: serviceWithAllFields.id,
+        payment_option: serviceWithAllFields.payment_option,
+        split_deposit_amount: serviceWithAllFields.split_deposit_amount,
+        price: serviceWithAllFields.price,
+        fullService: serviceWithAllFields
+      });
+      setServiceToBook(serviceWithAllFields);
       setBookingOpen(true);
       // Close the service detail popover
       setServiceDetailOpen(false);
       setSelectedService(null);
+    } else {
+      console.error('handleBookService called but no service provided');
     }
   };
 
@@ -420,13 +464,129 @@ export function ConnectedServicesTab() {
   if (loading) {
     return (
       <Box sx={{
+        height: '100vh',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        boxSizing: 'border-box',
         display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100%',
-        minHeight: '300px',
+        flexDirection: 'column',
+        py: 1,
+        width: '100%',
+        maxWidth: '100%',
       }}>
-        <CircularProgress />
+        {/* Search and Filter Skeletons */}
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            background: { xs: '#fff' },
+            boxShadow: { xs: '0 2px 8px 0 rgba(122,95,255,0.04)', sm: 'none' },
+            px: 0,
+            pt: { xs: 0, sm: 0.5 },
+          }}
+        >
+          <Box
+            sx={{
+              px: { xs: 1, sm: 2 },
+              display: 'flex',
+              flexDirection: { xs: 'row', sm: 'row' },
+              gap: 2,
+              justifyContent: { xs: 'flex-start', sm: 'space-between' },
+              alignItems: 'center',
+              mb: 0,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: { xs: 1, sm: 'none' } }}>
+              <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, width: { xs: 'calc(100% - 120px)', sm: 220 } }} />
+              {isMobile ? (
+                <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 2, width: 100, flexShrink: 0 }} />
+              ) : (
+                <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, width: 140 }} />
+              )}
+            </Box>
+            {!isMobile && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Skeleton variant="rectangular" height={40} sx={{ borderRadius: 1, width: 140 }} />
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        {/* Service/Bundle Card Skeletons */}
+        <Box sx={{
+          display: 'grid',
+          gap: { xs: 1.5, sm: 2 },
+          px: { xs: 1, sm: 2 },
+          pt: 2,
+          pb: 4,
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+            lg: 'repeat(3, 1fr)',
+          },
+        }}>
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <Box
+              key={`skeleton-${idx}`}
+              sx={{
+                animation: `fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1) ${idx * 0.1}s both`,
+                '@keyframes fadeInCard': {
+                  '0%': { opacity: 0, transform: 'translateY(20px) scale(0.95)' },
+                  '100%': { opacity: 1, transform: 'translateY(0) scale(1)' },
+                },
+                minWidth: 0,
+                width: '100%',
+                maxWidth: '100%',
+                overflow: 'visible',
+                boxSizing: 'border-box',
+              }}
+            >
+              <Card sx={{
+                height: '100%',
+                width: '100%',
+                maxWidth: '100%',
+                minHeight: { xs: 135, sm: 170 },
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                borderRadius: 1,
+                boxShadow: '0px 1.5px 6px rgba(59,130,246,0.05)',
+                p: { xs: 1.2, sm: 1.6 },
+                backgroundColor: 'background.paper',
+                boxSizing: 'border-box',
+                overflow: 'visible',
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Skeleton variant="circular" width={14} height={14} />
+                      <Skeleton variant="text" width="70%" height={24} />
+                    </Box>
+                    <Skeleton variant="text" width="50%" height={18} sx={{ mb: 0.5 }} />
+                    <Skeleton variant="rectangular" width={50} height={4} sx={{ borderRadius: '2px' }} />
+                  </Box>
+                </Box>
+                <Box sx={{ flexGrow: 1, mb: 1.5 }}>
+                  <Skeleton variant="text" width="100%" height={16} />
+                  <Skeleton variant="text" width="90%" height={16} />
+                  <Skeleton variant="text" width="80%" height={16} />
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Skeleton variant="circular" width={16} height={16} />
+                    <Skeleton variant="text" width={60} height={20} />
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Skeleton variant="circular" width={16} height={16} />
+                    <Skeleton variant="text" width={80} height={20} />
+                  </Box>
+                </Box>
+              </Card>
+            </Box>
+          ))}
+        </Box>
       </Box>
     );
   }
@@ -966,7 +1126,6 @@ export function ConnectedServicesTab() {
         onClose={handleBookingClose}
         service={serviceToBook}
         onConfirmBooking={handleConfirmBooking}
-        onCreativeClick={handleCreativeClick}
       />
 
       {/* Creative Detail Popover */}

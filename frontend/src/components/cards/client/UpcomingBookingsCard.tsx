@@ -1,5 +1,5 @@
 import { Box, Typography, Card, useTheme, Stack, Button, Skeleton } from '@mui/material';
-import { Schedule, People, CalendarToday } from '@mui/icons-material';
+import { Schedule, People, CalendarToday, CalendarMonth } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 interface Booking {
@@ -19,9 +19,14 @@ interface UpcomingBookingsCardProps {
   isLoading?: boolean;
 }
 
+const DISPLAY_LIMIT = 5; // Show only 5 bookings initially
+
 export function UpcomingBookingsCard({ bookings = [], onBookingClick, isLoading = false }: UpcomingBookingsCardProps) {
   const theme = useTheme();
   const navigate = useNavigate();
+  
+  const displayedBookings = bookings.slice(0, DISPLAY_LIMIT);
+  const hasMoreBookings = bookings.length > DISPLAY_LIMIT;
 
   const handleBookingClick = (booking: Booking) => {
     if (onBookingClick) {
@@ -307,11 +312,12 @@ export function UpcomingBookingsCard({ bookings = [], onBookingClick, isLoading 
               </Button>
             </Box>
           ) : (
+            <>
             <Stack spacing={2}>
-              {bookings.map((booking, index) => (
+                {displayedBookings.map((booking, index) => (
                 <Box
                   key={booking.id}
-                  onClick={() => handleBookingClick(booking)}
+                    onClick={() => handleBookingClick(booking)}
                   sx={{
                     backgroundColor: theme.palette.background.paper,
                     borderRadius: 1.5,
@@ -406,6 +412,40 @@ export function UpcomingBookingsCard({ bookings = [], onBookingClick, isLoading 
                 </Box>
               ))}
             </Stack>
+              {hasMoreBookings && (
+                <Box sx={{ pt: 2, display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<CalendarMonth />}
+                    onClick={() => {
+                      // Navigate to orders page with All Orders tab to see all bookings
+                      navigate('/client/orders?tab=0');
+                    }}
+                    sx={{
+                      borderColor: theme.palette.primary.main,
+                      color: theme.palette.primary.main,
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      px: 2.5,
+                      py: 0.75,
+                      borderRadius: 1.5,
+                      textTransform: 'none',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        borderColor: theme.palette.primary.dark,
+                        backgroundColor: theme.palette.primary.main,
+                        color: 'white',
+                        transform: 'translateY(-2px)',
+                        boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
+                      },
+                    }}
+                  >
+                    View All Bookings ({bookings.length})
+                  </Button>
+                </Box>
+              )}
+            </>
           )}
         </Box>
       </Card>

@@ -1,5 +1,5 @@
-import { Box, Typography, Card, Chip, useTheme, useMediaQuery, CircularProgress, Skeleton } from '@mui/material';
-import { Timeline } from '@mui/icons-material';
+import { Box, Typography, Card, Chip, useTheme, useMediaQuery, CircularProgress, Skeleton, Button, Stack } from '@mui/material';
+import { Timeline, Notifications } from '@mui/icons-material';
 import React from 'react';
 import { ActivityNotificationCard } from '../ActivityNotificationCard';
 import type { ActivityItem } from '../../../types/activity';
@@ -13,6 +13,8 @@ interface ActivityFeedCardProps {
   isLoading?: boolean;
 }
 
+const DISPLAY_LIMIT = 5; // Show only 5 items initially
+
 export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -25,8 +27,9 @@ export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardP
     setLocalItems(items ?? []);
   }, [items]);
 
-  const displayItems = localItems;
-  const actualNewCount = displayItems.filter(n => n.isNew).length;
+  const displayItems = localItems.slice(0, DISPLAY_LIMIT);
+  const hasMoreItems = localItems.length > DISPLAY_LIMIT;
+  const actualNewCount = localItems.filter(n => n.isNew).length;
 
   // Handle when a notification is marked as read
   const handleMarkAsRead = React.useCallback((notificationId: string) => {
@@ -126,26 +129,130 @@ export function ActivityFeedCard({ items, isLoading = false }: ActivityFeedCardP
               </Typography>
             </Box>
         ) : (
-          displayItems.map((item, index) => (
-            <ActivityNotificationCard
-              key={`${item.label}-${index}`}
-              item={item}
-              index={index}
-              onMarkAsRead={handleMarkAsRead}
-              //smc
-              onClick={() => {
-                // Customize behavior per notification type
-                if (item.label === 'New Client Added') {
-                  navigate('/creative/clients'); // Navigate to clients page
-                } else if (item.label === 'New Booking Request' || item.label === 'New Booking') {
-                  navigate('/creative/activity'); // Navigate to activity page
-                } else if (item.label === 'Payment Received') {
-                  navigate('/creative/payments'); // 
-                }
-                // We can add more cases in the future
-              }}
-            />
-          ))
+          <>
+            <Stack spacing={2}>
+              {displayItems.map((item, index) => (
+                <ActivityNotificationCard
+                  key={`${item.label}-${index}`}
+                  item={item}
+                  index={index}
+                  onMarkAsRead={handleMarkAsRead}
+                  //smc
+                  onClick={() => {
+                    // Customize behavior per notification type
+                    const notificationType = item.notificationType;
+                    
+                    // Try to resolve a booking/order id from multiple possible sources
+                    const bookingId =
+                      item.relatedEntityId ||
+                      (item.metadata && (item.metadata.booking_id || item.metadata.order_id));
+
+                    if (item.label === 'New Client Added') {
+                      navigate('/creative/clients'); // Navigate to clients page
+                    } else if ((item.label === 'New Booking Request' || item.label === 'New Booking') && bookingId) {
+                      // Navigate to activity page and open the specific order popover
+                      navigate('/creative/activity');
+                      // Store booking_id in localStorage to open popover after navigation
+                      localStorage.setItem('open-order-popover', bookingId);
+                      // New booking requests are typically in Current Orders (Pending Approval status)
+                      localStorage.setItem('activity-active-tab', '0');
+                    } else if (notificationType === 'payment_received' && bookingId) {
+                      // Navigate to activity page and open the specific order popover
+                      navigate('/creative/activity');
+                      // Store booking_id in localStorage to open popover after navigation
+                      localStorage.setItem('open-order-popover', bookingId);
+                      // Determine tab based on creative_status from metadata
+                      const creativeStatus = item.metadata?.creative_status;
+                      if (creativeStatus) {
+                        const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
+                        localStorage.setItem('activity-active-tab', tabIndex);
+                      } else {
+                        // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
+                        localStorage.setItem('activity-active-tab', '0');
+                      }
+                    } else if (notificationType === 'session_completed' && bookingId) {
+                      // Navigate to activity page and open the specific order popover
+                      navigate('/creative/activity');
+                      // Store booking_id in localStorage to open popover after navigation
+                      localStorage.setItem('open-order-popover', bookingId);
+                      // Service completed notifications are typically in Past Orders (tab 1)
+                      const creativeStatus = item.metadata?.creative_status;
+                      if (creativeStatus) {
+                        const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
+                        localStorage.setItem('activity-active-tab', tabIndex);
+                      } else {
+                        // Default to Past Orders for completed services
+                        localStorage.setItem('activity-active-tab', '1');
+                      }
+                    } else if (item.label === 'Files Sent' && bookingId) {
+                      // Navigate to activity page and open the specific order popover
+                      navigate('/creative/activity');
+                      // Store booking_id in localStorage to open popover after navigation
+                      localStorage.setItem('open-order-popover', bookingId);
+                      // Determine tab based on creative_status from metadata
+                      const creativeStatus = item.metadata?.creative_status;
+                      if (creativeStatus) {
+                        const isPastOrder = creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled';
+                        const tabIndex = isPastOrder ? '1' : '0';
+                        localStorage.setItem('activity-active-tab', tabIndex);
+                      } else {
+                        // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
+                        localStorage.setItem('activity-active-tab', '0');
+                      }
+                    } else if (item.label === 'Service Approved' && bookingId) {
+                      // Navigate to activity page and open the specific order popover
+                      navigate('/creative/activity');
+                      // Store booking_id in localStorage to open popover after navigation
+                      localStorage.setItem('open-order-popover', bookingId);
+                      // Determine tab based on creative_status from metadata
+                      const creativeStatus = item.metadata?.creative_status;
+                      if (creativeStatus) {
+                        const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
+                        localStorage.setItem('activity-active-tab', tabIndex);
+                      } else {
+                        // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
+                        localStorage.setItem('activity-active-tab', '0');
+                      }
+                    }
+                    // We can add more cases in the future
+                  }}
+                />
+              ))}
+            </Stack>
+            {hasMoreItems && (
+              <Box sx={{ pt: 2, display: 'flex', justifyContent: 'center' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Notifications />}
+                  onClick={() => {
+                    // Navigate to dedicated notifications page
+                    navigate('/creative/notifications');
+                  }}
+                  sx={{
+                    borderColor: theme.palette.primary.main,
+                    color: theme.palette.primary.main,
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 0.75,
+                    borderRadius: 1.5,
+                    textTransform: 'none',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      borderColor: theme.palette.primary.dark,
+                      backgroundColor: theme.palette.primary.main,
+                      color: 'white',
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 4px 12px ${theme.palette.primary.main}40`,
+                    },
+                  }}
+                >
+                  View All Notifications ({localItems.length})
+                </Button>
+              </Box>
+            )}
+          </>
         )}
       </Box>
     </Card>

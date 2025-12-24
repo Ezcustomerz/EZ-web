@@ -109,6 +109,7 @@ export interface CreativeProfile {
   subscription_tier_id: string;
   subscription_tier?: string; // Subscription tier name (e.g., 'basic', 'growth', 'pro') - for backward compatibility
   subscription_tier_name?: string; // Explicit subscription tier name
+  subscription_tier_fee_percentage?: number; // Fee percentage for the subscription tier (e.g., 0.10 for 10%)
   primary_contact?: string;
   secondary_contact?: string;
   profile_banner_url?: string;
@@ -137,6 +138,7 @@ export interface ClientProfile {
 export interface AdvocateProfile {
   user_id: string;
   display_name?: string;
+  email?: string;
   profile_banner_url?: string;
   profile_source: string;
   tier: string;
@@ -155,8 +157,32 @@ export interface AdvocateProfile {
   created_at: string;
 }
 
+export interface AdvocateUpdateRequest {
+  display_name?: string;
+  email?: string;
+  profile_banner_url?: string;
+}
+
+export interface AdvocateUpdateResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface ClientUpdateRequest {
+  display_name?: string;
+  title?: string;
+  email?: string;
+  profile_banner_url?: string;
+}
+
+export interface ClientUpdateResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface CreativeClient {
   id: string;
+  user_id: string;  // The actual client user_id for matching
   name: string;
   contact: string;
   contactType: 'email' | 'phone';
@@ -206,6 +232,7 @@ export interface CreativeService {
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   payment_option: 'upfront' | 'split' | 'later';
+  split_deposit_amount?: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -265,6 +292,7 @@ export interface CreateServiceRequest {
   status: 'Public' | 'Private' | 'Bundle-Only';
   color: string;
   payment_option: 'upfront' | 'split' | 'later';
+  split_deposit_amount?: number;
   calendar_settings?: CalendarSettings;
   photos?: ServicePhoto[];
 }
@@ -584,6 +612,74 @@ export const userService = {
   },
 
   /**
+   * Update the current user's advocate profile
+   */
+  async updateAdvocateProfile(updateData: AdvocateUpdateRequest): Promise<AdvocateUpdateResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.put<AdvocateUpdateResponse>(
+      `${API_BASE_URL}/advocate/profile`,
+      updateData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Upload profile photo for advocate
+   */
+  async uploadAdvocateProfilePhoto(file: File): Promise<ProfilePhotoUploadResponse> {
+    const headers = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await axios.post<ProfilePhotoUploadResponse>(
+      `${API_BASE_URL}/advocate/profile/upload-photo`,
+      formData,
+      { 
+        headers: {
+          ...headers,
+          'Content-Type': 'multipart/form-data',
+        }
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Update the current user's client profile
+   */
+  async updateClientProfile(updateData: ClientUpdateRequest): Promise<ClientUpdateResponse> {
+    const headers = await getAuthHeaders();
+    const response = await axios.put<ClientUpdateResponse>(
+      `${API_BASE_URL}/client/profile`,
+      updateData,
+      { headers }
+    );
+    return response.data;
+  },
+
+  /**
+   * Upload profile photo for client
+   */
+  async uploadClientProfilePhoto(file: File): Promise<ProfilePhotoUploadResponse> {
+    const headers = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await axios.post<ProfilePhotoUploadResponse>(
+      `${API_BASE_URL}/client/profile/upload-photo`,
+      formData,
+      { 
+        headers: {
+          ...headers,
+          'Content-Type': 'multipart/form-data',
+        }
+      }
+    );
+    return response.data;
+  },
+
+  /**
    * Get all clients associated with the current creative
    */
   async getCreativeClients(): Promise<CreativeClientsListResponse> {
@@ -644,6 +740,10 @@ export const userService = {
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);
     
+    if (serviceData.split_deposit_amount !== undefined && serviceData.split_deposit_amount !== null) {
+      formData.append('split_deposit_amount', serviceData.split_deposit_amount.toString());
+    }
+
     // Add calendar settings if provided
     if (serviceData.calendar_settings) {
       formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
@@ -698,6 +798,10 @@ export const userService = {
     formData.append('color', serviceData.color);
     formData.append('payment_option', serviceData.payment_option);
     
+    if (serviceData.split_deposit_amount !== undefined && serviceData.split_deposit_amount !== null) {
+      formData.append('split_deposit_amount', serviceData.split_deposit_amount.toString());
+    }
+
     if (serviceData.calendar_settings) {
       formData.append('calendar_settings', JSON.stringify(serviceData.calendar_settings));
     }
