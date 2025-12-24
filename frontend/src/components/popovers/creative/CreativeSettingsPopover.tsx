@@ -52,7 +52,6 @@ import {
   Info,
   Storage,
   Delete,
-  Download,
   Folder,
   InsertDriveFile,
   PictureAsPdf,

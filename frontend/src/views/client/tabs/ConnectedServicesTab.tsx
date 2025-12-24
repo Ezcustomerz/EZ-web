@@ -395,8 +395,18 @@ export function ConnectedServicesTab() {
     const serviceToUse = service || selectedService;
     if (serviceToUse) {
       // Ensure all fields are preserved, especially payment_option and split_deposit_amount
-      const serviceWithAllFields = {
+      // Provide defaults for required fields that might be undefined
+      const serviceWithAllFields: Service = {
         ...serviceToUse,
+        delivery_time: serviceToUse.delivery_time || '',
+        creative_name: serviceToUse.creative_name || '',
+        color: serviceToUse.color || '#3b82f6',
+        status: serviceToUse.status || 'Private',
+        is_active: serviceToUse.is_active ?? true,
+        created_at: serviceToUse.created_at || new Date().toISOString(),
+        updated_at: serviceToUse.updated_at || new Date().toISOString(),
+        creative_user_id: serviceToUse.creative_user_id || '',
+        requires_booking: serviceToUse.requires_booking ?? false,
         payment_option: serviceToUse.payment_option,
         split_deposit_amount: serviceToUse.split_deposit_amount
       };
