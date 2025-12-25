@@ -715,14 +715,15 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
             py: 2,
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(10px)',
+            position: 'relative',
           }}
         >
             {/* Title and Subtitle */}
-            <Box sx={{ flex: 1, pt: 1 }}>
-              <Typography variant="h5" fontWeight={600} gutterBottom>
+            <Box sx={{ flex: 1, pt: 0.5, pr: { xs: 8, sm: 20 } }}>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ lineHeight: 1.3 }}>
                 {settingsSections.find(s => s.id === selectedSection)?.label || accountSections.find(s => s.id === selectedSection)?.label}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.5 }}>
                 {selectedSection === 'account' && 'Manage your account information and profile settings.'}
                 {selectedSection === 'userAccount' && 'Customize your app experience and interface.'}
                 {selectedSection === 'billing' && 'Manage your subscription and payment information.'}
@@ -730,7 +731,7 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
             </Box>
             
             {/* Action Buttons positioned absolutely in top-right */}
-            <Box sx={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 1 }}>
+            <Box sx={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 0.5, alignItems: 'center' }}>
               {/* Save Changes Button - only show for account section */}
               {selectedSection === 'account' && (
                 <Button
@@ -741,26 +742,30 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
+                    fontSize: '0.8125rem',
+                    px: 1.25,
+                    py: 0.25,
+                    minHeight: 28,
+                    height: 28,
                   }}
                 >
-                  {saving ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
+                  {saving ? <CircularProgress size={16} color="inherit" /> : 'Save Changes'}
                 </Button>
               )}
 
-              {/* Close button for desktop */}
-              {!isMobile && (
-                <IconButton
-                  onClick={handleClose}
-                  sx={{
-                    color: 'text.secondary',
-                    '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                    },
-                  }}
-                >
-                  <Close />
-                </IconButton>
-              )}
+              {/* Close Button */}
+              <IconButton
+                onClick={handleClose}
+                size="small"
+                sx={{
+                  color: 'text.secondary',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
             </Box>
         </Box>
       </DialogTitle>

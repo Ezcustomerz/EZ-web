@@ -2105,14 +2105,15 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             py: 2,
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(10px)',
+            position: 'relative',
           }}
         >
             {/* Title and Subtitle */}
-            <Box sx={{ flex: 1, pt: 1 }}>
-              <Typography variant="h5" fontWeight={600} gutterBottom>
+            <Box sx={{ flex: 1, pt: 0.5, pr: { xs: 8, sm: 20 } }}>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ lineHeight: 1.3 }}>
                 {[...settingsSections, ...accountSections].find(s => s.id === selectedSection)?.label}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.5 }}>
                 {selectedSection === 'account' && 'Manage your account information and profile settings.'}
                 {selectedSection === 'billing' && 'Manage your subscription and payment information.'}
                 {selectedSection === 'storage' && 'Manage your storage and file management settings.'}
@@ -2121,7 +2122,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             </Box>
             
             {/* Action Buttons positioned absolutely in top-right */}
-            <Box sx={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 1 }}>
+            <Box sx={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 0.5, alignItems: 'center' }}>
               {/* Save Changes Button - only show for account section */}
               {selectedSection === 'account' && (
                 <Button
@@ -2132,6 +2133,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
+                    fontSize: '0.8125rem',
+                    px: 1.25,
+                    py: 0.25,
+                    minHeight: 28,
+                    height: 28,
                   }}
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -2141,6 +2147,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
               {/* Close Button */}
               <IconButton
                 onClick={handleClose}
+                size="small"
                 sx={{
                   color: 'text.secondary',
                   '&:hover': {
@@ -2148,7 +2155,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   },
                 }}
               >
-                <Close />
+                <Close fontSize="small" />
               </IconButton>
             </Box>
           </Box>
