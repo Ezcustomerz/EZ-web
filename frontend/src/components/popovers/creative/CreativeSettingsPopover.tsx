@@ -32,9 +32,11 @@ import {
   LinearProgress,
   Skeleton,
   DialogActions,
+  Drawer,
 } from '@mui/material';
 import {
   Close,
+  Menu as MenuIcon,
   Person,
   Settings,
   CreditCard,
@@ -194,6 +196,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuthenticated } = useAuth();
   const [selectedSection, setSelectedSection] = useState<SettingsSection>(initialSection);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Update selected section when initialSection prop changes
   useEffect(() => {
@@ -2060,6 +2063,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
           display: 'flex',
           alignItems: 'stretch',
           minHeight: 72,
+          position: 'relative',
+          zIndex: 1,
+          overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
         }}
       >
         {/* Blue header section - only extends to sidebar width */}
@@ -2074,6 +2083,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             px: 3,
             py: 2,
             borderBottom: { xs: '1px solid rgba(255, 255, 255, 0.1)', md: 'none' },
+            borderBottomLeftRadius: 24,
           }}
         >
           <Typography variant="h5" fontWeight={600}>
@@ -2099,6 +2109,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         <Box
           sx={{
             flex: 1,
+            width: { xs: '100%', md: 'auto' },
             display: 'flex',
             flexDirection: 'column',
             px: 3,
@@ -2106,10 +2117,31 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(10px)',
             position: 'relative',
+            borderBottomLeftRadius: { xs: 24, md: 0 },
+            borderBottomRightRadius: 24,
           }}
         >
+            {/* Hamburger Menu Button - Mobile Only */}
+            {isMobile && (
+              <IconButton
+                onClick={() => setMobileMenuOpen(true)}
+                size="small"
+                sx={{
+                  position: 'absolute',
+                  left: 12,
+                  top: 12,
+                  color: 'text.primary',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+              >
+                <MenuIcon fontSize="small" />
+              </IconButton>
+            )}
+
             {/* Title and Subtitle */}
-            <Box sx={{ flex: 1, pt: 0.5, pr: { xs: 8, sm: 20 } }}>
+            <Box sx={{ flex: 1, pt: 0.5, pl: { xs: 6, md: 0 }, pr: { xs: 8, sm: 20 } }}>
               <Typography variant="h5" fontWeight={700} gutterBottom sx={{ lineHeight: 1.3 }}>
                 {[...settingsSections, ...accountSections].find(s => s.id === selectedSection)?.label}
               </Typography>
@@ -2397,6 +2429,151 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         </Button>
       </DialogActions>
     </Dialog>
+
+    {/* Mobile Settings Menu Drawer */}
+    <Drawer
+      anchor="left"
+      open={mobileMenuOpen}
+      onClose={() => setMobileMenuOpen(false)}
+      sx={{
+        zIndex: isMobile ? 10001 : 1301,
+        '& .MuiDrawer-paper': {
+          width: 280,
+          background: '#ffffff',
+        },
+      }}
+    >
+      <Box sx={{ 
+        p: 2, 
+        background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+        color: 'white'
+      }}>
+        <Typography variant="h5" fontWeight={600}>
+          Creative Settings
+        </Typography>
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Creative Role Settings */}
+        <List sx={{ flex: 1, py: 1 }}>
+          {settingsSections.map((section) => {
+            const IconComponent = section.icon;
+            const isSelected = selectedSection === section.id;
+
+            return (
+              <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  selected={isSelected}
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 2,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      color: theme.palette.primary.main,
+                      '&:hover': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      },
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.primary.main,
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 40,
+                      color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                      transition: 'color 0.2s ease-in-out',
+                    }}
+                  >
+                    <IconComponent />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={section.label}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontWeight: isSelected ? 600 : 500,
+                        fontSize: '0.95rem',
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+
+        {/* Separator */}
+        <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.1)' }} />
+
+        {/* Account-Specific Settings */}
+        <List sx={{ py: 1 }}>
+          {accountSections.map((section) => {
+            const IconComponent = section.icon;
+            const isSelected = selectedSection === section.id;
+
+            return (
+              <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  selected={isSelected}
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 2,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      color: theme.palette.primary.main,
+                      '&:hover': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      },
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.primary.main,
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 40,
+                      color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                      transition: 'color 0.2s ease-in-out',
+                    }}
+                  >
+                    <IconComponent />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={section.label}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontWeight: isSelected ? 600 : 500,
+                        fontSize: '0.95rem',
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+      </Box>
+    </Drawer>
     </>
   );
 }
