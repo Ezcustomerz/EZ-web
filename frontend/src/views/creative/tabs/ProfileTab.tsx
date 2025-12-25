@@ -437,8 +437,9 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
 
             {/* Right Column - About & Services Skeleton */}
             <Box sx={{ 
-              width: { xs: '100%', md: '66.667%' },
+              width: { xs: '100%' },
               flex: 1,
+              minWidth: 0,
               display: 'flex',
               flexDirection: 'column',
               gap: 1
@@ -901,8 +902,9 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
 
           {/* Right Column - Services & Info */}
           <Box sx={{ 
-            width: { xs: '100%', md: '66.667%' },
+            width: { xs: '100%' },
             flex: 1,
+            minWidth: 0,
             display: 'flex',
             flexDirection: 'column'
           }}>
@@ -924,16 +926,21 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                   <Typography variant="h6" fontWeight={600} gutterBottom>
                     About {creativeProfile.display_name}
                   </Typography>
-                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', pb: 3 }}>
                     {creativeProfile.description ? (
                       <>
-                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, flex: 1 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ 
+                          lineHeight: 1.6, 
+                          flex: 1,
+                          overflowWrap: 'break-word',
+                          wordBreak: 'break-word',
+                          whiteSpace: 'pre-wrap'
+                        }}>
                           {creativeProfile.description}
                         </Typography>
                         <Typography variant="caption" color="text.disabled" sx={{ 
-                          position: 'absolute', 
-                          bottom: 0, 
-                          right: 0,
+                          mt: 1,
+                          textAlign: 'right',
                           fontSize: '0.7rem'
                         }}>
                           {creativeProfile.description.length}/500 characters
