@@ -10,6 +10,7 @@ from schemas.invite import (
     ValidateInviteResponse,
     AcceptInviteResponse
 )
+from db.db_session import db_admin
 
 logger = logging.getLogger(__name__)
 
@@ -108,15 +109,24 @@ class InviteController:
             if not creative_user_id:
                 raise HTTPException(status_code=400, detail="Invalid invite token")
             
-            # Get creative information using provided client
-            # RLS policy "Allow public to read creative profiles" allows anon users to read
-            # If authenticated client is provided, it will use appropriate RLS policies
-            creative_response = client.table("creatives") \
-                .select("display_name, title, user_id") \
-                .eq("user_id", creative_user_id) \
-                .execute()
+            logger.info(f"Looking up creative with user_id: {creative_user_id}")
+            
+            # Get creative information using service role client for public endpoint
+            # This ensures the query works regardless of RLS policies since this is a public endpoint
+            # We're only reading public fields (display_name, title, user_id) which are safe to expose
+            try:
+                creative_response = db_admin.table("creatives") \
+                    .select("display_name, title, user_id") \
+                    .eq("user_id", creative_user_id) \
+                    .execute()
+                
+                logger.info(f"Creative query response: {creative_response.data}")
+            except Exception as query_error:
+                logger.error(f"Error querying creatives table: {query_error}")
+                raise HTTPException(status_code=500, detail=f"Database query failed: {str(query_error)}")
             
             if not creative_response.data or len(creative_response.data) == 0:
+                logger.warning(f"Creative not found for user_id: {creative_user_id}")
                 raise HTTPException(status_code=404, detail="Creative not found")
             
             if len(creative_response.data) > 1:
@@ -235,8 +245,12 @@ class InviteController:
             
             logger.info(f"Creating relationship with data: {relationship_data}")
             
-            # Create relationship (using authenticated client - respects RLS)
-            result = client.table("creative_client_relationships") \
+            # Create relationship using service role client to bypass RLS
+            # This is safe because:
+            # 1. User is authenticated and has client role
+            # 2. Invite token has been validated
+            # 3. We're only creating a relationship between the creative and client specified in the token
+            result = db_admin.table("creative_client_relationships") \
                 .insert(relationship_data) \
                 .execute()
             
@@ -362,8 +376,14 @@ class InviteController:
                 "updated_at": datetime.utcnow().isoformat()
             }
             
-            # Create relationship (using authenticated client - respects RLS)
-            result = client.table("creative_client_relationships") \
+            logger.info(f"Creating relationship with data: {relationship_data}")
+            
+            # Create relationship using service role client to bypass RLS
+            # This is safe because:
+            # 1. User is authenticated and has client role
+            # 2. Invite token has been validated
+            # 3. We're only creating a relationship between the creative and client specified in the token
+            result = db_admin.table("creative_client_relationships") \
                 .insert(relationship_data) \
                 .execute()
             
