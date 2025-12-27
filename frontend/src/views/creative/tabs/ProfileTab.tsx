@@ -920,7 +920,8 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                 borderRadius: 3,
                 display: 'flex',
                 minHeight: '155px',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                position: 'relative'
               }}>
                 <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column' }}>
                   <Typography variant="h6" fontWeight={600} gutterBottom>
