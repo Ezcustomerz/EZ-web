@@ -16,6 +16,113 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def format_storage_size(bytes: int) -> str:
+    """Format bytes to human-readable size"""
+    if bytes == 0:
+        return "0 B"
+    k = 1024
+    sizes = ['B', 'KB', 'MB', 'GB']
+    i = int(bytes.bit_length() / 10) if bytes > 0 else 0
+    i = min(i, len(sizes) - 1)
+    return f"{(bytes / (k ** i)):.2f} {sizes[i]}"
+
+
+async def check_storage_limit(
+    user_id: str,
+    new_files_size: int,
+    client: Client
+) -> tuple[bool, str]:
+    """
+    Check if uploading new files would exceed storage limit.
+    Returns (is_allowed, error_message)
+    """
+    try:
+        # Get creative profile with subscription tier
+        creative_result = client.table('creatives')\
+            .select('subscription_tier_id')\
+            .eq('user_id', user_id)\
+            .single()\
+            .execute()
+        
+        if not creative_result.data:
+            # No creative profile found, allow upload (shouldn't happen but be safe)
+            return True, ""
+        
+        subscription_tier_id = creative_result.data.get('subscription_tier_id')
+        if not subscription_tier_id:
+            # No subscription tier, allow upload
+            return True, ""
+        
+        # Get storage limit from subscription tier
+        tier_result = client.table('subscription_tiers')\
+            .select('storage_amount_bytes')\
+            .eq('id', subscription_tier_id)\
+            .single()\
+            .execute()
+        
+        if not tier_result.data:
+            # No tier data, allow upload
+            return True, ""
+        
+        storage_limit_bytes = tier_result.data.get('storage_amount_bytes', 0)
+        if storage_limit_bytes == 0:
+            # No storage limit set, allow upload
+            return True, ""
+        
+        # Calculate actual storage used from deliverables (deduplicated by file_url)
+        bookings_result = client.table('bookings')\
+            .select('id')\
+            .eq('creative_user_id', user_id)\
+            .execute()
+        
+        if not bookings_result.data:
+            # No bookings, storage used is 0
+            current_storage_used = 0
+        else:
+            booking_ids = [b['id'] for b in bookings_result.data]
+            
+            # Get all deliverables
+            deliverables_result = db_admin.table('booking_deliverables')\
+                .select('file_size_bytes, file_url')\
+                .in_('booking_id', booking_ids)\
+                .execute()
+            
+            # Deduplicate by file_url (same logic as frontend)
+            seen_file_urls = set()
+            unique_deliverables = []
+            for deliverable in (deliverables_result.data or []):
+                file_url = deliverable.get('file_url')
+                if file_url and file_url not in seen_file_urls:
+                    seen_file_urls.add(file_url)
+                    unique_deliverables.append(deliverable)
+            
+            # Calculate total storage used
+            current_storage_used = sum(
+                d.get('file_size_bytes', 0) or 0
+                for d in unique_deliverables
+                if isinstance(d.get('file_size_bytes'), (int, float))
+            )
+        
+        # Check if adding new files would exceed limit
+        total_after_upload = current_storage_used + new_files_size
+        
+        if total_after_upload > storage_limit_bytes:
+            overage = total_after_upload - storage_limit_bytes
+            remaining = max(0, storage_limit_bytes - current_storage_used)
+            error_msg = (
+                f"Uploading these files would exceed your storage limit by {format_storage_size(overage)}. "
+                f"You have {format_storage_size(remaining)} remaining out of {format_storage_size(storage_limit_bytes)} total storage."
+            )
+            return False, error_msg
+        
+        return True, ""
+    
+    except Exception as e:
+        logger.error(f"Error checking storage limit: {e}", exc_info=True)
+        # On error, allow upload (fail open) but log the error
+        return True, ""
+
+
 class FileUploadInfo(BaseModel):
     file_name: str
     file_size: int
@@ -132,6 +239,12 @@ async def register_uploaded_files(
         if not register_request.files or len(register_request.files) == 0:
             raise HTTPException(status_code=400, detail="No files provided")
         
+        # Check storage limit before registering files
+        total_new_files_size = sum(f.file_size for f in register_request.files)
+        is_allowed, error_message = await check_storage_limit(user_id, total_new_files_size, client)
+        if not is_allowed:
+            raise HTTPException(status_code=403, detail=error_message)
+        
         # Register files in database
         registered_files = []
         for file_info in register_request.files:
@@ -217,30 +330,77 @@ async def upload_deliverables(
             logger.error(f"Failed to ensure bucket '{bucket_name}' exists")
             raise HTTPException(status_code=500, detail=f"Storage bucket not available. Please contact support.")
         
-        # Validate and scan all files
+        # First pass: read all files to get sizes for storage check
+        # We need to read files first to check storage, but files can only be read once
+        # So we'll read into memory, check storage, then process
+        from io import BytesIO
+        file_data = []
+        total_new_files_size = 0
+        
+        for file in files:
+            try:
+                content = await file.read()
+                file_size = len(content)
+                total_new_files_size += file_size
+                file_data.append({
+                    'file': file,
+                    'content': content,
+                    'file_size': file_size,
+                    'filename': file.filename,
+                    'content_type': file.content_type
+                })
+            except Exception as e:
+                logger.error(f"Error reading file {file.filename}: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to read file '{file.filename}': {str(e)}")
+        
+        # Check storage limit before processing files
+        is_allowed, error_message = await check_storage_limit(user_id, total_new_files_size, client)
+        if not is_allowed:
+            raise HTTPException(status_code=403, detail=error_message)
+        
+        # Validate and scan all files, then upload
         scanner = ScannerService()
         max_size = 30 * 1024 * 1024 * 1024  # 30GB limit
         uploaded_files = []
         
-        for file in files:
+        for file_info in file_data:
             try:
+                # Create a file-like object for scanning
+                from io import BytesIO
+                
+                # Create a mock UploadFile-like object for the scanner
+                class FileWrapper:
+                    def __init__(self, filename, content, content_type):
+                        self.filename = filename
+                        self._content = content
+                        self.content_type = content_type
+                        self._read = False
+                    
+                    async def read(self):
+                        if self._read:
+                            return b''
+                        self._read = True
+                        return self._content
+                
+                file_wrapper = FileWrapper(
+                    file_info['filename'],
+                    file_info['content'],
+                    file_info['content_type']
+                )
+                
                 # Validate and scan file
                 is_safe, error_message, scan_details = await scanner.scan_and_validate(
-                    file, 
+                    file_wrapper, 
                     max_size=max_size,
                     allowed_extensions=None,  # Allow all file types except dangerous ones
                     fail_if_scanner_unavailable=False  # Don't fail if scanner is down
                 )
                 
                 if not is_safe:
-                    raise HTTPException(status_code=400, detail=f"File '{file.filename}' validation failed: {error_message}")
-                
-                # Read file content
-                content = await file.read()
-                file_size = len(content)
+                    raise HTTPException(status_code=400, detail=f"File '{file_info['filename']}' validation failed: {error_message}")
                 
                 # Generate unique filename
-                file_extension = os.path.splitext(file.filename)[1] if file.filename and '.' in file.filename else ''
+                file_extension = os.path.splitext(file_info['filename'])[1] if file_info['filename'] and '.' in file_info['filename'] else ''
                 unique_id = uuid.uuid4().hex
                 storage_path = f"{booking_id}/{unique_id}{file_extension}"
                 
@@ -248,21 +408,21 @@ async def upload_deliverables(
                 try:
                     upload_result = db_admin.storage.from_(bucket_name).upload(
                         path=storage_path,
-                        file=content,
+                        file=file_info['content'],
                         file_options={
-                            "content-type": file.content_type or "application/octet-stream",
+                            "content-type": file_info['content_type'] or "application/octet-stream",
                             "cache-control": "3600"
                         }
                     )
                 except Exception as upload_error:
-                    logger.error(f"Failed to upload file {file.filename} to storage: {str(upload_error)}")
-                    raise HTTPException(status_code=500, detail=f"Failed to upload file '{file.filename}': {str(upload_error)}")
+                    logger.error(f"Failed to upload file {file_info['filename']} to storage: {str(upload_error)}")
+                    raise HTTPException(status_code=500, detail=f"Failed to upload file '{file_info['filename']}': {str(upload_error)}")
                 
                 uploaded_files.append({
                     "file_url": storage_path,
-                    "file_name": file.filename,
-                    "file_size": file_size,
-                    "file_type": file.content_type or "application/octet-stream",
+                    "file_name": file_info['filename'],
+                    "file_size": file_info['file_size'],
+                    "file_type": file_info['content_type'] or "application/octet-stream",
                     "storage_path": storage_path
                 })
                 
@@ -337,6 +497,11 @@ async def upload_deliverable(
         # Read file content
         content = await file.read()
         file_size = len(content)
+        
+        # Check storage limit before uploading
+        is_allowed, error_message = await check_storage_limit(user_id, file_size, client)
+        if not is_allowed:
+            raise HTTPException(status_code=403, detail=error_message)
         
         # Generate unique filename
         file_extension = os.path.splitext(file.filename)[1] if file.filename and '.' in file.filename else ''
@@ -663,6 +828,116 @@ async def download_deliverable(
     except Exception as e:
         logger.error(f"Error generating download URL: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(e)}")
+
+
+@router.get("/creative-deliverables")
+@limiter.limit("20 per minute")
+async def get_creative_deliverables(
+    request: Request,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Get all deliverables for the authenticated creative user
+    Requires authentication - will return 401 if not authenticated.
+    - Fetches all deliverables with booking, service, and client info
+    - Deduplicates by file_url
+    - Returns optimized data structure for frontend
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Single optimized query: Get deliverables with booking and service info
+        deliverables_result = client.table('booking_deliverables')\
+            .select('''
+                id,
+                booking_id,
+                file_name,
+                file_type,
+                file_size_bytes,
+                file_url,
+                created_at,
+                bookings!inner(
+                    id,
+                    client_user_id,
+                    created_at,
+                    creative_user_id,
+                    creative_services!inner(
+                        title
+                    )
+                )
+            ''')\
+            .eq('bookings.creative_user_id', user_id)\
+            .execute()
+        
+        if not deliverables_result.data or len(deliverables_result.data) == 0:
+            return {
+                "deliverables": []
+            }
+        
+        deliverables_data = deliverables_result.data
+        
+        # Sort by created_at descending (most recent first)
+        deliverables_data.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+        # Extract unique client user IDs
+        client_user_ids = list(set([
+            d['bookings']['client_user_id'] 
+            for d in deliverables_data 
+            if d.get('bookings') and d['bookings'].get('client_user_id')
+        ]))
+        
+        # Fetch client names (only if we have client IDs)
+        users_map = {}
+        if client_user_ids:
+            users_result = client.table('users')\
+                .select('user_id, name')\
+                .in_('user_id', client_user_ids)\
+                .execute()
+            
+            if users_result.data:
+                users_map = {u['user_id']: u['name'] for u in users_result.data}
+        
+        # Deduplicate deliverables by file_url (keep first occurrence, most recent due to ordering)
+        seen_file_urls = set()
+        unique_deliverables = []
+        
+        for deliverable in deliverables_data:
+            file_url = deliverable.get('file_url')
+            if not file_url or file_url in seen_file_urls:
+                continue
+            
+            seen_file_urls.add(file_url)
+            booking = deliverable.get('bookings', {})
+            service_title = booking.get('creative_services', {}).get('title', 'Service') if booking.get('creative_services') else 'Service'
+            client_user_id = booking.get('client_user_id')
+            
+            unique_deliverables.append({
+                "id": deliverable.get('id'),
+                "booking_id": deliverable.get('booking_id'),
+                "file_name": deliverable.get('file_name'),
+                "file_type": deliverable.get('file_type'),
+                "file_size_bytes": deliverable.get('file_size_bytes'),
+                "file_url": deliverable.get('file_url'),
+                "booking": {
+                    "id": booking.get('id'),
+                    "service_name": service_title,
+                    "client_name": users_map.get(client_user_id, 'Unknown Client') if client_user_id else 'Unknown Client',
+                    "created_at": booking.get('created_at')
+                } if booking else None
+            })
+        
+        return {
+            "deliverables": unique_deliverables
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching creative deliverables: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch deliverables: {str(e)}")
 
 
 @router.delete("/deliverable/{deliverable_id}")

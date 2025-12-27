@@ -67,7 +67,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
-import { supabase } from '../../../config/supabase';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
@@ -288,6 +287,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     };
   }>>([]);
   const [loadingDeliverables, setLoadingDeliverables] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
   const [deletingDeliverableId, setDeletingDeliverableId] = useState<string | null>(null);
   
   // Fetch creative profile and services when popover opens
@@ -304,12 +304,19 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     }
   }, [open, isAuthenticated, selectedSection]);
 
-  // Fetch deliverables when storage section is selected
+  // Reset fetch attempt flag when section changes away from storage or popover closes
   useEffect(() => {
-    if (open && isAuthenticated && selectedSection === 'storage') {
+    if (selectedSection !== 'storage' || !open) {
+      setHasAttemptedFetch(false);
+    }
+  }, [selectedSection, open]);
+
+  // Fetch deliverables when storage section is selected and creative profile is loaded
+  useEffect(() => {
+    if (open && isAuthenticated && selectedSection === 'storage' && creativeProfile?.user_id) {
       fetchDeliverables();
     }
-  }, [open, isAuthenticated, selectedSection]);
+  }, [open, isAuthenticated, selectedSection, creativeProfile]);
   
   // Update form data when creative profile loads
   useEffect(() => {
@@ -619,62 +626,18 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const fetchDeliverables = async () => {
     try {
       setLoadingDeliverables(true);
+      setHasAttemptedFetch(true);
       
-      // Get all bookings for this creative with service info
-      const { data: bookings, error: bookingsError } = await supabase
-        .from('bookings')
-        .select(`
-          id,
-          service_id,
-          client_user_id,
-          created_at,
-          creative_services!inner(title)
-        `)
-        .eq('creative_user_id', creativeProfile?.user_id || '')
-        .order('created_at', { ascending: false });
-
-      if (bookingsError) throw bookingsError;
-
-      if (!bookings || bookings.length === 0) {
+      // Check if we have a valid user_id before querying
+      if (!creativeProfile?.user_id) {
         setDeliverables([]);
         return;
       }
-
-      // Get client names
-      const clientUserIds = [...new Set(bookings.map(b => b.client_user_id).filter(Boolean))];
-      const { data: users } = await supabase
-        .from('users')
-        .select('user_id, name')
-        .in('user_id', clientUserIds);
-
-      const usersMap = new Map(users?.map(u => [u.user_id, u.name]) || []);
-
-      // Get all deliverables for these bookings
-      const bookingIds = bookings.map(b => b.id);
-      const { data: deliverablesData, error: deliverablesError } = await supabase
-        .from('booking_deliverables')
-        .select('id, booking_id, file_name, file_type, file_size_bytes, file_url')
-        .in('booking_id', bookingIds)
-        .order('created_at', { ascending: false });
-
-      if (deliverablesError) throw deliverablesError;
-
-      // Combine deliverables with booking info
-      const deliverablesWithBooking = (deliverablesData || []).map(deliverable => {
-        const booking = bookings.find(b => b.id === deliverable.booking_id);
-        const serviceTitle = (booking as any)?.creative_services?.title || 'Service';
-        return {
-          ...deliverable,
-          booking: booking ? {
-            id: booking.id,
-            service_name: serviceTitle,
-            client_name: usersMap.get(booking.client_user_id) || 'Unknown Client',
-            created_at: booking.created_at,
-          } : undefined,
-        };
-      });
-
-      setDeliverables(deliverablesWithBooking);
+      
+      // Fetch deliverables from backend API (single optimized request)
+      const deliverablesData = await bookingService.getCreativeDeliverables();
+      
+      setDeliverables(deliverablesData);
     } catch (error) {
       console.error('Failed to fetch deliverables:', error);
       errorToast('Failed to load deliverables');
@@ -683,7 +646,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     }
   };
 
-  const handleDeleteDeliverable = async (deliverableId: string, fileUrl: string) => {
+  const handleDeleteDeliverable = async (deliverableId: string) => {
     if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
       return;
     }
@@ -1755,7 +1718,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                     )}
                   </Box>
 
-                  {loadingDeliverables ? (
+                  {(loadingDeliverables || (selectedSection === 'storage' && !hasAttemptedFetch && creativeProfile?.user_id)) ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {[1, 2, 3].map((i) => (
                         <Skeleton key={i} variant="rectangular" height={60} sx={{ borderRadius: 1 }} />
@@ -1797,7 +1760,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                                   <IconButton
                                     edge="end"
                                     size="small"
-                                    onClick={() => handleDeleteDeliverable(deliverable.id, deliverable.file_url)}
+                                    onClick={() => handleDeleteDeliverable(deliverable.id)}
                                     disabled={deletingDeliverableId === deliverable.id}
                                     sx={{
                                       color: 'error.main',
