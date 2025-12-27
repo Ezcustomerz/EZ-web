@@ -354,9 +354,7 @@ export function ServicesDetailPopover({
                        service.photos.length === 6 ? 'repeat(3, 1fr)' :
                        'repeat(3, 1fr)'
                  },
-                 gap: 1.5,
-                 maxHeight: { xs: '300px', sm: '400px' },
-                 overflow: 'hidden'
+                 gap: 1.5
                }}>
                  {service.photos
                    .sort((a, b) => a.display_order - b.display_order)
@@ -371,12 +369,22 @@ export function ServicesDetailPopover({
                          borderRadius: 2,
                          overflow: 'hidden',
                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                         transition: 'transform 0.2s ease, box-shadow 0.2s ease, z-index 0s',
                          cursor: 'pointer',
+                         WebkitTapHighlightColor: 'transparent',
+                         zIndex: index,
                          '&:hover': {
-                           transform: 'scale(1.02)',
-                           boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                           zIndex: 1
+                           transform: 'scale(1.05)',
+                           boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                           zIndex: 100
+                         },
+                         // Mobile: tap to zoom and overlap
+                         '@media (hover: none)': {
+                           '&:active': {
+                             transform: 'scale(1.05)',
+                             boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                             zIndex: 100
+                           }
                          }
                        }}
                      >
@@ -388,14 +396,15 @@ export function ServicesDetailPopover({
                            width: '100%',
                            height: '100%',
                            objectFit: 'cover',
-                           transition: 'transform 0.2s ease'
+                           transition: 'transform 0.2s ease',
+                           borderRadius: 2
                          }}
                          onError={(e) => {
                            const target = e.target as HTMLImageElement;
                            target.style.display = 'none';
                          }}
                        />
-                       {photo.is_primary && (
+                       {photo.is_primary && (context === 'services-tab' || context === 'profile-tab') && (
                          <Box
                            sx={{
                              position: 'absolute',
@@ -612,19 +621,22 @@ export function ServicesDetailPopover({
         open={photoViewerOpen}
         onClose={handlePhotoViewerClose}
         closeAfterTransition
-        BackdropComponent={Backdrop}
-        BackdropProps={{
-          timeout: 500,
-          sx: {
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            backdropFilter: 'blur(4px)'
+        slots={{ backdrop: Backdrop }}
+        slotProps={{
+          backdrop: {
+            timeout: 500,
+            sx: {
+              backgroundColor: 'rgba(0, 0, 0, 0.85)',
+              backdropFilter: 'blur(4px)'
+            }
           }
         }}
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          p: 2
+          p: 2,
+          zIndex: isMobile ? 10001 : 1301
         }}
       >
         <Fade in={photoViewerOpen}>
@@ -635,7 +647,8 @@ export function ServicesDetailPopover({
               maxHeight: '90vh',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center'
+              alignItems: 'center',
+              zIndex: 1
             }}
           >
             {/* Close Button */}
@@ -643,14 +656,20 @@ export function ServicesDetailPopover({
               onClick={handlePhotoViewerClose}
               sx={{
                 position: 'absolute',
-                top: 16,
-                right: 16,
+                top: { xs: 8, sm: 16 },
+                right: { xs: 8, sm: 16 },
                 color: 'white',
                 backgroundColor: 'rgba(0, 0, 0, 0.7)',
                 backdropFilter: 'blur(4px)',
-                zIndex: 1,
+                zIndex: 2,
+                width: { xs: 44, sm: 48 },
+                height: { xs: 44, sm: 48 },
                 '&:hover': {
                   backgroundColor: 'rgba(0, 0, 0, 0.9)'
+                },
+                '&:active': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.95)',
+                  transform: 'scale(0.95)'
                 }
               }}
             >
@@ -665,10 +684,14 @@ export function ServicesDetailPopover({
                 alt="Enlarged service photo"
                 sx={{
                   maxWidth: '100%',
-                  maxHeight: '80vh',
+                  maxHeight: { xs: '80vh', sm: '80vh' },
+                  width: 'auto',
+                  height: 'auto',
                   objectFit: 'contain',
                   borderRadius: 2,
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                  backgroundColor: 'transparent',
+                  zIndex: 1
                 }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
@@ -686,7 +709,7 @@ export function ServicesDetailPopover({
                   color: 'white'
                 }}
               >
-                {selectedPhoto.is_primary && (
+                {selectedPhoto.is_primary && (context === 'services-tab' || context === 'profile-tab') && (
                   <Chip
                     label="Primary Photo"
                     size="small"
