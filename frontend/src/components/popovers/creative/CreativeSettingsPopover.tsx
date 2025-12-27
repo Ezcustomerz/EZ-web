@@ -692,7 +692,6 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       setDeletingDeliverableId(deliverableId);
       
       // Use the backend API endpoint which handles both storage and database deletion
-      // This ensures proper permissions and follows the same pattern as profile photo deletion
       await bookingService.deleteDeliverable(deliverableId);
 
       // Refresh the list
