@@ -25,9 +25,11 @@ import {
   Divider,
   CircularProgress,
   Alert,
+  Drawer,
 } from '@mui/material';
 import {
   Close,
+  Menu as MenuIcon,
   Person,
   Settings,
   CreditCard,
@@ -134,6 +136,7 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [selectedSection, setSelectedSection] = useState<SettingsSection>('account');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('light');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -648,6 +651,7 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
   };
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={handleClose}
@@ -670,6 +674,12 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
           display: 'flex',
           alignItems: 'stretch',
           minHeight: 72,
+          position: 'relative',
+          zIndex: 1,
+          overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
         }}
       >
         {/* Blue header section - only extends to sidebar width */}
@@ -684,6 +694,7 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
             px: 3,
             py: 2,
             borderBottom: { xs: '1px solid rgba(255, 255, 255, 0.1)', md: 'none' },
+            borderBottomLeftRadius: 24,
           }}
         >
           <Typography variant="h5" fontWeight={600}>
@@ -709,20 +720,43 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
         <Box
           sx={{
             flex: 1,
+            width: { xs: '100%', md: 'auto' },
             display: 'flex',
             flexDirection: 'column',
             px: 3,
             py: 2,
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(10px)',
+            position: 'relative',
+            borderBottomLeftRadius: { xs: 24, md: 0 },
+            borderBottomRightRadius: 24,
           }}
         >
+            {/* Hamburger Menu Button - Mobile Only */}
+            {isMobile && (
+              <IconButton
+                onClick={() => setMobileMenuOpen(true)}
+                size="small"
+                sx={{
+                  position: 'absolute',
+                  left: 12,
+                  top: 12,
+                  color: 'text.primary',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+              >
+                <MenuIcon fontSize="small" />
+              </IconButton>
+            )}
+
             {/* Title and Subtitle */}
-            <Box sx={{ flex: 1, pt: 1 }}>
-              <Typography variant="h5" fontWeight={600} gutterBottom>
+            <Box sx={{ flex: 1, pt: 0.5, pl: { xs: 6, md: 0 }, pr: { xs: 8, sm: 20 } }}>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ lineHeight: 1.3 }}>
                 {settingsSections.find(s => s.id === selectedSection)?.label || accountSections.find(s => s.id === selectedSection)?.label}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.5 }}>
                 {selectedSection === 'account' && 'Manage your account information and profile settings.'}
                 {selectedSection === 'userAccount' && 'Customize your app experience and interface.'}
                 {selectedSection === 'billing' && 'Manage your subscription and payment information.'}
@@ -730,7 +764,7 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
             </Box>
             
             {/* Action Buttons positioned absolutely in top-right */}
-            <Box sx={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 1 }}>
+            <Box sx={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 0.5, alignItems: 'center' }}>
               {/* Save Changes Button - only show for account section */}
               {selectedSection === 'account' && (
                 <Button
@@ -741,26 +775,30 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
+                    fontSize: '0.8125rem',
+                    px: 1.25,
+                    py: 0.25,
+                    minHeight: 28,
+                    height: 28,
                   }}
                 >
-                  {saving ? <CircularProgress size={20} color="inherit" /> : 'Save Changes'}
+                  {saving ? <CircularProgress size={16} color="inherit" /> : 'Save Changes'}
                 </Button>
               )}
 
-              {/* Close button for desktop */}
-              {!isMobile && (
-                <IconButton
-                  onClick={handleClose}
-                  sx={{
-                    color: 'text.secondary',
-                    '&:hover': {
-                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                    },
-                  }}
-                >
-                  <Close />
-                </IconButton>
-              )}
+              {/* Close Button */}
+              <IconButton
+                onClick={handleClose}
+                size="small"
+                sx={{
+                  color: 'text.secondary',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+              >
+                <Close fontSize="small" />
+              </IconButton>
             </Box>
         </Box>
       </DialogTitle>
@@ -891,5 +929,151 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
         </Box>
       </DialogContent>
     </Dialog>
+
+    {/* Mobile Settings Menu Drawer */}
+    <Drawer
+      anchor="left"
+      open={mobileMenuOpen}
+      onClose={() => setMobileMenuOpen(false)}
+      sx={{
+        zIndex: isMobile ? 10001 : 1301,
+        '& .MuiDrawer-paper': {
+          width: 280,
+          background: '#ffffff',
+        },
+      }}
+    >
+      <Box sx={{ 
+        p: 2, 
+        background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+        color: 'white'
+      }}>
+        <Typography variant="h5" fontWeight={600}>
+          Client Settings
+        </Typography>
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Client Settings */}
+        <List sx={{ flex: 1, py: 1 }}>
+          {settingsSections.map((section) => {
+            const IconComponent = section.icon;
+            const isSelected = selectedSection === section.id;
+
+            return (
+              <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  selected={isSelected}
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 2,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      color: theme.palette.primary.main,
+                      '&:hover': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      },
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.primary.main,
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 40,
+                      color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                      transition: 'color 0.2s ease-in-out',
+                    }}
+                  >
+                    <IconComponent />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={section.label}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontWeight: isSelected ? 600 : 500,
+                        fontSize: '0.95rem',
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+
+        {/* Separator */}
+        <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.1)' }} />
+
+        {/* Account Settings */}
+        <List sx={{ py: 1 }}>
+          {accountSections.map((section) => {
+            const IconComponent = section.icon;
+            const isSelected = selectedSection === section.id;
+
+            return (
+              <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  selected={isSelected}
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 2,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      color: theme.palette.primary.main,
+                      '&:hover': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      },
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.primary.main,
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 40,
+                      color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                      transition: 'color 0.2s ease-in-out',
+                    }}
+                  >
+                    <IconComponent />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={section.label}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontWeight: isSelected ? 600 : 500,
+                        fontSize: '0.95rem',
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+      </Box>
+    </Drawer>
+    </>
   );
 }
