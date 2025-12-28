@@ -24,6 +24,7 @@ const NotificationsCreative = lazy(() => import('./views/creative/NotificationsC
 const ClientDashboard = lazy(() => import('./views/client/DashClient').then(module => ({ default: module.ClientDashboard })))
 const ClientBook = lazy(() => import('./views/client/BookClient').then(module => ({ default: module.ClientBook })))
 const ClientOrders = lazy(() => import('./views/client/OrdersClient').then(module => ({ default: module.ClientOrders })))
+const PaymentRequestsClient = lazy(() => import('./views/client/PaymentRequestsClient').then(module => ({ default: module.PaymentRequestsClient })))
 const NotificationsClient = lazy(() => import('./views/client/NotificationsClient').then(module => ({ default: module.NotificationsClient })))
 const DashAdvocate = lazy(() => import('./views/advocate/DashAdvocate').then(module => ({ default: module.DashAdvocate })))
 
@@ -171,6 +172,13 @@ function AppContent() {
           <Suspense fallback={<RouteLoadingFallback />}>
             <RoleGuard requiredRole="client">
               <ClientOrders />
+            </RoleGuard>
+          </Suspense>
+        } />
+        <Route path="/client/orders/payment-requests" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="client">
+              <PaymentRequestsClient />
             </RoleGuard>
           </Suspense>
         } />

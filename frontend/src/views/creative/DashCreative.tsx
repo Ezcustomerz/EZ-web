@@ -9,6 +9,7 @@ import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
 import { useAuth } from '../../context/auth';
+import { PaymentActionsPopover } from '../../components/popovers/creative/PaymentActionsPopover';
 
 // Module-level cache to prevent duplicate fetches across remounts
 const notificationsCache = {
@@ -35,6 +36,8 @@ export function DashCreative() {
   const [dashboardStats, setDashboardStats] = useState<CreativeDashboardStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const mountedRef = useRef(true);
+  const [paymentActionsPopoverOpen, setPaymentActionsPopoverOpen] = useState(false);
+  const [paymentRequestIdToOpen, setPaymentRequestIdToOpen] = useState<string | null>(null);
 
   // Fetch dashboard stats
   useEffect(() => {
@@ -184,12 +187,50 @@ export function DashCreative() {
       setIsLoading(false);
     });
 
+    // Set up polling to refresh notifications every 10 seconds
+    const pollInterval = setInterval(() => {
+      if (!mountedRef.current || !isAuthenticated) {
+        return;
+      }
+
+      // Invalidate cache to force refresh
+      const now = Date.now();
+      notificationsCache.timestamp = now - CACHE_DURATION - 1000; // Force cache to be stale
+
+      // Fetch fresh notifications
+      const fetchPromise = (async () => {
+        try {
+          const notifications = await getNotifications(25, 0, false, 'creative');
+          const items = notificationsToActivityItems(notifications);
+          
+          // Update cache
+          notificationsCache.data = items;
+          notificationsCache.timestamp = Date.now();
+          notificationsCache.promise = null;
+          
+          if (mountedRef.current) {
+            setActivityItems(items);
+          }
+          
+          return items;
+        } catch (error) {
+          notificationsCache.promise = null;
+          // Don't update state on polling errors to avoid disrupting UI
+          return null;
+        }
+      })();
+
+      notificationsCache.promise = fetchPromise;
+    }, 10000); // Poll every 10 seconds
+
     return () => {
       mountedRef.current = false;
+      clearInterval(pollInterval);
     };
   }, [isAuthenticated]);
 
   return (
+    <Box>
     <LayoutCreative selectedNavItem="dashboard">
       {({ isSidebarOpen, creativeProfile }) => (
         <Box
@@ -231,10 +272,28 @@ export function DashCreative() {
 
           {/* Activity Feed Card */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <ActivityFeedCard items={activityItems} isLoading={isLoading} />
+            <ActivityFeedCard 
+              items={activityItems} 
+              isLoading={isLoading}
+              onOpenPaymentActionsPopover={(paymentRequestId) => {
+                setPaymentRequestIdToOpen(paymentRequestId);
+                setPaymentActionsPopoverOpen(true);
+              }}
+            />
           </Box>
         </Box>
       )}
     </LayoutCreative>
+
+    {/* Payment Actions Popover */}
+    <PaymentActionsPopover
+      open={paymentActionsPopoverOpen}
+      onClose={() => {
+        setPaymentActionsPopoverOpen(false);
+        setPaymentRequestIdToOpen(null);
+      }}
+      paymentRequestIdToOpen={paymentRequestIdToOpen}
+    />
+  </Box>
   );
 } 

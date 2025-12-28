@@ -4,18 +4,30 @@ import { Box, Typography, Button, Container, CircularProgress } from '@mui/mater
 import { CheckCircle } from '@mui/icons-material';
 import { successToast, errorToast } from '../components/toast/toast';
 import { userService } from '../api/userService';
+import { paymentRequestsService } from '../api/paymentRequestsService';
 
 export function PaymentSuccess() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const sessionId = searchParams.get('session_id');
   const bookingId = searchParams.get('booking_id');
+  const paymentRequestId = searchParams.get('payment_request_id');
   const [isVerifying, setIsVerifying] = useState(true);
   const [verificationError, setVerificationError] = useState<string | null>(null);
 
   useEffect(() => {
     const verifyPayment = async () => {
-      if (!sessionId || !bookingId) {
+      if (!sessionId) {
+        setVerificationError('Missing payment information');
+        setIsVerifying(false);
+        return;
+      }
+
+      // Determine if this is a booking payment or payment request
+      const isPaymentRequest = !!paymentRequestId;
+      const isBooking = !!bookingId;
+
+      if (!isPaymentRequest && !isBooking) {
         setVerificationError('Missing payment information');
         setIsVerifying(false);
         return;
@@ -23,13 +35,27 @@ export function PaymentSuccess() {
 
       try {
         setIsVerifying(true);
-        const result = await userService.verifyPayment(sessionId, bookingId);
         
-        if (result.success) {
-          successToast('Payment Successful', 'Your payment has been processed successfully and your order has been updated.');
+        if (isPaymentRequest) {
+          // Verify payment request
+          const result = await paymentRequestsService.verifyPaymentRequest(sessionId, paymentRequestId!);
+          
+          if (result.success) {
+            successToast('Payment Successful', 'Your payment has been processed successfully.');
+          } else {
+            setVerificationError('Payment verification failed');
+            errorToast('Verification Error', 'Unable to verify payment. Please contact support if the issue persists.');
+          }
         } else {
-          setVerificationError('Payment verification failed');
-          errorToast('Verification Error', 'Unable to verify payment. Please contact support if the issue persists.');
+          // Verify booking payment
+          const result = await userService.verifyPayment(sessionId, bookingId!);
+          
+          if (result.success) {
+            successToast('Payment Successful', 'Your payment has been processed successfully and your order has been updated.');
+          } else {
+            setVerificationError('Payment verification failed');
+            errorToast('Verification Error', 'Unable to verify payment. Please contact support if the issue persists.');
+          }
         }
       } catch (error: any) {
         console.error('Payment verification error:', error);
@@ -41,7 +67,7 @@ export function PaymentSuccess() {
     };
 
     verifyPayment();
-  }, [sessionId, bookingId]);
+  }, [sessionId, bookingId, paymentRequestId]);
 
   if (isVerifying) {
     return (
@@ -107,10 +133,16 @@ export function PaymentSuccess() {
         )}
         <Button 
           variant="contained" 
-          onClick={() => navigate('/client/orders')}
+          onClick={() => {
+            if (paymentRequestId) {
+              navigate('/client/orders/payment-requests');
+            } else {
+              navigate('/client/orders');
+            }
+          }}
           sx={{ mt: 2 }}
         >
-          Return to Orders
+          {paymentRequestId ? 'Return to Payment Requests' : 'Return to Orders'}
         </Button>
       </Box>
     </Container>

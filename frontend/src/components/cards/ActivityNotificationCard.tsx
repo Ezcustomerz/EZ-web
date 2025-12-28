@@ -222,6 +222,10 @@ function renderDescriptionWithHighlights(
         }
         return highlightText(description, serviceName, serviceColor) || description;
       }
+      // If no service, still highlight creative name if present
+      if (creativeName) {
+        return highlightText(description, creativeName, creativeAvatarColor) || description;
+      }
       break;
     case 'booking_rejected':
       if (serviceName) {
@@ -246,6 +250,10 @@ function renderDescriptionWithHighlights(
           if (result) return result;
         }
         return highlightText(description, serviceName, serviceColor) || description;
+      }
+      // If no service, still highlight client name for creative notifications
+      if (clientName) {
+        return highlightText(description, clientName, creativeAvatarColor) || description;
       }
       break;
 

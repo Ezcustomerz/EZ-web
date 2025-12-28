@@ -1,12 +1,29 @@
-import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow, Tooltip, IconButton } from '@mui/material';
+import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow, Tooltip, IconButton, Button, Badge } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
-import { useState, useEffect } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
-import { TaskAlt, HourglassEmpty, History, CheckCircle, InfoOutlined } from '@mui/icons-material';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
+import { TaskAlt, HourglassEmpty, History, CheckCircle, InfoOutlined, Payment } from '@mui/icons-material';
+import { paymentRequestsService } from '../../api/paymentRequestsService';
+import { useAuth } from '../../context/auth';
 import { AllServicesTab } from './tabs/AllOrdersTab';
 import { ActiveTab } from './tabs/ActiveTab';
 import { ActionNeededTab } from './tabs/ActionNeededTab';
 import { HistoryTab } from './tabs/HistoryTab';
+
+// Module-level cache to prevent duplicate fetches across remounts (React StrictMode)
+let paymentCountCache: {
+  promise: Promise<number> | null;
+  data: number | null;
+  timestamp: number;
+  resolved: boolean;
+} = {
+  promise: null,
+  data: null,
+  timestamp: 0,
+  resolved: false,
+};
+
+const CACHE_DURATION = 10000; // Cache for 10 seconds
 
 const tabLabels = [
   { 
@@ -33,6 +50,9 @@ const tabLabels = [
 
 export function ClientOrders() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
   const [activeTab, setActiveTab] = useState(() => {
     // Check if tab is specified in URL params
     const tabParam = searchParams.get('tab');
@@ -48,6 +68,7 @@ export function ClientOrders() {
   });
 
   const location = useLocation();
+  const mountedRef = useRef(true);
   
   // Check localStorage when component mounts or location changes (e.g., navigating from notifications)
   useEffect(() => {
@@ -68,6 +89,83 @@ export function ClientOrders() {
       }
     }
   }, [location.pathname, searchParams]); // Check when route changes
+
+  // Fetch pending payment requests count
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    if (!isAuthenticated) {
+      if (mountedRef.current) {
+        setPendingPaymentCount(0);
+      }
+      return;
+    }
+    
+    const now = Date.now();
+    const cacheAge = now - paymentCountCache.timestamp;
+    
+    // Check if cached data is still valid
+    if (paymentCountCache.resolved && paymentCountCache.data !== null && cacheAge < CACHE_DURATION) {
+      if (mountedRef.current) {
+        setPendingPaymentCount(paymentCountCache.data);
+      }
+      return;
+    }
+    
+    // Check if a promise already exists - reuse it immediately
+    if (paymentCountCache.promise) {
+      paymentCountCache.promise
+        .then(count => {
+          if (mountedRef.current) {
+            setPendingPaymentCount(count);
+          }
+        })
+        .catch(() => {
+          if (mountedRef.current) {
+            setPendingPaymentCount(0);
+          }
+        });
+      return;
+    }
+    
+    // No promise exists - create one
+    if (cacheAge >= CACHE_DURATION) {
+      paymentCountCache.data = null;
+      paymentCountCache.resolved = false;
+    }
+    
+    paymentCountCache.timestamp = now;
+    paymentCountCache.resolved = false;
+    
+    // Create promise synchronously - assign immediately
+    const fetchPromise = paymentRequestsService.getPendingPaymentRequestsCount();
+    paymentCountCache.promise = fetchPromise;
+    
+    fetchPromise
+      .then(count => {
+        paymentCountCache.data = count;
+        paymentCountCache.resolved = true;
+        paymentCountCache.promise = null;
+        
+        if (mountedRef.current) {
+          setPendingPaymentCount(count);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch pending payment count:', err);
+        paymentCountCache.data = 0;
+        paymentCountCache.resolved = true;
+        paymentCountCache.promise = null;
+        
+        if (mountedRef.current) {
+          setPendingPaymentCount(0);
+        }
+      });
+    
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [isAuthenticated]); // Only fetch when authentication status changes
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -120,34 +218,62 @@ export function ClientOrders() {
             pt: { xs: 2, sm: 2, md: 1 },
             textAlign: { xs: 'center', md: 'left' },
             px: { xs: 2, md: 0 },
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: { xs: 'center', md: 'flex-start' },
+            flexDirection: { xs: 'column', md: 'row' },
+            gap: 2,
             '@media (max-height: 784px)': {
               my: 1,
             },
           }}
         >
-          <Typography
-            variant="h4"
-            sx={{
-              fontSize: { xs: '1.3rem', sm: '1.4rem', md: '1.5rem' },
-              color: 'primary.main',
-              letterSpacing: '-0.025em',
-              lineHeight: 1.2,
-              mb: 0.25,
-            }}
-          >
-            Orders
-          </Typography>
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontSize: { xs: '0.8rem', sm: '0.85rem', md: '0.9rem' },
-              fontWeight: 400,
-              color: 'text.secondary',
-              letterSpacing: '0.01em',
-            }}
-          >
-            Manage your orders
-          </Typography>
+          <Box>
+            <Typography
+              variant="h4"
+              sx={{
+                fontSize: { xs: '1.3rem', sm: '1.4rem', md: '1.5rem' },
+                color: 'primary.main',
+                letterSpacing: '-0.025em',
+                lineHeight: 1.2,
+                mb: 0.25,
+              }}
+            >
+              Orders
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontSize: { xs: '0.8rem', sm: '0.85rem', md: '0.9rem' },
+                fontWeight: 400,
+                color: 'text.secondary',
+                letterSpacing: '0.01em',
+              }}
+            >
+              Manage your orders
+            </Typography>
+          </Box>
+          <Badge badgeContent={pendingPaymentCount} color="error" overlap="rectangular">
+            <Button
+              variant="outlined"
+              startIcon={<Payment />}
+              onClick={() => navigate('/client/orders/payment-requests')}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 2,
+                px: 2.5,
+                py: 1,
+                borderColor: theme.palette.primary.main,
+                color: theme.palette.primary.main,
+                '&:hover': {
+                  borderColor: theme.palette.primary.dark,
+                  backgroundColor: theme.palette.primary.main + '08',
+                },
+              }}
+            >
+              Payment Requests
+            </Button>
+          </Badge>
         </Box>
 
         {/* Tabs + content */}
@@ -348,17 +474,25 @@ export function ClientOrders() {
                         {tab.label}
                       </Typography>
                       <Tooltip title={tab.description} arrow placement="top">
-                        <IconButton
-                          size="small"
+                        <Box
+                          component="span"
+                          onClick={(e) => e.stopPropagation()}
                           sx={{ 
                             p: 0.25,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            borderRadius: '50%',
                             color: activeTab === idx ? theme.palette.primary.main : 'text.secondary',
-                            '&:hover': { color: theme.palette.primary.main }
+                            '&:hover': { 
+                              color: theme.palette.primary.main,
+                              backgroundColor: theme.palette.action.hover
+                            }
                           }}
-                          onClick={(e) => e.stopPropagation()}
                         >
                           <InfoOutlined sx={{ fontSize: 14 }} />
-                        </IconButton>
+                        </Box>
                       </Tooltip>
                     </Box>
                   }

@@ -86,20 +86,35 @@ export function NotificationsCreative() {
       localStorage.setItem('open-order-popover', bookingId);
       // New booking requests are typically in Current Orders (Pending Approval status)
       localStorage.setItem('activity-active-tab', '0');
-    } else if (notificationType === 'payment_received' && bookingId) {
-      // Navigate to activity page and open the specific order popover
-      navigate('/creative/activity');
-      // Store booking_id in localStorage to open popover after navigation
-      localStorage.setItem('open-order-popover', bookingId);
-      // Determine tab based on creative_status from metadata
-      // Payment received notifications could be in Current or Past Orders depending on status
-      const creativeStatus = item.metadata?.creative_status;
-      if (creativeStatus) {
-        const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
-        localStorage.setItem('activity-active-tab', tabIndex);
-      } else {
-        // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
-        localStorage.setItem('activity-active-tab', '0');
+    } else if (notificationType === 'payment_received') {
+      // Check if this is a payment request notification (not booking-related)
+      const isPaymentRequest = item.metadata?.payment_request_id || 
+                               (item.metadata?.related_entity_type === 'payment_request');
+      
+      if (isPaymentRequest) {
+        // Get payment request ID from metadata or related entity ID
+        const paymentRequestId = item.metadata?.payment_request_id || item.relatedEntityId;
+        if (paymentRequestId) {
+          // Navigate to activity page and open payment actions popover
+          navigate('/creative/activity');
+          // Store payment request ID in localStorage to open popover after navigation
+          localStorage.setItem('open-payment-actions-popover', paymentRequestId);
+        }
+      } else if (bookingId) {
+        // Navigate to activity page and open the specific order popover
+        navigate('/creative/activity');
+        // Store booking_id in localStorage to open popover after navigation
+        localStorage.setItem('open-order-popover', bookingId);
+        // Determine tab based on creative_status from metadata
+        // Payment received notifications could be in Current or Past Orders depending on status
+        const creativeStatus = item.metadata?.creative_status;
+        if (creativeStatus) {
+          const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
+          localStorage.setItem('activity-active-tab', tabIndex);
+        } else {
+          // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
+          localStorage.setItem('activity-active-tab', '0');
+        }
       }
     } else if (notificationType === 'session_completed' && bookingId) {
       // Navigate to activity page and open the specific order popover
