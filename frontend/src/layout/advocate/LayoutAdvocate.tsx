@@ -6,6 +6,8 @@ import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import { useAuth } from '../../context/auth';
 import { userService, type AdvocateProfile } from '../../api/userService';
+import { DemoSignInBar } from '../../components/dialogs/DemoSignInBar';
+import { IntentAuthGate } from '../../components/popovers/auth/IntentAuthGate';
 
 interface LayoutAdvocateProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; advocateProfile: AdvocateProfile | null }) => ReactNode);
@@ -180,6 +182,8 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       <CssBaseline />
+      {/* Show auth popover only when entering with ?auth=1 */}
+      <IntentAuthGate />
 
       <SidebarAdvocate
         isOpen={isSidebarOpen}
@@ -265,7 +269,15 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Box sx={{ 
+          flexGrow: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          minHeight: 0,
+          // Add bottom padding in demo mode to prevent content from being hidden by sign-in bar
+          // Remove padding only when sidebar is open on mobile
+          paddingBottom: (!(isMobile && isSidebarOpen) && (!userProfile || advocateProfile?.profile_source === 'demo')) ? '100px' : 0,
+        }}>
           {typeof children === 'function' ? children({ isSidebarOpen, isMobile, advocateProfile }) : children}
         </Box>
       </Box>
@@ -349,6 +361,15 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
             ariaLabel="Loading application" 
           />
         </Box>
+      )}
+
+      {/* Demo Sign-in Bar - Hidden only when sidebar is open on mobile */}
+      {!(isMobile && isSidebarOpen) && (!userProfile || advocateProfile?.profile_source === 'demo') && (
+        <DemoSignInBar 
+          sidebarWidth={isSidebarOpen ? 280 : 64} 
+          isSidebarOpen={isSidebarOpen} 
+          isMobile={isMobile} 
+        />
       )}
     </Box>
   );

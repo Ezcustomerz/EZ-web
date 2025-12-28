@@ -556,6 +556,24 @@ class BookingService {
     return response.data;
   }
 
+  async getCreativeDeliverables(): Promise<Array<{
+    id: string;
+    booking_id: string;
+    file_name: string;
+    file_type: string;
+    file_size_bytes: number;
+    file_url: string;
+    booking?: {
+      id: string;
+      service_name?: string;
+      client_name?: string;
+      created_at?: string;
+    };
+  }>> {
+    const response = await apiClient.get(`${this.bookingsUrl}/creative-deliverables`);
+    return response.data.deliverables || [];
+  }
+
   async deleteDeliverable(deliverableId: string): Promise<{ success: boolean; message: string }> {
     const response = await apiClient.delete(`${this.bookingsUrl}/deliverable/${deliverableId}`);
     return response.data;

@@ -158,6 +158,7 @@ export function RequestsTable({
   const [isProcessing, setIsProcessing] = useState(false);
   const [stripeAccountRequiredOpen, setStripeAccountRequiredOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<'account' | 'billing' | 'storage' | 'userAccount'>('account');
   const [pendingApprovalOrderId, setPendingApprovalOrderId] = useState<string | null>(null);
   const [pendingApprovalOrderAmount, setPendingApprovalOrderAmount] = useState<number | undefined>(undefined);
   const [isCheckingBankAccount, setIsCheckingBankAccount] = useState(false);
@@ -282,6 +283,11 @@ export function RequestsTable({
     setInProgressPopoverOpen(false);
     setSelectedInProgressOrder(null);
     setShowFinalizationStep(false);
+  };
+
+  const handleManageStorage = () => {
+    setSettingsInitialSection('storage');
+    setSettingsOpen(true);
   };
 
   const handleOpenCompletePopover = (order: any) => {
@@ -2302,6 +2308,7 @@ export function RequestsTable({
         uploadProgressPercent={uploadProgressPercent}
         onCancelUpload={handleCancelUpload}
         isCancelling={isCancelling}
+        onManageStorage={handleManageStorage}
       />
 
       {/* Bank Account Checking Loading Card */}
@@ -2480,6 +2487,7 @@ export function RequestsTable({
           setPendingApprovalOrderAmount(undefined);
         }}
         onOpenSettings={() => {
+          setSettingsInitialSection('billing');
           setSettingsOpen(true);
         }}
         orderAmount={pendingApprovalOrderAmount}
@@ -2510,7 +2518,7 @@ export function RequestsTable({
             }, 500);
           }
         }}
-        initialSection="billing"
+        initialSection={settingsInitialSection}
       />
     </Box>
   );

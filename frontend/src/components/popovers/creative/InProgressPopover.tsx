@@ -41,6 +41,9 @@ import { ServiceFinalizationStep } from './ServiceFinalizationStep';
 import { ClamAVScanDialog } from '../../dialogs/ClamAVScanDialog';
 import { fileScanningService } from '../../../api/fileScanningService';
 import type { FileScanResponse } from '../../../api/fileScanningService';
+import { userService, type CreativeProfile } from '../../../api/userService';
+import { errorToast } from '../../../components/toast/toast';
+import { supabase } from '../../../config/supabase';
 
 // Define Session interface locally since it's not exported
 interface Session {
@@ -115,6 +118,7 @@ export interface InProgressPopoverProps {
   uploadProgressPercent?: number;
   onCancelUpload?: () => void;
   isCancelling?: boolean;
+  onManageStorage?: () => void;
 }
 
 export function InProgressPopover({ 
@@ -126,7 +130,8 @@ export function InProgressPopover({
   onUploadProgress,
   uploadProgressPercent = 0,
   onCancelUpload,
-  isCancelling = false
+  isCancelling = false,
+  onManageStorage
 }: InProgressPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -139,11 +144,94 @@ export function InProgressPopover({
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResponse, setScanResponse] = useState<FileScanResponse | null>(null);
+  const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [actualStorageUsed, setActualStorageUsed] = useState<number>(0);
+  const [storageExceeded, setStorageExceeded] = useState(false);
 
   // Update state when prop changes
   useEffect(() => {
     setShowFinalizationStep(initialShowFinalizationStep);
   }, [initialShowFinalizationStep]);
+
+  // Fetch creative profile and calculate actual storage when popover opens
+  useEffect(() => {
+    if (open && showFinalizationStep) {
+      fetchCreativeProfileAndStorage();
+    }
+  }, [open, showFinalizationStep]);
+
+  const fetchCreativeProfileAndStorage = async () => {
+    try {
+      setLoadingProfile(true);
+      const profile = await userService.getCreativeProfile();
+      setCreativeProfile(profile);
+
+      // Calculate actual storage used from deliverables (same logic as CreativeSettingsPopover)
+      if (profile?.user_id) {
+        await calculateActualStorageUsed(profile.user_id);
+      }
+    } catch (error) {
+      console.error('Failed to fetch creative profile:', error);
+      // Don't show error toast here - storage check will handle it gracefully
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const calculateActualStorageUsed = async (userId: string) => {
+    try {
+      // Get all bookings for this creative
+      const { data: bookings, error: bookingsError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('creative_user_id', userId);
+
+      if (bookingsError) throw bookingsError;
+
+      if (!bookings || bookings.length === 0) {
+        setActualStorageUsed(0);
+        return;
+      }
+
+      // Get all deliverables for these bookings
+      const bookingIds = bookings.map(b => b.id);
+      let deliverablesData: any[] = [];
+      
+      if (bookingIds.length > 0) {
+        const { data, error: deliverablesError } = await supabase
+          .from('booking_deliverables')
+          .select('file_size_bytes, file_url')
+          .in('booking_id', bookingIds);
+
+        if (deliverablesError) throw deliverablesError;
+        deliverablesData = data || [];
+      }
+
+      // Deduplicate by file_url (same as CreativeSettingsPopover)
+      const seenFileUrls = new Set<string>();
+      const uniqueDeliverables = (deliverablesData || []).filter(deliverable => {
+        if (seenFileUrls.has(deliverable.file_url)) {
+          return false;
+        }
+        seenFileUrls.add(deliverable.file_url);
+        return true;
+      });
+
+      // Calculate actual storage used
+      const actualStorage = uniqueDeliverables.reduce((sum, deliverable) => {
+        const size = deliverable.file_size_bytes;
+        return sum + (typeof size === 'number' && !isNaN(size) ? size : 0);
+      }, 0);
+
+      setActualStorageUsed(actualStorage);
+    } catch (error) {
+      console.error('Failed to calculate actual storage used:', error);
+      // Fall back to profile value on error - use current creativeProfile state
+      const currentProfile = creativeProfile;
+      setActualStorageUsed(currentProfile?.storage_used_bytes || 0);
+    }
+  };
 
   if (!order) return null;
 
@@ -916,6 +1004,10 @@ export function InProgressPopover({
               onFilesChange={setUploadedFiles}
               onFinalize={handleFinalizeService}
               isFinalizing={isFinalizing}
+              storageUsedBytes={actualStorageUsed > 0 ? actualStorageUsed : (creativeProfile?.storage_used_bytes || 0)}
+              storageLimitBytes={creativeProfile?.storage_limit_bytes || 0}
+              onStorageExceededChange={setStorageExceeded}
+              onManageStorage={onManageStorage}
             />
           </Box>
         )}
@@ -947,11 +1039,11 @@ export function InProgressPopover({
             variant="contained"
             startIcon={isFinalizing || isUploading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <Send />}
             onClick={handleFinalizeService}
-            disabled={isFinalizing || isUploading}
+            disabled={isFinalizing || isUploading || storageExceeded}
             sx={{
-              backgroundColor: '#10b981',
+              backgroundColor: storageExceeded ? '#ef4444' : '#10b981',
               '&:hover': {
-                backgroundColor: '#059669',
+                backgroundColor: storageExceeded ? '#dc2626' : '#059669',
               },
               '&:disabled': {
                 backgroundColor: '#d1d5db',
@@ -959,7 +1051,7 @@ export function InProgressPopover({
               }
             }}
           >
-            {isUploading ? uploadProgress || 'Uploading files...' : isFinalizing ? 'Finalizing...' : 'Complete Finalization'}
+            {isUploading ? uploadProgress || 'Uploading files...' : isFinalizing ? 'Finalizing...' : storageExceeded ? 'Storage Limit Exceeded' : 'Complete Finalization'}
           </Button>
         )}
       </DialogActions>

@@ -9,6 +9,8 @@ import { userService, type ClientProfile } from '../../api/userService';
 import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import demoClientData from '../../../demoData/clientUserData.json';
+import { DemoSignInBar } from '../../components/dialogs/DemoSignInBar';
+import { IntentAuthGate } from '../../components/popovers/auth/IntentAuthGate';
 
 
 interface LayoutClientProps {
@@ -279,6 +281,8 @@ export function LayoutClient({
       overflow: 'hidden' 
     }}>
       <CssBaseline />
+      {/* Show auth popover only when entering with ?auth=1 */}
+      <IntentAuthGate />
       
       {/* Sidebar */}
       <SidebarClient
@@ -439,6 +443,9 @@ export function LayoutClient({
             }),
             // Allow content to flow naturally
             minHeight: 0,
+            // Add bottom padding in demo mode to prevent content from being hidden by sign-in bar
+            // Remove padding only when sidebar is open on mobile
+            paddingBottom: (!(isMobile && isSidebarOpen) && (!userProfile || clientProfile?.profile_source === 'demo')) ? '100px' : 0,
           }}
         >
           {typeof children === 'function' 
@@ -472,6 +479,15 @@ export function LayoutClient({
             ariaLabel="Loading application" 
           />
         </Box>
+      )}
+
+      {/* Demo Sign-in Bar - Hidden only when sidebar is open on mobile */}
+      {!(isMobile && isSidebarOpen) && (!userProfile || clientProfile?.profile_source === 'demo') && (
+        <DemoSignInBar 
+          sidebarWidth={isSidebarOpen ? 280 : 64} 
+          isSidebarOpen={isSidebarOpen} 
+          isMobile={isMobile} 
+        />
       )}
     </Box>
   );

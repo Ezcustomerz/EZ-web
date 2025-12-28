@@ -32,9 +32,11 @@ import {
   LinearProgress,
   Skeleton,
   DialogActions,
+  Drawer,
 } from '@mui/material';
 import {
   Close,
+  Menu as MenuIcon,
   Person,
   Settings,
   CreditCard,
@@ -194,6 +196,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuthenticated } = useAuth();
   const [selectedSection, setSelectedSection] = useState<SettingsSection>(initialSection);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Update selected section when initialSection prop changes
   useEffect(() => {
@@ -285,6 +288,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     };
   }>>([]);
   const [loadingDeliverables, setLoadingDeliverables] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
   const [deletingDeliverableId, setDeletingDeliverableId] = useState<string | null>(null);
   
   // Fetch creative profile and services when popover opens
@@ -301,12 +305,19 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     }
   }, [open, isAuthenticated, selectedSection]);
 
-  // Fetch deliverables when storage section is selected
+  // Reset fetch attempt flag when section changes away from storage or popover closes
   useEffect(() => {
-    if (open && isAuthenticated && selectedSection === 'storage') {
+    if (selectedSection !== 'storage' || !open) {
+      setHasAttemptedFetch(false);
+    }
+  }, [selectedSection, open]);
+
+  // Fetch deliverables when storage section is selected and creative profile is loaded
+  useEffect(() => {
+    if (open && isAuthenticated && selectedSection === 'storage' && creativeProfile?.user_id) {
       fetchDeliverables();
     }
-  }, [open, isAuthenticated, selectedSection]);
+  }, [open, isAuthenticated, selectedSection, creativeProfile]);
   
   // Update form data when creative profile loads
   useEffect(() => {
@@ -616,62 +627,18 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const fetchDeliverables = async () => {
     try {
       setLoadingDeliverables(true);
+      setHasAttemptedFetch(true);
       
-      // Get all bookings for this creative with service info
-      const { data: bookings, error: bookingsError } = await supabase
-        .from('bookings')
-        .select(`
-          id,
-          service_id,
-          client_user_id,
-          created_at,
-          creative_services!inner(title)
-        `)
-        .eq('creative_user_id', creativeProfile?.user_id || '')
-        .order('created_at', { ascending: false });
-
-      if (bookingsError) throw bookingsError;
-
-      if (!bookings || bookings.length === 0) {
+      // Check if we have a valid user_id before querying
+      if (!creativeProfile?.user_id) {
         setDeliverables([]);
         return;
       }
-
-      // Get client names
-      const clientUserIds = [...new Set(bookings.map(b => b.client_user_id).filter(Boolean))];
-      const { data: users } = await supabase
-        .from('users')
-        .select('user_id, name')
-        .in('user_id', clientUserIds);
-
-      const usersMap = new Map(users?.map(u => [u.user_id, u.name]) || []);
-
-      // Get all deliverables for these bookings
-      const bookingIds = bookings.map(b => b.id);
-      const { data: deliverablesData, error: deliverablesError } = await supabase
-        .from('booking_deliverables')
-        .select('id, booking_id, file_name, file_type, file_size_bytes, file_url')
-        .in('booking_id', bookingIds)
-        .order('created_at', { ascending: false });
-
-      if (deliverablesError) throw deliverablesError;
-
-      // Combine deliverables with booking info
-      const deliverablesWithBooking = (deliverablesData || []).map(deliverable => {
-        const booking = bookings.find(b => b.id === deliverable.booking_id);
-        const serviceTitle = (booking as any)?.creative_services?.title || 'Service';
-        return {
-          ...deliverable,
-          booking: booking ? {
-            id: booking.id,
-            service_name: serviceTitle,
-            client_name: usersMap.get(booking.client_user_id) || 'Unknown Client',
-            created_at: booking.created_at,
-          } : undefined,
-        };
-      });
-
-      setDeliverables(deliverablesWithBooking);
+      
+      // Fetch deliverables from backend API (single optimized request)
+      const deliverablesData = await bookingService.getCreativeDeliverables();
+      
+      setDeliverables(deliverablesData);
     } catch (error) {
       console.error('Failed to fetch deliverables:', error);
       errorToast('Failed to load deliverables');
@@ -680,7 +647,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     }
   };
 
-  const handleDeleteDeliverable = async (deliverableId: string, fileUrl: string) => {
+  const handleDeleteDeliverable = async (deliverableId: string) => {
     if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
       return;
     }
@@ -1752,7 +1719,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                     )}
                   </Box>
 
-                  {loadingDeliverables ? (
+                  {(loadingDeliverables || (selectedSection === 'storage' && !hasAttemptedFetch && creativeProfile?.user_id)) ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {[1, 2, 3].map((i) => (
                         <Skeleton key={i} variant="rectangular" height={60} sx={{ borderRadius: 1 }} />
@@ -1794,7 +1761,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                                   <IconButton
                                     edge="end"
                                     size="small"
-                                    onClick={() => handleDeleteDeliverable(deliverable.id, deliverable.file_url)}
+                                    onClick={() => handleDeleteDeliverable(deliverable.id)}
                                     disabled={deletingDeliverableId === deliverable.id}
                                     sx={{
                                       color: 'error.main',
@@ -2060,6 +2027,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
           display: 'flex',
           alignItems: 'stretch',
           minHeight: 72,
+          position: 'relative',
+          zIndex: 1,
+          overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
         }}
       >
         {/* Blue header section - only extends to sidebar width */}
@@ -2074,6 +2047,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             px: 3,
             py: 2,
             borderBottom: { xs: '1px solid rgba(255, 255, 255, 0.1)', md: 'none' },
+            borderBottomLeftRadius: 24,
           }}
         >
           <Typography variant="h5" fontWeight={600}>
@@ -2099,20 +2073,43 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         <Box
           sx={{
             flex: 1,
+            width: { xs: '100%', md: 'auto' },
             display: 'flex',
             flexDirection: 'column',
             px: 3,
             py: 2,
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(10px)',
+            position: 'relative',
+            borderBottomLeftRadius: { xs: 24, md: 0 },
+            borderBottomRightRadius: 24,
           }}
         >
+            {/* Hamburger Menu Button - Mobile Only */}
+            {isMobile && (
+              <IconButton
+                onClick={() => setMobileMenuOpen(true)}
+                size="small"
+                sx={{
+                  position: 'absolute',
+                  left: 12,
+                  top: 12,
+                  color: 'text.primary',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                  },
+                }}
+              >
+                <MenuIcon fontSize="small" />
+              </IconButton>
+            )}
+
             {/* Title and Subtitle */}
-            <Box sx={{ flex: 1, pt: 1 }}>
-              <Typography variant="h5" fontWeight={600} gutterBottom>
+            <Box sx={{ flex: 1, pt: 0.5, pl: { xs: 6, md: 0 }, pr: { xs: 8, sm: 20 } }}>
+              <Typography variant="h5" fontWeight={700} gutterBottom sx={{ lineHeight: 1.3 }}>
                 {[...settingsSections, ...accountSections].find(s => s.id === selectedSection)?.label}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.5 }}>
                 {selectedSection === 'account' && 'Manage your account information and profile settings.'}
                 {selectedSection === 'billing' && 'Manage your subscription and payment information.'}
                 {selectedSection === 'storage' && 'Manage your storage and file management settings.'}
@@ -2121,7 +2118,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             </Box>
             
             {/* Action Buttons positioned absolutely in top-right */}
-            <Box sx={{ position: 'absolute', top: 16, right: 16, display: 'flex', gap: 1 }}>
+            <Box sx={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 0.5, alignItems: 'center' }}>
               {/* Save Changes Button - only show for account section */}
               {selectedSection === 'account' && (
                 <Button
@@ -2132,6 +2129,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   sx={{
                     textTransform: 'none',
                     fontWeight: 600,
+                    fontSize: '0.8125rem',
+                    px: 1.25,
+                    py: 0.25,
+                    minHeight: 28,
+                    height: 28,
                   }}
                 >
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -2141,6 +2143,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
               {/* Close Button */}
               <IconButton
                 onClick={handleClose}
+                size="small"
                 sx={{
                   color: 'text.secondary',
                   '&:hover': {
@@ -2148,7 +2151,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   },
                 }}
               >
-                <Close />
+                <Close fontSize="small" />
               </IconButton>
             </Box>
           </Box>
@@ -2390,6 +2393,151 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         </Button>
       </DialogActions>
     </Dialog>
+
+    {/* Mobile Settings Menu Drawer */}
+    <Drawer
+      anchor="left"
+      open={mobileMenuOpen}
+      onClose={() => setMobileMenuOpen(false)}
+      sx={{
+        zIndex: isMobile ? 10001 : 1301,
+        '& .MuiDrawer-paper': {
+          width: 280,
+          background: '#ffffff',
+        },
+      }}
+    >
+      <Box sx={{ 
+        p: 2, 
+        background: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
+        color: 'white'
+      }}>
+        <Typography variant="h5" fontWeight={600}>
+          Creative Settings
+        </Typography>
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* Creative Role Settings */}
+        <List sx={{ flex: 1, py: 1 }}>
+          {settingsSections.map((section) => {
+            const IconComponent = section.icon;
+            const isSelected = selectedSection === section.id;
+
+            return (
+              <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  selected={isSelected}
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 2,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      color: theme.palette.primary.main,
+                      '&:hover': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      },
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.primary.main,
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 40,
+                      color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                      transition: 'color 0.2s ease-in-out',
+                    }}
+                  >
+                    <IconComponent />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={section.label}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontWeight: isSelected ? 600 : 500,
+                        fontSize: '0.95rem',
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+
+        {/* Separator */}
+        <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.1)' }} />
+
+        {/* Account-Specific Settings */}
+        <List sx={{ py: 1 }}>
+          {accountSections.map((section) => {
+            const IconComponent = section.icon;
+            const isSelected = selectedSection === section.id;
+
+            return (
+              <ListItem key={section.id} disablePadding sx={{ px: 2, mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => {
+                    setSelectedSection(section.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  selected={isSelected}
+                  sx={{
+                    borderRadius: 2,
+                    py: 1.5,
+                    px: 2,
+                    transition: 'all 0.2s ease-in-out',
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                      color: theme.palette.primary.main,
+                      '&:hover': {
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      },
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.primary.main,
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    },
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 40,
+                      color: isSelected ? theme.palette.primary.main : 'text.secondary',
+                      transition: 'color 0.2s ease-in-out',
+                    }}
+                  >
+                    <IconComponent />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={section.label}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontWeight: isSelected ? 600 : 500,
+                        fontSize: '0.95rem',
+                      },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+      </Box>
+    </Drawer>
     </>
   );
 }
