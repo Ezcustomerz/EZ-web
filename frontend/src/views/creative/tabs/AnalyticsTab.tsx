@@ -352,8 +352,8 @@ export function AnalyticsTab() {
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Handle upgrade click
-                        console.log('Upgrade clicked');
+                        // Dispatch custom event to open subscription tiers popover
+                        window.dispatchEvent(new CustomEvent('openSubscriptionTiers'));
                       }}
                     >
                       Upgrade
