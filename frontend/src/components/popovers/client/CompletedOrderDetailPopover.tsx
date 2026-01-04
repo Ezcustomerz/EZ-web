@@ -38,7 +38,7 @@ import {
   Visibility,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
@@ -116,6 +116,143 @@ export function CompletedOrderDetailPopover({
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<string>('');
   const [downloadingFileIndex, setDownloadingFileIndex] = useState<number>(-1);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  
+  // Preserve files in local state to prevent them from disappearing after download
+  // This ensures files remain visible even if the parent component refreshes
+  const [preservedFiles, setPreservedFiles] = useState<CompletedFile[]>(() => {
+    const initialFiles = order?.files && Array.isArray(order.files) && order.files.length > 0 ? order.files : [];
+    console.log('[CompletedOrderDetailPopover] Initial files:', initialFiles, 'from order:', order);
+    return initialFiles;
+  });
+  const [preservedFileCount, setPreservedFileCount] = useState<number | null>(() => {
+    const count = order?.fileCount ?? (order?.files && Array.isArray(order.files) ? order.files.length : null);
+    console.log('[CompletedOrderDetailPopover] Initial fileCount:', count, 'from order:', order);
+    return count;
+  });
+  const [preservedFileSize, setPreservedFileSize] = useState<string | null>(() => {
+    const size = order?.fileSize ?? null;
+    console.log('[CompletedOrderDetailPopover] Initial fileSize:', size, 'from order:', order);
+    return size;
+  });
+
+  // Fetch files when popover opens if they're not already present
+  useEffect(() => {
+    if (open && order && order.id && preservedFiles.length === 0 && (!order.files || order.files.length === 0)) {
+      console.log('[CompletedOrderDetailPopover] Popover opened, fetching files for order:', order.id);
+      setIsLoadingFiles(true);
+      const fetchFiles = async () => {
+        try {
+          // Try to get files by calling the download batch endpoint (it will return file info even if download fails)
+          const response = await bookingService.downloadDeliverablesBatch(order.id);
+          console.log('[CompletedOrderDetailPopover] Download batch response:', response);
+          
+          if (response.files && response.files.length > 0) {
+            const fetchedFiles: CompletedFile[] = response.files.map(f => ({
+              id: f.deliverable_id,
+              name: f.file_name,
+              type: 'file', // Default type since API doesn't return it
+              size: 'N/A'
+            }));
+            console.log('[CompletedOrderDetailPopover] Fetched available files from API:', fetchedFiles);
+            setPreservedFiles(fetchedFiles);
+            setPreservedFileCount(response.total_files);
+            setPreservedFileSize(null);
+          } else if (response.unavailable_files && response.unavailable_files.length > 0) {
+            // Even if files are unavailable, show them so user knows they exist
+            const unavailableFiles: CompletedFile[] = response.unavailable_files.map(f => ({
+              id: f.deliverable_id,
+              name: f.file_name,
+              type: 'file',
+              size: 'N/A'
+            }));
+            console.log('[CompletedOrderDetailPopover] Found unavailable files:', unavailableFiles);
+            setPreservedFiles(unavailableFiles);
+            setPreservedFileCount(response.total_deliverables || response.unavailable_files.length);
+            setPreservedFileSize(null);
+          } else if (response.total_deliverables && response.total_deliverables > 0) {
+            // If total_deliverables > 0 but no files returned, files might be missing from storage
+            console.log('[CompletedOrderDetailPopover] Total deliverables:', response.total_deliverables, 'but no files returned');
+          }
+        } catch (error) {
+          console.error('[CompletedOrderDetailPopover] Failed to fetch files:', error);
+        } finally {
+          setIsLoadingFiles(false);
+        }
+      };
+      fetchFiles();
+    } else if (open && (preservedFiles.length > 0 || (order?.files && order.files.length > 0))) {
+      // If we already have files, don't show loading
+      setIsLoadingFiles(false);
+    }
+  }, [open, order?.id, preservedFiles.length, order?.files]);
+
+  // Update preserved files when order changes, but only if order has files
+  // This prevents files from disappearing if order.files becomes empty temporarily
+  useEffect(() => {
+    if (order) {
+      console.log('[CompletedOrderDetailPopover] Order changed:', {
+        orderId: order.id,
+        hasFiles: !!order.files,
+        filesLength: order.files?.length || 0,
+        files: order.files,
+        fileCount: order.fileCount,
+        fileSize: order.fileSize,
+        preservedFilesLength: preservedFiles.length
+      });
+      
+      // If order has files, update preserved state
+      if (order.files && Array.isArray(order.files) && order.files.length > 0) {
+        console.log('[CompletedOrderDetailPopover] Updating preserved files from order');
+        setPreservedFiles(order.files);
+        setPreservedFileCount(order.fileCount ?? order.files.length);
+        setPreservedFileSize(order.fileSize ?? null);
+      }
+      // If order doesn't have files but we have preserved files, keep the preserved files
+      // This prevents files from disappearing after download when parent refreshes
+    }
+  }, [order, preservedFiles.length]);
+
+  // Use preserved files if available, otherwise fall back to order files
+  // This ensures files are always shown if they exist in either location
+  const displayFiles = useMemo(() => {
+    // Prioritize preserved files if they exist
+    if (preservedFiles.length > 0) {
+      return preservedFiles;
+    }
+    // Fall back to order files if preserved is empty
+    if (order?.files && order.files.length > 0) {
+      return order.files;
+    }
+    // Return empty array if neither has files
+    return [];
+  }, [preservedFiles, order?.files]);
+
+  const displayFileCount = useMemo(() => {
+    // Prioritize preserved count if it exists
+    if (preservedFileCount !== null && preservedFileCount > 0) {
+      return preservedFileCount;
+    }
+    // Fall back to order count
+    if (order?.fileCount !== null && order.fileCount !== undefined && order.fileCount > 0) {
+      return order.fileCount;
+    }
+    // Return null if neither has a valid count
+    return displayFiles.length > 0 ? displayFiles.length : null;
+  }, [preservedFileCount, order?.fileCount, displayFiles.length]);
+
+  const displayFileSize = useMemo(() => {
+    // Prioritize preserved size if it exists
+    if (preservedFileSize !== null && preservedFileSize !== 'N/A') {
+      return preservedFileSize;
+    }
+    // Fall back to order size
+    if (order?.fileSize !== null && order.fileSize !== undefined && order.fileSize !== 'N/A') {
+      return order.fileSize;
+    }
+    // Return null if neither has a valid size
+    return null;
+  }, [preservedFileSize, order?.fileSize]);
 
   if (!order) return null;
 
@@ -318,7 +455,7 @@ export function CompletedOrderDetailPopover({
   };
 
   const handleDownloadAll = async () => {
-    if (!order.files || order.files.length === 0) {
+    if (!displayFiles || displayFiles.length === 0) {
       alert('No files available to download.');
       return;
     }
@@ -335,11 +472,34 @@ export function CompletedOrderDetailPopover({
       if (onDownloadProgress) onDownloadProgress('Getting downloads...');
       const response = await bookingService.downloadDeliverablesBatch(order.id);
       
-      if (!response.success || !response.files || response.files.length === 0) {
+      // Check if there are any available files
+      const availableFiles = response.files || [];
+      const unavailableFiles = response.unavailable_files || [];
+      
+      if (availableFiles.length === 0 && unavailableFiles.length > 0) {
+        // All files are unavailable
+        const fileNames = unavailableFiles.map(f => f.file_name).join(', ');
+        alert(`The following files are not available for download (they may have been deleted or never uploaded successfully):\n\n${fileNames}\n\nPlease contact support if you need these files.`);
+        setIsDownloading(false);
+        setDownloadProgress('');
+        return;
+      }
+      
+      if (availableFiles.length === 0) {
         alert('No files available to download.');
         setIsDownloading(false);
         setDownloadProgress('');
         return;
+      }
+      
+      // Show warning if some files are unavailable
+      if (unavailableFiles.length > 0) {
+        const fileNames = unavailableFiles.map(f => f.file_name).join(', ');
+        console.warn(`Some files are unavailable: ${fileNames}`);
+        // Optionally show a non-blocking notification
+        if (onDownloadProgress) {
+          onDownloadProgress(`Note: ${unavailableFiles.length} file(s) unavailable. Downloading ${availableFiles.length} available file(s)...`);
+        }
       }
 
       // Download all files using the signed URLs
@@ -584,8 +744,8 @@ export function CompletedOrderDetailPopover({
               </Box>
               <LinearProgress sx={{ mb: 1 }} />
               <Typography variant="caption" color="text.secondary">
-                {downloadingFileIndex >= 0 && order.files && order.files.length > 1
-                  ? `Downloading file ${downloadingFileIndex + 1} of ${order.files.length}`
+                {downloadingFileIndex >= 0 && displayFiles && displayFiles.length > 1
+                  ? `Downloading file ${downloadingFileIndex + 1} of ${displayFiles.length}`
                   : 'Please wait while your files are being downloaded.'}
               </Typography>
             </Box>
@@ -781,7 +941,7 @@ export function CompletedOrderDetailPopover({
                   Deliverable Files
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  {order.fileCount} file{order.fileCount !== 1 ? 's' : ''} • {order.fileSize}
+                  {displayFileCount || 0} file{(displayFileCount || 0) !== 1 ? 's' : ''} • {displayFileSize || 'N/A'}
                 </Typography>
               </Box>
               {!filesExpired && (
@@ -839,15 +999,23 @@ export function CompletedOrderDetailPopover({
                 borderRadius: 2,
                 p: 0,
               }}>
-                {order.files.map((file, index) => (
-                  <ListItem
-                    key={file.id}
-                    sx={{
-                      borderBottom: index < order.files.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
-                      '&:hover': {
-                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-                      },
-                    }}
+                {isLoadingFiles ? (
+                  <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <CircularProgress size={40} />
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Loading files...
+                    </Typography>
+                  </Box>
+                ) : displayFiles.length > 0 ? (
+                  displayFiles.map((file, index) => (
+                    <ListItem
+                      key={file.id}
+                      sx={{
+                        borderBottom: index < displayFiles.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
+                        '&:hover': {
+                          bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                        },
+                      }}
                     secondaryAction={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {isViewableFile(file.type) && (
@@ -903,7 +1071,14 @@ export function CompletedOrderDetailPopover({
                       }
                     />
                   </ListItem>
-                ))}
+                  ))
+                ) : (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      No files available
+                    </Typography>
+                  </Box>
+                )}
               </List>
             )}
           </Box>

@@ -115,17 +115,48 @@ class FinalizationService:
             # Save files if provided
             if has_files:
                 deliverables_data = []
+                # Get existing file URLs for this booking to prevent duplicates
+                existing_deliverables = db_admin.table('booking_deliverables')\
+                    .select('file_url')\
+                    .eq('booking_id', booking_id)\
+                    .execute()
+                
+                existing_file_urls = set()
+                if existing_deliverables.data:
+                    existing_file_urls = {d.get('file_url') for d in existing_deliverables.data if d.get('file_url')}
+                
                 for file_info in finalize_request.files:
+                    file_url = file_info.get('url') or file_info.get('file_url')
+                    
+                    # Skip if file with this file_url already exists for this booking
+                    if file_url and file_url in existing_file_urls:
+                        logger.warning(f"File with file_url '{file_url}' already exists for booking {booking_id}, skipping duplicate insertion")
+                        continue
+                    
                     deliverables_data.append({
                         'booking_id': booking_id,
-                        'file_url': file_info.get('url') or file_info.get('file_url'),
+                        'file_url': file_url,
                         'file_name': file_info.get('name') or file_info.get('file_name'),
                         'file_size_bytes': file_info.get('size') or file_info.get('file_size_bytes'),
                         'file_type': file_info.get('type') or file_info.get('file_type')
                     })
+                    
+                    # Add to existing set to prevent duplicates within the same batch
+                    if file_url:
+                        existing_file_urls.add(file_url)
                 
                 if deliverables_data:
-                    db_admin.table('booking_deliverables').insert(deliverables_data).execute()
+                    try:
+                        db_admin.table('booking_deliverables').insert(deliverables_data).execute()
+                    except Exception as insert_error:
+                        error_str = str(insert_error)
+                        # Check if it's a unique constraint violation (duplicate file_url)
+                        if 'unique' in error_str.lower() or 'duplicate' in error_str.lower() or 'already exists' in error_str.lower():
+                            logger.warning(f"Some files already exist for booking {booking_id}, skipping duplicates: {error_str}")
+                            # This is okay - the files already exist, continue with status update
+                        else:
+                            logger.error(f"Failed to insert deliverables for booking {booking_id}: {error_str}")
+                            raise HTTPException(status_code=500, detail=f"Failed to save deliverables: {error_str}")
             
             # Update booking statuses
             update_data = {

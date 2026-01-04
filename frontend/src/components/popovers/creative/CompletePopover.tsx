@@ -32,10 +32,12 @@ import {
   Star
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { CalendarSessionDetailPopover } from './CalendarSessionDetailPopover';
+import { CircularProgress } from '@mui/material';
+import { bookingService } from '../../../api/bookingService';
 
 // Define Session interface locally since it's not exported
 interface Session {
@@ -123,6 +125,65 @@ export function CompletePopover({
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [bookingDetailOpen, setBookingDetailOpen] = useState(false);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  const [preservedFiles, setPreservedFiles] = useState<Array<{
+    id: string;
+    name: string;
+    type: string;
+    size: string;
+    downloaded_at?: string | null;
+  }>>(() => {
+    return order?.files && Array.isArray(order.files) && order.files.length > 0 ? order.files : [];
+  });
+
+  // Fetch files when popover opens if they're not already present
+  useEffect(() => {
+    if (open && order && order.id && preservedFiles.length === 0 && (!order.files || order.files.length === 0)) {
+      setIsLoadingFiles(true);
+      const fetchFiles = async () => {
+        try {
+          const response = await bookingService.downloadDeliverablesBatch(order.id);
+          
+          if (response.files && response.files.length > 0) {
+            const fetchedFiles = response.files.map(f => ({
+              id: f.deliverable_id,
+              name: f.file_name,
+              type: 'file',
+              size: 'N/A',
+              downloaded_at: null
+            }));
+            setPreservedFiles(fetchedFiles);
+          } else if (response.unavailable_files && response.unavailable_files.length > 0) {
+            const unavailableFiles = response.unavailable_files.map(f => ({
+              id: f.deliverable_id,
+              name: f.file_name,
+              type: 'file',
+              size: 'N/A',
+              downloaded_at: null
+            }));
+            setPreservedFiles(unavailableFiles);
+          }
+        } catch (error) {
+          console.error('[CompletePopover] Failed to fetch files:', error);
+        } finally {
+          setIsLoadingFiles(false);
+        }
+      };
+      fetchFiles();
+    } else if (open && (preservedFiles.length > 0 || (order?.files && order.files.length > 0))) {
+      setIsLoadingFiles(false);
+    }
+  }, [open, order?.id, preservedFiles.length, order?.files]);
+
+  // Update preserved files when order changes, but only if order has files
+  useEffect(() => {
+    if (order && order.files && Array.isArray(order.files) && order.files.length > 0) {
+      setPreservedFiles(order.files);
+    }
+  }, [order]);
+
+  // Use preserved files if available, otherwise fall back to order files
+  const displayFiles = preservedFiles.length > 0 ? preservedFiles : (order?.files || []);
 
   if (!order) return null;
 
@@ -750,14 +811,22 @@ export function CompletePopover({
           )}
 
           {/* Files Download Status - Only show when files were actually returned */}
-          {order.files && order.files.length > 0 && (
+          {(displayFiles.length > 0 || isLoadingFiles) && (
             <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
                   Client File Download Status
                 </Typography>
-                <Stack spacing={1.5}>
-                  {order.files.map((file) => {
+                {isLoadingFiles ? (
+                  <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <CircularProgress size={40} />
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      Loading files...
+                    </Typography>
+                  </Box>
+                ) : displayFiles.length > 0 ? (
+                  <Stack spacing={1.5}>
+                    {displayFiles.map((file) => {
                     const isDownloaded = file.downloaded_at !== null && file.downloaded_at !== undefined;
                     const downloadDate = file.downloaded_at ? new Date(file.downloaded_at).toLocaleDateString('en-US', { 
                       month: 'short', 
@@ -824,7 +893,14 @@ export function CompletePopover({
                       </Box>
                     );
                   })}
-                </Stack>
+                  </Stack>
+                ) : (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      No files available
+                    </Typography>
+                  </Box>
+                )}
               </CardContent>
             </Card>
           )}
