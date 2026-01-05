@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   List,
@@ -106,6 +106,19 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
   function handleLogoClick() {
     window.location.href = '/';
   }
+
+  // Close user menu when subscription tiers popover opens
+  useEffect(() => {
+    const handleCloseMenu = () => {
+      setUserMenuAnchor(null);
+    };
+
+    window.addEventListener('openSubscriptionTiers', handleCloseMenu);
+    
+    return () => {
+      window.removeEventListener('openSubscriptionTiers', handleCloseMenu);
+    };
+  }, []);
 
   return (
     <>
@@ -514,27 +527,32 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                       Storage
                     </Typography>
                                                                <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                          size="small"
-                          onClick={onOpenSubscriptionTiers}
-                          sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                            color: 'white',
-                            px: 1,
-                            py: 0.25,
-                            minWidth: 'auto',
-                            fontSize: '0.7rem',
-                            fontWeight: 600,
-                            borderRadius: 1.5,
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': {
-                              backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                              transform: 'translateY(-1px)',
-                            },
-                          }}
-                        >
-                          Upgrade
-                        </Button>
+                      <Button
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onOpenSubscriptionTiers) {
+                            onOpenSubscriptionTiers();
+                          }
+                        }}
+                        sx={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                          color: 'white',
+                          px: 1,
+                          py: 0.25,
+                          minWidth: 'auto',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          borderRadius: 1.5,
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                            transform: 'translateY(-1px)',
+                          },
+                        }}
+                      >
+                        Upgrade
+                      </Button>
                       </Box>
                   </Box>
                   

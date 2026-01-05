@@ -31,25 +31,28 @@ interface SubscriptionTiersPopoverProps {
 
 // Helper function to map subscription tier to icon, color, and metadata based on position
 // Tiers are ordered by price (ascending) from the API
-const getTierMetadata = (index: number, totalTiers: number) => {
+const getTierMetadata = (index: number, totalTiers: number, tierName: string) => {
+  // Check if this tier is named "Growth" - this should be the popular one
+  const isGrowthTier = tierName.toLowerCase().includes('growth');
+  
   // First tier (lowest price) - Basic/Plain tier
   if (index === 0) {
     return {
       icon: Star,
       color: '#10B981',
       gradient: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-      subtitle: 'Start for completely free',
-      popular: false,
+      subtitle: isGrowthTier ? 'Most Popular' : 'Start for completely free',
+      popular: isGrowthTier,
     };
   }
-  // Second tier (middle price) - Growth tier
+  // Second tier (middle price) - Growth tier (most common position)
   else if (index === 1 && totalTiers >= 2) {
     return {
       icon: TrendingUp,
       color: '#3B82F6',
       gradient: 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)',
-      subtitle: 'Most Popular',
-      popular: true,
+      subtitle: isGrowthTier ? 'Most Popular' : 'Enhanced Features',
+      popular: isGrowthTier,
     };
   }
   // Third tier or higher (highest price) - Pro tier
@@ -58,8 +61,8 @@ const getTierMetadata = (index: number, totalTiers: number) => {
       icon: Diamond,
       color: '#8B5CF6',
       gradient: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
-      subtitle: 'Professional',
-      popular: false,
+      subtitle: isGrowthTier ? 'Most Popular' : 'Professional',
+      popular: isGrowthTier,
     };
   }
 };
@@ -114,27 +117,31 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
       maxWidth="md"
       fullWidth
       fullScreen={isMobile}
+      sx={{
+        zIndex: 1400,
+      }}
       PaperProps={{
         sx: {
           borderRadius: isMobile ? 0 : 3,
           m: 0,
           maxHeight: isMobile ? '100vh' : '90vh',
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          background: 'linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%)',
           boxShadow: isMobile 
             ? 'none' 
-            : '0 25px 50px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)',
-          overflow: 'visible',
+            : '0 25px 50px rgba(51, 65, 85, 0.15), 0 0 0 1px rgba(51, 65, 85, 0.05)',
+          overflow: isMobile ? 'hidden' : 'visible',
           position: 'relative',
           ...(isMobile && {
             height: '100vh',
-            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           }),
         },
       }}
       slotProps={{
         backdrop: {
           sx: {
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
             backdropFilter: 'blur(4px)',
           },
         },
@@ -148,11 +155,11 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
           pb: 2,
           pt: 3,
           px: 3,
-          background: 'linear-gradient(135deg, rgba(61, 46, 31, 0.85) 0%, rgba(74, 58, 42, 0.85) 100%)',
+          background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
           color: 'white',
           borderRadius: isMobile ? 0 : '12px 12px 0 0',
           overflow: 'hidden',
-          boxShadow: '0 2px 8px rgba(61, 46, 31, 0.3)',
+          boxShadow: '0 4px 12px rgba(51, 65, 85, 0.25)',
           position: 'relative',
           zIndex: 1,
           ...(!isMobile && {
@@ -167,7 +174,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
               left: '-2px',
               right: '-2px',
               bottom: 0,
-              background: 'linear-gradient(135deg, rgba(61, 46, 31, 0.85) 0%, rgba(74, 58, 42, 0.85) 100%)',
+              background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
               borderRadius: '12px 12px 0 0',
               zIndex: -1,
             },
@@ -191,7 +198,17 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ p: { xs: 2, sm: 3 }, pt: 3 }}>
+      <DialogContent sx={{ 
+        p: { xs: 2, sm: 3 }, 
+        pt: 3, 
+        overflow: isMobile ? 'auto' : 'visible', 
+        position: 'relative',
+        ...(isMobile && {
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+        }),
+      }}>
         {loadingTiers ? (
           <Box>
             {/* Mobile Skeleton View */}
@@ -305,16 +322,17 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                   px: 3,
                   py: 0.75,
                   borderRadius: '20px',
-                  background: 'linear-gradient(135deg, rgba(61, 46, 31, 0.85) 0%, rgba(74, 58, 42, 0.85) 100%)',
+                  background: 'linear-gradient(135deg, rgba(51, 65, 85, 0.15) 0%, rgba(30, 41, 59, 0.15) 100%)',
                   textAlign: 'center',
-                  boxShadow: '0 2px 8px rgba(61, 46, 31, 0.3)',
+                  border: '1px solid rgba(51, 65, 85, 0.25)',
+                  boxShadow: '0 2px 8px rgba(51, 65, 85, 0.1)',
                 }}
               >
                 <Typography 
                   variant="body2" 
                   sx={{ 
                     fontSize: '0.9rem', 
-                    color: '#fff', 
+                    color: '#334155', 
                     fontWeight: 700,
                     textAlign: 'center',
                   }}
@@ -325,21 +343,23 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
             </Box>
             
             {/* Mobile View - Stacked Cards */}
-            <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
+            <Box sx={{ 
+              display: { xs: 'block', sm: 'none' }, 
+              position: 'relative',
+              overflow: 'visible',
+              pb: 2,
+            }}>
               {subscriptionTiers.map((tier, index) => {
-                const metadata = getTierMetadata(index, subscriptionTiers.length);
+                const metadata = getTierMetadata(index, subscriptionTiers.length, tier.name);
                 const IconComponent = metadata.icon;
                 const isCurrentTier = currentTierId === tier.id;
                 
                 return (
-                  <Box key={tier.id} sx={{ mb: 2 }}>
+                  <Box key={tier.id} sx={{ mb: 2, isolation: 'isolate' }}>
                     <Box 
                       sx={{ 
                         position: 'relative',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        '&:hover': {
-                          transform: 'translateY(-4px) scale(1.01)',
-                        },
+                        isolation: 'isolate',
                       }}
                     >
                       {metadata.popular && (
@@ -375,40 +395,41 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                           }}
                         />
                       )}
-                      <Card
-                        sx={{
-                          cursor: 'default',
-                          border: isCurrentTier 
-                            ? '2px solid rgba(45, 34, 24, 0.9)' 
-                            : metadata.popular 
-                              ? '2px solid rgba(184, 134, 11, 0.4)'
-                              : '1px solid #e0e0e0',
-                          borderRadius: 3,
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          background: '#fff',
-                          position: 'relative',
-                          boxShadow: isCurrentTier ? '0 4px 20px rgba(61, 46, 31, 0.2)' : '0 2px 8px rgba(0,0,0,0.08)',
-                          '&:hover': {
-                            border: metadata.popular 
-                              ? '3px solid rgba(184, 134, 11, 0.8)'
-                              : isCurrentTier
-                                ? '3px solid rgba(45, 34, 24, 1)'
-                                : '2px solid rgba(61, 46, 31, 0.6)',
-                            boxShadow: isCurrentTier 
-                              ? '0 8px 32px rgba(61, 46, 31, 0.4)'
-                              : metadata.popular
-                                ? '0 8px 24px rgba(184, 134, 11, 0.3)'
-                                : '0 8px 24px rgba(61, 46, 31, 0.25)',
-                          },
-                        }}
-                      >
+                        <Card
+                          sx={{
+                            cursor: 'default',
+                            border: isCurrentTier 
+                              ? '2px solid #334155' 
+                              : metadata.popular 
+                                ? '2px solid rgba(184, 134, 11, 0.4)'
+                                : '1px solid rgba(51, 65, 85, 0.15)',
+                            borderRadius: 3,
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            background: '#fff',
+                            position: 'relative',
+                            boxShadow: isCurrentTier ? '0 4px 20px rgba(51, 65, 85, 0.25)' : '0 2px 8px rgba(51, 65, 85, 0.08)',
+                            '&:hover': {
+                              border: metadata.popular 
+                                ? '3px solid rgba(184, 134, 11, 0.8)'
+                                : isCurrentTier
+                                  ? '3px solid #334155'
+                                  : '2px solid rgba(51, 65, 85, 0.4)',
+                              boxShadow: isCurrentTier 
+                                ? '0 8px 32px rgba(51, 65, 85, 0.35)'
+                                : metadata.popular
+                                  ? '0 8px 24px rgba(184, 134, 11, 0.3)'
+                                  : '0 8px 24px rgba(51, 65, 85, 0.2)',
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                        >
                         <CardContent sx={{ p: 3 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 50 }}>
                               <IconComponent 
                                 sx={{ 
                                   fontSize: 32, 
-                                  color: 'rgba(61, 46, 31, 0.8)',
+                                  color: '#334155',
                                 }} 
                               />
                             </Box>
@@ -422,7 +443,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                   {metadata.subtitle}
                                 </Typography>
                               )}
-                              <Typography variant="h5" fontWeight={800} sx={{ color: 'rgba(61, 46, 31, 0.9)' }}>
+                              <Typography variant="h5" fontWeight={800} sx={{ color: '#334155' }}>
                                 ${tier.price}
                                 <Typography component="span" variant="body2" sx={{ opacity: 0.7, fontWeight: 400, color: 'text.secondary' }}>
                                   /month
@@ -512,17 +533,18 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                 fullWidth
                                 onClick={(e) => e.preventDefault()}
                                 sx={{
-                                  background: 'linear-gradient(135deg, rgba(61, 46, 31, 0.6) 0%, rgba(74, 58, 42, 0.6) 100%)',
+                                  background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
                                   color: '#fff',
                                   fontWeight: 600,
                                   py: 1.5,
                                   borderRadius: 2,
                                   textTransform: 'none',
                                   cursor: 'default',
+                                  opacity: 0.7,
                                   '&:hover': {
-                                    background: 'linear-gradient(135deg, rgba(74, 58, 42, 0.7) 0%, rgba(90, 74, 58, 0.7) 100%)',
+                                    opacity: 0.8,
                                     transform: 'translateY(-2px)',
-                                    boxShadow: '0 4px 12px rgba(61, 46, 31, 0.3)',
+                                    boxShadow: '0 4px 12px rgba(51, 65, 85, 0.3)',
                                   },
                                   transition: 'all 0.2s ease',
                                 }}
@@ -538,7 +560,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                 sx={{
                                   background: metadata.popular
                                     ? 'linear-gradient(135deg, rgba(184, 134, 11, 0.9) 0%, rgba(212, 175, 55, 0.9) 100%)'
-                                    : 'linear-gradient(135deg, rgba(61, 46, 31, 0.85) 0%, rgba(74, 58, 42, 0.85) 100%)',
+                                    : 'linear-gradient(135deg, #7A5FFF 0%, #9F7AEA 100%)',
                                   color: '#fff',
                                   fontWeight: 600,
                                   py: 1.5,
@@ -547,11 +569,11 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                   '&:hover': {
                                     background: metadata.popular
                                       ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%)'
-                                      : 'linear-gradient(135deg, rgba(74, 58, 42, 0.9) 0%, rgba(90, 74, 58, 0.9) 100%)',
+                                      : 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
                                     transform: 'translateY(-2px)',
                                     boxShadow: metadata.popular
                                       ? '0 4px 12px rgba(184, 134, 11, 0.4)'
-                                      : '0 4px 12px rgba(61, 46, 31, 0.4)',
+                                      : '0 4px 12px rgba(51, 65, 85, 0.4)',
                                   },
                                   transition: 'all 0.2s ease',
                                 }}
@@ -574,10 +596,12 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
               gap: 3,
               width: '100%',
               justifyContent: 'center',
-              alignItems: 'stretch'
+              alignItems: 'stretch',
+              position: 'relative',
+              overflow: 'visible'
             }}>
               {subscriptionTiers.map((tier, index) => {
-                const metadata = getTierMetadata(index, subscriptionTiers.length);
+                const metadata = getTierMetadata(index, subscriptionTiers.length, tier.name);
                 const IconComponent = metadata.icon;
                 const isCurrentTier = currentTierId === tier.id;
                 
@@ -589,10 +613,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                       minWidth: 280,
                       maxWidth: 350,
                       position: 'relative',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      '&:hover': {
-                        transform: 'translateY(-6px) scale(1.02)',
-                      },
+                      isolation: 'isolate',
                     }}
                   >
                     {metadata.popular && (
@@ -628,43 +649,44 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                         }}
                       />
                     )}
-                    <Card
-                      sx={{
-                        cursor: 'default',
-                        border: isCurrentTier 
-                          ? '3px solid rgba(45, 34, 24, 0.9)' 
-                          : metadata.popular 
-                            ? '3px solid rgba(184, 134, 11, 0.4)'
-                            : '1px solid #e0e0e0',
-                        boxShadow: isCurrentTier 
-                          ? '0 8px 32px rgba(61, 46, 31, 0.2)' 
-                          : '0 2px 8px rgba(0,0,0,0.08)',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        position: 'relative',
-                        background: '#fff',
-                        color: 'inherit',
-                        height: '100%',
-                        borderRadius: 3,
-                        '&:hover': {
-                          border: metadata.popular 
-                            ? '5px solid rgba(184, 134, 11, 0.8)'
-                            : isCurrentTier
-                              ? '5px solid rgba(45, 34, 24, 1)'
-                              : '3px solid rgba(61, 46, 31, 0.6)',
+                      <Card
+                        sx={{
+                          cursor: 'default',
+                          border: isCurrentTier 
+                            ? '3px solid #334155' 
+                            : metadata.popular 
+                              ? '3px solid rgba(184, 134, 11, 0.4)'
+                              : '1px solid rgba(51, 65, 85, 0.15)',
                           boxShadow: isCurrentTier 
-                            ? '0 12px 48px rgba(61, 46, 31, 0.4)'
-                            : metadata.popular
-                              ? '0 12px 40px rgba(184, 134, 11, 0.35)'
-                              : '0 12px 40px rgba(61, 46, 31, 0.3)',
-                        },
-                      }}
-                    >
+                            ? '0 8px 32px rgba(51, 65, 85, 0.25)' 
+                            : '0 2px 8px rgba(51, 65, 85, 0.08)',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          position: 'relative',
+                          background: '#fff',
+                          color: 'inherit',
+                          height: '100%',
+                          borderRadius: 3,
+                          '&:hover': {
+                            border: metadata.popular 
+                              ? '5px solid rgba(184, 134, 11, 0.8)'
+                              : isCurrentTier
+                                ? '5px solid #334155'
+                                : '3px solid rgba(51, 65, 85, 0.4)',
+                            boxShadow: isCurrentTier 
+                              ? '0 12px 48px rgba(51, 65, 85, 0.4)'
+                              : metadata.popular
+                                ? '0 12px 40px rgba(184, 134, 11, 0.35)'
+                                : '0 12px 40px rgba(51, 65, 85, 0.25)',
+                            transform: 'translateY(-4px)',
+                          },
+                        }}
+                      >
                       <CardContent sx={{ p: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
                           <IconComponent 
                             sx={{ 
                               fontSize: 48, 
-                              color: 'rgba(61, 46, 31, 0.8)',
+                              color: '#334155',
                             }} 
                           />
                         </Box>
@@ -677,7 +699,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                             {metadata.subtitle}
                           </Typography>
                         )}
-                        <Typography variant="h4" fontWeight={800} sx={{ color: 'rgba(61, 46, 31, 0.9)', mb: 2 }}>
+                        <Typography variant="h4" fontWeight={800} sx={{ color: '#334155', mb: 2 }}>
                           ${tier.price}
                           <Typography component="span" variant="body2" sx={{ opacity: 0.7, fontWeight: 400, color: 'text.secondary' }}>
                             /month
@@ -769,17 +791,18 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                               fullWidth
                               onClick={(e) => e.preventDefault()}
                               sx={{
-                                background: 'linear-gradient(135deg, rgba(61, 46, 31, 0.6) 0%, rgba(74, 58, 42, 0.6) 100%)',
+                                background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
                                 color: '#fff',
                                 fontWeight: 600,
                                 py: 1.5,
                                 borderRadius: 2,
                                 textTransform: 'none',
                                 cursor: 'default',
+                                opacity: 0.7,
                                 '&:hover': {
-                                  background: 'linear-gradient(135deg, rgba(74, 58, 42, 0.7) 0%, rgba(90, 74, 58, 0.7) 100%)',
+                                  opacity: 0.8,
                                   transform: 'translateY(-2px)',
-                                  boxShadow: '0 4px 12px rgba(61, 46, 31, 0.3)',
+                                  boxShadow: '0 4px 12px rgba(122, 95, 255, 0.3)',
                                 },
                                 transition: 'all 0.2s ease',
                               }}
@@ -795,7 +818,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                               sx={{
                                 background: metadata.popular
                                   ? 'linear-gradient(135deg, rgba(184, 134, 11, 0.9) 0%, rgba(212, 175, 55, 0.9) 100%)'
-                                  : 'linear-gradient(135deg, rgba(61, 46, 31, 0.85) 0%, rgba(74, 58, 42, 0.85) 100%)',
+                                  : 'linear-gradient(135deg, #7A5FFF 0%, #9F7AEA 100%)',
                                 color: '#fff',
                                 fontWeight: 600,
                                 py: 1.5,
@@ -804,11 +827,11 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                 '&:hover': {
                                   background: metadata.popular
                                     ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%)'
-                                    : 'linear-gradient(135deg, rgba(74, 58, 42, 0.9) 0%, rgba(90, 74, 58, 0.9) 100%)',
+                                    : 'linear-gradient(135deg, #9F7AEA 0%, #7A5FFF 100%)',
                                   transform: 'translateY(-2px)',
                                   boxShadow: metadata.popular
                                     ? '0 4px 12px rgba(184, 134, 11, 0.4)'
-                                    : '0 4px 12px rgba(61, 46, 31, 0.4)',
+                                    : '0 4px 12px rgba(122, 95, 255, 0.4)',
                                 },
                                 transition: 'all 0.2s ease',
                               }}
