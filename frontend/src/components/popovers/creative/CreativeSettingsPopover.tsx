@@ -76,7 +76,7 @@ interface CreativeSettingsPopoverProps {
   initialSection?: SettingsSection; // Optional section to open to
 }
 
-type SettingsSection = 'account' | 'billing' | 'storage' | 'userAccount';
+export type SettingsSection = 'account' | 'billing' | 'storage' | 'userAccount';
 
 const CREATIVE_TITLES = [
   'Other', // Move to top for easy access

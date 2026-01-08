@@ -40,6 +40,7 @@ export interface PaymentActionsPopoverProps {
   open: boolean;
   onClose: () => void;
   paymentRequestIdToOpen?: string | null;
+  onOpenSettings?: (section?: 'billing') => void; // Callback to open settings
 }
 
 
@@ -61,7 +62,8 @@ const CACHE_DURATION = 10000; // Cache for 10 seconds
 export function PaymentActionsPopover({ 
   open, 
   onClose,
-  paymentRequestIdToOpen
+  paymentRequestIdToOpen,
+  onOpenSettings
 }: PaymentActionsPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -665,6 +667,7 @@ export function PaymentActionsPopover({
         open={directPaymentOpen}
         onClose={handleDirectPaymentClose}
         onSubmit={handleDirectPaymentSubmit}
+        onOpenSettings={onOpenSettings}
       />
 
       {/* Payment Request Detail Popover */}

@@ -41,15 +41,27 @@ async def create_payment_request(
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        # Verify user is a creative
+        # Verify user is a creative and check Stripe account setup
         creative_result = client.table('creatives')\
-            .select('user_id')\
+            .select('user_id, stripe_account_id, stripe_onboarding_complete, stripe_payouts_enabled')\
             .eq('user_id', user_id)\
             .single()\
             .execute()
         
         if not creative_result.data:
             raise HTTPException(status_code=403, detail="Only creatives can create payment requests")
+        
+        # Check if Stripe account is connected and onboarding is complete
+        creative_data = creative_result.data
+        stripe_account_id = creative_data.get('stripe_account_id')
+        stripe_onboarding_complete = creative_data.get('stripe_onboarding_complete', False)
+        
+        if not stripe_account_id or not stripe_onboarding_complete:
+            raise HTTPException(
+                status_code=403, 
+                detail="STRIPE_NOT_SETUP",
+                headers={"X-Error-Type": "stripe_not_setup"}
+            )
         
         # Validate that either client_user_id or booking_id is provided
         if not payment_request_data.client_user_id and not payment_request_data.booking_id:
