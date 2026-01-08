@@ -50,6 +50,10 @@ import axios, {
         }
 
         const status = error.response?.status;
+        const url = error.config?.url || '';
+
+        // Skip toast for 404 on calendar settings (expected for services without scheduling)
+        const isCalendarSettings404 = status === 404 && url.includes('calendar');
 
         if (status === 401) {
           toast({
@@ -63,8 +67,9 @@ import axios, {
             title: 'Forbidden',
             description: 'You do not have permission to perform this action.',
           });
-        } else if (status) {
+        } else if (status && !isCalendarSettings404) {
           // Only show error toast if there's a status code (actual HTTP error)
+          // Skip calendar settings 404s as they're expected for services without scheduling
           toast({
             variant: 'error',
             title: 'Server Error',
