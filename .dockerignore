@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log*
+frontend/node_modules
+frontend/dist
+__pycache__
+*.pyc
+backend/venv
+.env
+.env.local
+.git
+.vscode
+.DS_Store
+*.log
