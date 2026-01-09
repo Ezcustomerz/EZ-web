@@ -416,7 +416,7 @@ export function AllServicesTab() {
       case 'placed':
         return '#ff9800';
       case 'payment-required':
-        return '#00bcd4';
+        return '#000000';
       case 'in-progress':
         return '#2196f3';
       case 'download':

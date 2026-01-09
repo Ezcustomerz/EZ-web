@@ -62,7 +62,7 @@ const clearCache = () => {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'payment-required':
-      return '#00bcd4';
+      return '#000000';
     case 'locked':
       return '#9c27b0';
     case 'download':
