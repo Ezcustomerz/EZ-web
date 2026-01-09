@@ -233,6 +233,7 @@ export function LockedOrderDetailPopover({
         maxWidth="sm"
         fullWidth
         fullScreen={isMobile}
+        sx={{ zIndex: 1500 }}
         PaperProps={{
           sx: {
             borderRadius: isMobile ? 0 : 3,
