@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   List,
@@ -45,9 +45,10 @@ interface SidebarCreativeProps {
   onItemSelect: (item: string) => void;
   isMobile?: boolean;
   providedProfile?: CreativeProfile | null;
+  onOpenSubscriptionTiers?: () => void;
 }
 
-export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false, providedProfile }: SidebarCreativeProps) {
+export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, isMobile = false, providedProfile, onOpenSubscriptionTiers }: SidebarCreativeProps) {
   const theme = useTheme();
   const { userProfile, session } = useAuth();
   const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
@@ -105,6 +106,19 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
   function handleLogoClick() {
     window.location.href = '/';
   }
+
+  // Close user menu when subscription tiers popover opens
+  useEffect(() => {
+    const handleCloseMenu = () => {
+      setUserMenuAnchor(null);
+    };
+
+    window.addEventListener('openSubscriptionTiers', handleCloseMenu);
+    
+    return () => {
+      window.removeEventListener('openSubscriptionTiers', handleCloseMenu);
+    };
+  }, []);
 
   return (
     <>
@@ -459,19 +473,24 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                        py: 0.25,
                        borderRadius: '12px',
                        letterSpacing: '0.02em',
-                       border: isDemoMode() ? '1px solid rgba(255, 193, 7, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
-                       display: 'flex',
-                       alignItems: 'center',
-                       gap: 0.5,
-                       width: 'fit-content',
-                         cursor: isMobileView ? 'pointer' : 'default',
-                       }}
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         if (isMobileView) {
-                           setSnackbarOpen(true);
-                         }
-                       }}
+                      border: isDemoMode() ? '1px solid rgba(255, 193, 7, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      width: 'fit-content',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        backgroundColor: isDemoMode() ? 'rgba(255, 193, 7, 0.4)' : 'rgba(255, 255, 255, 0.25)',
+                        transform: 'translateY(-1px)',
+                      },
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onOpenSubscriptionTiers) {
+                          onOpenSubscriptionTiers();
+                        }
+                      }}
                      >
                       {isMobileView ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -508,26 +527,32 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                       Storage
                     </Typography>
                                                                <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                          size="small"
-                          sx={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                            color: 'white',
-                            px: 1,
-                            py: 0.25,
-                            minWidth: 'auto',
-                            fontSize: '0.7rem',
-                            fontWeight: 600,
-                            borderRadius: 1.5,
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': {
-                              backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                              transform: 'translateY(-1px)',
-                            },
-                          }}
-                        >
-                          Upgrade
-                        </Button>
+                      <Button
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onOpenSubscriptionTiers) {
+                            onOpenSubscriptionTiers();
+                          }
+                        }}
+                        sx={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                          color: 'white',
+                          px: 1,
+                          py: 0.25,
+                          minWidth: 'auto',
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          borderRadius: 1.5,
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                            transform: 'translateY(-1px)',
+                          },
+                        }}
+                      >
+                        Upgrade
+                      </Button>
                       </Box>
                   </Box>
                   
