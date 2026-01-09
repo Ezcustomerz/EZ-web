@@ -201,7 +201,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
       <DialogContent sx={{ 
         p: { xs: 2, sm: 3 }, 
         pt: 3, 
-        overflow: isMobile ? 'auto' : 'visible', 
+        overflow: 'auto', 
         position: 'relative',
         ...(isMobile && {
           flex: 1,
@@ -598,7 +598,6 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
               justifyContent: 'center',
               alignItems: 'stretch',
               position: 'relative',
-              overflow: 'visible'
             }}>
               {subscriptionTiers.map((tier, index) => {
                 const metadata = getTierMetadata(index, subscriptionTiers.length, tier.name);
