@@ -76,13 +76,8 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
 
   // Helper function to detect demo mode
   const isDemoMode = () => {
-    return forceDemoMode || 
-      (userProfile && (
-        userProfile.avatar_source === 'demo' || 
-        userProfile.roles.includes('demo') || 
-        userProfile.email?.includes('demo') ||
-        userProfile.name?.toLowerCase().includes('demo')
-      ));
+    // If no session, user is in demo mode
+    return forceDemoMode || !session;
   };
 
   const navigationItems = [
@@ -465,7 +460,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                                          <Box
                        ref={demoPillRef}
                        sx={{
-                       backgroundColor: isDemoMode() ? 'rgba(255, 193, 7, 0.3)' : 'rgba(255, 255, 255, 0.15)',
+                       backgroundColor: 'rgba(255, 255, 255, 0.15)',
                        color: 'rgba(255, 255, 255, 0.9)',
                        fontSize: '0.6rem',
                        fontWeight: 600,
@@ -473,7 +468,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                        py: 0.25,
                        borderRadius: '12px',
                        letterSpacing: '0.02em',
-                      border: isDemoMode() ? '1px solid rgba(255, 193, 7, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: 0.5,
@@ -481,12 +476,16 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                       cursor: 'pointer',
                       transition: 'all 0.2s ease-in-out',
                       '&:hover': {
-                        backgroundColor: isDemoMode() ? 'rgba(255, 193, 7, 0.4)' : 'rgba(255, 255, 255, 0.25)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.25)',
                         transform: 'translateY(-1px)',
                       },
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        // Don't open subscription popup for demo users
+                        if (isDemoMode()) {
+                          return;
+                        }
                         if (onOpenSubscriptionTiers) {
                           onOpenSubscriptionTiers();
                         }
@@ -531,6 +530,10 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation();
+                          // Don't open subscription popup for demo users
+                          if (isDemoMode()) {
+                            return;
+                          }
                           if (onOpenSubscriptionTiers) {
                             onOpenSubscriptionTiers();
                           }

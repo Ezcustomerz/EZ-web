@@ -23,9 +23,11 @@ import { IncomeOverTime } from '../../../components/analytics/IncomeOverTime';
 import { ServiceBreakdown } from '../../../components/analytics/ServiceBreakdown';
 import { ClientAnalytics } from '../../../components/analytics/ClientLeaderboard';
 import { AddAnalyticsPopover, type AnalyticsComponent } from '../../../components/popovers/creative/AddAnalyticsPopover';
+import { useAuth } from '../../../context/auth';
 
 export function AnalyticsTab() {
   const theme = useTheme();
+  const { userProfile, session } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
     totalEarnings: 0,
@@ -52,6 +54,12 @@ export function AnalyticsTab() {
   
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [openingStripe, setOpeningStripe] = useState(false);
+
+  // Helper function to detect demo mode
+  const isDemoMode = () => {
+    // If no session, user is in demo mode
+    return !session;
+  };
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -352,6 +360,10 @@ export function AnalyticsTab() {
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        // Don't open subscription popup for demo users
+                        if (isDemoMode()) {
+                          return;
+                        }
                         // Dispatch custom event to open subscription tiers popover
                         window.dispatchEvent(new CustomEvent('openSubscriptionTiers'));
                       }}
