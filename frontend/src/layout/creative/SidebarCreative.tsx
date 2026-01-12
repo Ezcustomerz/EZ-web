@@ -33,7 +33,7 @@ import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
 import { InviteClientPopover } from '../../components/popovers/creative/InviteClientPopover';
 import { useAuth } from '../../context/auth';
 import { useInviteClient } from '../../hooks/useInviteClient';
-import { type CreativeProfile } from '../../api/userService';
+import { type CreativeProfile, userService } from '../../api/userService';
 import React from 'react';
 
 import demoCreativeData from '../../../demoData/creativeUserData.json';
@@ -60,6 +60,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
   const creativeProfile = providedProfile ?? (demoCreativeData as unknown as CreativeProfile);
   const [forceDemoMode] = useState(false);
   const demoPillRef = React.useRef<HTMLDivElement | null>(null);
+  const [isTopTier, setIsTopTier] = useState(false);
 
   // Helper function to format storage
   const formatStorage = (bytes: number) => {
@@ -114,6 +115,35 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
       window.removeEventListener('openSubscriptionTiers', handleCloseMenu);
     };
   }, []);
+
+  // Check if user is on the top tier
+  useEffect(() => {
+    const checkTopTier = async () => {
+      // Only check if we have a real profile (not demo mode)
+      if (isDemoMode() || !providedProfile?.subscription_tier_id) {
+        return;
+      }
+
+      try {
+        const tiers = await userService.getSubscriptionTiers();
+        
+        if (tiers.length > 0 && providedProfile.subscription_tier_id) {
+          const maxTierLevel = Math.max(...tiers.map(t => t.tier_level));
+          const currentTier = tiers.find(t => t.id === providedProfile.subscription_tier_id);
+          
+          if (currentTier && currentTier.tier_level >= maxTierLevel) {
+            setIsTopTier(true);
+          } else {
+            setIsTopTier(false);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to check tier level:', err);
+      }
+    };
+
+    checkTopTier();
+  }, [providedProfile?.subscription_tier_id]);
 
   return (
     <>
@@ -525,38 +555,40 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
                     }}>
                       Storage
                     </Typography>
-                                                               <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Don't open subscription popup for demo users
-                          if (isDemoMode()) {
-                            return;
-                          }
-                          if (onOpenSubscriptionTiers) {
-                            onOpenSubscriptionTiers();
-                          }
-                        }}
-                        sx={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                          color: 'white',
-                          px: 1,
-                          py: 0.25,
-                          minWidth: 'auto',
-                          fontSize: '0.7rem',
-                          fontWeight: 600,
-                          borderRadius: 1.5,
-                          transition: 'all 0.2s ease-in-out',
-                          '&:hover': {
-                            backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                            transform: 'translateY(-1px)',
-                          },
-                        }}
-                      >
-                        Upgrade
-                      </Button>
+                                                               {!isTopTier && (
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Don't open subscription popup for demo users
+                            if (isDemoMode()) {
+                              return;
+                            }
+                            if (onOpenSubscriptionTiers) {
+                              onOpenSubscriptionTiers();
+                            }
+                          }}
+                          sx={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                            color: 'white',
+                            px: 1,
+                            py: 0.25,
+                            minWidth: 'auto',
+                            fontSize: '0.7rem',
+                            fontWeight: 600,
+                            borderRadius: 1.5,
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                              transform: 'translateY(-1px)',
+                            },
+                          }}
+                        >
+                          Upgrade
+                        </Button>
                       </Box>
+                    )}
                   </Box>
                   
                   <Typography variant="body2" sx={{ 

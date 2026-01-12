@@ -630,7 +630,8 @@ class PaymentRequestService:
             fee_percentage = float(tier_result.data.get('fee_percentage', 0))
             
             # Calculate platform fee (application fee)
-            platform_fee_amount = round(amount * fee_percentage / 100, 2)
+            # fee_percentage is stored as decimal (e.g., 0.01 = 1%, 0.026 = 2.6%)
+            platform_fee_amount = round(amount * fee_percentage, 2)
             
             # Convert to cents for Stripe
             amount_cents = int(round(amount * 100))

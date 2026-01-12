@@ -28,7 +28,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Payment, AttachMoney, Description, Person, CalendarToday, AccountBalance, Warning } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
-import { userService, type CreativeClient } from '../../../api/userService';
+import { userService, type CreativeClient, type CreativeProfile } from '../../../api/userService';
 import { bookingService, type Order } from '../../../api/bookingService';
 import { paymentRequestsService } from '../../../api/paymentRequestsService';
 import { useAuth } from '../../../context/auth';
@@ -87,6 +87,17 @@ export function DirectPaymentPopover({
   const [loadingClients, setLoadingClients] = useState(false);
   const [bookingSearchTerm, setBookingSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
+  
+  // Creative profile for fee calculation
+  const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  // Fetch creative profile for fee calculation
+  useEffect(() => {
+    if (open && isAuthenticated) {
+      fetchCreativeProfile();
+    }
+  }, [open, isAuthenticated]);
 
   // Fetch bookings when payment type is 'booking'
   useEffect(() => {
@@ -101,6 +112,18 @@ export function DirectPaymentPopover({
       fetchClients();
     }
   }, [open, paymentType, isAuthenticated]);
+
+  const fetchCreativeProfile = async () => {
+    try {
+      setLoadingProfile(true);
+      const profile = await userService.getCreativeProfile();
+      setCreativeProfile(profile);
+    } catch (error) {
+      console.error('Failed to fetch creative profile:', error);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const fetchBookings = async (loadMore = false) => {
     try {
@@ -758,6 +781,63 @@ export function DirectPaymentPopover({
             }}
           />
         </Box>
+
+        {/* Earnings Breakdown - Show when amount is set and profile is loaded */}
+        {amount && parseFloat(amount) > 0 && creativeProfile?.subscription_tier_fee_percentage !== undefined && (
+          <Box sx={{
+            p: 2.5,
+            mb: 2,
+            borderRadius: 2,
+            backgroundColor: 'rgba(76, 175, 80, 0.05)',
+            border: '1px solid rgba(76, 175, 80, 0.2)'
+          }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'success.main' }}>
+              💰 Your Earnings Breakdown
+            </Typography>
+            {(() => {
+              const requestAmount = parseFloat(amount);
+              const feePercentage = creativeProfile.subscription_tier_fee_percentage;
+              const platformFee = requestAmount * feePercentage;
+              const yourEarnings = requestAmount - platformFee;
+              const feePercentageDisplay = (feePercentage * 100).toFixed(1);
+              
+              return (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Payment Request Amount:
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      ${requestAmount.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Transaction Fee ({feePercentageDisplay}%):
+                    </Typography>
+                    <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
+                      -${platformFee.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    pt: 1,
+                    borderTop: '1px solid rgba(76, 175, 80, 0.2)'
+                  }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: 'success.main' }}>
+                      Your Net Earnings:
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: 'success.main', fontSize: '1.1rem' }}>
+                      ${yourEarnings.toFixed(2)}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })()}
+          </Box>
+        )}
 
         {/* Notes Input */}
         <Box sx={{ mb: 2 }}>

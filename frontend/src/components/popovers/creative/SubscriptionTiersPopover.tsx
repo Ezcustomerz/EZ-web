@@ -21,7 +21,8 @@ import {
   Diamond,
 } from '@mui/icons-material';
 import { userService, type SubscriptionTier, type CreativeProfile } from '../../../api/userService';
-import { errorToast } from '../../../components/toast/toast';
+import { subscriptionService } from '../../../api/subscriptionService';
+import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
 
 interface SubscriptionTiersPopoverProps {
@@ -76,6 +77,8 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
   const [subscriptionTiers, setSubscriptionTiers] = useState<SubscriptionTier[]>([]);
   const [loadingTiers, setLoadingTiers] = useState(true);
   const [currentTierId, setCurrentTierId] = useState<string | null>(null);
+  const [currentTierLevel, setCurrentTierLevel] = useState<number>(0);
+  const [processingTierId, setProcessingTierId] = useState<string | null>(null);
 
   // Fetch subscription tiers when popover opens
   useEffect(() => {
@@ -97,6 +100,11 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
           setSubscriptionTiers(tiers);
           if (profile?.subscription_tier_id) {
             setCurrentTierId(profile.subscription_tier_id);
+            // Find and set the current tier level
+            const currentTier = tiers.find(t => t.id === profile.subscription_tier_id);
+            if (currentTier) {
+              setCurrentTierLevel(currentTier.tier_level);
+            }
           }
         } catch (err) {
           console.error('Failed to fetch subscription tiers:', err);
@@ -109,6 +117,55 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
       fetchData();
     }
   }, [open, isAuthenticated]);
+
+  // Helper to determine button action based on tier level
+  const getTierAction = (tier: SubscriptionTier): 'current' | 'upgrade' | 'downgrade' | 'hidden' => {
+    // Find the highest tier level available
+    const maxTierLevel = Math.max(...subscriptionTiers.map(t => t.tier_level));
+    
+    if (currentTierId === tier.id) {
+      // If this is the current tier AND it's the highest tier, hide the button entirely
+      if (currentTierLevel >= maxTierLevel) {
+        return 'hidden';
+      }
+      return 'current';
+    }
+    
+    if (tier.tier_level > currentTierLevel) {
+      return 'upgrade';
+    }
+    
+    if (tier.tier_level < currentTierLevel) {
+      return 'downgrade';
+    }
+    
+    // Same tier level but different tier (e.g., Basic and Beta both at level 1)
+    // Hide button to prevent lateral moves
+    return 'hidden';
+  };
+
+  // Handler for upgrade button click
+  const handleUpgradeClick = async (tierId: string, tierPrice: number) => {
+    try {
+      // Check if this is a free tier
+      if (tierPrice === 0) {
+        errorToast('Error', 'This is a free tier. No payment required.');
+        return;
+      }
+
+      setProcessingTierId(tierId);
+      
+      // Create checkout session
+      const { checkout_url } = await subscriptionService.createCheckoutSession(tierId);
+      
+      // Redirect to Stripe Checkout
+      window.location.href = checkout_url;
+    } catch (err: any) {
+      console.error('Failed to start subscription checkout:', err);
+      errorToast('Error', err.response?.data?.detail || 'Failed to start subscription checkout');
+      setProcessingTierId(null);
+    }
+  };
 
   return (
     <Dialog
@@ -526,62 +583,89 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                           </Box>
 
                           {/* Action Button */}
-                          {isCurrentTier ? (
-                            <Box sx={{ width: '100%' }}>
-                              <Button
-                                variant="contained"
-                                fullWidth
-                                onClick={(e) => e.preventDefault()}
-                                sx={{
-                                  background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
-                                  color: '#fff',
-                                  fontWeight: 600,
-                                  py: 1.5,
-                                  borderRadius: 2,
-                                  textTransform: 'none',
-                                  cursor: 'default',
-                                  opacity: 0.7,
-                                  '&:hover': {
-                                    opacity: 0.8,
-                                    transform: 'translateY(-2px)',
-                                    boxShadow: '0 4px 12px rgba(51, 65, 85, 0.3)',
-                                  },
-                                  transition: 'all 0.2s ease',
-                                }}
-                              >
-                                Current Plan
-                              </Button>
-                            </Box>
-                          ) : (
-                            <Box sx={{ width: '100%' }}>
-                              <Button
-                                variant="contained"
-                                fullWidth
-                                sx={{
-                                  background: metadata.popular
-                                    ? 'linear-gradient(135deg, rgba(184, 134, 11, 0.9) 0%, rgba(212, 175, 55, 0.9) 100%)'
-                                    : 'linear-gradient(135deg, #7A5FFF 0%, #9F7AEA 100%)',
-                                  color: '#fff',
-                                  fontWeight: 600,
-                                  py: 1.5,
-                                  borderRadius: 2,
-                                  textTransform: 'none',
-                                  '&:hover': {
-                                    background: metadata.popular
-                                      ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%)'
-                                      : 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-                                    transform: 'translateY(-2px)',
-                                    boxShadow: metadata.popular
-                                      ? '0 4px 12px rgba(184, 134, 11, 0.4)'
-                                      : '0 4px 12px rgba(51, 65, 85, 0.4)',
-                                  },
-                                  transition: 'all 0.2s ease',
-                                }}
-                              >
-                                Upgrade
-                              </Button>
-                            </Box>
-                          )}
+                          {(() => {
+                            const action = getTierAction(tier);
+                            
+                            if (action === 'hidden') {
+                              return null; // Don't show button for same-level tiers
+                            }
+                            
+                            if (action === 'current') {
+                              return (
+                                <Box sx={{ width: '100%' }}>
+                                  <Button
+                                    variant="contained"
+                                    fullWidth
+                                    onClick={(e) => e.preventDefault()}
+                                    sx={{
+                                      background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
+                                      color: '#fff',
+                                      fontWeight: 600,
+                                      py: 1.5,
+                                      borderRadius: 2,
+                                      textTransform: 'none',
+                                      cursor: 'default',
+                                      opacity: 0.7,
+                                      '&:hover': {
+                                        opacity: 0.8,
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 12px rgba(51, 65, 85, 0.3)',
+                                      },
+                                      transition: 'all 0.2s ease',
+                                    }}
+                                  >
+                                    Current Plan
+                                  </Button>
+                                </Box>
+                              );
+                            }
+                            
+                            const buttonText = action === 'upgrade' ? 'Upgrade' : 'Downgrade';
+                            const isUpgrade = action === 'upgrade';
+                            
+                            return (
+                              <Box sx={{ width: '100%' }}>
+                                <Button
+                                  variant="contained"
+                                  fullWidth
+                                  onClick={() => handleUpgradeClick(tier.id, tier.price)}
+                                  disabled={processingTierId === tier.id}
+                                  sx={{
+                                    background: isUpgrade
+                                      ? metadata.popular
+                                        ? 'linear-gradient(135deg, rgba(184, 134, 11, 0.9) 0%, rgba(212, 175, 55, 0.9) 100%)'
+                                        : 'linear-gradient(135deg, #7A5FFF 0%, #9F7AEA 100%)'
+                                      : 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                                    color: '#fff',
+                                    fontWeight: 600,
+                                    py: 1.5,
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    '&:hover': {
+                                      background: isUpgrade
+                                        ? metadata.popular
+                                          ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%)'
+                                          : 'linear-gradient(135deg, #1e293b 0%, #334155 100%)'
+                                        : 'linear-gradient(135deg, #475569 0%, #334155 100%)',
+                                      transform: 'translateY(-2px)',
+                                      boxShadow: isUpgrade
+                                        ? metadata.popular
+                                          ? '0 4px 12px rgba(184, 134, 11, 0.4)'
+                                          : '0 4px 12px rgba(51, 65, 85, 0.4)'
+                                        : '0 4px 12px rgba(71, 85, 105, 0.4)',
+                                    },
+                                    '&:disabled': {
+                                      opacity: 0.6,
+                                      cursor: 'not-allowed',
+                                    },
+                                    transition: 'all 0.2s ease',
+                                  }}
+                                >
+                                  {processingTierId === tier.id ? 'Processing...' : buttonText}
+                                </Button>
+                              </Box>
+                            );
+                          })()}
                         </CardContent>
                       </Card>
                     </Box>
@@ -783,62 +867,89 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                         )}
 
                         {/* Action Button */}
-                        {isCurrentTier ? (
-                          <Box sx={{ mt: 3, width: '100%' }}>
-                            <Button
-                              variant="contained"
-                              fullWidth
-                              onClick={(e) => e.preventDefault()}
-                              sx={{
-                                background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
-                                color: '#fff',
-                                fontWeight: 600,
-                                py: 1.5,
-                                borderRadius: 2,
-                                textTransform: 'none',
-                                cursor: 'default',
-                                opacity: 0.7,
-                                '&:hover': {
-                                  opacity: 0.8,
-                                  transform: 'translateY(-2px)',
-                                  boxShadow: '0 4px 12px rgba(122, 95, 255, 0.3)',
-                                },
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              Current Plan
-                            </Button>
-                          </Box>
-                        ) : (
-                          <Box sx={{ mt: 3, width: '100%' }}>
-                            <Button
-                              variant="contained"
-                              fullWidth
-                              sx={{
-                                background: metadata.popular
-                                  ? 'linear-gradient(135deg, rgba(184, 134, 11, 0.9) 0%, rgba(212, 175, 55, 0.9) 100%)'
-                                  : 'linear-gradient(135deg, #7A5FFF 0%, #9F7AEA 100%)',
-                                color: '#fff',
-                                fontWeight: 600,
-                                py: 1.5,
-                                borderRadius: 2,
-                                textTransform: 'none',
-                                '&:hover': {
-                                  background: metadata.popular
-                                    ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%)'
-                                    : 'linear-gradient(135deg, #9F7AEA 0%, #7A5FFF 100%)',
-                                  transform: 'translateY(-2px)',
-                                  boxShadow: metadata.popular
-                                    ? '0 4px 12px rgba(184, 134, 11, 0.4)'
-                                    : '0 4px 12px rgba(122, 95, 255, 0.4)',
-                                },
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              Upgrade
-                            </Button>
-                          </Box>
-                        )}
+                        {(() => {
+                          const action = getTierAction(tier);
+                          
+                          if (action === 'hidden') {
+                            return null; // Don't show button for same-level tiers
+                          }
+                          
+                          if (action === 'current') {
+                            return (
+                              <Box sx={{ mt: 3, width: '100%' }}>
+                                <Button
+                                  variant="contained"
+                                  fullWidth
+                                  onClick={(e) => e.preventDefault()}
+                                  sx={{
+                                    background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
+                                    color: '#fff',
+                                    fontWeight: 600,
+                                    py: 1.5,
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    cursor: 'default',
+                                    opacity: 0.7,
+                                    '&:hover': {
+                                      opacity: 0.8,
+                                      transform: 'translateY(-2px)',
+                                      boxShadow: '0 4px 12px rgba(122, 95, 255, 0.3)',
+                                    },
+                                    transition: 'all 0.2s ease',
+                                  }}
+                                >
+                                  Current Plan
+                                </Button>
+                              </Box>
+                            );
+                          }
+                          
+                          const buttonText = action === 'upgrade' ? 'Upgrade' : 'Downgrade';
+                          const isUpgrade = action === 'upgrade';
+                          
+                          return (
+                            <Box sx={{ mt: 3, width: '100%' }}>
+                              <Button
+                                variant="contained"
+                                fullWidth
+                                onClick={() => handleUpgradeClick(tier.id, tier.price)}
+                                disabled={processingTierId === tier.id}
+                                sx={{
+                                  background: isUpgrade
+                                    ? metadata.popular
+                                      ? 'linear-gradient(135deg, rgba(184, 134, 11, 0.9) 0%, rgba(212, 175, 55, 0.9) 100%)'
+                                      : 'linear-gradient(135deg, #7A5FFF 0%, #9F7AEA 100%)'
+                                    : 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
+                                  color: '#fff',
+                                  fontWeight: 600,
+                                  py: 1.5,
+                                  borderRadius: 2,
+                                  textTransform: 'none',
+                                  '&:hover': {
+                                    background: isUpgrade
+                                      ? metadata.popular
+                                        ? 'linear-gradient(135deg, rgba(212, 175, 55, 0.95) 0%, rgba(184, 134, 11, 0.95) 100%)'
+                                        : 'linear-gradient(135deg, #9F7AEA 0%, #7A5FFF 100%)'
+                                      : 'linear-gradient(135deg, #475569 0%, #334155 100%)',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: isUpgrade
+                                      ? metadata.popular
+                                        ? '0 4px 12px rgba(184, 134, 11, 0.4)'
+                                        : '0 4px 12px rgba(122, 95, 255, 0.4)'
+                                      : '0 4px 12px rgba(71, 85, 105, 0.4)',
+                                  },
+                                  '&:disabled': {
+                                    opacity: 0.6,
+                                    cursor: 'not-allowed',
+                                  },
+                                  transition: 'all 0.2s ease',
+                                }}
+                              >
+                                {processingTierId === tier.id ? 'Processing...' : buttonText}
+                              </Button>
+                            </Box>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   </Box>

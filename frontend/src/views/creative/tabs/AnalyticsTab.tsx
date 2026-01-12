@@ -17,7 +17,7 @@ import {
   Add,
 } from '@mui/icons-material';
 import { apiClient } from '../../../api/apiClient';
-import { userService } from '../../../api/userService';
+import { userService, type SubscriptionTier } from '../../../api/userService';
 import { successToast, errorToast } from '../../../components/toast/toast';
 import { IncomeOverTime } from '../../../components/analytics/IncomeOverTime';
 import { ServiceBreakdown } from '../../../components/analytics/ServiceBreakdown';
@@ -54,6 +54,7 @@ export function AnalyticsTab() {
   
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [openingStripe, setOpeningStripe] = useState(false);
+  const [isTopTier, setIsTopTier] = useState(false);
 
   // Helper function to detect demo mode
   const isDemoMode = () => {
@@ -77,6 +78,25 @@ export function AnalyticsTab() {
             unpaidPending: response.data.unpaid_pending || 0,
             completedProjects: response.data.completed_projects || 0,
           });
+        }
+
+        // Check if user is on the top tier
+        try {
+          const [tiers, profile] = await Promise.all([
+            userService.getSubscriptionTiers(),
+            userService.getCreativeProfile(),
+          ]);
+
+          if (tiers.length > 0 && profile?.subscription_tier_id) {
+            const maxTierLevel = Math.max(...tiers.map(t => t.tier_level));
+            const currentTier = tiers.find(t => t.id === profile.subscription_tier_id);
+            
+            if (currentTier && currentTier.tier_level >= maxTierLevel) {
+              setIsTopTier(true);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to check tier level:', err);
         }
       } catch (error) {
         console.error('Error fetching analytics:', error);
@@ -337,7 +357,7 @@ export function AnalyticsTab() {
                       {card.title}
                     </Typography>
                   </Box>
-                  {isPlanCard && (
+                  {isPlanCard && !isTopTier && (
                     <Button
                       variant="contained"
                       size="small"

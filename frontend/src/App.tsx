@@ -14,6 +14,8 @@ import { NoAccess } from './views/NoAccess'
 import { InvitePage } from './views/InvitePage'
 import { PaymentSuccess } from './views/PaymentSuccess'
 import { PaymentCancelled } from './views/PaymentCancelled'
+import { SubscriptionSuccess } from './pages/SubscriptionSuccess'
+import { SubscriptionCanceled } from './pages/SubscriptionCanceled'
 import { NotFound } from './views/NotFound'
 
 // Lazy load heavy route components for code splitting
@@ -205,6 +207,8 @@ function AppContent() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-cancelled" element={<PaymentCancelled />} />
+        <Route path="/subscription-success" element={<SubscriptionSuccess />} />
+        <Route path="/subscription-canceled" element={<SubscriptionCanceled />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <AuthPopover 
