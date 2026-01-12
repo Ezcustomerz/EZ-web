@@ -29,7 +29,8 @@ import {
   PictureAsPdf,
   Receipt,
   Assignment,
-  Star
+  Star,
+  Visibility
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
@@ -136,6 +137,8 @@ export function CompletePopover({
   }>>(() => {
     return order?.files && Array.isArray(order.files) && order.files.length > 0 ? order.files : [];
   });
+  const [invoices, setInvoices] = useState<Array<{ type: string; name: string; download_url: string; session_id?: string }>>([]);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
 
   // Fetch files when popover opens if they're not already present
   useEffect(() => {
@@ -182,6 +185,25 @@ export function CompletePopover({
       setPreservedFiles(order.files);
     }
   }, [order]);
+
+  // Fetch invoices when popover opens
+  useEffect(() => {
+    if (open && order && order.id) {
+      setIsLoadingInvoices(true);
+      bookingService.getInvoices(order.id)
+        .then(result => {
+          setInvoices(result.invoices || []);
+          setIsLoadingInvoices(false);
+        })
+        .catch(err => {
+          console.error('Error fetching invoices:', err);
+          setInvoices([]);
+          setIsLoadingInvoices(false);
+        });
+    } else {
+      setInvoices([]);
+    }
+  }, [open, order?.id]);
 
   // Use preserved files if available, otherwise fall back to order files
   const displayFiles = preservedFiles.length > 0 ? preservedFiles : (order?.files || []);
@@ -274,6 +296,57 @@ export function CompletePopover({
 
   const handleViewService = () => {
     setServiceDetailOpen(true);
+  };
+
+  const handleViewEzInvoice = async () => {
+    if (!order) return;
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view EZ invoice:', error);
+      alert('Failed to view invoice. Please try again.');
+    }
+  };
+
+  const handleDownloadEzInvoice = async () => {
+    if (!order) return;
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `EZ_Invoice_${order.id.substring(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+    } catch (error) {
+      console.error('Failed to download EZ invoice:', error);
+      alert('Failed to download invoice. Please try again.');
+    }
+  };
+
+  const handleViewStripeReceipt = async (sessionId: string) => {
+    if (!order) return;
+    try {
+      const response = await bookingService.getStripeReceipt(order.id, sessionId);
+      if (response.success && response.receipt_url) {
+        // Open Stripe receipt in new tab
+        window.open(response.receipt_url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to get Stripe receipt:', error);
+      alert('Failed to open Stripe receipt. Please try again.');
+    }
   };
 
   const handleServiceDetailClose = () => {
@@ -669,104 +742,107 @@ export function CompletePopover({
             </CardContent>
           </Card>
 
-          {/* Documents Section */}
+          {/* Invoices & Receipts Section */}
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
-                Documents
+                Invoices & Receipts
               </Typography>
-              
-              <Stack spacing={2}>
-                {/* Receipt PDF */}
-                <Box sx={{ 
-                  p: 2, 
-                  borderRadius: 2, 
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fafafa'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
-                      backgroundColor: '#fee2e2',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Receipt sx={{ fontSize: 24, color: '#dc2626' }} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        Payment Receipt
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                        Official receipt for payment of {formatCurrency(order.amount)}
-                      </Typography>
-                    </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Download />}
-                      onClick={handleDownloadReceipt}
+              {isLoadingInvoices ? (
+                <Typography variant="body2" color="text.secondary">
+                  Loading invoices...
+                </Typography>
+              ) : invoices.length > 0 ? (
+                <Stack spacing={1.5}>
+                  {invoices.map((invoice, index) => (
+                    <Box
+                      key={index}
                       sx={{
-                        borderColor: '#dc2626',
-                        color: '#dc2626',
-                        '&:hover': {
-                          borderColor: '#b91c1c',
-                          backgroundColor: '#fef2f2',
-                        },
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#fafafa',
                       }}
                     >
-                      Download
-                    </Button>
-                  </Box>
-                </Box>
-
-                {/* Service Summary PDF */}
-                <Box sx={{ 
-                  p: 2, 
-                  borderRadius: 2, 
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fafafa'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
-                      backgroundColor: '#dbeafe',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Assignment sx={{ fontSize: 24, color: '#2563eb' }} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <PictureAsPdf sx={{ fontSize: 32, color: invoice.type === 'stripe_receipt' ? '#635bff' : '#f44336' }} />
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {invoice.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {invoice.type === 'stripe_receipt' ? 'Stripe payment receipt' : 'EZ platform invoice'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {invoice.type === 'ez_invoice' && (
+                          <>
+                            <IconButton
+                              size="small"
+                              onClick={handleViewEzInvoice}
+                              sx={{
+                                color: theme.palette.primary.main,
+                                '&:hover': {
+                                  bgcolor: theme.palette.primary.main + '10',
+                                },
+                              }}
+                              title="View invoice"
+                            >
+                              <Visibility />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={handleDownloadEzInvoice}
+                              sx={{
+                                color: theme.palette.primary.main,
+                                '&:hover': {
+                                  bgcolor: theme.palette.primary.main + '10',
+                                },
+                              }}
+                              title="Download invoice"
+                            >
+                              <Download />
+                            </IconButton>
+                          </>
+                        )}
+                        {invoice.type === 'stripe_receipt' && invoice.session_id && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleViewStripeReceipt(invoice.session_id!)}
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&:hover': {
+                                bgcolor: theme.palette.primary.main + '10',
+                              },
+                            }}
+                            title="View receipt"
+                          >
+                            <Visibility />
+                          </IconButton>
+                        )}
+                      </Box>
                     </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        Service Summary
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                        Detailed summary of completed service and deliverables
-                      </Typography>
-                    </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Download />}
-                      onClick={handleDownloadSummary}
-                      sx={{
-                        borderColor: '#2563eb',
-                        color: '#2563eb',
-                        '&:hover': {
-                          borderColor: '#1d4ed8',
-                          backgroundColor: '#eff6ff',
-                        },
-                      }}
-                    >
-                      Download
-                    </Button>
-                  </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    border: '1px solid #e2e8f0',
+                    textAlign: 'center',
+                    backgroundColor: '#fafafa',
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    No invoices available
+                  </Typography>
                 </Box>
-              </Stack>
+              )}
             </CardContent>
           </Card>
 
