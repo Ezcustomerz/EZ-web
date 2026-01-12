@@ -15,7 +15,6 @@ import {
   Avatar,
   Chip,
   Stack,
-  CircularProgress,
   Skeleton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -26,7 +25,7 @@ import { paymentRequestsService, type PaymentRequest } from '../../../api/paymen
 import { useAuth } from '../../../context/auth';
 import { format } from 'date-fns';
 import { PaymentRequestDetailPopover } from '../client/PaymentRequestDetailPopover';
-import { DirectPaymentPopover, type DirectPaymentData } from './DirectPaymentPopover';
+import { DirectPaymentPopover } from './DirectPaymentPopover';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -40,6 +39,7 @@ export interface PaymentActionsPopoverProps {
   open: boolean;
   onClose: () => void;
   paymentRequestIdToOpen?: string | null;
+  onOpenSettings?: (section?: 'billing') => void; // Callback to open settings
 }
 
 
@@ -61,7 +61,8 @@ const CACHE_DURATION = 10000; // Cache for 10 seconds
 export function PaymentActionsPopover({ 
   open, 
   onClose,
-  paymentRequestIdToOpen
+  paymentRequestIdToOpen,
+  onOpenSettings
 }: PaymentActionsPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -98,9 +99,9 @@ export function PaymentActionsPopover({
     if (paymentRequestsCache.promise) {
       setIsLoadingRequests(true);
       paymentRequestsCache.promise
-        .then(requests => {
+        .then(result => {
           if (mountedRef.current) {
-            setPaymentRequests(requests);
+            setPaymentRequests(result.data);
             setIsLoadingRequests(false);
           }
         })
@@ -181,19 +182,19 @@ export function PaymentActionsPopover({
     paymentRequestsCache.timestamp = 0;
     // Refetch payment requests
     if (open && isAuthenticated) {
-      const fetchPromise = paymentRequestsService.getCreativePaymentRequests();
+      const fetchPromise = paymentRequestsService.getCreativePaymentRequests(1, 50);
       paymentRequestsCache.promise = fetchPromise;
       paymentRequestsCache.timestamp = Date.now();
       paymentRequestsCache.resolved = false;
 
       fetchPromise
-        .then(requests => {
-          paymentRequestsCache.data = requests;
+        .then(result => {
+          paymentRequestsCache.data = result.data;
           paymentRequestsCache.resolved = true;
           paymentRequestsCache.promise = null;
 
           if (mountedRef.current) {
-            setPaymentRequests(requests);
+            setPaymentRequests(result.data);
             setIsLoadingRequests(false);
           }
         })
@@ -665,6 +666,7 @@ export function PaymentActionsPopover({
         open={directPaymentOpen}
         onClose={handleDirectPaymentClose}
         onSubmit={handleDirectPaymentSubmit}
+        onOpenSettings={onOpenSettings}
       />
 
       {/* Payment Request Detail Popover */}

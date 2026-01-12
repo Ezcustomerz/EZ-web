@@ -2562,6 +2562,10 @@ export function RequestsTable({
       <PaymentActionsPopover
         open={paymentActionsPopoverOpen}
         onClose={() => setPaymentActionsPopoverOpen(false)}
+        onOpenSettings={(section) => {
+          setSettingsInitialSection(section || 'account');
+          setSettingsOpen(true);
+        }}
       />
     </Box>
   );

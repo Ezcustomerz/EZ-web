@@ -25,7 +25,7 @@ import {
   List,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { Payment, AttachMoney, Description, Person, CalendarToday } from '@mui/icons-material';
+import { Payment, AttachMoney, Description, Person, CalendarToday, AccountBalance, Warning } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
 import { userService, type CreativeClient } from '../../../api/userService';
@@ -46,6 +46,7 @@ export interface DirectPaymentPopoverProps {
   open: boolean;
   onClose: () => void;
   onSubmit?: (paymentData: DirectPaymentData) => void;
+  onOpenSettings?: (section?: 'billing') => void; // Callback to open settings
 }
 
 export interface DirectPaymentData {
@@ -61,7 +62,8 @@ type PaymentType = 'booking' | 'client';
 export function DirectPaymentPopover({ 
   open, 
   onClose,
-  onSubmit
+  onSubmit,
+  onOpenSettings
 }: DirectPaymentPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -73,6 +75,7 @@ export function DirectPaymentPopover({
   const [amount, setAmount] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showStripeSetupDialog, setShowStripeSetupDialog] = useState(false);
   
   // Data fetching states
   const [bookings, setBookings] = useState<Order[]>([]);
@@ -263,10 +266,16 @@ export function DirectPaymentPopover({
       handleClose();
     } catch (error: any) {
       console.error('Failed to create payment request:', error);
-      errorToast(
-        'Failed to Create Payment Request',
-        error.message || 'An error occurred while creating the payment request. Please try again.'
-      );
+      
+      // Check if error is due to Stripe not being set up
+      if (error.message && error.message.includes('STRIPE_NOT_SETUP')) {
+        setShowStripeSetupDialog(true);
+      } else {
+        errorToast(
+          'Failed to Create Payment Request',
+          error.message || 'An error occurred while creating the payment request. Please try again.'
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -280,7 +289,18 @@ export function DirectPaymentPopover({
     setNotes('');
     setBookingSearchTerm('');
     setClientSearchTerm('');
+    setShowStripeSetupDialog(false);
     onClose();
+  };
+
+  const handleSetupBankAccount = () => {
+    // Close this popover
+    handleClose();
+    
+    // Open settings to billing section
+    if (onOpenSettings) {
+      onOpenSettings('billing');
+    }
   };
 
   // Filter bookings based on search term
@@ -811,6 +831,104 @@ export function DirectPaymentPopover({
           </Button>
         </Box>
       </DialogContent>
+
+      {/* Stripe Setup Required Dialog */}
+      <Dialog
+        open={showStripeSetupDialog}
+        onClose={() => setShowStripeSetupDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 1,
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Warning sx={{ color: theme.palette.warning.main, fontSize: 28 }} />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Bank Account Setup Required
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => setShowStripeSetupDialog(false)}
+            sx={{
+              position: 'absolute',
+              right: 12,
+              top: 12,
+              color: theme.palette.text.secondary,
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ py: 2 }}>
+            <Typography variant="body1" sx={{ mb: 2, color: theme.palette.text.secondary }}>
+              Before you can request payments, you need to set up your bank account to receive funds.
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                p: 2,
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <AccountBalance sx={{ fontSize: 40, color: theme.palette.primary.main }} />
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Connect Your Bank Account
+                </Typography>
+                <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
+                  Set up your Stripe account to start receiving payments securely
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <Box sx={{ px: 3, pb: 3, display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={() => setShowStripeSetupDialog(false)}
+            sx={{
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={handleSetupBankAccount}
+            startIcon={<AccountBalance />}
+            sx={{
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 700,
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+              boxShadow: `0 4px 14px ${theme.palette.primary.main}40`,
+              '&:hover': {
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
+                boxShadow: `0 6px 20px ${theme.palette.primary.main}50`,
+                transform: 'translateY(-2px)',
+              },
+            }}
+          >
+            Set Up Bank Account
+          </Button>
+        </Box>
+      </Dialog>
     </Dialog>
   );
 }

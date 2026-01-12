@@ -14,6 +14,7 @@ import {
   Chip,
   Avatar,
   Stack,
+  Skeleton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -22,10 +23,13 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import NotesIcon from '@mui/icons-material/Notes';
+import PictureAsPdf from '@mui/icons-material/PictureAsPdf';
+import Download from '@mui/icons-material/Download';
+import Visibility from '@mui/icons-material/Visibility';
 import type { TransitionProps } from '@mui/material/transitions';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import type { PaymentRequest } from '../../../api/paymentRequestsService';
+import { paymentRequestsService, type PaymentRequest } from '../../../api/paymentRequestsService';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -50,6 +54,27 @@ export function PaymentRequestDetailPopover({
 }: PaymentRequestDetailPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [invoices, setInvoices] = useState<Array<{ type: string; name: string; download_url: string; session_id?: string }>>([]);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
+
+  // Fetch invoices when popover opens and payment request is paid
+  useEffect(() => {
+    if (open && paymentRequest && paymentRequest.status === 'paid') {
+      setIsLoadingInvoices(true);
+      paymentRequestsService.getInvoices(paymentRequest.id)
+        .then(result => {
+          setInvoices(result.invoices || []);
+          setIsLoadingInvoices(false);
+        })
+        .catch(err => {
+          console.error('Error fetching invoices:', err);
+          setInvoices([]);
+          setIsLoadingInvoices(false);
+        });
+    } else {
+      setInvoices([]);
+    }
+  }, [open, paymentRequest]);
 
   if (!paymentRequest) return null;
 
@@ -101,6 +126,57 @@ export function PaymentRequestDetailPopover({
       onPay(paymentRequest);
     }
     onClose();
+  };
+
+  const handleViewEzInvoice = async () => {
+    if (!paymentRequest) return;
+    try {
+      const blob = await paymentRequestsService.downloadEzInvoice(paymentRequest.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view EZ invoice:', error);
+      alert('Failed to view invoice. Please try again.');
+    }
+  };
+
+  const handleDownloadEzInvoice = async () => {
+    if (!paymentRequest) return;
+    try {
+      const blob = await paymentRequestsService.downloadEzInvoice(paymentRequest.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `EZ_Invoice_PaymentRequest_${paymentRequest.id.substring(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+    } catch (error) {
+      console.error('Failed to download EZ invoice:', error);
+      alert('Failed to download invoice. Please try again.');
+    }
+  };
+
+  const handleViewStripeReceipt = async (sessionId: string) => {
+    if (!paymentRequest) return;
+    try {
+      const response = await paymentRequestsService.getStripeReceipt(paymentRequest.id, sessionId);
+      if (response.success && response.receipt_url) {
+        // Open Stripe receipt in new tab
+        window.open(response.receipt_url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to get Stripe receipt:', error);
+      alert('Failed to open Stripe receipt. Please try again.');
+    }
   };
 
   const getStatusGradientColor = (status: string) => {
@@ -303,6 +379,138 @@ export function PaymentRequestDetailPopover({
           )}
 
           <Divider />
+
+          {/* Invoices Section - Only show for paid requests */}
+          {paymentRequest.status === 'paid' && (
+            <>
+              <Box>
+                <Typography variant="h6" fontWeight={600} gutterBottom sx={{ color: 'text.primary' }}>
+                  Invoices & Receipts
+                </Typography>
+                {isLoadingInvoices ? (
+                  <Stack spacing={1.5}>
+                    {[1, 2].map((i) => (
+                      <Box
+                        key={i}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: '1px solid rgba(0, 0, 0, 0.08)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                          <Skeleton variant="circular" width={32} height={32} />
+                          <Box sx={{ flex: 1 }}>
+                            <Skeleton variant="text" width="60%" height={20} />
+                            <Skeleton variant="text" width="40%" height={16} />
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Skeleton variant="circular" width={32} height={32} />
+                          <Skeleton variant="circular" width={32} height={32} />
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : invoices.length > 0 ? (
+                  <Stack spacing={1.5}>
+                    {invoices.map((invoice, index) => (
+                      <Box
+                        key={index}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: '1px solid rgba(0, 0, 0, 0.08)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <PictureAsPdf sx={{ fontSize: 32, color: invoice.type === 'stripe_receipt' ? '#635bff' : '#f44336' }} />
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {invoice.name}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              {invoice.type === 'stripe_receipt' ? 'Stripe payment receipt' : 'EZ platform invoice'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {invoice.type === 'ez_invoice' && (
+                            <>
+                              <IconButton
+                                size="small"
+                                onClick={handleViewEzInvoice}
+                                sx={{
+                                  color: theme.palette.primary.main,
+                                  '&:hover': {
+                                    bgcolor: theme.palette.primary.main + '10',
+                                  },
+                                }}
+                                title="View invoice"
+                              >
+                                <Visibility />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                onClick={handleDownloadEzInvoice}
+                                sx={{
+                                  color: theme.palette.primary.main,
+                                  '&:hover': {
+                                    bgcolor: theme.palette.primary.main + '10',
+                                  },
+                                }}
+                                title="Download invoice"
+                              >
+                                <Download />
+                              </IconButton>
+                            </>
+                          )}
+                          {invoice.type === 'stripe_receipt' && invoice.session_id && (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewStripeReceipt(invoice.session_id!)}
+                              sx={{
+                                color: theme.palette.primary.main,
+                                '&:hover': {
+                                  bgcolor: theme.palette.primary.main + '10',
+                                },
+                              }}
+                              title="View receipt"
+                            >
+                              <Visibility />
+                            </IconButton>
+                          )}
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Box
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      border: '1px solid rgba(0, 0, 0, 0.08)',
+                      textAlign: 'center',
+                      backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      No invoices available
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+              <Divider />
+            </>
+          )}
 
           {/* Dates */}
           <Box>
