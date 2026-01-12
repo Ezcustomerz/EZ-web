@@ -14,6 +14,7 @@ import { NoAccess } from './views/NoAccess'
 import { InvitePage } from './views/InvitePage'
 import { PaymentSuccess } from './views/PaymentSuccess'
 import { PaymentCancelled } from './views/PaymentCancelled'
+import { NotFound } from './views/NotFound'
 
 // Lazy load heavy route components for code splitting
 const DashCreative = lazy(() => import('./views/creative/DashCreative').then(module => ({ default: module.DashCreative })))
@@ -204,6 +205,7 @@ function AppContent() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-cancelled" element={<PaymentCancelled />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       <AuthPopover 
         open={authOpen} 
