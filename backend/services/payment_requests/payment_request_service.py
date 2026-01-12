@@ -476,6 +476,91 @@ class PaymentRequestService:
             return 0  # Return 0 on error to avoid breaking UI
     
     @staticmethod
+    async def get_payment_requests_by_booking(
+        booking_id: str,
+        client: Client
+    ) -> list:
+        """Get all payment requests associated with a booking
+        
+        Args:
+            booking_id: The booking ID to get payment requests for
+            client: Supabase client for database operations
+            
+        Returns:
+            List of payment requests for the booking
+        """
+        try:
+            # Get payment requests for this booking
+            result = client.table('payment_requests')\
+                .select('id, creative_user_id, client_user_id, booking_id, amount, notes, status, created_at, paid_at, cancelled_at, stripe_session_id')\
+                .eq('booking_id', booking_id)\
+                .order('created_at', desc=True)\
+                .execute()
+            
+            if not result.data:
+                return []
+            
+            # Get creative and client info for each payment request
+            creative_ids = list(set([pr['creative_user_id'] for pr in result.data]))
+            client_ids = list(set([pr['client_user_id'] for pr in result.data]))
+            
+            # Fetch creatives data
+            creatives_map = {}
+            if creative_ids:
+                creatives_result = client.table('creatives')\
+                    .select('user_id, display_name, profile_banner_url')\
+                    .in_('user_id', creative_ids)\
+                    .execute()
+                
+                if creatives_result.data:
+                    for creative in creatives_result.data:
+                        creatives_map[creative['user_id']] = creative
+            
+            # Fetch clients data
+            clients_map = {}
+            if client_ids:
+                clients_result = client.table('clients')\
+                    .select('user_id, display_name')\
+                    .in_('user_id', client_ids)\
+                    .execute()
+                
+                if clients_result.data:
+                    for client_data in clients_result.data:
+                        clients_map[client_data['user_id']] = client_data
+            
+            # Transform the data
+            payment_requests = []
+            for pr in result.data:
+                creative = creatives_map.get(pr['creative_user_id'], {})
+                client_data = clients_map.get(pr['client_user_id'], {})
+                
+                payment_request = {
+                    'id': pr['id'],
+                    'creative_user_id': pr['creative_user_id'],
+                    'client_user_id': pr['client_user_id'],
+                    'booking_id': pr.get('booking_id'),
+                    'amount': float(pr['amount']),
+                    'notes': pr.get('notes'),
+                    'status': pr['status'],
+                    'created_at': pr['created_at'],
+                    'paid_at': pr.get('paid_at'),
+                    'cancelled_at': pr.get('cancelled_at'),
+                    'stripe_session_id': pr.get('stripe_session_id'),
+                    'creative_name': creative.get('display_name') if creative else None,
+                    'creative_display_name': creative.get('display_name') if creative else None,
+                    'creative_avatar_url': creative.get('profile_banner_url') if creative else None,
+                    'client_name': client_data.get('display_name') if client_data else None,
+                    'client_display_name': client_data.get('display_name') if client_data else None,
+                }
+                payment_requests.append(payment_request)
+            
+            return payment_requests
+            
+        except Exception as e:
+            logger.error(f"Error fetching payment requests for booking: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch payment requests: {str(e)}")
+    
+    @staticmethod
     async def process_payment_request(
         payment_request_id: str,
         client_user_id: str,

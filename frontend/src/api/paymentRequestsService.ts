@@ -241,6 +241,31 @@ class PaymentRequestsService {
   }
 
   /**
+   * Get payment requests associated with a specific booking
+   */
+  async getPaymentRequestsByBooking(bookingId: string): Promise<PaymentRequest[]> {
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.get<PaymentRequest[]>(
+        `${API_BASE_URL}/api/payment-requests/booking/${bookingId}`,
+        { headers }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching payment requests for booking:', error);
+      if (error.response?.status === 401) {
+        throw new Error('Authentication failed');
+      }
+      throw new Error(error.response?.data?.detail || 'Failed to fetch payment requests');
+    }
+  }
+
+  /**
    * Get all invoices for a payment request (only for paid requests)
    */
   async getInvoices(paymentRequestId: string): Promise<PaymentRequestInvoicesResponse> {

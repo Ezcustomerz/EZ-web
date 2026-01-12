@@ -44,6 +44,7 @@ import type { FileScanResponse } from '../../../api/fileScanningService';
 import { userService, type CreativeProfile } from '../../../api/userService';
 import { errorToast } from '../../../components/toast/toast';
 import { supabase } from '../../../config/supabase';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Define Session interface locally since it's not exported
 interface Session {
@@ -976,6 +977,9 @@ export function InProgressPopover({
               </CardContent>
             </Card>
           )}
+
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={false} />
 
           {/* Service Card */}
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>

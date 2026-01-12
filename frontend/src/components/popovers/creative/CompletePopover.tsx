@@ -38,6 +38,7 @@ import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopo
 import { CalendarSessionDetailPopover } from './CalendarSessionDetailPopover';
 import { CircularProgress } from '@mui/material';
 import { bookingService } from '../../../api/bookingService';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Define Session interface locally since it's not exported
 interface Session {
@@ -768,6 +769,9 @@ export function CompletePopover({
               </Stack>
             </CardContent>
           </Card>
+
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={false} />
 
           {/* Service Card */}
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>

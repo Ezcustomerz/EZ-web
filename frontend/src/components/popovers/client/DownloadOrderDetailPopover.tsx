@@ -43,6 +43,7 @@ import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopo
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
 import { bookingService } from '../../../api/bookingService';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -892,6 +893,11 @@ export function DownloadOrderDetailPopover({
               </Box>
             )}
           </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={true} />
 
           <Divider sx={{ my: 2 }} />
 

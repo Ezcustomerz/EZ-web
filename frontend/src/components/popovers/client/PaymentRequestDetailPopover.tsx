@@ -14,6 +14,7 @@ import {
   Chip,
   Avatar,
   Stack,
+  Skeleton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -387,9 +388,34 @@ export function PaymentRequestDetailPopover({
                   Invoices & Receipts
                 </Typography>
                 {isLoadingInvoices ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Loading invoices...
-                  </Typography>
+                  <Stack spacing={1.5}>
+                    {[1, 2].map((i) => (
+                      <Box
+                        key={i}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: '1px solid rgba(0, 0, 0, 0.08)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                          <Skeleton variant="circular" width={32} height={32} />
+                          <Box sx={{ flex: 1 }}>
+                            <Skeleton variant="text" width="60%" height={20} />
+                            <Skeleton variant="text" width="40%" height={16} />
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Skeleton variant="circular" width={32} height={32} />
+                          <Skeleton variant="circular" width={32} height={32} />
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
                 ) : invoices.length > 0 ? (
                   <Stack spacing={1.5}>
                     {invoices.map((invoice, index) => (

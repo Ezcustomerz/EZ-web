@@ -42,6 +42,7 @@ import { CreativeDetailPopover } from './CreativeDetailPopover';
 import { StripePaymentDialog } from '../../dialogs/StripePaymentDialog';
 import { CircularProgress } from '@mui/material';
 import { bookingService } from '../../../api/bookingService';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -726,6 +727,11 @@ export function LockedOrderDetailPopover({
               )}
             </Box>
           </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={true} />
         </Box>
         {/* End of scrollable content */}
 
