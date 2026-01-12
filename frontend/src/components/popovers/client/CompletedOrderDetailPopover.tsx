@@ -44,6 +44,7 @@ import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
 import { BookingServicePopover } from './BookingServicePopover';
 import { bookingService, type CalendarSettings } from '../../../api/bookingService';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -237,7 +238,7 @@ export function CompletedOrderDetailPopover({
       return preservedFileCount;
     }
     // Fall back to order count
-    if (order?.fileCount !== null && order.fileCount !== undefined && order.fileCount > 0) {
+    if (order?.fileCount !== null && order?.fileCount !== undefined && order?.fileCount > 0) {
       return order.fileCount;
     }
     // Return null if neither has a valid count
@@ -250,7 +251,7 @@ export function CompletedOrderDetailPopover({
       return preservedFileSize;
     }
     // Fall back to order size
-    if (order?.fileSize !== null && order.fileSize !== undefined && order.fileSize !== 'N/A') {
+    if (order?.fileSize !== null && order?.fileSize !== undefined && order?.fileSize !== 'N/A') {
       return order.fileSize;
     }
     // Return null if neither has a valid size
