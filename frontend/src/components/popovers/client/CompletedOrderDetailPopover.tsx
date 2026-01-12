@@ -42,8 +42,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
-import { bookingService } from '../../../api/bookingService';
-import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
+import { BookingServicePopover } from './BookingServicePopover';
+import { bookingService, type CalendarSettings } from '../../../api/bookingService';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -117,6 +117,8 @@ export function CompletedOrderDetailPopover({
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<string>('');
   const [downloadingFileIndex, setDownloadingFileIndex] = useState<number>(-1);
+  const [bookingPopoverOpen, setBookingPopoverOpen] = useState(false);
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   
   // Preserve files in local state to prevent them from disappearing after download
@@ -565,10 +567,26 @@ export function CompletedOrderDetailPopover({
     }
   };
 
-  const handleBookAgain = () => {
-    console.log('Book again:', order.serviceName);
-    // TODO: Navigate to service booking or open service detail
-    handleViewService();
+  const handleBookAgain = async () => {
+    // Close the order detail popover first
+    onClose();
+    // Fetch calendar settings and open booking popover directly
+    const serviceIdToUse = order.serviceId || order.id;
+    if (serviceIdToUse) {
+      try {
+        const response = await bookingService.getCalendarSettings(serviceIdToUse);
+        setCalendarSettings(response);
+        setBookingPopoverOpen(true);
+      } catch (error: any) {
+        // 404 is expected for services without scheduling - don't treat as error
+        if (error?.status !== 404 && error?.response?.status !== 404) {
+          console.error('Error fetching calendar settings:', error);
+        }
+        // Open booking popover without calendar settings
+        setCalendarSettings(null);
+        setBookingPopoverOpen(true);
+      }
+    }
   };
 
   const handleViewComplianceSheet = async () => {
@@ -1237,6 +1255,31 @@ export function CompletedOrderDetailPopover({
         creative={creativeDetail}
       />
 
+      {/* Booking Service Popover */}
+      {(order.serviceId || order.id) && (
+        <BookingServicePopover
+          open={bookingPopoverOpen}
+          onClose={() => setBookingPopoverOpen(false)}
+          service={{
+            id: order.serviceId || order.id,
+            title: order.serviceName,
+            description: order.serviceDescription || 'Service description not available',
+            price: order.price,
+            delivery_time: order.serviceDeliveryTime || '3-5 days',
+            creative_name: order.creativeName,
+            creative_display_name: order.creativeDisplayName || order.creativeName,
+            creative_title: order.creativeTitle,
+            creative_avatar_url: order.creativeAvatarUrl,
+            color: order.serviceColor || statusColor,
+            payment_option: order.paymentOption === 'payment_upfront' ? 'upfront' : 
+                            order.paymentOption === 'split_payment' ? 'split' : 
+                            order.paymentOption === 'payment_later' ? 'later' : 'upfront',
+            split_deposit_amount: undefined,
+            requires_booking: calendarSettings?.is_scheduling_enabled || false,
+          }}
+          calendarSettings={calendarSettings}
+        />
+      )}
     </>
   );
 }
