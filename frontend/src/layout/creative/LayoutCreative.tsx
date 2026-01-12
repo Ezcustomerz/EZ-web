@@ -11,6 +11,7 @@ import { IntentAuthGate } from '../../components/popovers/auth/IntentAuthGate';
 import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import { DemoSignInBar } from '../../components/dialogs/DemoSignInBar';
+import { SubscriptionTiersPopover } from '../../components/popovers/creative/SubscriptionTiersPopover';
 
 interface LayoutCreativeProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; creativeProfile: CreativeProfile | null }) => ReactNode);
@@ -29,6 +30,7 @@ export function LayoutCreative({
   const { userProfile, isSetupInProgress } = useAuth();
   const { setProfileLoading, isAnyLoading } = useLoading();
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
+  const [subscriptionTiersOpen, setSubscriptionTiersOpen] = useState(false);
   const fetchingRef = useRef<Set<string>>(new Set());
   
   // Helper function to check if we've already fetched profile for current user
@@ -207,6 +209,19 @@ export function LayoutCreative({
     };
   }, [userProfile]);
 
+  // Listen for subscription tiers popover open event
+  useEffect(() => {
+    const handleOpenSubscriptionTiers = () => {
+      setSubscriptionTiersOpen(true);
+    };
+
+    window.addEventListener('openSubscriptionTiers', handleOpenSubscriptionTiers);
+    
+    return () => {
+      window.removeEventListener('openSubscriptionTiers', handleOpenSubscriptionTiers);
+    };
+  }, []);
+
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
     if (!isMobile) {
@@ -301,7 +316,7 @@ export function LayoutCreative({
         onItemSelect={handleNavItemSelect}
         isMobile={isMobile}
         providedProfile={creativeProfile}
-
+        onOpenSubscriptionTiers={() => setSubscriptionTiersOpen(true)}
       />
 
       {/* Mobile Menu Button */}
@@ -502,6 +517,12 @@ export function LayoutCreative({
           isMobile={isMobile} 
         />
       )}
+
+      {/* Subscription Tiers Popover */}
+      <SubscriptionTiersPopover
+        open={subscriptionTiersOpen}
+        onClose={() => setSubscriptionTiersOpen(false)}
+      />
     </Box>
   );
 } 
