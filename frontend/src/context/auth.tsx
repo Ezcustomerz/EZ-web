@@ -401,19 +401,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthOpen(false);
   };
 
-  const startSequentialSetup = (selectedRoles: string[]) => {
-    // Set up the sequence: creative -> client -> advocate
-    const setupOrder = ['creative', 'client', 'advocate'];
+  const startSequentialSetup = async (selectedRoles: string[]) => {
+    // Store original selection first
+    setOriginalSelectedRoles(selectedRoles);
+    
+    // Auto-create client profile silently if client role is selected
+    if (selectedRoles.includes('client') && userProfile) {
+      try {
+        const clientSetupData = {
+          display_name: userProfile.name || 'User',
+          email: userProfile.email || '',
+        };
+        console.log('[Auth] Auto-creating client profile...', clientSetupData);
+        await userService.setupClientProfile(clientSetupData);
+        console.log('[Auth] Client profile auto-created successfully');
+      } catch (err: any) {
+        console.error('[Auth] Failed to auto-create client profile:', err);
+        const errorMsg = err.response?.data?.message || err.message || 'Unable to create client profile';
+        errorToast('Setup Failed', errorMsg);
+        setIsSetupInProgress(false);
+        setOriginalSelectedRoles([]);
+        return;
+      }
+    }
+
+    // Set up the sequence: creative -> advocate (client is now auto-created)
+    const setupOrder = ['creative', 'advocate'];
     const orderedSetups = setupOrder.filter(role => selectedRoles.includes(role));
     setPendingSetups(orderedSetups);
     setCompletedSetups([]); // Reset completed setups
     setTempSetupData({}); // Reset temp setup data
-    setOriginalSelectedRoles(selectedRoles); // Store original selection
     setIsSetupInProgress(true); // Mark setup as in progress
-    
+
     // Start with the first setup
     if (orderedSetups.length > 0) {
       openNextSetup(orderedSetups);
+    } else if (selectedRoles.includes('client') && selectedRoles.length === 1) {
+      // If only client role was selected and it's now auto-created, finish setup
+      console.log('[Auth] Client-only setup complete, refreshing profile and redirecting...');
+      setIsSetupInProgress(false);
+      // Refresh user profile to get updated first_login status
+      await fetchUserProfile();
+      // Now redirect to client dashboard
+      navigate('/client');
+      successToast('Welcome!', 'Your client account has been created successfully.');
     }
   };
 
@@ -495,11 +526,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const nextSetup = setups[0];
     if (nextSetup === 'creative') {
       setCreativeSetupOpen(true);
-    } else if (nextSetup === 'client') {
-      setClientSetupOpen(true);
     } else if (nextSetup === 'advocate') {
       setAdvocateSetupOpen(true);
     }
+    // Client setup is now auto-created, no dialog needed
   };
 
   const openCreativeSetup = () => {
@@ -608,14 +638,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setCompletedSetups(prev => prev.slice(0, -1));
       setPendingSetups(prev => [previousSetup, ...prev]);
       
-      // Open the previous setup
+      // Open the previous setup (skip client as it's auto-created)
       if (previousSetup === 'creative') {
         setCreativeSetupOpen(true);
-      } else if (previousSetup === 'client') {
-        setClientSetupOpen(true);
       } else if (previousSetup === 'advocate') {
         setAdvocateSetupOpen(true);
       }
+      // Client setup is auto-created, no dialog to reopen
     }
   };
 

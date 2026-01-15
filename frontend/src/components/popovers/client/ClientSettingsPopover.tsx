@@ -17,10 +17,6 @@ import {
   Button,
   Card,
   CardContent,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Avatar,
   Divider,
   CircularProgress,
@@ -34,7 +30,6 @@ import {
   Settings,
   CreditCard,
   PhotoCamera,
-  Title,
   ContactPhone,
   AccountCircle,
   Check,
@@ -50,87 +45,6 @@ interface ClientSettingsPopoverProps {
 
 type SettingsSection = 'account' | 'billing' | 'userAccount';
 
-const CLIENT_TITLES = [
-  'Other', // Move to top for easy access
-  
-  // Music Industry Clients
-  'Recording Artist',
-  'Singer-Songwriter',
-  'Band Member',
-  'Music Producer',
-  'Record Label',
-  'Music Manager',
-  'A&R Representative',
-  'Music Publisher',
-  'Independent Artist',
-  'Country Artist',
-  'Hip Hop Artist',
-  'Pop Artist',
-  'Rock Artist',
-  'Electronic Artist',
-  'Jazz Musician',
-  'Classical Musician',
-  'Folk Artist',
-  'R&B Artist',
-  'Rapper',
-  'DJ',
-  'Songwriter',
-  'Composer',
-  'Music Director',
-  
-  // Media & Entertainment
-  'Filmmaker',
-  'Video Producer',
-  'Content Creator',
-  'YouTuber',
-  'Podcaster',
-  'Radio Host',
-  'TV Producer',
-  'Documentary Maker',
-  'Commercial Producer',
-  'Music Video Director',
-  
-  // Business & Corporate
-  'Marketing Manager',
-  'Brand Manager',
-  'Creative Director',
-  'Advertising Executive',
-  'Small Business Owner',
-  'Startup Founder',
-  'Event Planner',
-  'Wedding Planner',
-  'Corporate Executive',
-  'Entrepreneur',
-  
-  // Publishing & Media
-  'Author',
-  'Publisher',
-  'Magazine Editor',
-  'Journalist',
-  'Blogger',
-  'Social Media Manager',
-  'Influencer',
-  
-  // Technology & Digital
-  'App Developer',
-  'Software Company',
-  'Tech Startup',
-  'Gaming Company',
-  'Digital Agency',
-  'Web Development Agency',
-  
-  // Other Creative Industries
-  'Fashion Designer',
-  'Interior Designer',
-  'Architect',
-  'Art Gallery',
-  'Museum',
-  'Theater Producer',
-  'Event Organizer',
-  'Non-Profit Organization',
-  'Educational Institution',
-  'Client',
-];
 
 export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: ClientSettingsPopoverProps) {
   const theme = useTheme();
@@ -148,8 +62,6 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
     displayName: '',
     profilePhoto: null as File | null,
     profilePhotoUrl: '', // Existing photo URL from database
-    title: '',
-    customTitle: '',
     primaryContact: '',
   });
 
@@ -166,15 +78,10 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
     try {
       const profile = await userService.getClientProfile();
       
-      // Determine if the title is a standard one or custom
-      const isStandardTitle = CLIENT_TITLES.includes(profile.title || '');
-      
       setFormData({
         displayName: profile.display_name || '',
         profilePhoto: null,
         profilePhotoUrl: profile.profile_banner_url || '',
-        title: isStandardTitle ? (profile.title || '') : 'Other',
-        customTitle: isStandardTitle ? '' : (profile.title || ''),
         primaryContact: profile.email || '',
       });
     } catch (err: any) {
@@ -223,13 +130,9 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
         }
       }
 
-      // Determine the title to send
-      const titleToSend = formData.title === 'Other' ? formData.customTitle : formData.title;
-
       // Prepare update data
       const updateData: any = {
         display_name: formData.displayName,
-        title: titleToSend,
         email: formData.primaryContact,
       };
 
@@ -358,43 +261,6 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
                       onChange={(e) => handleInputChange('displayName', e.target.value)}
                       placeholder="Enter your display name"
                     />
-                  </CardContent>
-                </Card>
-
-                {/* Title */}
-                <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                      <Title color="primary" />
-                      <Typography variant="h6" fontWeight={600}>
-                        Title
-                      </Typography>
-                    </Box>
-                    <FormControl fullWidth>
-                      <InputLabel>Select Title</InputLabel>
-                      <Select
-                        label="Select Title"
-                        value={formData.title}
-                        onChange={(e) => handleInputChange('title', e.target.value)}
-                      >
-                        {CLIENT_TITLES.map((title) => (
-                          <MenuItem key={title} value={title}>
-                            {title}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    
-                    {/* Custom Title Field - Only shown when "Other" is selected */}
-                    {formData.title === 'Other' && (
-                      <TextField
-                        fullWidth
-                        value={formData.customTitle}
-                        onChange={(e) => handleInputChange('customTitle', e.target.value)}
-                        placeholder="Enter custom title"
-                        sx={{ mt: 2 }}
-                      />
-                    )}
                   </CardContent>
                 </Card>
 

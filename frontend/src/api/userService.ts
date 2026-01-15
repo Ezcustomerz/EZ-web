@@ -71,8 +71,6 @@ export interface CreativeSetupResponse {
 
 export interface ClientSetupRequest {
   display_name: string;
-  title: string;
-  custom_title?: string;
   email: string;
 }
 

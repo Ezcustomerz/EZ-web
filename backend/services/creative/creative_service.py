@@ -138,6 +138,12 @@ class CreativeController:
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create creative profile")
             
+            # Mark setup as complete by setting first_login to False
+            user_update_result = client.table('users').update({'first_login': False}).eq('user_id', user_id).execute()
+            
+            if not user_update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update user first_login status")
+            
             return CreativeSetupResponse(
                 success=True,
                 message="Creative profile created successfully"
@@ -224,7 +230,7 @@ class CreativeController:
             
             # Batch fetch client and user data to avoid N+1 queries
             clients_result = client.table('clients').select(
-                'user_id, display_name, email, title'
+                'user_id, display_name, email'
             ).in_('user_id', client_user_ids).execute()
             
             users_result = client.table('users').select(
@@ -259,14 +265,14 @@ class CreativeController:
                 
                 client = CreativeClientResponse(
                     id=relationship['id'],
+                    user_id=client_user_id,
                     name=client_name,
                     contact=contact,
                     contactType=contact_type,
                     status=relationship.get('status', 'inactive'),
                     totalSpent=float(relationship.get('total_spent', 0)),
                     projects=int(relationship.get('projects_count', 0)),
-                    profile_picture_url=user_data.get('profile_picture_url'),
-                    title=client_data.get('title')
+                    profile_picture_url=user_data.get('profile_picture_url')
                 )
                 clients.append(client)
             

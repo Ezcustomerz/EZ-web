@@ -86,6 +86,12 @@ class AdvocateController:
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create advocate profile")
             
+            # Mark setup as complete by setting first_login to False
+            user_update_result = db_admin.table('users').update({'first_login': False}).eq('user_id', user_id).execute()
+            
+            if not user_update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update user first_login status")
+            
             return AdvocateSetupResponse(
                 success=True,
                 message="Advocate profile created successfully with demo data"

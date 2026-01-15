@@ -232,8 +232,9 @@ function AppContent() {
         onBack={backToRoleSelection}
         isFirstSetup={isFirstSetup}
       />
+      {/* ClientSetupPopover is kept for compatibility but no longer shown - client profiles are auto-created */}
       <ClientSetupPopover 
-        open={clientSetupOpen} 
+        open={false} // Never opened - client profiles are auto-created
         onClose={closeClientSetup}
         userName={userProfile?.name}
         userEmail={userProfile?.email}

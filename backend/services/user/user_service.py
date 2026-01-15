@@ -262,7 +262,6 @@ class UserController:
                 client_row = {
                     'user_id': user_id,
                     'display_name': client_data.get('display_name'),
-                    'title': client_data.get('title'),
                     'email': client_data.get('email'),
                     'profile_banner_url': profile_picture_url,
                     'profile_source': avatar_source,
@@ -365,7 +364,7 @@ class UserController:
                 # Fetch client profile if user has client role (using authenticated client - respects RLS)
                 if 'client' in user_roles:
                     client_result = client.table('clients').select(
-                        'user_id, title'
+                        'user_id'
                     ).eq('user_id', user_id).execute()
                     if client_result.data and len(client_result.data) > 0:
                         client_data = client_result.data[0]

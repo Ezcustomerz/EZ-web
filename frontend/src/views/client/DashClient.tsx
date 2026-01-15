@@ -351,7 +351,7 @@ export function ClientDashboard() {
         {/* Welcome Card */}
         <WelcomeCard 
           userName={clientProfile?.display_name || "Demo User"} 
-          userType={clientProfile?.title || "Country Artist"} 
+          userType="Client" 
         />
 
         {/* Main Content Grid - Half and Half */}

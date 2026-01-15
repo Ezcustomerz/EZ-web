@@ -3,8 +3,6 @@ from typing import Optional, List
 
 class ClientSetupRequest(BaseModel):
     display_name: str
-    title: str
-    custom_title: Optional[str] = None
     email: str
 
 class ClientSetupResponse(BaseModel):
@@ -13,7 +11,6 @@ class ClientSetupResponse(BaseModel):
 
 class ClientUpdateRequest(BaseModel):
     display_name: Optional[str] = None
-    title: Optional[str] = None
     email: Optional[str] = None
     profile_banner_url: Optional[str] = None
 

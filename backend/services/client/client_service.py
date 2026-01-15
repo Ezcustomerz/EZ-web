@@ -36,10 +36,6 @@ class ClientController:
             if not validate_email(setup_request.email):
                 raise HTTPException(status_code=422, detail="Invalid email format")
             
-            # Prepare client profile data
-            # If custom_title is provided, use it as the title instead of the selected title
-            title_to_use = setup_request.custom_title if setup_request.custom_title else setup_request.title
-            
             # Get user's profile picture and avatar source for client profile
             profile_picture_url = user_data.get('profile_picture_url')
             avatar_source = user_data.get('avatar_source', 'google')
@@ -47,7 +43,6 @@ class ClientController:
             client_data = {
                 'user_id': user_id,
                 'display_name': setup_request.display_name,
-                'title': title_to_use,
                 'email': setup_request.email,
                 'profile_banner_url': profile_picture_url,  # Copy profile picture as banner
                 'profile_source': avatar_source,  # Copy avatar source as profile source
@@ -58,6 +53,12 @@ class ClientController:
             
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create client profile")
+            
+            # Mark setup as complete by setting first_login to False
+            user_update_result = client.table('users').update({'first_login': False}).eq('user_id', user_id).execute()
+            
+            if not user_update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update user first_login status")
             
             return ClientSetupResponse(
                 success=True,
@@ -105,8 +106,6 @@ class ClientController:
             update_dict = {}
             if update_data.display_name is not None:
                 update_dict['display_name'] = update_data.display_name
-            if update_data.title is not None:
-                update_dict['title'] = update_data.title
             if update_data.email is not None:
                 # Validate email format
                 if not validate_email(update_data.email):

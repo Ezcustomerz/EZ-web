@@ -92,6 +92,12 @@ class ProfileService:
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create creative profile")
             
+            # Mark setup as complete by setting first_login to False
+            user_update_result = client.table('users').update({'first_login': False}).eq('user_id', user_id).execute()
+            
+            if not user_update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update user first_login status")
+            
             return CreativeSetupResponse(
                 success=True,
                 message="Creative profile created successfully"
