@@ -215,7 +215,7 @@ export function ClientDashboard() {
       clientNotificationsCache.timestamp = now - CACHE_DURATION - 1000; // Force cache to be stale
 
       // Fetch fresh notifications
-      const fetchPromise = (async () => {
+      const fetchPromise = (async (): Promise<ActivityItem[]> => {
         try {
           const notifications = await getNotifications(25, 0, false, 'client');
           const items = notificationsToActivityItems(notifications);
@@ -233,7 +233,7 @@ export function ClientDashboard() {
         } catch (error) {
           clientNotificationsCache.promise = null;
           // Don't update state on polling errors to avoid disrupting UI
-          return null;
+          return [];
         }
       })();
 
@@ -327,7 +327,7 @@ export function ClientDashboard() {
 
   return (
     <LayoutClient selectedNavItem="dashboard">
-      {({ isSidebarOpen, isMobile, clientProfile }) => (
+      {({ isSidebarOpen: _, isMobile: __, clientProfile }) => (
         <Box sx={{
         px: { xs: 1.5, sm: 1.5, md: 2.5 },
         pt: { xs: 1.5, sm: 1.5, md: 2.5 },

@@ -1,4 +1,4 @@
-import { Box, Typography, Paper, Stack, CircularProgress, useTheme, useMediaQuery, Chip, Button, Card, CardContent, Avatar, Divider, Skeleton, Pagination } from '@mui/material';
+import { Box, Typography, Paper, Stack, useTheme, useMediaQuery, Chip, Button, Card, CardContent, Avatar, Divider, Skeleton, Pagination } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -145,7 +145,7 @@ export function PaymentRequestsClient() {
 
   return (
     <LayoutClient selectedNavItem="orders">
-      {({ isSidebarOpen, isMobile: layoutIsMobile, clientProfile }) => (
+      {({ isSidebarOpen: _, isMobile: __, clientProfile: ___ }) => (
         <Box
           sx={{
             px: { xs: 2, sm: 2, md: 3 },
@@ -319,10 +319,11 @@ export function PaymentRequestsClient() {
                   onClick={() => {
                     setError(null);
                     setIsLoading(true);
-                    paymentRequestsService.getClientPaymentRequests()
-                      .then(requests => {
+                    paymentRequestsService.getClientPaymentRequests(page, PAGE_SIZE)
+                      .then(result => {
                         if (mountedRef.current) {
-                          setPaymentRequests(requests);
+                          setPaymentRequests(result.data);
+                          setPagination(result.pagination);
                           setIsLoading(false);
                         }
                       })

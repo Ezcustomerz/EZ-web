@@ -121,7 +121,7 @@ export function NotificationsClient() {
 
   return (
     <LayoutClient selectedNavItem="dashboard">
-      {({ isSidebarOpen, isMobile: layoutIsMobile, clientProfile }) => (
+      {({ isSidebarOpen: _, isMobile: __, clientProfile: ___ }) => (
         <Box
           sx={{
             p: { xs: 2, sm: 2, md: 3 },

@@ -12,7 +12,6 @@ import {
   Chip,
   Avatar,
   Button,
-  CircularProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { 
@@ -27,7 +26,7 @@ import {
   Visibility,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';

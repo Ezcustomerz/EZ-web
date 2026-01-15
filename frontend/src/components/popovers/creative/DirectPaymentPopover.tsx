@@ -85,12 +85,12 @@ export function DirectPaymentPopover({
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [loadingMoreBookings, setLoadingMoreBookings] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [bookingSearchTerm, setBookingSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   
   // Creative profile for fee calculation
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
 
   // Fetch creative profile for fee calculation
   useEffect(() => {

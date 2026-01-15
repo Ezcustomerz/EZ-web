@@ -127,7 +127,6 @@ export function RequestsTable({
     };
     return textMap[context][type];
   };
-  const navigate = useNavigate();
   const [filter, setFilter] = useState('All');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');

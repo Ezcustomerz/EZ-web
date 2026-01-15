@@ -69,7 +69,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
-import { supabase } from '../../../config/supabase';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;

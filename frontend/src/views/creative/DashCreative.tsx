@@ -220,7 +220,7 @@ export function DashCreative() {
         } catch (error) {
           notificationsCache.promise = null;
           // Don't update state on polling errors to avoid disrupting UI
-          return null;
+          return [];
         }
       })();
 

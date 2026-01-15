@@ -1,4 +1,4 @@
-import { Box, Typography, Paper, Stack, Skeleton, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Paper, Stack, Skeleton } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,8 +9,6 @@ import { useAuth } from '../../context/auth';
 import { ActivityNotificationCard } from '../../components/cards/ActivityNotificationCard';
 
 export function NotificationsCreative() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
@@ -169,7 +167,7 @@ export function NotificationsCreative() {
 
   return (
     <LayoutCreative selectedNavItem="dashboard">
-      {({ isSidebarOpen, creativeProfile }) => (
+      {({ isSidebarOpen: _, creativeProfile: __ }) => (
         <Box
           sx={{
             p: { xs: 2, sm: 2, md: 3 },

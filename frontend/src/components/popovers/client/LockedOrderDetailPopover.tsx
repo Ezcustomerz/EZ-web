@@ -26,7 +26,6 @@ import {
   CheckCircle, 
   Lock,
   LockOpen,
-  Description,
   InsertDriveFile,
   VideoFile,
   AudioFile,
@@ -241,7 +240,6 @@ export function LockedOrderDetailPopover({
   // For locked orders, the deposit is always already paid (it's the second payment)
   const depositAmount = order.depositAmount || (order.paymentOption === 'split_payment' ? Math.round(order.price * 0.5 * 100) / 100 : 0);
   const remainingAmount = order.remainingAmount || (order.paymentOption === 'split_payment' ? Math.round((order.price - depositAmount) * 100) / 100 : 0);
-  const amountPaid = typeof order.amountPaid === 'number' ? order.amountPaid : (parseFloat(String(order.amountPaid || 0)) || 0);
   
   // Locked orders are always the second payment (deposit already paid)
   // So for split payment, show remaining amount; for payment_later, show full price

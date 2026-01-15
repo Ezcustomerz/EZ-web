@@ -17,7 +17,6 @@ import {
   CardContent,
   Divider,
   CircularProgress,
-  Backdrop,
   LinearProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -37,7 +36,7 @@ import {
   Visibility
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
 import { CalendarSessionDetailPopover } from './CalendarSessionDetailPopover';
 import { ServiceFinalizationStep } from './ServiceFinalizationStep';
@@ -45,7 +44,7 @@ import { ClamAVScanDialog } from '../../dialogs/ClamAVScanDialog';
 import { fileScanningService } from '../../../api/fileScanningService';
 import type { FileScanResponse } from '../../../api/fileScanningService';
 import { userService, type CreativeProfile } from '../../../api/userService';
-import { errorToast } from '../../../components/toast/toast';
+import { bookingService } from '../../../api/bookingService';
 import { supabase } from '../../../config/supabase';
 import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
@@ -149,7 +148,7 @@ export function InProgressPopover({
   const [isScanning, setIsScanning] = useState(false);
   const [scanResponse, setScanResponse] = useState<FileScanResponse | null>(null);
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [_loadingProfile, setLoadingProfile] = useState(false);
   const [actualStorageUsed, setActualStorageUsed] = useState<number>(0);
   const [storageExceeded, setStorageExceeded] = useState(false);
   const [invoices, setInvoices] = useState<Array<{ type: string; name: string; download_url: string; session_id?: string }>>([]);
@@ -178,11 +177,11 @@ export function InProgressPopover({
       if (shouldFetchInvoices) {
         setIsLoadingInvoices(true);
         bookingService.getInvoices(order.id)
-          .then(result => {
+          .then((result: { invoices?: Array<{ type: string; name: string; download_url: string; session_id?: string }> }) => {
             setInvoices(result.invoices || []);
             setIsLoadingInvoices(false);
           })
-          .catch(err => {
+          .catch((err: any) => {
             console.error('Error fetching invoices:', err);
             setInvoices([]);
             setIsLoadingInvoices(false);

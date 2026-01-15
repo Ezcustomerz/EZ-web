@@ -27,7 +27,6 @@ import {
   CheckCircle,
   Download,
   PictureAsPdf,
-  Receipt,
   Assignment,
   Star,
   Visibility

@@ -480,7 +480,7 @@ export function CompletedOrderCard({
         color: serviceColor || statusColor,
         payment_option: paymentOption === 'payment_upfront' ? 'upfront' : 
                         paymentOption === 'split_payment' ? 'split' : 
-                        paymentOption === 'pay_on_delivery' ? 'later' : 'upfront',
+                        paymentOption === 'payment_later' ? 'later' : 'upfront',
         split_deposit_amount: undefined,
         requires_booking: calendarSettings?.is_scheduling_enabled || false,
       }}

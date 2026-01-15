@@ -24,6 +24,7 @@ type AuthContextValue = {
   roleSelectionOpen: boolean;
   closeRoleSelection: () => void;
   userProfile: UserProfile | null;
+  isLoadingProfile: boolean;
   fetchUserProfile: (isFreshSignIn?: boolean) => Promise<void>;
   producerSetupOpen: boolean;
   openCreativeSetup: () => void;
@@ -632,6 +633,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     roleSelectionOpen,
     closeRoleSelection,
     userProfile,
+    isLoadingProfile,
     fetchUserProfile,
     producerSetupOpen,
     openCreativeSetup,
