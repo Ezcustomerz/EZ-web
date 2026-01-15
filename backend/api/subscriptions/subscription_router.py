@@ -10,6 +10,9 @@ from schemas.subscription import (
     VerifySubscriptionRequest,
     VerifySubscriptionResponse,
     CancelSubscriptionResponse,
+    BillingDetailsResponse,
+    CreateBillingPortalRequest,
+    CreateBillingPortalResponse,
 )
 from services.subscriptions.subscription_service import SubscriptionService
 import logging
@@ -147,4 +150,67 @@ async def cancel_subscription(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to cancel subscription"
+        )
+
+
+@router.get("/billing-details", response_model=BillingDetailsResponse)
+async def get_billing_details(
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Get complete billing details for the authenticated user.
+    
+    Returns subscription information, payment method on file, and recent invoices.
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        result = await SubscriptionService.get_billing_details(
+            user_id=user_id,
+            client=client
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in get_billing_details endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get billing details"
+        )
+
+
+@router.post("/create-billing-portal", response_model=CreateBillingPortalResponse)
+async def create_billing_portal(
+    request: CreateBillingPortalRequest,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """
+    Create a Stripe Billing Portal session for managing payment methods.
+    
+    Redirects users to Stripe's hosted billing portal where they can update
+    their payment method, view invoices, and manage their subscription.
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        result = await SubscriptionService.create_billing_portal_session(
+            user_id=user_id,
+            client=client,
+            return_url=request.return_url
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in create_billing_portal endpoint: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create billing portal session"
         )

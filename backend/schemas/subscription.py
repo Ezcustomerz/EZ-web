@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -59,3 +59,59 @@ class CancelSubscriptionResponse(BaseModel):
     success: bool
     message: str
     canceled_at_period_end: bool
+
+
+class PaymentMethodDetails(BaseModel):
+    """Payment method details"""
+    id: str
+    brand: Optional[str] = None
+    last4: Optional[str] = None
+    exp_month: Optional[int] = None
+    exp_year: Optional[int] = None
+    is_default: bool = False
+
+
+class InvoiceDetails(BaseModel):
+    """Invoice details"""
+    id: str
+    number: Optional[str] = None
+    amount_due: int
+    amount_paid: int
+    status: str
+    created: datetime
+    invoice_pdf: Optional[str] = None
+    hosted_invoice_url: Optional[str] = None
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
+
+
+class BillingDetailsResponse(BaseModel):
+    """Complete billing details for a subscription"""
+    # Subscription info
+    has_subscription: bool
+    subscription_tier: Optional[SubscriptionTierResponse] = None
+    subscription_status: Optional[str] = None
+    current_period_start: Optional[datetime] = None
+    current_period_end: Optional[datetime] = None
+    cancel_at_period_end: Optional[bool] = None
+    canceled_at: Optional[datetime] = None
+    
+    # Payment method
+    payment_method: Optional[PaymentMethodDetails] = None
+    
+    # Invoices
+    invoices: List[InvoiceDetails] = []
+    
+    # Tier info
+    is_top_tier: bool = False
+    stripe_customer_id: Optional[str] = None
+
+
+class CreateBillingPortalRequest(BaseModel):
+    """Request to create a billing portal session"""
+    return_url: str = Field(..., description="URL to return to after managing payment methods")
+
+
+class CreateBillingPortalResponse(BaseModel):
+    """Response with billing portal URL"""
+    portal_url: str

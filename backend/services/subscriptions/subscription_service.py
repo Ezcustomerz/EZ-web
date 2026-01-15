@@ -353,3 +353,171 @@ class SubscriptionService:
         except Exception as e:
             logger.error(f"Error canceling subscription: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to cancel subscription: {str(e)}")
+    
+    @staticmethod
+    async def get_billing_details(
+        user_id: str,
+        client: Client
+    ) -> Dict[str, Any]:
+        """Get complete billing details for a user including subscription, payment method, and invoices
+        
+        Args:
+            user_id: The user ID
+            client: Supabase client for database operations
+            
+        Returns:
+            Dictionary containing billing details
+        """
+        try:
+            # Get user's active subscription from database
+            sub_result = db_admin.table('user_subscriptions').select(
+                'id, subscription_tier_id, stripe_subscription_id, stripe_customer_id, status, '
+                'current_period_start, current_period_end, cancel_at_period_end, canceled_at'
+            ).eq('user_id', user_id).eq('status', 'active').execute()
+            
+            response_data = {
+                "has_subscription": False,
+                "subscription_tier": None,
+                "subscription_status": None,
+                "current_period_start": None,
+                "current_period_end": None,
+                "cancel_at_period_end": None,
+                "canceled_at": None,
+                "payment_method": None,
+                "invoices": [],
+                "is_top_tier": False,
+                "stripe_customer_id": None
+            }
+            
+            if not sub_result.data or len(sub_result.data) == 0:
+                # No active subscription - return empty response
+                return response_data
+            
+            sub = sub_result.data[0]
+            response_data["has_subscription"] = True
+            response_data["subscription_status"] = sub.get('status')
+            response_data["current_period_start"] = sub.get('current_period_start')
+            response_data["current_period_end"] = sub.get('current_period_end')
+            response_data["cancel_at_period_end"] = sub.get('cancel_at_period_end', False)
+            response_data["canceled_at"] = sub.get('canceled_at')
+            response_data["stripe_customer_id"] = sub.get('stripe_customer_id')
+            
+            # Get subscription tier details
+            tier_result = db_admin.table('subscription_tiers').select(
+                'id, name, price, storage_amount_bytes, storage_display, description, '
+                'fee_percentage, is_active, tier_level, stripe_product_id, stripe_price_id'
+            ).eq('id', sub['subscription_tier_id']).single().execute()
+            
+            if tier_result.data:
+                response_data["subscription_tier"] = tier_result.data
+                
+                # Check if this is the top tier
+                all_tiers_result = db_admin.table('subscription_tiers').select('tier_level').execute()
+                if all_tiers_result.data:
+                    max_tier_level = max(t['tier_level'] for t in all_tiers_result.data)
+                    response_data["is_top_tier"] = tier_result.data['tier_level'] >= max_tier_level
+            
+            # Fetch payment method and invoices from Stripe if we have a customer ID
+            stripe_customer_id = sub.get('stripe_customer_id')
+            if stripe_customer_id:
+                try:
+                    # Get payment methods
+                    payment_methods = stripe.PaymentMethod.list(
+                        customer=stripe_customer_id,
+                        type='card',
+                        limit=1
+                    )
+                    
+                    if payment_methods.data and len(payment_methods.data) > 0:
+                        pm = payment_methods.data[0]
+                        response_data["payment_method"] = {
+                            "id": pm.id,
+                            "brand": pm.card.brand if pm.card else None,
+                            "last4": pm.card.last4 if pm.card else None,
+                            "exp_month": pm.card.exp_month if pm.card else None,
+                            "exp_year": pm.card.exp_year if pm.card else None,
+                            "is_default": True
+                        }
+                    
+                    # Get invoices
+                    invoices = stripe.Invoice.list(
+                        customer=stripe_customer_id,
+                        limit=10
+                    )
+                    
+                    response_data["invoices"] = [
+                        {
+                            "id": inv.id,
+                            "number": inv.number,
+                            "amount_due": inv.amount_due,
+                            "amount_paid": inv.amount_paid,
+                            "status": inv.status,
+                            "created": datetime.fromtimestamp(inv.created).isoformat(),
+                            "invoice_pdf": inv.invoice_pdf,
+                            "hosted_invoice_url": inv.hosted_invoice_url,
+                            "period_start": datetime.fromtimestamp(inv.period_start).isoformat() if inv.period_start else None,
+                            "period_end": datetime.fromtimestamp(inv.period_end).isoformat() if inv.period_end else None
+                        }
+                        for inv in invoices.data
+                    ]
+                    
+                except stripe.error.StripeError as e:
+                    logger.warning(f"Stripe error fetching payment details: {str(e)}")
+                    # Continue without payment method/invoice data
+            
+            return response_data
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error getting billing details: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to get billing details: {str(e)}")
+    
+    @staticmethod
+    async def create_billing_portal_session(
+        user_id: str,
+        client: Client,
+        return_url: str
+    ) -> Dict[str, Any]:
+        """Create a Stripe Billing Portal session for managing payment methods
+        
+        Args:
+            user_id: The user ID
+            client: Supabase client for database operations
+            return_url: URL to return to after managing payment methods
+            
+        Returns:
+            Dictionary containing portal_url
+        """
+        try:
+            # Get user's stripe customer ID from active subscription
+            sub_result = db_admin.table('user_subscriptions').select(
+                'stripe_customer_id'
+            ).eq('user_id', user_id).eq('status', 'active').execute()
+            
+            if not sub_result.data or len(sub_result.data) == 0:
+                raise HTTPException(status_code=404, detail="No active subscription found")
+            
+            stripe_customer_id = sub_result.data[0].get('stripe_customer_id')
+            
+            if not stripe_customer_id:
+                raise HTTPException(status_code=400, detail="No Stripe customer ID found")
+            
+            # Create billing portal session
+            portal_session = stripe.billing_portal.Session.create(
+                customer=stripe_customer_id,
+                return_url=return_url,
+            )
+            
+            return {
+                "portal_url": portal_session.url
+            }
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error creating billing portal session: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error creating billing portal session: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to create billing portal session: {str(e)}")
