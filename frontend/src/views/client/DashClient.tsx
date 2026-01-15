@@ -204,8 +204,45 @@ export function ClientDashboard() {
       setIsLoading(false);
     });
 
+    // Set up polling to refresh notifications every 10 seconds
+    const pollInterval = setInterval(() => {
+      if (!mountedRef.current || !isAuthenticated) {
+        return;
+      }
+
+      // Invalidate cache to force refresh
+      const now = Date.now();
+      clientNotificationsCache.timestamp = now - CACHE_DURATION - 1000; // Force cache to be stale
+
+      // Fetch fresh notifications
+      const fetchPromise = (async (): Promise<ActivityItem[]> => {
+        try {
+          const notifications = await getNotifications(25, 0, false, 'client');
+          const items = notificationsToActivityItems(notifications);
+          
+          // Update cache
+          clientNotificationsCache.data = items;
+          clientNotificationsCache.timestamp = Date.now();
+          clientNotificationsCache.promise = null;
+          
+          if (mountedRef.current) {
+            setActivityItems(items);
+          }
+          
+          return items;
+        } catch (error) {
+          clientNotificationsCache.promise = null;
+          // Don't update state on polling errors to avoid disrupting UI
+          return [];
+        }
+      })();
+
+      clientNotificationsCache.promise = fetchPromise;
+    }, 10000); // Poll every 10 seconds
+
     return () => {
       mountedRef.current = false;
+      clearInterval(pollInterval);
     };
   }, [isAuthenticated]);
 
@@ -290,7 +327,7 @@ export function ClientDashboard() {
 
   return (
     <LayoutClient selectedNavItem="dashboard">
-      {({ isSidebarOpen, isMobile, clientProfile }) => (
+      {({ isSidebarOpen: _, isMobile: __, clientProfile }) => (
         <Box sx={{
         px: { xs: 1.5, sm: 1.5, md: 2.5 },
         pt: { xs: 1.5, sm: 1.5, md: 2.5 },

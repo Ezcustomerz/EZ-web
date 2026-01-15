@@ -33,6 +33,7 @@ import React, { useState } from 'react';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { CalendarSessionDetailPopover } from './CalendarSessionDetailPopover';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Define Session interface locally since it's not exported
 interface Session {
@@ -708,6 +709,9 @@ export function AwaitingPaymentPopover({
               </CardContent>
             </Card>
           )}
+
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={false} />
 
           {/* Service Card */}
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>

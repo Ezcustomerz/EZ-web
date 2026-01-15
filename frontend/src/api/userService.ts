@@ -51,6 +51,7 @@ export interface SubscriptionTier {
   storage_display: string;
   description?: string;
   fee_percentage: number;
+  tier_level: number;
 }
 
 export interface CreativeSetupRequest {

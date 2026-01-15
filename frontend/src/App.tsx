@@ -14,6 +14,9 @@ import { NoAccess } from './views/NoAccess'
 import { InvitePage } from './views/InvitePage'
 import { PaymentSuccess } from './views/PaymentSuccess'
 import { PaymentCancelled } from './views/PaymentCancelled'
+import { SubscriptionSuccess } from './pages/SubscriptionSuccess'
+import { SubscriptionCanceled } from './pages/SubscriptionCanceled'
+import { NotFound } from './views/NotFound'
 
 // Lazy load heavy route components for code splitting
 const DashCreative = lazy(() => import('./views/creative/DashCreative').then(module => ({ default: module.DashCreative })))
@@ -24,6 +27,7 @@ const NotificationsCreative = lazy(() => import('./views/creative/NotificationsC
 const ClientDashboard = lazy(() => import('./views/client/DashClient').then(module => ({ default: module.ClientDashboard })))
 const ClientBook = lazy(() => import('./views/client/BookClient').then(module => ({ default: module.ClientBook })))
 const ClientOrders = lazy(() => import('./views/client/OrdersClient').then(module => ({ default: module.ClientOrders })))
+const PaymentRequestsClient = lazy(() => import('./views/client/PaymentRequestsClient').then(module => ({ default: module.PaymentRequestsClient })))
 const NotificationsClient = lazy(() => import('./views/client/NotificationsClient').then(module => ({ default: module.NotificationsClient })))
 const DashAdvocate = lazy(() => import('./views/advocate/DashAdvocate').then(module => ({ default: module.DashAdvocate })))
 
@@ -174,6 +178,13 @@ function AppContent() {
             </RoleGuard>
           </Suspense>
         } />
+        <Route path="/client/orders/payment-requests" element={
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <RoleGuard requiredRole="client">
+              <PaymentRequestsClient />
+            </RoleGuard>
+          </Suspense>
+        } />
         <Route path="/client/notifications" element={
           <Suspense fallback={<RouteLoadingFallback />}>
             <RoleGuard requiredRole="client">
@@ -196,6 +207,9 @@ function AppContent() {
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route path="/payment-cancelled" element={<PaymentCancelled />} />
+        <Route path="/subscription-success" element={<SubscriptionSuccess />} />
+        <Route path="/subscription-canceled" element={<SubscriptionCanceled />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       <AuthPopover 
         open={authOpen} 

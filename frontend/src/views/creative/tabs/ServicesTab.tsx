@@ -760,7 +760,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           split_deposit_amount: editingService.split_deposit_amount,
           photos: editingService.photos || [],
           requires_booking: editingService.requires_booking,
-          calendar_settings: editingService.calendar_settings,
+          calendar_settings: (editingService as any).calendar_settings,
         } : null}
       />
 

@@ -121,6 +121,23 @@ export function RecentActivityCard({ items = [], isLoading = false }: RecentActi
                       // Customize behavior per notification type (mirror NotificationsClient)
                       const notificationType = item.notificationType;
 
+                      // Check if this is a payment request notification (not booking-related)
+                      const isPaymentRequest = item.metadata?.payment_request_id || 
+                                               (item.metadata?.related_entity_type === 'payment_request');
+
+                      if (isPaymentRequest) {
+                        // Get payment request ID from metadata or related entity ID
+                        const paymentRequestId = item.metadata?.payment_request_id || item.relatedEntityId;
+                        if (paymentRequestId) {
+                          // Navigate to payment requests page with the specific payment request ID
+                          navigate(`/client/orders/payment-requests?paymentRequestId=${paymentRequestId}`);
+                        } else {
+                          // Fallback: navigate without ID
+                          navigate('/client/orders/payment-requests');
+                        }
+                        return;
+                      }
+
                       // Try to resolve a booking/order id from multiple possible sources
                       const bookingId =
                         item.relatedEntityId ||

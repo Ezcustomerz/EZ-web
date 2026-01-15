@@ -26,7 +26,6 @@ import {
   CheckCircle, 
   Lock,
   LockOpen,
-  Description,
   InsertDriveFile,
   VideoFile,
   AudioFile,
@@ -35,11 +34,14 @@ import {
   AccountBalanceWallet,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
 import { StripePaymentDialog } from '../../dialogs/StripePaymentDialog';
+import { CircularProgress } from '@mui/material';
+import { bookingService } from '../../../api/bookingService';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -110,6 +112,67 @@ export function LockedOrderDetailPopover({
   const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
   const [creativeDetailOpen, setCreativeDetailOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  
+  // Preserve files in local state
+  const [preservedFiles, setPreservedFiles] = useState<LockedFile[]>(() => {
+    return order?.files && Array.isArray(order.files) && order.files.length > 0 ? order.files : [];
+  });
+
+  // Fetch files when popover opens if they're not already present
+  useEffect(() => {
+    if (open && order && order.id && preservedFiles.length === 0 && (!order.files || order.files.length === 0)) {
+      setIsLoadingFiles(true);
+      const fetchFiles = async () => {
+        try {
+          const response = await bookingService.downloadDeliverablesBatch(order.id);
+          
+          if (response.files && response.files.length > 0) {
+            const fetchedFiles: LockedFile[] = response.files.map(f => ({
+              id: f.deliverable_id,
+              name: f.file_name,
+              type: 'file',
+              size: 'N/A'
+            }));
+            setPreservedFiles(fetchedFiles);
+          } else if (response.unavailable_files && response.unavailable_files.length > 0) {
+            const unavailableFiles: LockedFile[] = response.unavailable_files.map(f => ({
+              id: f.deliverable_id,
+              name: f.file_name,
+              type: 'file',
+              size: 'N/A'
+            }));
+            setPreservedFiles(unavailableFiles);
+          }
+        } catch (error) {
+          console.error('[LockedOrderDetailPopover] Failed to fetch files:', error);
+        } finally {
+          setIsLoadingFiles(false);
+        }
+      };
+      fetchFiles();
+    } else if (open && (preservedFiles.length > 0 || (order?.files && order.files.length > 0))) {
+      setIsLoadingFiles(false);
+    }
+  }, [open, order?.id, preservedFiles.length, order?.files]);
+
+  // Update preserved files when order changes, but only if order has files
+  useEffect(() => {
+    if (order && order.files && Array.isArray(order.files) && order.files.length > 0) {
+      setPreservedFiles(order.files);
+    }
+  }, [order]);
+
+  // Use preserved files if available, otherwise fall back to order files
+  const displayFiles = useMemo(() => {
+    if (preservedFiles.length > 0) {
+      return preservedFiles;
+    }
+    if (order?.files && order.files.length > 0) {
+      return order.files;
+    }
+    return [];
+  }, [preservedFiles, order?.files]);
 
   if (!order) return null;
 
@@ -177,7 +240,6 @@ export function LockedOrderDetailPopover({
   // For locked orders, the deposit is always already paid (it's the second payment)
   const depositAmount = order.depositAmount || (order.paymentOption === 'split_payment' ? Math.round(order.price * 0.5 * 100) / 100 : 0);
   const remainingAmount = order.remainingAmount || (order.paymentOption === 'split_payment' ? Math.round((order.price - depositAmount) * 100) / 100 : 0);
-  const amountPaid = typeof order.amountPaid === 'number' ? order.amountPaid : (parseFloat(String(order.amountPaid || 0)) || 0);
   
   // Locked orders are always the second payment (deposit already paid)
   // So for split payment, show remaining amount; for payment_later, show full price
@@ -449,7 +511,7 @@ export function LockedOrderDetailPopover({
           </Box>
 
           {/* Locked Files Section */}
-          {order.files && Array.isArray(order.files) && order.files.length > 0 && (
+          {(displayFiles.length > 0 || isLoadingFiles) && (
             <>
               <Divider sx={{ my: 2 }} />
               <Box>
@@ -457,50 +519,65 @@ export function LockedOrderDetailPopover({
                   Locked Files
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
-                  {order.fileCount || order.files.length} file{(order.fileCount || order.files.length) !== 1 ? 's' : ''} • {order.fileSize || 'N/A'}
+                  {order.fileCount || displayFiles.length} file{(order.fileCount || displayFiles.length) !== 1 ? 's' : ''} • {order.fileSize || 'N/A'}
                 </Typography>
                 <List sx={{ 
                   bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)',
                   borderRadius: 2,
                   p: 0,
                 }}>
-                  {order.files.map((file, index) => (
-                    <ListItem
-                      key={file.id}
-                      sx={{
-                        borderBottom: index < order.files!.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
-                        opacity: 0.7,
-                        cursor: 'not-allowed',
-                      }}
-                    >
-                      <ListItemIcon>
-                        <Box sx={{ position: 'relative' }}>
-                          {getFileIcon(file.type)}
-                          <Lock 
-                            sx={{ 
-                              position: 'absolute',
-                              top: -4,
-                              right: -4,
-                              fontSize: 14,
-                              color: statusColor,
-                            }} 
-                          />
-                        </Box>
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {file.name}
-                          </Typography>
-                        }
-                        secondary={
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {file.type} • {file.size} • Locked
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                  ))}
+                  {isLoadingFiles ? (
+                    <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                      <CircularProgress size={40} />
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        Loading files...
+                      </Typography>
+                    </Box>
+                  ) : displayFiles.length > 0 ? (
+                    displayFiles.map((file, index) => (
+                      <ListItem
+                        key={file.id}
+                        sx={{
+                          borderBottom: index < displayFiles.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
+                          opacity: 0.7,
+                          cursor: 'not-allowed',
+                        }}
+                      >
+                        <ListItemIcon>
+                          <Box sx={{ position: 'relative' }}>
+                            {getFileIcon(file.type)}
+                            <Lock 
+                              sx={{ 
+                                position: 'absolute',
+                                top: -4,
+                                right: -4,
+                                fontSize: 14,
+                                color: statusColor,
+                              }} 
+                            />
+                          </Box>
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {file.name}
+                            </Typography>
+                          }
+                          secondary={
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              {file.type} • {file.size} • Locked
+                            </Typography>
+                          }
+                        />
+                      </ListItem>
+                    ))
+                  ) : (
+                    <Box sx={{ p: 3, textAlign: 'center' }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        No files available
+                      </Typography>
+                    </Box>
+                  )}
                 </List>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1, fontStyle: 'italic' }}>
                   Files will be unlocked after payment is completed
@@ -648,6 +725,11 @@ export function LockedOrderDetailPopover({
               )}
             </Box>
           </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={true} />
         </Box>
         {/* End of scrollable content */}
 

@@ -7,7 +7,6 @@ import {
   Stack,
   IconButton,
   Alert,
-  LinearProgress,
 } from '@mui/material';
 import { 
   Upload,
@@ -15,7 +14,6 @@ import {
   PhotoLibrary,
   Delete,
   Visibility,
-  Warning,
   Settings
 } from '@mui/icons-material';
 import React, { useCallback, useState, useEffect } from 'react';

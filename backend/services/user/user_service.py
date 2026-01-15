@@ -420,8 +420,8 @@ class UserController:
         try:
             # Query subscription tiers (respects RLS - public read policy allows anonymous access)
             result = client.table('subscription_tiers').select(
-                'id, name, price, storage_amount_bytes, description, fee_percentage'
-            ).eq('is_active', True).order('price', desc=False).execute()
+                'id, name, price, storage_amount_bytes, description, fee_percentage, tier_level'
+            ).eq('is_active', True).order('tier_level', desc=True).order('price', desc=False).execute()
             
             if not result.data:
                 return []
@@ -448,6 +448,7 @@ class UserController:
                     'storage_display': storage_display,
                     'description': tier['description'],
                     'fee_percentage': float(tier['fee_percentage']),
+                    'tier_level': tier.get('tier_level', 0),
                 })
             
             return tiers

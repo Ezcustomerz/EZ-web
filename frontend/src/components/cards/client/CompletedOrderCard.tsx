@@ -14,6 +14,8 @@ import {
 import { DateRange, CheckCircle, Folder, Replay } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { CompletedOrderDetailPopover, type CompletedOrderDetail, type CompletedPaymentOption, type CompletedFile } from '../../popovers/client/CompletedOrderDetailPopover';
+import { BookingServicePopover } from '../../popovers/client/BookingServicePopover';
+import { bookingService, type CalendarSettings } from '../../../api/bookingService';
 
 interface CompletedOrderCardProps {
   id: string;
@@ -79,6 +81,8 @@ export function CompletedOrderCard({
   const theme = useTheme();
   const statusColor = '#4caf50';
   const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+  const [bookingPopoverOpen, setBookingPopoverOpen] = useState(false);
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
 
   // Update popover state when defaultOpen changes
   useEffect(() => {
@@ -101,9 +105,24 @@ export function CompletedOrderCard({
     setPopoverOpen(false);
   };
 
-  const handleBookAgain = (e: React.MouseEvent) => {
+  const handleBookAgain = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setPopoverOpen(true);
+    // Fetch calendar settings and open booking popover directly
+    if (serviceId) {
+      try {
+        const response = await bookingService.getCalendarSettings(serviceId);
+        setCalendarSettings(response);
+        setBookingPopoverOpen(true);
+      } catch (error: any) {
+        // 404 is expected for services without scheduling - don't treat as error
+        if (error?.status !== 404 && error?.response?.status !== 404) {
+          console.error('Error fetching calendar settings:', error);
+        }
+        // Open booking popover without calendar settings
+        setCalendarSettings(null);
+        setBookingPopoverOpen(true);
+      }
+    }
   };
 
   const orderDetail: CompletedOrderDetail = {
@@ -442,6 +461,30 @@ export function CompletedOrderCard({
       order={orderDetail}
       onDownloadProgress={(progress: string) => setDownloadProgress(progress)}
       onDownloadStateChange={(downloading: boolean) => setIsDownloading(downloading)}
+    />
+
+    {/* Booking Service Popover */}
+    <BookingServicePopover
+      open={bookingPopoverOpen}
+      onClose={() => setBookingPopoverOpen(false)}
+      service={{
+        id: serviceId || id,
+        title: serviceName,
+        description: serviceDescription || 'Service description not available',
+        price: price,
+        delivery_time: serviceDeliveryTime || '3-5 days',
+        creative_name: creativeName,
+        creative_display_name: creativeDisplayName || creativeName,
+        creative_title: creativeTitle,
+        creative_avatar_url: creativeAvatarUrl,
+        color: serviceColor || statusColor,
+        payment_option: paymentOption === 'payment_upfront' ? 'upfront' : 
+                        paymentOption === 'split_payment' ? 'split' : 
+                        paymentOption === 'payment_later' ? 'later' : 'upfront',
+        split_deposit_amount: undefined,
+        requires_booking: calendarSettings?.is_scheduling_enabled || false,
+      }}
+      calendarSettings={calendarSettings}
     />
 
     {/* Persistent Download Progress Card */}

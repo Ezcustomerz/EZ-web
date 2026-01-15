@@ -584,7 +584,15 @@ class BookingService {
     return response.data;
   }
 
-  async downloadDeliverablesBatch(bookingId: string): Promise<{ success: boolean; files: Array<{ deliverable_id: string; file_name: string; signed_url: string; expires_in: number }>; total_files: number }> {
+  async downloadDeliverablesBatch(bookingId: string): Promise<{ 
+    success: boolean; 
+    files: Array<{ deliverable_id: string; file_name: string; signed_url: string; expires_in: number }>; 
+    unavailable_files?: Array<{ deliverable_id: string; file_name: string; error: string; file_path?: string; available: false }>;
+    total_files: number;
+    total_deliverables?: number;
+    failed_count?: number;
+    available_count?: number;
+  }> {
     const response = await apiClient.get(`${this.bookingsUrl}/download-deliverables/${bookingId}`);
     return response.data;
   }

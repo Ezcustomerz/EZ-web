@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -60,14 +60,15 @@ import {
   VideoFile,
   AudioFile,
   Image,
+  Receipt,
 } from '@mui/icons-material';
-import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle } from '../../../api/userService';
+import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle, type SubscriptionTier } from '../../../api/userService';
 import { bookingService } from '../../../api/bookingService';
+import { subscriptionService, type BillingDetailsResponse } from '../../../api/subscriptionService';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
-import { supabase } from '../../../config/supabase';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
@@ -76,7 +77,7 @@ interface CreativeSettingsPopoverProps {
   initialSection?: SettingsSection; // Optional section to open to
 }
 
-type SettingsSection = 'account' | 'billing' | 'storage' | 'userAccount';
+export type SettingsSection = 'account' | 'billing' | 'subscription' | 'storage' | 'userAccount';
 
 const CREATIVE_TITLES = [
   'Other', // Move to top for easy access
@@ -190,6 +191,275 @@ const PROFILE_HIGHLIGHTS_OPTIONS = [
   'Budget Range',
   'Client Types',
 ] as const;
+
+// Subscription Billing Section Component
+function SubscriptionBillingSection() {
+  const theme = useTheme();
+  const { isAuthenticated } = useAuth();
+  const [billingData, setBillingData] = useState<BillingDetailsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (isAuthenticated && !hasFetched.current) {
+      hasFetched.current = true;
+      fetchBillingDetails();
+    }
+  }, [isAuthenticated]);
+
+  const fetchBillingDetails = async () => {
+    try {
+      setLoading(true);
+      const data = await subscriptionService.getBillingDetails();
+      setBillingData(data);
+    } catch (error) {
+      console.error('Error fetching billing details:', error);
+      errorToast('Failed to load billing details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpgrade = () => {
+    // Dispatch event to open subscription tiers popover
+    window.dispatchEvent(new CustomEvent('openSubscriptionTiers'));
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      setOpeningPortal(true);
+      const returnUrl = window.location.origin + window.location.pathname;
+      const result = await subscriptionService.createBillingPortal(returnUrl);
+      window.open(result.portal_url, '_blank');
+      setOpeningPortal(false);
+    } catch (error: any) {
+      console.error('Error opening billing portal:', error);
+      errorToast(error.response?.data?.detail || 'Failed to open billing portal');
+      setOpeningPortal(false);
+    }
+  };
+
+  const formatCurrency = (amountInCents: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amountInCents / 100);
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ px: 3, pb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {[1, 2, 3].map((i) => (
+            <Card key={i} variant="outlined">
+              <CardContent>
+                <Skeleton variant="text" width="60%" height={32} />
+                <Skeleton variant="text" width="100%" />
+                <Skeleton variant="text" width="80%" />
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      </Box>
+    );
+  }
+
+  if (!billingData?.has_subscription) {
+    return (
+      <Box sx={{ px: 3, pb: 3 }}>
+        <Card variant="outlined">
+          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+            <CreditCard sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>
+              No Active Subscription
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              You are currently on the free plan. Upgrade to unlock premium features.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<TrendingUp />}
+              onClick={handleUpgrade}
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                textTransform: 'none',
+              }}
+            >
+              View Plans
+            </Button>
+          </CardContent>
+        </Card>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ px: 3, pb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Current Plan */}
+        <Card variant="outlined">
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <AccountBalance color="primary" />
+              <Typography variant="h6" fontWeight={600}>
+                Current Plan
+              </Typography>
+            </Box>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+              <Box>
+                <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>
+                  {billingData.subscription_tier?.name || 'N/A'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {formatCurrency(Math.round((billingData.subscription_tier?.price || 0) * 100))} / month
+                </Typography>
+              </Box>
+              <Chip
+                label={billingData.subscription_status}
+                color={billingData.subscription_status === 'active' ? 'success' : 'default'}
+                size="small"
+              />
+            </Box>
+
+            {billingData.subscription_tier?.description && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {billingData.subscription_tier.description}
+              </Typography>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+              <Box sx={{ flex: 1, minWidth: 200, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Storage
+                </Typography>
+                <Typography variant="body1" fontWeight={600}>
+                  {billingData.subscription_tier?.storage_display || 'N/A'}
+                </Typography>
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 200, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Transaction Fee
+                </Typography>
+                <Typography variant="body1" fontWeight={600}>
+                  {((billingData.subscription_tier?.fee_percentage || 0) * 100).toFixed(1)}%
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+              {!billingData.is_top_tier && (
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<TrendingUp />}
+                  onClick={handleUpgrade}
+                  sx={{
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    textTransform: 'none',
+                  }}
+                >
+                  Upgrade Plan
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={openingPortal ? <CircularProgress size={16} /> : <Settings />}
+                onClick={handleManageSubscription}
+                disabled={openingPortal}
+                sx={{ textTransform: 'none' }}
+              >
+                {openingPortal ? 'Opening...' : 'Manage Subscription & Payment'}
+              </Button>
+            </Box>
+
+            {billingData.cancel_at_period_end && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                <AlertTitle>Subscription Ending</AlertTitle>
+                Your subscription will be canceled on {formatDate(billingData.current_period_end)}
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Billing History */}
+        {billingData.invoices && billingData.invoices.length > 0 && (
+          <Card variant="outlined">
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Receipt color="primary" />
+                <Typography variant="h6" fontWeight={600}>
+                  Billing History
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {billingData.invoices.map((invoice) => (
+                  <Box
+                    key={invoice.id}
+                    sx={{
+                      p: 2,
+                      bgcolor: 'grey.50',
+                      borderRadius: 1,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      '&:hover': { bgcolor: 'grey.100' },
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>
+                        {invoice.number || invoice.id}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(invoice.created)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="body2" fontWeight={600}>
+                          {formatCurrency(invoice.amount_paid)}
+                        </Typography>
+                        <Chip
+                          label={invoice.status}
+                          size="small"
+                          color={invoice.status === 'paid' ? 'success' : 'default'}
+                          sx={{ height: 20, fontSize: '0.65rem' }}
+                        />
+                      </Box>
+                      {invoice.hosted_invoice_url && (
+                        <IconButton
+                          size="small"
+                          href={invoice.hosted_invoice_url}
+                          target="_blank"
+                          sx={{ color: 'primary.main' }}
+                          title="View Invoice"
+                        >
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
+    </Box>
+  );
+}
 
 export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initialSection = 'account' }: CreativeSettingsPopoverProps) {
   const theme = useTheme();
@@ -463,7 +733,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     },
     {
       id: 'billing' as SettingsSection,
-      label: 'Creative Billing',
+      label: 'Payouts',
+      icon: AccountBalance,
+    },
+    {
+      id: 'subscription' as SettingsSection,
+      label: 'Subscription',
       icon: CreditCard,
     },
     {
@@ -1614,6 +1889,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             </Box>
           </Box>
         );
+      
+      case 'subscription':
+        return <SubscriptionBillingSection />;
+      
       case 'storage':
         // Calculate actual storage used from deliverables
         const actualStorageUsed = deliverables.reduce((sum, deliverable) => {
@@ -2111,7 +2390,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.5 }}>
                 {selectedSection === 'account' && 'Manage your account information and profile settings.'}
-                {selectedSection === 'billing' && 'Manage your subscription and payment information.'}
+                {selectedSection === 'billing' && 'Connect your bank account and manage payout settings.'}
+                {selectedSection === 'subscription' && 'View your subscription plan, billing history, and payment methods.'}
                 {selectedSection === 'storage' && 'Manage your storage and file management settings.'}
                 {selectedSection === 'userAccount' && 'Manage your user account settings and security preferences.'}
               </Typography>

@@ -38,11 +38,12 @@ import {
   Visibility,
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopover';
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
 import { bookingService } from '../../../api/bookingService';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -118,6 +119,67 @@ export function DownloadOrderDetailPopover({
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<string>('');
   const [downloadingFileIndex, setDownloadingFileIndex] = useState<number>(-1);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+  
+  // Preserve files in local state to prevent them from disappearing
+  const [preservedFiles, setPreservedFiles] = useState<DownloadFile[]>(() => {
+    return order?.files && Array.isArray(order.files) && order.files.length > 0 ? order.files : [];
+  });
+
+  // Fetch files when popover opens if they're not already present
+  useEffect(() => {
+    if (open && order && order.id && preservedFiles.length === 0 && (!order.files || order.files.length === 0)) {
+      setIsLoadingFiles(true);
+      const fetchFiles = async () => {
+        try {
+          const response = await bookingService.downloadDeliverablesBatch(order.id);
+          
+          if (response.files && response.files.length > 0) {
+            const fetchedFiles: DownloadFile[] = response.files.map(f => ({
+              id: f.deliverable_id,
+              name: f.file_name,
+              type: 'file',
+              size: 'N/A'
+            }));
+            setPreservedFiles(fetchedFiles);
+          } else if (response.unavailable_files && response.unavailable_files.length > 0) {
+            const unavailableFiles: DownloadFile[] = response.unavailable_files.map(f => ({
+              id: f.deliverable_id,
+              name: f.file_name,
+              type: 'file',
+              size: 'N/A'
+            }));
+            setPreservedFiles(unavailableFiles);
+          }
+        } catch (error) {
+          console.error('[DownloadOrderDetailPopover] Failed to fetch files:', error);
+        } finally {
+          setIsLoadingFiles(false);
+        }
+      };
+      fetchFiles();
+    } else if (open && (preservedFiles.length > 0 || (order?.files && order.files.length > 0))) {
+      setIsLoadingFiles(false);
+    }
+  }, [open, order?.id, preservedFiles.length, order?.files]);
+
+  // Update preserved files when order changes, but only if order has files
+  useEffect(() => {
+    if (order && order.files && Array.isArray(order.files) && order.files.length > 0) {
+      setPreservedFiles(order.files);
+    }
+  }, [order]);
+
+  // Use preserved files if available, otherwise fall back to order files
+  const displayFiles = useMemo(() => {
+    if (preservedFiles.length > 0) {
+      return preservedFiles;
+    }
+    if (order?.files && order.files.length > 0) {
+      return order.files;
+    }
+    return [];
+  }, [preservedFiles, order?.files]);
 
   if (!order) return null;
 
@@ -209,68 +271,6 @@ export function DownloadOrderDetailPopover({
     setCreativeDetailOpen(false);
   };
 
-  const handleDownloadFile = async (file: DownloadFile, index?: number) => {
-    setIsDownloading(true);
-    if (onDownloadStateChange) onDownloadStateChange(true);
-    setDownloadProgress(`Preparing ${file.name}...`);
-    if (onDownloadProgress) onDownloadProgress(`Preparing ${file.name}...`);
-    if (index !== undefined) {
-      setDownloadingFileIndex(index);
-    }
-    
-    try {
-      // Get signed URL from backend
-      setDownloadProgress(`Getting download link for ${file.name}...`);
-      if (onDownloadProgress) onDownloadProgress(`Getting download link for ${file.name}...`);
-      const response = await bookingService.downloadDeliverable(file.id);
-      
-      // Download the file using the signed URL
-      setDownloadProgress(`Downloading ${file.name}...`);
-      if (onDownloadProgress) onDownloadProgress(`Downloading ${file.name}...`);
-      const downloadResponse = await fetch(response.signed_url);
-      if (!downloadResponse.ok) {
-        throw new Error('Failed to download file');
-      }
-      
-      const blob = await downloadResponse.blob();
-      
-      // Use the file name from the backend response, fallback to file.name
-      const fileName = response.file_name || file.name;
-      
-      // Create download link and trigger download
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      
-      // Clean up
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }, 100);
-      
-      setDownloadProgress(`Successfully downloaded ${file.name}`);
-      if (onDownloadProgress) onDownloadProgress(`Successfully downloaded ${file.name}`);
-      setTimeout(() => {
-        setIsDownloading(false);
-        setDownloadProgress('');
-        setDownloadingFileIndex(-1);
-        if (onDownloadStateChange) onDownloadStateChange(false);
-        if (onDownloadProgress) onDownloadProgress('');
-      }, 500);
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert(`Failed to download ${file.name}. Please try again.`);
-      setIsDownloading(false);
-      setDownloadProgress('');
-      setDownloadingFileIndex(-1);
-      if (onDownloadStateChange) onDownloadStateChange(false);
-      if (onDownloadProgress) onDownloadProgress('');
-    }
-  };
-
   const handleViewEzInvoice = async () => {
     try {
       const blob = await bookingService.downloadEzInvoice(order.id);
@@ -336,7 +336,7 @@ export function DownloadOrderDetailPopover({
   };
 
   const handleDownloadAll = async () => {
-    if (!order.files || order.files.length === 0) {
+    if (!displayFiles || displayFiles.length === 0) {
       alert('No files available to download.');
       return;
     }
@@ -353,11 +353,34 @@ export function DownloadOrderDetailPopover({
       if (onDownloadProgress) onDownloadProgress('Getting downloads...');
       const response = await bookingService.downloadDeliverablesBatch(order.id);
       
-      if (!response.success || !response.files || response.files.length === 0) {
+      // Check if there are any available files
+      const availableFiles = response.files || [];
+      const unavailableFiles = response.unavailable_files || [];
+      
+      if (availableFiles.length === 0 && unavailableFiles.length > 0) {
+        // All files are unavailable
+        const fileNames = unavailableFiles.map(f => f.file_name).join(', ');
+        alert(`The following files are not available for download (they may have been deleted or never uploaded successfully):\n\n${fileNames}\n\nPlease contact support if you need these files.`);
+        setIsDownloading(false);
+        setDownloadProgress('');
+        return;
+      }
+      
+      if (availableFiles.length === 0) {
         alert('No files available to download.');
         setIsDownloading(false);
         setDownloadProgress('');
         return;
+      }
+      
+      // Show warning if some files are unavailable
+      if (unavailableFiles.length > 0) {
+        const fileNames = unavailableFiles.map(f => f.file_name).join(', ');
+        console.warn(`Some files are unavailable: ${fileNames}`);
+        // Optionally show a non-blocking notification
+        if (onDownloadProgress) {
+          onDownloadProgress(`Note: ${unavailableFiles.length} file(s) unavailable. Downloading ${availableFiles.length} available file(s)...`);
+        }
       }
 
       // Download all files using the signed URLs
@@ -598,8 +621,8 @@ export function DownloadOrderDetailPopover({
               </Box>
               <LinearProgress sx={{ mb: 1 }} />
               <Typography variant="caption" color="text.secondary">
-                {downloadingFileIndex >= 0 && order.files && order.files.length > 1
-                  ? `Downloading file ${downloadingFileIndex + 1} of ${order.files.length}`
+                {downloadingFileIndex >= 0 && displayFiles && displayFiles.length > 1
+                  ? `Downloading file ${downloadingFileIndex + 1} of ${displayFiles.length}`
                   : 'Please wait while your files are being downloaded.'}
               </Typography>
             </Box>
@@ -811,6 +834,11 @@ export function DownloadOrderDetailPopover({
 
           <Divider sx={{ my: 2 }} />
 
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={true} />
+
+          <Divider sx={{ my: 2 }} />
+
           {/* Files Section */}
           <Box sx={{ mb: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -877,54 +905,69 @@ export function DownloadOrderDetailPopover({
               borderRadius: 2,
               p: 0,
             }}>
-              {order.files.map((file, index) => {
-                const viewable = isViewableFile(file.type);
-                return (
-                  <ListItem
-                    key={file.id}
-                    sx={{
-                      borderBottom: index < order.files.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
-                      '&:hover': {
-                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
-                      },
-                    }}
-                    secondaryAction={
-                      viewable ? (
-                        <IconButton
-                          size="small"
-                          onClick={() => handleViewFile(file)}
-                          disabled={isDownloading}
-                          sx={{
-                            color: theme.palette.primary.main,
-                            '&:hover': {
-                              bgcolor: theme.palette.primary.main + '10',
-                            },
-                          }}
-                          title="View file"
-                        >
-                          <Visibility />
-                        </IconButton>
-                      ) : null
-                    }
-                  >
-                    <ListItemIcon>
-                      {getFileIcon(file.type)}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {file.name}
-                        </Typography>
+              {isLoadingFiles ? (
+                <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <CircularProgress size={40} />
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    Loading files...
+                  </Typography>
+                </Box>
+              ) : displayFiles.length > 0 ? (
+                displayFiles.map((file, index) => {
+                  const viewable = isViewableFile(file.type);
+                  return (
+                    <ListItem
+                      key={file.id}
+                      sx={{
+                        borderBottom: index < displayFiles.length - 1 ? `1px solid ${theme.palette.divider}` : 'none',
+                        '&:hover': {
+                          bgcolor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+                        },
+                      }}
+                      secondaryAction={
+                        viewable ? (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleViewFile(file)}
+                            disabled={isDownloading}
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&:hover': {
+                                bgcolor: theme.palette.primary.main + '10',
+                              },
+                            }}
+                            title="View file"
+                          >
+                            <Visibility />
+                          </IconButton>
+                        ) : null
                       }
-                      secondary={
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          {file.type} • {file.size}
-                        </Typography>
-                      }
-                    />
-                  </ListItem>
-                );
-              })}
+                    >
+                      <ListItemIcon>
+                        {getFileIcon(file.type)}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {file.name}
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {file.type} • {file.size}
+                          </Typography>
+                        }
+                      />
+                    </ListItem>
+                  );
+                })
+              ) : (
+                <Box sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    No files available
+                  </Typography>
+                </Box>
+              )}
              </List>
            )}
          </Box>
@@ -1039,7 +1082,7 @@ export function DownloadOrderDetailPopover({
             size="large"
             startIcon={isDownloading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <Download />}
             onClick={handleDownloadAll}
-            disabled={isDownloading || filesExpired || !order.files || order.files.length === 0}
+            disabled={isDownloading || filesExpired || !displayFiles || displayFiles.length === 0}
             sx={{
               py: 1.5,
               textTransform: 'none',

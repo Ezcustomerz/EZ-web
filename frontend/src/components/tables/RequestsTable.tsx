@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Table,
@@ -39,6 +40,7 @@ import { AwaitingPaymentPopover, type AwaitingPaymentOrder } from '../popovers/c
 import { InProgressPopover, type InProgressOrder } from '../popovers/creative/InProgressPopover';
 import { CompletePopover, type CompleteOrder } from '../popovers/creative/CompletePopover';
 import { CancelledPopover, type CancelledOrder } from '../popovers/creative/CancelledPopover';
+import { PaymentActionsPopover } from '../popovers/creative/PaymentActionsPopover';
 import { bookingService } from '../../api/bookingService';
 import { ConfirmActionDialog, type ActionType } from '../dialogs/ConfirmActionDialog';
 import { StripeAccountRequiredDialog } from '../dialogs/StripeAccountRequiredDialog';
@@ -163,6 +165,7 @@ export function RequestsTable({
   const [pendingApprovalOrderAmount, setPendingApprovalOrderAmount] = useState<number | undefined>(undefined);
   const [isCheckingBankAccount, setIsCheckingBankAccount] = useState(false);
   const [checkingBankAccountOrderId, setCheckingBankAccountOrderId] = useState<string | null>(null);
+  const [paymentActionsPopoverOpen, setPaymentActionsPopoverOpen] = useState(false);
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
@@ -1025,6 +1028,11 @@ export function RequestsTable({
                     },
                   },
                 }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setPaymentActionsPopoverOpen(true);
+                }}
               >
                 <Box
                   className="spark-element"
@@ -1082,6 +1090,7 @@ export function RequestsTable({
                 background: `radial-gradient(circle at center, ${theme.palette.info.main}08 0%, ${theme.palette.primary.main}05 40%, transparent 70%)`,
                 borderRadius: 2,
                 animation: 'fadeIn 0.6s ease-out 0.5s both',
+                pointerEvents: 'auto',
                 '@keyframes fadeIn': {
                   from: { opacity: 0, transform: 'translateY(20px)' },
                   to: { opacity: 1, transform: 'translateY(0)' },
@@ -1150,6 +1159,19 @@ export function RequestsTable({
               >
                 Try adjusting your filters or request a payment.
               </Typography>
+              <Box 
+                sx={{ 
+                  position: 'relative', 
+                  zIndex: 100, 
+                  pointerEvents: 'auto',
+                  mt: 2
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setPaymentActionsPopoverOpen(true);
+                }}
+              >
               <Button
                 variant="outlined"
                 size="small"
@@ -1164,9 +1186,11 @@ export function RequestsTable({
                   borderRadius: 1.5,
                   textTransform: 'none',
                   position: 'relative',
-                  overflow: 'hidden',
+                  overflow: 'visible',
                   transition: 'all 0.2s ease-in-out',
-                  zIndex: 1,
+                  zIndex: 100,
+                  pointerEvents: 'auto',
+                  cursor: 'pointer',
                   '@keyframes sparkle': {
                     '0%': { transform: 'scale(0) rotate(0deg)', opacity: 1 },
                     '50%': { transform: 'scale(1) rotate(180deg)', opacity: 1 },
@@ -1229,7 +1253,11 @@ export function RequestsTable({
                     },
                   },
                 }}
-                onClick={() => {/* TODO: handle request payment */ }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setPaymentActionsPopoverOpen(true);
+                }}
               >
                 <Box
                   className="spark-element"
@@ -1263,6 +1291,7 @@ export function RequestsTable({
                 />
                 Request Payment
               </Button>
+              </Box>
             </Box>
           ) : (
             filteredrequests.map((inv) => (
@@ -1570,6 +1599,11 @@ export function RequestsTable({
                     },
                   },
                 },
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setPaymentActionsPopoverOpen(true);
               }}
             >
               <Box
@@ -1977,7 +2011,11 @@ export function RequestsTable({
                             },
                           },
                         }}
-                        onClick={() => {/* TODO: handle request payment */ }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setPaymentActionsPopoverOpen(true);
+                        }}
                       >
                         <Box
                           className="spark-element"
@@ -2519,6 +2557,14 @@ export function RequestsTable({
           }
         }}
         initialSection={settingsInitialSection}
+      />
+      <PaymentActionsPopover
+        open={paymentActionsPopoverOpen}
+        onClose={() => setPaymentActionsPopoverOpen(false)}
+        onOpenSettings={(section) => {
+          setSettingsInitialSection(section || 'account');
+          setSettingsOpen(true);
+        }}
       />
     </Box>
   );

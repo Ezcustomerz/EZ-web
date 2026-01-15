@@ -313,8 +313,9 @@ class OrderService:
                     logger.info(f"[get_client_orders] Fetching deliverables for {len(booking_ids)} bookings: {booking_ids}")
                     
                     # Query with UUID objects (Supabase handles UUID conversion)
+                    # Include file_url for deduplication
                     deliverables_response = client.table('booking_deliverables')\
-                        .select('id, booking_id, file_name, file_type, file_size_bytes')\
+                        .select('id, booking_id, file_name, file_type, file_size_bytes, file_url')\
                         .in_('booking_id', booking_ids)\
                         .execute()
                     
@@ -324,11 +325,32 @@ class OrderService:
                     if deliverables_response.data:
                         logger.info(f"[get_client_orders] Sample deliverable: {deliverables_response.data[0] if deliverables_response.data else 'None'}")
                     
-                    # Group deliverables by booking_id (normalize to string for consistent lookup)
+                    # Group deliverables by booking_id and deduplicate by file_url
+                    # (normalize to string for consistent lookup)
                     for deliverable in (deliverables_response.data or []):
                         booking_id = str(deliverable['booking_id'])  # Ensure string for dictionary key
                         if booking_id not in deliverables_dict:
                             deliverables_dict[booking_id] = []
+                        
+                        # Get file_url for deduplication
+                        file_url = deliverable.get('file_url')
+                        file_name = deliverable.get('file_name', 'Unknown')
+                        
+                        # Check if we already have this file (by file_url if available, or by name as fallback)
+                        existing_files = deliverables_dict[booking_id]
+                        is_duplicate = False
+                        if file_url:
+                            # Deduplicate by file_url (preferred method)
+                            is_duplicate = any(f.get('file_url') == file_url for f in existing_files)
+                        else:
+                            # Fallback: deduplicate by file_name if file_url not available
+                            # This is less reliable but better than showing duplicates
+                            is_duplicate = any(f.get('name') == file_name for f in existing_files)
+                        
+                        if is_duplicate:
+                            logger.debug(f"[get_client_orders] Skipping duplicate file: {file_name} (file_url: {file_url}) for booking {booking_id}")
+                            continue
+                        
                         # Format file size
                         file_size_bytes = deliverable.get('file_size_bytes', 0) or 0
                         if file_size_bytes > 1024 * 1024:
@@ -337,9 +359,10 @@ class OrderService:
                             file_size_str = f"{(file_size_bytes / 1024):.2f} KB"
                         deliverables_dict[booking_id].append({
                             'id': str(deliverable['id']),
-                            'name': deliverable.get('file_name', 'Unknown'),
+                            'name': file_name,
                             'type': deliverable.get('file_type', 'file'),
-                            'size': file_size_str
+                            'size': file_size_str,
+                            'file_url': file_url  # Store file_url for deduplication
                         })
                     
                     logger.info(f"[get_client_orders] Deliverables dict has {len(deliverables_dict)} bookings with files")
@@ -497,19 +520,40 @@ class OrderService:
             if booking_ids:
                 try:
                     # Query with UUID objects (Supabase handles UUID conversion)
+                    # Include file_url for deduplication
                     deliverables_response = client.table('booking_deliverables')\
-                        .select('id, booking_id, file_name, file_type, file_size_bytes')\
+                        .select('id, booking_id, file_name, file_type, file_size_bytes, file_url')\
                         .in_('booking_id', booking_ids)\
                         .execute()
                     
                     logger.info(f"[get_client_action_needed_orders] Fetched {len(deliverables_response.data or [])} deliverables for {len(booking_ids)} bookings")
                     logger.info(f"[get_client_action_needed_orders] Booking IDs: {booking_ids}")
                     
-                    # Group deliverables by booking_id (normalize to string for consistent lookup)
+                    # Group deliverables by booking_id and deduplicate by file_url
+                    # (normalize to string for consistent lookup)
                     for deliverable in (deliverables_response.data or []):
                         booking_id = str(deliverable['booking_id'])  # Ensure string for dictionary key
                         if booking_id not in deliverables_dict:
                             deliverables_dict[booking_id] = []
+                        
+                        # Get file_url for deduplication
+                        file_url = deliverable.get('file_url')
+                        file_name = deliverable.get('file_name', 'Unknown')
+                        
+                        # Check if we already have this file (by file_url if available, or by name as fallback)
+                        existing_files = deliverables_dict[booking_id]
+                        is_duplicate = False
+                        if file_url:
+                            # Deduplicate by file_url (preferred method)
+                            is_duplicate = any(f.get('file_url') == file_url for f in existing_files)
+                        else:
+                            # Fallback: deduplicate by file_name if file_url not available
+                            is_duplicate = any(f.get('name') == file_name for f in existing_files)
+                        
+                        if is_duplicate:
+                            logger.debug(f"[get_client_action_needed_orders] Skipping duplicate file: {file_name} (file_url: {file_url}) for booking {booking_id}")
+                            continue
+                        
                         # Format file size
                         file_size_bytes = deliverable.get('file_size_bytes', 0) or 0
                         if file_size_bytes > 1024 * 1024:
@@ -518,9 +562,10 @@ class OrderService:
                             file_size_str = f"{(file_size_bytes / 1024):.2f} KB"
                         deliverables_dict[booking_id].append({
                             'id': str(deliverable['id']),
-                            'name': deliverable.get('file_name', 'Unknown'),
+                            'name': file_name,
                             'type': deliverable.get('file_type', 'file'),
-                            'size': file_size_str
+                            'size': file_size_str,
+                            'file_url': file_url  # Store file_url for deduplication
                         })
                     
                     logger.info(f"[get_client_action_needed_orders] Deliverables dict keys: {list(deliverables_dict.keys())}")
@@ -872,7 +917,7 @@ class OrderService:
             if booking_ids:
                 try:
                     deliverables_response = client.table('booking_deliverables')\
-                        .select('id, booking_id, file_name, file_type, file_size_bytes, downloaded_at')\
+                        .select('id, booking_id, file_name, file_type, file_size_bytes, file_url, downloaded_at')\
                         .in_('booking_id', booking_ids)\
                         .execute()
                     
@@ -880,6 +925,25 @@ class OrderService:
                         booking_id = str(deliverable['booking_id'])
                         if booking_id not in deliverables_dict:
                             deliverables_dict[booking_id] = []
+                        
+                        # Get file_url for deduplication
+                        file_url = deliverable.get('file_url')
+                        file_name = deliverable.get('file_name', 'Unknown')
+                        
+                        # Check if we already have this file (by file_url if available, or by name as fallback)
+                        existing_files = deliverables_dict[booking_id]
+                        is_duplicate = False
+                        if file_url:
+                            # Deduplicate by file_url (preferred method)
+                            is_duplicate = any(f.get('file_url') == file_url for f in existing_files)
+                        else:
+                            # Fallback: deduplicate by file_name if file_url not available
+                            is_duplicate = any(f.get('name') == file_name for f in existing_files)
+                        
+                        if is_duplicate:
+                            logger.debug(f"[get_creative_past_orders] Skipping duplicate file: {file_name} (file_url: {file_url}) for booking {booking_id}")
+                            continue
+                        
                         file_size_bytes = deliverable.get('file_size_bytes', 0) or 0
                         if file_size_bytes > 1024 * 1024:
                             file_size_str = f"{(file_size_bytes / 1024 / 1024):.2f} MB"
@@ -887,9 +951,10 @@ class OrderService:
                             file_size_str = f"{(file_size_bytes / 1024):.2f} KB"
                         deliverables_dict[booking_id].append({
                             'id': str(deliverable['id']),
-                            'name': deliverable.get('file_name', 'Unknown'),
+                            'name': file_name,
                             'type': deliverable.get('file_type', 'file'),
                             'size': file_size_str,
+                            'file_url': file_url,  # Store file_url for deduplication
                             'downloaded_at': deliverable.get('downloaded_at')
                         })
                 except Exception as e:

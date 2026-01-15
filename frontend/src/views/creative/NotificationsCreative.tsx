@@ -1,4 +1,4 @@
-import { Box, Typography, Paper, Stack, CircularProgress, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Paper, Stack, Skeleton } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,8 +9,6 @@ import { useAuth } from '../../context/auth';
 import { ActivityNotificationCard } from '../../components/cards/ActivityNotificationCard';
 
 export function NotificationsCreative() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
@@ -86,20 +84,35 @@ export function NotificationsCreative() {
       localStorage.setItem('open-order-popover', bookingId);
       // New booking requests are typically in Current Orders (Pending Approval status)
       localStorage.setItem('activity-active-tab', '0');
-    } else if (notificationType === 'payment_received' && bookingId) {
-      // Navigate to activity page and open the specific order popover
-      navigate('/creative/activity');
-      // Store booking_id in localStorage to open popover after navigation
-      localStorage.setItem('open-order-popover', bookingId);
-      // Determine tab based on creative_status from metadata
-      // Payment received notifications could be in Current or Past Orders depending on status
-      const creativeStatus = item.metadata?.creative_status;
-      if (creativeStatus) {
-        const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
-        localStorage.setItem('activity-active-tab', tabIndex);
-      } else {
-        // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
-        localStorage.setItem('activity-active-tab', '0');
+    } else if (notificationType === 'payment_received') {
+      // Check if this is a payment request notification (not booking-related)
+      const isPaymentRequest = item.metadata?.payment_request_id || 
+                               (item.metadata?.related_entity_type === 'payment_request');
+      
+      if (isPaymentRequest) {
+        // Get payment request ID from metadata or related entity ID
+        const paymentRequestId = item.metadata?.payment_request_id || item.relatedEntityId;
+        if (paymentRequestId) {
+          // Navigate to activity page and open payment actions popover
+          navigate('/creative/activity');
+          // Store payment request ID in localStorage to open popover after navigation
+          localStorage.setItem('open-payment-actions-popover', paymentRequestId);
+        }
+      } else if (bookingId) {
+        // Navigate to activity page and open the specific order popover
+        navigate('/creative/activity');
+        // Store booking_id in localStorage to open popover after navigation
+        localStorage.setItem('open-order-popover', bookingId);
+        // Determine tab based on creative_status from metadata
+        // Payment received notifications could be in Current or Past Orders depending on status
+        const creativeStatus = item.metadata?.creative_status;
+        if (creativeStatus) {
+          const tabIndex = (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled') ? '1' : '0';
+          localStorage.setItem('activity-active-tab', tabIndex);
+        } else {
+          // No status in metadata - default to Current Orders, fallback will check Past Orders if not found
+          localStorage.setItem('activity-active-tab', '0');
+        }
       }
     } else if (notificationType === 'session_completed' && bookingId) {
       // Navigate to activity page and open the specific order popover
@@ -154,7 +167,7 @@ export function NotificationsCreative() {
 
   return (
     <LayoutCreative selectedNavItem="dashboard">
-      {({ isSidebarOpen, creativeProfile }) => (
+      {({ isSidebarOpen: _, creativeProfile: __ }) => (
         <Box
           sx={{
             p: { xs: 2, sm: 2, md: 3 },
@@ -253,21 +266,82 @@ export function NotificationsCreative() {
               }}
             >
               {isLoading ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    py: 8,
-                    gap: 2,
-                  }}
-                >
-                  <CircularProgress size={48} sx={{ color: 'primary.main' }} />
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    Loading notifications...
-                  </Typography>
-                </Box>
+                <Stack spacing={2}>
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <Box
+                      key={`skeleton-${index}`}
+                      sx={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.65)',
+                        backdropFilter: 'blur(20px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                        borderRadius: 2.5,
+                        p: 2,
+                        mb: 2,
+                        mt: 1,
+                        border: '1px solid rgba(0, 0, 0, 0.08)',
+                        borderLeft: '4px solid rgba(0, 0, 0, 0.1)',
+                        animation: `fadeIn 0.5s ease-in ${index * 0.1}s both`,
+                        '@keyframes fadeIn': {
+                          from: { opacity: 0, transform: 'translateX(-30px)' },
+                          to: { opacity: 1, transform: 'translateX(0)' },
+                        },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flex: 1 }}>
+                          {/* Icon box skeleton */}
+                          <Skeleton
+                            variant="rectangular"
+                            width={44}
+                            height={44}
+                            sx={{
+                              borderRadius: 2,
+                              backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                            }}
+                          />
+                          <Box sx={{ flex: 1 }}>
+                            {/* Label and New chip skeleton */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.75, gap: 1 }}>
+                              <Skeleton variant="text" width="60%" height={20} />
+                              {index % 3 === 0 && (
+                                <Skeleton
+                                  variant="rectangular"
+                                  width={40}
+                                  height={20}
+                                  sx={{ borderRadius: 1 }}
+                                />
+                              )}
+                            </Box>
+                            {/* Description skeleton - multiple lines */}
+                            <Skeleton variant="text" width="100%" height={16} sx={{ mb: 0.5 }} />
+                            <Skeleton variant="text" width="85%" height={16} sx={{ mb: 1.25 }} />
+                            {/* Date skeleton for mobile */}
+                            <Skeleton
+                              variant="text"
+                              width={60}
+                              height={14}
+                              sx={{
+                                display: { xs: 'block', md: 'none' },
+                                mt: 1.25,
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                        {/* Date skeleton for desktop */}
+                        <Skeleton
+                          variant="text"
+                          width={60}
+                          height={14}
+                          sx={{
+                            ml: 1.5,
+                            mt: 0.5,
+                            display: { xs: 'none', md: 'block' },
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                  ))}
+                </Stack>
               ) : error ? (
                 <Box
                   sx={{
