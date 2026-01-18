@@ -20,6 +20,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRecordVinyl, faChevronDown, faBars, faTimes, faMusic, faUsers, faHandshake } from '@fortawesome/free-solid-svg-icons';
 import { AnimatedButton } from '../../components/buttons/MusicButton';
 import { useRoleRedirect } from '../../utils/roleRedirect';
+import { ComingSoonDialog } from '../../components/dialogs/ComingSoonDialog';
 
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
   backgroundColor: theme.palette.secondary.main,    
@@ -213,6 +214,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSubmenuOpen, setMobileSubmenuOpen] = useState(false);
   const featuresOpen = Boolean(featuresAnchorEl);
+  const [comingSoonDialogOpen, setComingSoonDialogOpen] = useState(false);
   const timeoutRef = useRef<number | null>(null);
 
   const handleFeaturesMouseEnter = (event: React.MouseEvent<HTMLElement>) => {
@@ -270,8 +272,13 @@ export function Header() {
     }
     
     console.log('Menu item clicked:', item);
-    alert(`Clicked: ${item}`);
+    
     setFeaturesAnchorEl(null);
+    
+    // Show Coming Soon dialog for Advocate Details
+    if (item === 'Advocate Details') {
+      setComingSoonDialogOpen(true);
+    }
   };
 
   const toggleMobileMenu = (event: React.MouseEvent) => {
@@ -755,6 +762,7 @@ export function Header() {
                       onClick={() => {
                         console.log('Advocate Details clicked');
                         closeMobileMenu();
+                        setComingSoonDialogOpen(true);
                       }}
                       sx={{ 
                         mb: 0,
@@ -822,6 +830,14 @@ export function Header() {
           }}
         />
       )}
+
+      {/* Coming Soon Dialog */}
+      <ComingSoonDialog
+        open={comingSoonDialogOpen}
+        onClose={() => setComingSoonDialogOpen(false)}
+        featureName="Advocate Details"
+        description="The Advocate program details and information section is currently under development. This will provide comprehensive information about the affiliate program!"
+      />
     </StyledAppBar>
   );
 }
