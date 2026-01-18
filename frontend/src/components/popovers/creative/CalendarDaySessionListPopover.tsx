@@ -4,7 +4,8 @@ import { useTheme, useMediaQuery } from '@mui/material';
 import { format } from 'date-fns';
 import { Slide } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
-import React from 'react';
+import React, { useState } from 'react';
+import { ComingSoonDialog } from '../../dialogs/ComingSoonDialog';
 
 interface Session {
   id: string;
@@ -42,6 +43,7 @@ export function CalendarDaySessionListPopover({
 }: CalendarDaySessionListPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [comingSoonDialogOpen, setComingSoonDialogOpen] = useState(false);
 
   // Helper: get sessions for selected day
   const selectedDaySessions = selectedDate
@@ -99,10 +101,24 @@ export function CalendarDaySessionListPopover({
         </List>
       </DialogContent>
       <DialogActions sx={{ px: 2, pb: 2, justifyContent: 'flex-end' }}>
-        <Button variant="contained" color="primary" startIcon={<HeadsetMic />} sx={{ fontWeight: 700, borderRadius: 2 }}>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<HeadsetMic />} 
+          onClick={() => setComingSoonDialogOpen(true)}
+          sx={{ fontWeight: 700, borderRadius: 2 }}
+        >
           New Session
         </Button>
       </DialogActions>
+
+      {/* Coming Soon Dialog */}
+      <ComingSoonDialog
+        open={comingSoonDialogOpen}
+        onClose={() => setComingSoonDialogOpen(false)}
+        featureName="New Session"
+        description="The ability to create and schedule new calendar sessions is currently under development. This feature will be available soon!"
+      />
     </Dialog>
   );
 } 
