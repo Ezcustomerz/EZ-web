@@ -69,6 +69,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
+import { ComingSoonDialog } from '../../dialogs/ComingSoonDialog';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
@@ -539,6 +540,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const [saving, setSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark'>('light');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [comingSoonDialogOpen, setComingSoonDialogOpen] = useState(false);
+  const [comingSoonFeatureName, setComingSoonFeatureName] = useState('');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   
@@ -794,6 +797,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       }
       return prev;
     });
+  };
+
+  const handleShowComingSoon = (featureName: string) => {
+    setComingSoonFeatureName(featureName);
+    setComingSoonDialogOpen(true);
   };
 
   const getAvailableServices = (excludeService?: string) => {
@@ -2168,7 +2176,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                     {/* Dark Theme Option */}
                     <Card 
                       variant="outlined" 
-                      onClick={() => setSelectedTheme('dark')}
+                      onClick={() => handleShowComingSoon('Dark Mode')}
                       sx={{ 
                         flex: 1, 
                         cursor: 'pointer',
@@ -2818,6 +2826,14 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         </List>
       </Box>
     </Drawer>
+
+    {/* Coming Soon Dialog */}
+    <ComingSoonDialog
+      open={comingSoonDialogOpen}
+      onClose={() => setComingSoonDialogOpen(false)}
+      featureName={comingSoonFeatureName}
+      description="We're working hard to bring you this feature. It will be available in an upcoming update!"
+    />
     </>
   );
 }
