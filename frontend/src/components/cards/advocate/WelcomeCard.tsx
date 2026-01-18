@@ -7,6 +7,8 @@ import {
   EmojiEventsOutlined,
   EmojiEventsRounded,
 } from '@mui/icons-material';
+import { useState } from 'react';
+import { ComingSoonDialog } from '../../dialogs/ComingSoonDialog';
 
 interface StatsCard {
   title: string;
@@ -30,6 +32,7 @@ export function WelcomeCard({
   onRewardfulClick 
 }: WelcomeCardProps) {
   const theme = useTheme();
+  const [comingSoonDialogOpen, setComingSoonDialogOpen] = useState(false);
 
   const statsCards: StatsCard[] = [
     {
@@ -143,7 +146,7 @@ export function WelcomeCard({
           >
             <Button
               startIcon={<EmojiEventsRounded sx={{ fontSize: 20 }} />}
-              onClick={onRewardfulClick}
+              onClick={() => setComingSoonDialogOpen(true)}
               aria-label="Open Rewardful Portal"
               sx={{
                 // Main ribbon rectangle
@@ -366,6 +369,14 @@ export function WelcomeCard({
           );
         })}
       </Box>
+
+      {/* Coming Soon Dialog */}
+      <ComingSoonDialog
+        open={comingSoonDialogOpen}
+        onClose={() => setComingSoonDialogOpen(false)}
+        featureName="Rewardful Portal"
+        description="The Rewardful affiliate dashboard integration is currently under development. This feature will allow you to manage your referrals and track earnings directly from here!"
+      />
     </Box>
   );
 }
