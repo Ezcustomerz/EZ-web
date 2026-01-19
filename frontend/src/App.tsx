@@ -6,6 +6,7 @@ import type { ColorConfig } from './config/color'
 
 // Keep lightweight pages as regular imports (needed immediately)
 import {LandingPage} from './views/web/LandingPage.tsx'
+import { CreativeFeaturesPage } from './views/web/CreativeFeaturesPage.tsx'
 import { ContactUs } from './views/web/ContactUs.tsx'
 import { PrivacyPolicy } from './views/web/PrivacyPolicy.tsx'
 import { TermsOfService } from './views/web/TermsOfService.tsx'
@@ -122,6 +123,7 @@ function AppContent() {
       <SetupGate />
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/features/creative" element={<CreativeFeaturesPage />} />
         <Route path="/creative" element={
           <Suspense fallback={<RouteLoadingFallback />}>
             <RoleGuard requiredRole="creative">
