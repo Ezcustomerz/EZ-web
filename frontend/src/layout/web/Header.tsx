@@ -270,8 +270,13 @@ export function Header() {
     }
     
     console.log('Menu item clicked:', item);
-    alert(`Clicked: ${item}`);
     setFeaturesAnchorEl(null);
+    
+    if (item === 'Creative Features') {
+      navigate('/features/creative');
+    } else {
+      alert(`Clicked: ${item}`);
+    }
   };
 
   const toggleMobileMenu = (event: React.MouseEvent) => {
@@ -671,6 +676,7 @@ export function Header() {
                       onClick={() => {
                         console.log('Creative Features clicked');
                         closeMobileMenu();
+                        navigate('/features/creative');
                       }}
                       sx={{ 
                         mb: 0.5, 
