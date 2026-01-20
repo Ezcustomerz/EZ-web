@@ -6,6 +6,7 @@ import type { ColorConfig } from './config/color'
 
 // Keep lightweight pages as regular imports (needed immediately)
 import {LandingPage} from './views/web/LandingPage.tsx'
+import { ClientFeaturesPage } from './views/web/ClientFeaturesPage.tsx'
 import { ContactUs } from './views/web/ContactUs.tsx'
 import { PrivacyPolicy } from './views/web/PrivacyPolicy.tsx'
 import { TermsOfService } from './views/web/TermsOfService.tsx'
@@ -203,6 +204,7 @@ function AppContent() {
         <Route path="/auth-callback" element={<AuthCallback />} />
         <Route path="/no-access" element={<NoAccess />} />
         <Route path="/contact" element={<ContactUs />} />
+        <Route path="/client-features" element={<ClientFeaturesPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/payment-success" element={<PaymentSuccess />} />
