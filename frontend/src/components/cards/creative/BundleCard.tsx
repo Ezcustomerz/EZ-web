@@ -1,5 +1,5 @@
-import { Card, CardContent, Box, Typography, useTheme, Tooltip, IconButton } from '@mui/material';
-import { MoreVert } from '@mui/icons-material';
+import { Card, CardContent, Box, Typography, useTheme, Tooltip, IconButton, Button } from '@mui/material';
+import { MoreVert, BookOnline } from '@mui/icons-material';
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLayerGroup, faGem, faGlobe, faLock } from '@fortawesome/free-solid-svg-icons';
@@ -37,9 +37,11 @@ interface BundleCardProps {
   creative: string;
   showStatus?: boolean;
   showMenu?: boolean;
+  showBookButton?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
   onClick?: () => void;
+  onBook?: () => void;
 }
 
 const statusHelp = {
@@ -47,7 +49,7 @@ const statusHelp = {
   Private: 'Only visible to you. Not shown on your public profile.',
 };
 
-export function BundleCard({ bundle, creative, showStatus = true, showMenu = false, onEdit, onDelete, onClick }: BundleCardProps) {
+export function BundleCard({ bundle, creative, showStatus = true, showMenu = false, showBookButton = false, onEdit, onDelete, onClick, onBook }: BundleCardProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -74,7 +76,7 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
         height: '100%',
         width: '100%',
         maxWidth: '100%',
-        minHeight: { xs: 135, sm: 170 },
+        minHeight: { xs: 135, sm: showBookButton ? 220 : 170 },
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -170,7 +172,7 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
         </Box>
 
         {/* Price and Status Row */}
-        <Box sx={{ mt: 2, minWidth: 0, width: '100%' }}>
+        <Box sx={{ mt: 'auto', minWidth: 0, width: '100%' }}>
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -178,7 +180,8 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
             gap: 1,
             flexWrap: 'wrap',
             minWidth: 0,
-            width: '100%'
+            width: '100%',
+            mb: showBookButton ? 1 : 0
           }}>
             <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
               <Typography fontWeight={700} color="primary" fontSize="1rem">
@@ -238,6 +241,34 @@ export function BundleCard({ bundle, creative, showStatus = true, showMenu = fal
               </Tooltip>
             )}
           </Box>
+          {showBookButton && (
+            <Button
+              variant="contained"
+              size="small"
+              fullWidth
+              startIcon={<BookOnline />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onBook?.();
+              }}
+              sx={{
+                mt: 1,
+                py: 0.8,
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                borderRadius: 1.5,
+                textTransform: 'none',
+                background: `linear-gradient(135deg, ${bundle.color} 0%, ${bundle.color}CC 100%)`,
+                boxShadow: `0 2px 8px ${bundle.color}30`,
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${bundle.color}CC 0%, ${bundle.color} 100%)`,
+                  boxShadow: `0 4px 12px ${bundle.color}40`,
+                }
+              }}
+            >
+              Book Bundle
+            </Button>
+          )}
         </Box>
       </CardContent>
     </Card>

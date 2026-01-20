@@ -288,8 +288,10 @@ class InviteController:
                 }
                 
                 try:
-                    # Create notification (using authenticated client - respects RLS)
-                    notification_result = client.table("notifications") \
+                    # Create notification using admin client to bypass RLS
+                    # We need admin privileges because we're creating a notification for the creative user
+                    # (the client user doesn't have permission to create notifications for other users)
+                    notification_result = db_admin.table("notifications") \
                         .insert(notification_data) \
                         .execute()
                     logger.info(f"Notification created: {notification_result.data}")
@@ -352,6 +354,18 @@ class InviteController:
             user_roles = user_response.data.get('roles', [])
             if 'client' not in user_roles:
                 raise HTTPException(status_code=400, detail="User still doesn't have client role")
+            
+            # Verify client profile exists before creating relationship
+            client_profile_check = client.table("clients") \
+                .select("user_id") \
+                .eq("user_id", client_user_id) \
+                .execute()
+            
+            if not client_profile_check.data:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Client profile not found. Please ensure your profile is set up before accepting invites."
+                )
             
             # Check if relationship already exists (using authenticated client - respects RLS)
             existing_relationship = client.table("creative_client_relationships") \
@@ -420,8 +434,10 @@ class InviteController:
                 }
                 
                 try:
-                    # Create notification (using authenticated client - respects RLS)
-                    notification_result = client.table("notifications") \
+                    # Create notification using admin client to bypass RLS
+                    # We need admin privileges because we're creating a notification for the creative user
+                    # (the client user doesn't have permission to create notifications for other users)
+                    notification_result = db_admin.table("notifications") \
                         .insert(notification_data) \
                         .execute()
                     logger.info(f"Notification created: {notification_result.data}")
