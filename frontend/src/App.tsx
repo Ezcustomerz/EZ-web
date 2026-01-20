@@ -9,6 +9,7 @@ import {LandingPage} from './views/web/LandingPage.tsx'
 import { ContactUs } from './views/web/ContactUs.tsx'
 import { PrivacyPolicy } from './views/web/PrivacyPolicy.tsx'
 import { TermsOfService } from './views/web/TermsOfService.tsx'
+import { PricingPage } from './views/web/PricingPage.tsx'
 import { AuthCallback } from './views/AuthCallback'
 import { NoAccess } from './views/NoAccess'
 import { InvitePage } from './views/InvitePage'
@@ -203,6 +204,7 @@ function AppContent() {
         <Route path="/auth-callback" element={<AuthCallback />} />
         <Route path="/no-access" element={<NoAccess />} />
         <Route path="/contact" element={<ContactUs />} />
+        <Route path="/pricing" element={<PricingPage />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/payment-success" element={<PaymentSuccess />} />

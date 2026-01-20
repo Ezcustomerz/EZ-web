@@ -386,7 +386,7 @@ export function Header() {
             </NavButton>
             
             <NavButton 
-              onClick={() => console.log('Pricing clicked')}
+              onClick={() => navigate('/pricing')}
               onMouseEnter={() => {
                 if (featuresOpen) {
                   handleCloseMenu();
@@ -574,7 +574,7 @@ export function Header() {
               </ListItemButton>
               <ListItemButton 
                 onClick={() => {
-                  console.log('Pricing clicked');
+                  navigate('/pricing');
                   closeMobileMenu();
                 }}
                 sx={{ 
