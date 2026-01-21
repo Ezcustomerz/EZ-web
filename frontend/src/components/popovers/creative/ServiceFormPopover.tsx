@@ -1949,18 +1949,24 @@ export function ServiceFormPopover({
                             }
                           />
                           {daySchedule.enabled && (
-                            <Button
-                              size="small"
-                              startIcon={<AddIcon />}
-                              onClick={() => addTimeBlock(dayIdx)}
-                              sx={{
-                                fontSize: '0.75rem',
-                                textTransform: 'none',
-                                color: 'primary.main'
-                              }}
+                            <Tooltip 
+                              title="Add a block of time when you're available for bookings. Each time block represents hours you can accept appointments (e.g., 9:00 AM - 12:00 PM for morning availability)."
+                              arrow
+                              placement="top"
                             >
-                              Add Time Block
-                            </Button>
+                              <Button
+                                size="small"
+                                startIcon={<AddIcon />}
+                                onClick={() => addTimeBlock(dayIdx)}
+                                sx={{
+                                  fontSize: '0.75rem',
+                                  textTransform: 'none',
+                                  color: 'primary.main'
+                                }}
+                              >
+                                Add Time Block
+                              </Button>
+                            </Tooltip>
                           )}
                         </Box>
 
