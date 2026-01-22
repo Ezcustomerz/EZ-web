@@ -1364,7 +1364,7 @@ export function RequestsTable({
                     {inv.status === 'Awaiting Payment' && (
                       <AwaitingPaymentRow 
                         status={inv.status} 
-                        isMobile={true} 
+                        isMobile={true}
                       />
                     )}
                     {inv.status === 'In Progress' && (
@@ -1372,19 +1372,19 @@ export function RequestsTable({
                         status={inv.status} 
                         onComplete={handleComplete} 
                         orderId={inv.id} 
-                        isMobile={true} 
+                        isMobile={true}
                       />
                     )}
                     {inv.status === 'Complete' && (
                       <CompleteRow 
                         status={inv.status} 
-                        isMobile={true} 
+                        isMobile={true}
                       />
                     )}
                     {inv.status === 'Canceled' && (
                       <CanceledRow 
                         status={inv.status} 
-                        isMobile={true} 
+                        isMobile={true}
                       />
                     )}
                   </Stack>
@@ -2124,7 +2124,7 @@ export function RequestsTable({
                       {inv.status === 'Awaiting Payment' && (
                         <AwaitingPaymentRow 
                           status={inv.status} 
-                          isMobile={false} 
+                          isMobile={false}
                         />
                       )}
                       {inv.status === 'In Progress' && (
@@ -2132,19 +2132,19 @@ export function RequestsTable({
                           status={inv.status} 
                           onComplete={handleComplete} 
                           orderId={inv.id} 
-                          isMobile={false} 
+                          isMobile={false}
                         />
                       )}
                       {inv.status === 'Complete' && (
                         <CompleteRow 
                           status={inv.status} 
-                          isMobile={false} 
+                          isMobile={false}
                         />
                       )}
                       {inv.status === 'Canceled' && (
                         <CanceledRow 
                           status={inv.status} 
-                          isMobile={false} 
+                          isMobile={false}
                         />
                       )}
                     </TableCell>

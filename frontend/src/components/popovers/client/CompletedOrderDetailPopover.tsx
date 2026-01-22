@@ -260,7 +260,7 @@ export function CompletedOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#4caf50'; // Green for completed
+  const statusColor = order.serviceColor || '#4caf50'; // Use service color or fallback to green
   const invoices = order.invoices || [];
 
   const getFileIcon = (fileType: string) => {

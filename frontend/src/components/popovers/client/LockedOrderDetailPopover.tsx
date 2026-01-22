@@ -176,7 +176,7 @@ export function LockedOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#9c27b0'; // Purple for locked
+  const statusColor = order.serviceColor || '#9c27b0'; // Use service color or fallback to purple
 
   const getPaymentOptionLabel = (option: LockedPaymentOption) => {
     switch (option) {
