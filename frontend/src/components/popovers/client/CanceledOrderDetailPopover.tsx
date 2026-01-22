@@ -90,7 +90,7 @@ export function CanceledOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#f44336'; // Red for canceled
+  const statusColor = order.serviceColor || '#f44336'; // Use service color or fallback to red
   const invoices = order.invoices || [];
 
   const handleViewEzInvoice = async () => {

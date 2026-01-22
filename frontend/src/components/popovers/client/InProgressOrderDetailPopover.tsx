@@ -79,7 +79,7 @@ export function InProgressOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#2196f3'; // Blue for in progress (matching InProgressOrderCard)
+  const statusColor = order.serviceColor || '#2196f3'; // Use service color or fallback to blue
 
   const getPaymentOptionLabel = (option: InProgressPaymentOption) => {
     switch (option) {

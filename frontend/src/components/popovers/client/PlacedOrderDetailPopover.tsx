@@ -85,7 +85,7 @@ export function PlacedOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#ff9800';
+  const statusColor = order.serviceColor || '#ff9800'; // Use service color or fallback to orange
 
   const getPaymentOptionLabel = (option: PaymentOption) => {
     switch (option) {

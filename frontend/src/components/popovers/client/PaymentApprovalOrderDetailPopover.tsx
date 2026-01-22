@@ -84,7 +84,7 @@ export function PaymentApprovalOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#2196f3'; // Blue for payment approval
+  const statusColor = order.serviceColor || '#2196f3'; // Use service color or fallback to blue
 
   const getPaymentOptionLabel = (option: PaymentApprovalOption) => {
     switch (option) {
