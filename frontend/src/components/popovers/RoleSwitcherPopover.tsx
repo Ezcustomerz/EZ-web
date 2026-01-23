@@ -95,10 +95,10 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
         {
           id: 'client',
           title: 'Client',
-          subtitle: 'Country Artist',
+          subtitle: 'Client',
           icon: Person,
           exists: true,
-          type: 'Country Artist'
+          type: 'Client'
         },
         {
           id: 'advocate',
@@ -133,10 +133,10 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
     roles.push({
       id: 'client',
       title: 'Client',
-      subtitle: clientProfile ? clientProfile.title : (hasClientRole ? 'Not set up yet' : 'Click to add Client role'),
+      subtitle: clientProfile ? 'Client' : (hasClientRole ? 'Not set up yet' : 'Click to add Client role'),
       icon: Person,
       exists: hasClientRole && !!clientProfile,
-      type: clientProfile?.title
+      type: 'Client'
     });
     
     // Add advocate role

@@ -40,7 +40,6 @@ class MinimalCreativeProfile(BaseModel):
 
 class MinimalClientProfile(BaseModel):
     user_id: str
-    title: str
 
 class MinimalAdvocateProfile(BaseModel):
     user_id: str

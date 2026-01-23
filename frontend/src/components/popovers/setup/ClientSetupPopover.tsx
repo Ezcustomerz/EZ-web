@@ -3,16 +3,12 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   Box,
   Typography,
-  TextField,
-  Button,
   useMediaQuery,
   useTheme,
-  Divider,
   Slide,
-  Autocomplete,
+  Divider,
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React from 'react';
@@ -31,87 +27,6 @@ export interface ClientSetupPopoverProps {
   onComplete?: () => void;
 }
 
-const CLIENT_TITLES = [
-  'Other', // Move to top for easy access
-  
-  // Music Industry Clients
-  'Recording Artist',
-  'Singer-Songwriter',
-  'Band Member',
-  'Music Producer',
-  'Record Label',
-  'Music Manager',
-  'A&R Representative',
-  'Music Publisher',
-  'Independent Artist',
-  'Country Artist',
-  'Hip Hop Artist',
-  'Pop Artist',
-  'Rock Artist',
-  'Electronic Artist',
-  'Jazz Musician',
-  'Classical Musician',
-  'Folk Artist',
-  'R&B Artist',
-  'Rapper',
-  'DJ',
-  'Songwriter',
-  'Composer',
-  'Music Director',
-  
-  // Media & Entertainment
-  'Filmmaker',
-  'Video Producer',
-  'Content Creator',
-  'YouTuber',
-  'Podcaster',
-  'Radio Host',
-  'TV Producer',
-  'Documentary Maker',
-  'Commercial Producer',
-  'Music Video Director',
-  
-  // Business & Corporate
-  'Marketing Manager',
-  'Brand Manager',
-  'Creative Director',
-  'Advertising Executive',
-  'Small Business Owner',
-  'Startup Founder',
-  'Event Planner',
-  'Wedding Planner',
-  'Corporate Executive',
-  'Entrepreneur',
-  
-  // Publishing & Media
-  'Author',
-  'Publisher',
-  'Magazine Editor',
-  'Journalist',
-  'Blogger',
-  'Social Media Manager',
-  'Influencer',
-  
-  // Technology & Digital
-  'App Developer',
-  'Software Company',
-  'Tech Startup',
-  'Gaming Company',
-  'Digital Agency',
-  'Web Development Agency',
-  
-  // Other Creative Industries
-  'Fashion Designer',
-  'Interior Designer',
-  'Architect',
-  'Art Gallery',
-  'Museum',
-  'Theater Producer',
-  'Event Organizer',
-  'Non-Profit Organization',
-  'Educational Institution',
-  'Client',
-] as const;
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -126,97 +41,60 @@ export function ClientSetupPopover({
   onClose, 
   userName = '', 
   userEmail = '',
-  onBack,
-  isFirstSetup = false,
   onComplete
 }: ClientSetupPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
-  const [isLoading, setIsLoading] = useState(false);
-  const { userProfile, backToPreviousSetup, saveSetupData, tempSetupData, pendingSetups } = useAuth();
+  const { userProfile, saveSetupData, tempSetupData, pendingSetups } = useAuth();
 
   // Form state
   const [formData, setFormData] = useState({
     displayName: userProfile?.name || userName,
-    title: '',
-    customTitle: '',
     email: userProfile?.email || userEmail || '',
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Update form data when userProfile loads or restore from temp data
+  // Auto-submit when dialog opens
   useEffect(() => {
-    if (open) {
-      if (tempSetupData.client) {
-        // Restore from temp data if available
-        const tempData = tempSetupData.client;
-        setFormData({
-          displayName: tempData.display_name || userProfile?.name || userName,
-          title: tempData.title || '',
-          customTitle: tempData.custom_title || '',
-          email: tempData.email || userProfile?.email || userEmail || '',
-        });
-      } else if (userProfile) {
-        setFormData(prev => ({
-          ...prev,
-          displayName: userProfile.name || prev.displayName,
-          email: userProfile.email || prev.email,
-        }));
-      }
+    if (open && userProfile) {
+      setFormData({
+        displayName: userProfile.name || userName,
+        email: userProfile.email || userEmail || '',
+      });
+      // Automatically submit the setup
+      handleSubmit();
     }
-  }, [userProfile, open, tempSetupData.client, userName, userEmail]);
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, userProfile]);
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
     if (!formData.displayName.trim()) {
-      newErrors.displayName = 'Display name is required';
-    }
-
-    if (!formData.title) {
-      newErrors.title = 'Title is required';
-    }
-
-    if (formData.title === 'Other' && !formData.customTitle.trim()) {
-      newErrors.customTitle = 'Please specify your title';
+      return false;
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else {
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        newErrors.email = 'Please enter a valid email address';
-      }
+      return false;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      return false;
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return true;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      errorToast('Validation Error', 'Please fix the errors below');
+      errorToast('Validation Error', 'Missing required information');
+      onClose();
       return;
     }
 
-    setIsLoading(true);
     try {
-      const setupData = {
+      const setupData: { display_name: string; email: string } = {
         display_name: formData.displayName,
-        title: formData.title,
-        custom_title: formData.title === 'Other' ? formData.customTitle : undefined,
         email: formData.email,
       };
 
@@ -265,8 +143,7 @@ export function ClientSetupPopover({
     } catch (err: any) {
       console.error('Client setup error:', err);
       errorToast('Setup Failed', 'Unable to save client setup. Please try again.');
-    } finally {
-      setIsLoading(false);
+      onClose();
     }
   };
 
@@ -399,239 +276,69 @@ export function ClientSetupPopover({
       <DialogContent sx={{ 
         pb: 2, 
         px: isMobile ? 2 : isTablet ? 3 : 4, 
-        maxHeight: isMobile ? 'calc(100vh - 180px)' : isTablet ? 'calc(90vh - 180px)' : '400px', 
-        overflow: 'auto',
-        overflowX: 'hidden'
+        minHeight: isMobile ? 'calc(100vh - 180px)' : isTablet ? 'calc(90vh - 180px)' : '200px', 
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }}>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: 'column', 
-          gap: isMobile ? 2.5 : isTablet ? 3 : 3.5, 
-          py: isMobile ? 1.5 : 2,
-          width: '100%',
-          maxWidth: '100%'
+          alignItems: 'center',
+          gap: 3,
+          py: 4
         }}>
-          
-          {/* Basic Information */}
-          <Box>
-            <Typography variant="h6" gutterBottom sx={{ 
-              fontWeight: 700, 
-              color: 'primary.main',
-              mb: 2,
-              display: 'flex',
-              alignItems: 'center',
-              fontSize: '1.1rem',
-              '&::before': {
-                content: '""',
-                width: 3,
-                height: 18,
-                borderRadius: 2,
-                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                mr: 1.5,
+          <Box 
+            component="svg" 
+            sx={{ 
+              width: '4rem', 
+              height: '4rem',
+              animation: 'spin 2s linear infinite',
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' }
               }
-            }}>
-              Basic Information
-            </Typography>
-            
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: 2.5,
-              width: '100%',
-              maxWidth: '100%'
-            }}>
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: { xs: 'column', sm: 'row' }, 
-                gap: 2.5,
-                width: '100%',
-                maxWidth: '100%',
-                boxSizing: 'border-box'
-              }}>
-                <Box sx={{ flex: 1, minWidth: 0, maxWidth: '100%' }}>
-                  <TextField
-                    fullWidth
-                    label="Display Name"
-                    value={formData.displayName}
-                    onChange={(e) => handleInputChange('displayName', e.target.value)}
-                    error={!!errors.displayName}
-                    helperText={errors.displayName}
-                    required
-                    sx={{
-                      width: '100%',
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                      }
-                    }}
-                  />
-                </Box>
-                
-                <Box sx={{ flex: 1, minWidth: 0, maxWidth: '100%' }}>
-                  <Autocomplete
-                    options={CLIENT_TITLES}
-                    value={formData.title || null}
-                    onChange={(_, newValue) => handleInputChange('title', newValue || '')}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Title"
-                        required
-                        error={!!errors.title}
-                        helperText={errors.title}
-                        placeholder="Search or select your title..."
-                        sx={{
-                          width: '100%',
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                          }
-                        }}
-                      />
-                    )}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props}>
-                        {option === 'Other' ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', fontWeight: 600, color: 'primary.main' }}>
-                            ✨ {option}
-                          </Box>
-                        ) : (
-                          option
-                        )}
-                      </Box>
-                    )}
-                    filterOptions={(options, { inputValue }) => {
-                      const filtered = options.filter((option) =>
-                        option.toLowerCase().includes(inputValue.toLowerCase())
-                      );
-                      
-                      // Always show "Other" at the top of filtered results if it matches
-                      if (inputValue.toLowerCase().includes('other') || inputValue === '') {
-                        const withoutOther = filtered.filter(option => option !== 'Other');
-                        return ['Other', ...withoutOther];
-                      }
-                      
-                      return filtered;
-                    }}
-                    sx={{ width: '100%' }}
-                    clearOnEscape
-                    openOnFocus
-                    slotProps={{
-                      popper: {
-                        sx: {
-                          zIndex: isMobile ? 10001 : 1301, // Higher than dialog z-index
-                        }
-                      }
-                    }}
-                  />
-                </Box>
-              </Box>
-
-              {formData.title === 'Other' && (
-                <TextField
-                  fullWidth
-                  label="Custom Title"
-                  value={formData.customTitle}
-                  onChange={(e) => handleInputChange('customTitle', e.target.value)}
-                  error={!!errors.customTitle}
-                  helperText={errors.customTitle}
-                  placeholder="Enter your custom title"
-                  required
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                    }
-                  }}
-                />
-              )}
-
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                error={!!errors.email}
-                helperText={errors.email || 'Primary email for project communication'}
-                placeholder="your.email@example.com"
-                required
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  }
-                }}
-              />
-            </Box>
+            }}
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <path
+              d="M12 2L2 7L12 12L22 7L12 2Z"
+              fill="url(#clientGradient)"
+              stroke="white"
+              strokeWidth="1"
+            />
+            <path
+              d="M2 17L12 22L22 17"
+              fill="url(#clientGradient)"
+              stroke="white"
+              strokeWidth="1"
+            />
+            <path
+              d="M2 12L12 17L22 12"
+              fill="url(#clientGradient)"
+              stroke="white"
+              strokeWidth="1"
+            />
+            <defs>
+              <linearGradient id="clientGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#3B82F6" />
+                <stop offset="50%" stopColor="#1D4ED8" />
+                <stop offset="100%" stopColor="#1E40AF" />
+              </linearGradient>
+            </defs>
           </Box>
-
+          
+          <Typography variant="h5" fontWeight={700} color="primary.main" textAlign="center">
+            Setting Up Your Client Profile...
+          </Typography>
+          
+          <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ maxWidth: 400 }}>
+            Please wait while we create your client account. This will only take a moment.
+          </Typography>
         </Box>
       </DialogContent>
 
-      <Divider />
-
-      <DialogActions sx={{ 
-        px: isMobile ? 2 : isTablet ? 3 : 4, 
-        py: isMobile ? 2 : 2, 
-        pb: isMobile ? 10 : 2, // Extra bottom padding on mobile to avoid interface elements
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        position: isMobile ? 'sticky' : 'relative',
-        bottom: isMobile ? 0 : 'auto',
-        backgroundColor: isMobile ? 'rgba(255, 255, 255, 0.98)' : 'transparent',
-        backdropFilter: isMobile ? 'blur(8px)' : 'none',
-        borderTop: isMobile ? '1px solid rgba(0, 0, 0, 0.08)' : 'none',
-        zIndex: isMobile ? 1000 : 'auto',
-      }}>
-        {/* Back Button */}
-        <Button
-          onClick={isFirstSetup ? onBack : (onComplete ? onBack : backToPreviousSetup)}
-          variant="outlined"
-          size="large"
-          disabled={isLoading}
-          sx={{
-            minWidth: isMobile ? 120 : 140,
-            py: 1.5,
-            px: isMobile ? 1 : 2,
-            fontSize: isMobile ? '0.95rem' : '1rem',
-            fontWeight: 600,
-            borderRadius: 2,
-            borderColor: '#94a3b8',
-            color: '#64748b',
-            '&:hover': {
-              borderColor: '#64748b',
-              backgroundColor: '#f1f5f9',
-              transform: 'translateY(-1px)',
-            },
-            transition: 'all 0.3s ease',
-          }}
-        >
-          {isFirstSetup ? '← Back to Roles' : (onComplete ? 'Cancel' : '← Back to Previous')}
-        </Button>
-
-        {/* Submit Button */}
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          size="large"
-          disabled={isLoading}
-          sx={{ 
-            minWidth: isMobile ? 180 : isTablet ? 220 : 260,
-            py: 1.5,
-            px: isMobile ? 1 : 2,
-            fontSize: isMobile ? '1rem' : isTablet ? '1.05rem' : '1.1rem',
-            fontWeight: 700,
-            borderRadius: 2,
-            background: 'linear-gradient(45deg, #3B82F6, #1D4ED8)',
-            boxShadow: '0 8px 25px rgba(59, 130, 246, 0.4)',
-            '&:hover': {
-              background: 'linear-gradient(45deg, #1D4ED8, #1E40AF)',
-              transform: 'translateY(-2px)',
-              boxShadow: '0 12px 35px rgba(59, 130, 246, 0.5)',
-            },
-            transition: 'all 0.3s ease',
-          }}
-        >
-          {isLoading ? 'Setting Up Your Profile...' : '🚀 Complete Client Setup'}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

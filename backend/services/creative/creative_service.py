@@ -16,6 +16,10 @@ from core.timezone_utils import (
     convert_time_slots_from_utc,
     get_user_timezone_from_request
 )
+from services.email.email_service import email_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreativeController:
     @staticmethod
@@ -138,6 +142,35 @@ class CreativeController:
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create creative profile")
             
+            # Mark setup as complete by setting first_login to False
+            user_update_result = client.table('users').update({'first_login': False}).eq('user_id', user_id).execute()
+            
+            if not user_update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update user first_login status")
+            
+            # Send welcome email to the new creative
+            # Use primary_contact if it's an email, otherwise skip
+            try:
+                email_to_send = None
+                if setup_request.primary_contact and '@' in setup_request.primary_contact:
+                    email_to_send = setup_request.primary_contact
+                elif setup_request.secondary_contact and '@' in setup_request.secondary_contact:
+                    email_to_send = setup_request.secondary_contact
+                
+                if email_to_send:
+                    logger.info(f"Sending welcome email to creative {email_to_send}")
+                    await email_service.send_welcome_email(
+                        to_email=email_to_send,
+                        user_name=setup_request.display_name,
+                        user_role='creative'
+                    )
+                    logger.info(f"Welcome email sent successfully to {email_to_send}")
+                else:
+                    logger.info(f"No email address found for creative {user_id}, skipping welcome email")
+            except Exception as e:
+                # Log the error but don't fail the profile creation
+                logger.error(f"Failed to send welcome email to creative: {str(e)}")
+            
             return CreativeSetupResponse(
                 success=True,
                 message="Creative profile created successfully"
@@ -224,7 +257,7 @@ class CreativeController:
             
             # Batch fetch client and user data to avoid N+1 queries
             clients_result = client.table('clients').select(
-                'user_id, display_name, email, title'
+                'user_id, display_name, email'
             ).in_('user_id', client_user_ids).execute()
             
             users_result = client.table('users').select(
@@ -259,14 +292,14 @@ class CreativeController:
                 
                 client = CreativeClientResponse(
                     id=relationship['id'],
+                    user_id=client_user_id,
                     name=client_name,
                     contact=contact,
                     contactType=contact_type,
                     status=relationship.get('status', 'inactive'),
                     totalSpent=float(relationship.get('total_spent', 0)),
                     projects=int(relationship.get('projects_count', 0)),
-                    profile_picture_url=user_data.get('profile_picture_url'),
-                    title=client_data.get('title')
+                    profile_picture_url=user_data.get('profile_picture_url')
                 )
                 clients.append(client)
             

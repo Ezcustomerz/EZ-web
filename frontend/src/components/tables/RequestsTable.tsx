@@ -380,8 +380,10 @@ export function RequestsTable({
     // Only search once per orderIdToOpen, and only if no popover is currently open
     if (orderIdToOpen && requests.length > 0 && !pendingApprovalPopoverOpen && !awaitingPaymentPopoverOpen && !inProgressPopoverOpen && !completePopoverOpen && !cancelledPopoverOpen && hasSearchedForOrderRef.current !== orderIdToOpen) {
       hasSearchedForOrderRef.current = orderIdToOpen;
+      console.log(`[RequestsTable] Searching for order ${orderIdToOpen} in ${requests.length} requests`);
       const orderToOpen = requests.find(order => order.id === orderIdToOpen);
       if (orderToOpen) {
+        console.log(`[RequestsTable] Found order ${orderIdToOpen} with status: ${orderToOpen.status}`);
         const status = orderToOpen.status;
         
         // Handle different statuses - open appropriate popover
@@ -403,6 +405,7 @@ export function RequestsTable({
         }
       } else {
         // Order not found in this tab - notify parent to try other tab
+        console.log(`[RequestsTable] Order ${orderIdToOpen} not found in Current Orders, triggering fallback`);
         // Only notify if we haven't already tried the other tab
         if (onOrderNotFound) {
           onOrderNotFound();
@@ -728,16 +731,6 @@ export function RequestsTable({
     setUploadProgress(progress);
   };
 
-  // Complete handlers
-  const handleDownloadReceipt = (orderId: string) => {
-    console.log('Downloading receipt for order:', orderId);
-    // TODO: Implement receipt download logic
-  };
-
-  const handleDownloadSummary = (orderId: string) => {
-    console.log('Downloading service summary for order:', orderId);
-    // TODO: Implement service summary download logic
-  };
 
 
 
@@ -2496,8 +2489,6 @@ export function RequestsTable({
         open={completePopoverOpen}
         onClose={handleCloseCompletePopover}
         order={selectedCompleteOrder}
-        onDownloadReceipt={handleDownloadReceipt}
-        onDownloadSummary={handleDownloadSummary}
       />
 
       {/* Cancelled Popover */}

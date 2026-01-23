@@ -18,6 +18,7 @@ import {
   Divider,
   CircularProgress,
   LinearProgress,
+  Skeleton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -1061,17 +1062,42 @@ export function InProgressPopover({
             </Card>
           )}
 
-          {/* Invoices & Receipts Section - Only show if payment has been made */}
-          {invoices.length > 0 && (
+          {/* Invoices & Receipts Section - Show while loading or if invoices exist */}
+          {(isLoadingInvoices || invoices.length > 0) && (
             <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
                   Invoices & Receipts
                 </Typography>
                 {isLoadingInvoices ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Loading invoices...
-                  </Typography>
+                  <Stack spacing={1.5}>
+                    {[1, 2].map((i) => (
+                      <Box
+                        key={i}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: '1px solid #e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: '#fafafa',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                          <Skeleton variant="rectangular" width={32} height={32} sx={{ borderRadius: 1 }} />
+                          <Box sx={{ flex: 1 }}>
+                            <Skeleton variant="text" width="60%" height={20} sx={{ mb: 0.5 }} />
+                            <Skeleton variant="text" width="40%" height={16} />
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Skeleton variant="circular" width={32} height={32} />
+                          <Skeleton variant="circular" width={32} height={32} />
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
                 ) : (
                   <Stack spacing={1.5}>
                     {invoices.map((invoice, index) => (

@@ -18,6 +18,30 @@ logger = logging.getLogger(__name__)
 INVITE_SECRET = os.getenv("INVITE_SECRET", "dev-invite-secret-change-in-production")
 
 
+async def _send_notification_email(notification_data: Dict[str, Any], recipient_user_id: str, recipient_name: str, client: Client = None):
+    """Helper function to send email after notification creation"""
+    try:
+        from services.notifications.notifications_service import NotificationsController
+        # Get recipient email
+        recipient_email = None
+        if client:
+            try:
+                user_result = client.table('users').select('email').eq('user_id', recipient_user_id).single().execute()
+                if user_result.data:
+                    recipient_email = user_result.data.get('email')
+            except:
+                pass
+        
+        await NotificationsController.send_notification_email(
+            notification_data=notification_data,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            client=client
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send notification email: {str(e)}")
+
+
 class InviteController:
     """Controller for invite-related operations"""
     
@@ -288,11 +312,23 @@ class InviteController:
                 }
                 
                 try:
-                    # Create notification (using authenticated client - respects RLS)
-                    notification_result = client.table("notifications") \
+                    # Create notification using admin client to bypass RLS
+                    # We need admin privileges because we're creating a notification for the creative user
+                    # (the client user doesn't have permission to create notifications for other users)
+                    notification_result = db_admin.table("notifications") \
                         .insert(notification_data) \
                         .execute()
                     logger.info(f"Notification created: {notification_result.data}")
+                    
+                    # Send email notification
+                    if notification_result.data:
+                        # Get creative name
+                        try:
+                            creative_result = db_admin.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
+                            creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
+                            await _send_notification_email(notification_data, creative_user_id, creative_name, db_admin)
+                        except Exception as email_error:
+                            logger.warning(f"Failed to send new client email: {str(email_error)}")
                 except Exception as notif_error:
                     logger.error(f"Failed to create notification: {notif_error}")
                     # Don't fail the invite acceptance if notification creation fails
@@ -352,6 +388,18 @@ class InviteController:
             user_roles = user_response.data.get('roles', [])
             if 'client' not in user_roles:
                 raise HTTPException(status_code=400, detail="User still doesn't have client role")
+            
+            # Verify client profile exists before creating relationship
+            client_profile_check = client.table("clients") \
+                .select("user_id") \
+                .eq("user_id", client_user_id) \
+                .execute()
+            
+            if not client_profile_check.data:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Client profile not found. Please ensure your profile is set up before accepting invites."
+                )
             
             # Check if relationship already exists (using authenticated client - respects RLS)
             existing_relationship = client.table("creative_client_relationships") \
@@ -420,11 +468,23 @@ class InviteController:
                 }
                 
                 try:
-                    # Create notification (using authenticated client - respects RLS)
-                    notification_result = client.table("notifications") \
+                    # Create notification using admin client to bypass RLS
+                    # We need admin privileges because we're creating a notification for the creative user
+                    # (the client user doesn't have permission to create notifications for other users)
+                    notification_result = db_admin.table("notifications") \
                         .insert(notification_data) \
                         .execute()
                     logger.info(f"Notification created: {notification_result.data}")
+                    
+                    # Send email notification
+                    if notification_result.data:
+                        # Get creative name
+                        try:
+                            creative_result = db_admin.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
+                            creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
+                            await _send_notification_email(notification_data, creative_user_id, creative_name, db_admin)
+                        except Exception as email_error:
+                            logger.warning(f"Failed to send new client email: {str(email_error)}")
                 except Exception as notif_error:
                     logger.error(f"Failed to create notification: {notif_error}")
                     # Don't fail the invite acceptance if notification creation fails

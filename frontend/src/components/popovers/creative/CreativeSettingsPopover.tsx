@@ -69,6 +69,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
+import { ConfirmDeleteDialog } from '../../dialogs/ConfirmDeleteDialog';
+import { SuccessDialog } from '../../dialogs/SuccessDialog';
 
 interface CreativeSettingsPopoverProps {
   open: boolean;
@@ -561,6 +563,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
   const [deletingDeliverableId, setDeletingDeliverableId] = useState<string | null>(null);
   
+  // Dialog state for file deletion
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<string | null>(null);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  
   // Fetch creative profile and services when popover opens
   useEffect(() => {
     if (open && isAuthenticated) {
@@ -922,27 +930,40 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     }
   };
 
-  const handleDeleteDeliverable = async (deliverableId: string) => {
-    if (!confirm('Are you sure you want to delete this file? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteDeliverable = (deliverableId: string) => {
+    setFileToDelete(deliverableId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!fileToDelete) return;
 
     try {
-      setDeletingDeliverableId(deliverableId);
+      setDeletingDeliverableId(fileToDelete);
+      setDeleteConfirmOpen(false);
       
       // Use the backend API endpoint which handles both storage and database deletion
       // This ensures proper permissions and follows the same pattern as profile photo deletion
-      await bookingService.deleteDeliverable(deliverableId);
+      await bookingService.deleteDeliverable(fileToDelete);
 
       // Refresh the list
       await fetchDeliverables();
-      successToast('File deleted successfully');
+      
+      // Show success dialog
+      setSuccessMessage('File deleted successfully');
+      setSuccessDialogOpen(true);
     } catch (error: any) {
       console.error('Failed to delete deliverable:', error);
       errorToast(error?.response?.data?.detail || error?.message || 'Failed to delete file');
     } finally {
       setDeletingDeliverableId(null);
+      setFileToDelete(null);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmOpen(false);
+    setFileToDelete(null);
   };
 
   const formatStorage = (bytes: number) => {
@@ -2818,6 +2839,25 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         </List>
       </Box>
     </Drawer>
+
+    {/* Confirm Delete Dialog */}
+    <ConfirmDeleteDialog
+      open={deleteConfirmOpen}
+      onClose={handleCancelDelete}
+      onConfirm={handleConfirmDelete}
+      title="Delete File"
+      itemName={fileToDelete ? deliverables.find(d => d.id === fileToDelete)?.file_name : undefined}
+      description="This action cannot be undone. Are you sure you want to delete this file?"
+      isDeleting={deletingDeliverableId === fileToDelete}
+    />
+
+    {/* Success Dialog */}
+    <SuccessDialog
+      open={successDialogOpen}
+      onClose={() => setSuccessDialogOpen(false)}
+      title="Success"
+      message={successMessage}
+    />
     </>
   );
 }

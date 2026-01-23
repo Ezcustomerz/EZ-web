@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useState, lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material'
+import { ThemeProvider, CssBaseline, Box, CircularProgress, Typography } from '@mui/material'
 import { createAppTheme } from './config/theme'
 import type { ColorConfig } from './config/color'
 
@@ -92,7 +92,8 @@ function AppContent() {
     closeAdvocateSetup,
     backToRoleSelection,
     isFirstSetup,
-    originalSelectedRoles
+    originalSelectedRoles,
+    setupCompletionLoading
   } = useAuth();
   
   const [roleProfiles, setRoleProfiles] = useState<UserRoleProfiles | undefined>(undefined);
@@ -120,6 +121,33 @@ function AppContent() {
     <>
       <ScrollToTop />
       <SetupGate />
+      {/* Setup Completion Loading Overlay */}
+      {setupCompletionLoading && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            zIndex: 9999,
+            gap: 3,
+          }}
+        >
+          <CircularProgress size={50} />
+          <Typography variant="h6" color="primary" sx={{ fontWeight: 600 }}>
+            Setting up your dashboard...
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            This will only take a moment
+          </Typography>
+        </Box>
+      )}
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/creative" element={
@@ -232,8 +260,9 @@ function AppContent() {
         onBack={backToRoleSelection}
         isFirstSetup={isFirstSetup}
       />
+      {/* ClientSetupPopover is kept for compatibility but no longer shown - client profiles are auto-created */}
       <ClientSetupPopover 
-        open={clientSetupOpen} 
+        open={false} // Never opened - client profiles are auto-created
         onClose={closeClientSetup}
         userName={userProfile?.name}
         userEmail={userProfile?.email}

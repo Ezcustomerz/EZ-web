@@ -162,9 +162,6 @@ export function ClientDetailPopover({ open, onClose, client }: ClientDetailPopov
             <Typography variant="h6" component="div" sx={{ fontWeight: 700, color: 'white' }}>
               {client.name}
             </Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-              {client.title || 'Client'}
-            </Typography>
           </Box>
         </Box>
         <IconButton onClick={onClose} size="small" sx={{ color: 'white' }}>

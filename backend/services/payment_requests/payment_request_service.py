@@ -4,8 +4,33 @@ import stripe
 from typing import Dict, Any, Optional
 from fastapi import HTTPException
 from supabase import Client
+from db.db_session import db_admin
 
 logger = logging.getLogger(__name__)
+
+
+async def _send_notification_email(notification_data: Dict[str, Any], recipient_user_id: str, recipient_name: str, client: Client = None):
+    """Helper function to send email after notification creation"""
+    try:
+        from services.notifications.notifications_service import NotificationsController
+        # Get recipient email
+        recipient_email = None
+        if client:
+            try:
+                user_result = client.table('users').select('email').eq('user_id', recipient_user_id).single().execute()
+                if user_result.data:
+                    recipient_email = user_result.data.get('email')
+            except:
+                pass
+        
+        await NotificationsController.send_notification_email(
+            notification_data=notification_data,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            client=client
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send notification email: {str(e)}")
 
 # Get Stripe secret key from environment
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
@@ -173,6 +198,16 @@ class PaymentRequestService:
                 
                 notification_result = db_admin.table("notifications").insert(notification_data).execute()
                 logger.info(f"Payment request notification created for client: {final_client_user_id}, notification_id: {notification_result.data[0]['id'] if notification_result.data else 'unknown'}")
+                
+                # Send email notification
+                if notification_result.data:
+                    # Get client name
+                    try:
+                        client_result = db_admin.table('clients').select('display_name').eq('user_id', final_client_user_id).single().execute()
+                        client_name = client_result.data.get('display_name', 'Client') if client_result.data else 'Client'
+                        await _send_notification_email(notification_data, final_client_user_id, client_name, db_admin)
+                    except Exception as email_error:
+                        logger.warning(f"Failed to send payment request email: {str(email_error)}")
             except Exception as notif_error:
                 # Log error but don't fail payment request creation
                 logger.error(f"Failed to create payment request notification: {notif_error}", exc_info=True)
@@ -478,20 +513,25 @@ class PaymentRequestService:
     @staticmethod
     async def get_payment_requests_by_booking(
         booking_id: str,
-        client: Client
+        client: Client,
+        user_id: Optional[str] = None,
+        is_creative: bool = False
     ) -> list:
         """Get all payment requests associated with a booking
         
         Args:
             booking_id: The booking ID to get payment requests for
             client: Supabase client for database operations
+            user_id: Optional user ID to help with RLS filtering
+            is_creative: Whether the user is a creative (helps with RLS)
             
         Returns:
             List of payment requests for the booking
         """
         try:
-            # Get payment requests for this booking
-            result = client.table('payment_requests')\
+            # Use db_admin to bypass RLS since authorization is already verified in the router
+            # This ensures both client and creative can see payment requests for the booking
+            result = db_admin.table('payment_requests')\
                 .select('id, creative_user_id, client_user_id, booking_id, amount, notes, status, created_at, paid_at, cancelled_at, stripe_session_id')\
                 .eq('booking_id', booking_id)\
                 .order('created_at', desc=True)\
@@ -504,10 +544,10 @@ class PaymentRequestService:
             creative_ids = list(set([pr['creative_user_id'] for pr in result.data]))
             client_ids = list(set([pr['client_user_id'] for pr in result.data]))
             
-            # Fetch creatives data
+            # Fetch creatives data (use db_admin to bypass RLS)
             creatives_map = {}
             if creative_ids:
-                creatives_result = client.table('creatives')\
+                creatives_result = db_admin.table('creatives')\
                     .select('user_id, display_name, profile_banner_url')\
                     .in_('user_id', creative_ids)\
                     .execute()
@@ -516,10 +556,10 @@ class PaymentRequestService:
                     for creative in creatives_result.data:
                         creatives_map[creative['user_id']] = creative
             
-            # Fetch clients data
+            # Fetch clients data (use db_admin to bypass RLS)
             clients_map = {}
             if client_ids:
-                clients_result = client.table('clients')\
+                clients_result = db_admin.table('clients')\
                     .select('user_id, display_name')\
                     .in_('user_id', client_ids)\
                     .execute()
@@ -890,6 +930,10 @@ class PaymentRequestService:
                         .insert(client_notification_data)\
                         .execute()
                     logger.info(f"Client payment notification created for client: {client_user_id}, notification_id: {client_notif_result.data[0]['id'] if client_notif_result.data else 'unknown'}")
+                    
+                    # Send email notification
+                    if client_notif_result.data:
+                        await _send_notification_email(client_notification_data, client_user_id, client_display_name, db_admin)
                 except Exception as notif_error:
                     logger.error(f"Failed to create client payment notification: {notif_error}", exc_info=True)
                 
@@ -898,6 +942,16 @@ class PaymentRequestService:
                         .insert(creative_notification_data)\
                         .execute()
                     logger.info(f"Creative payment notification created for creative: {creative_user_id}, notification_id: {creative_notif_result.data[0]['id'] if creative_notif_result.data else 'unknown'}")
+                    
+                    # Send email notification
+                    if creative_notif_result.data:
+                        # Get creative name
+                        try:
+                            creative_result = db_admin.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
+                            creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
+                            await _send_notification_email(creative_notification_data, creative_user_id, creative_name, db_admin)
+                        except Exception as email_error:
+                            logger.warning(f"Failed to send payment received email to creative: {str(email_error)}")
                 except Exception as notif_error:
                     logger.error(f"Failed to create creative payment notification: {notif_error}", exc_info=True)
                     

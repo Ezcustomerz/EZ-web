@@ -404,7 +404,7 @@ export function BundleDetailPopover({
           </Box>
         </DialogContent>
 
-        {context === 'client-connected' && onBook && (
+        {(context === 'client-connected' || context === 'invite-page') && onBook && (
           <DialogActions sx={{ 
             p: 3, 
             pt: 2, 

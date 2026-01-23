@@ -34,7 +34,7 @@ class ClientService:
             
             # Batch fetch client and user data to avoid N+1 queries
             clients_result = client.table('clients').select(
-                'user_id, display_name, email, title'
+                'user_id, display_name, email'
             ).in_('user_id', client_user_ids).execute()
             
             users_result = client.table('users').select(
@@ -97,8 +97,7 @@ class ClientService:
                     status=client_status,
                     totalSpent=float(relationship.get('total_spent', 0)),
                     projects=int(relationship.get('projects_count', 0)),
-                    profile_picture_url=user_data.get('profile_picture_url'),
-                    title=client_data.get('title')
+                    profile_picture_url=user_data.get('profile_picture_url')
                 )
                 clients.append(client)
             

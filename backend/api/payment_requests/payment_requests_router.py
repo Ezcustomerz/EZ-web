@@ -246,13 +246,19 @@ async def get_payment_requests_by_booking(
         booking = booking_result.data
         
         # Verify user is either the client or creative
-        if booking['client_user_id'] != user_id and booking['creative_user_id'] != user_id:
+        is_client = booking['client_user_id'] == user_id
+        is_creative = booking['creative_user_id'] == user_id
+        
+        if not is_client and not is_creative:
             raise HTTPException(status_code=403, detail="You don't have permission to view payment requests for this booking")
         
         # Get all payment requests for this booking
+        # Pass user_id and role to help with RLS if needed
         result = await PaymentRequestService.get_payment_requests_by_booking(
             booking_id=booking_id,
-            client=client
+            client=client,
+            user_id=user_id,
+            is_creative=is_creative
         )
         
         return result
