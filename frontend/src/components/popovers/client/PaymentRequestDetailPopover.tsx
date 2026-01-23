@@ -203,7 +203,7 @@ export function PaymentRequestDetailPopover({
       maxWidth="sm"
       fullWidth
       sx={{
-        zIndex: isMobile ? 10000 : 1300,
+        zIndex: 1500,
       }}
       slotProps={{
         paper: {
