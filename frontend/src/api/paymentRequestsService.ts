@@ -61,6 +61,19 @@ export interface PaginatedPaymentRequests {
   pagination: PaginationInfo;
 }
 
+export interface PaymentRequestInvoice {
+  type: string;
+  name: string;
+  download_url: string;
+  session_id?: string;
+}
+
+export interface PaymentRequestInvoicesResponse {
+  success: boolean;
+  payment_request_id: string;
+  invoices: PaymentRequestInvoice[];
+}
+
 class PaymentRequestsService {
   /**
    * Get payment requests for the current creative with pagination
@@ -225,6 +238,112 @@ class PaymentRequestsService {
       { headers }
     );
     return response.data;
+  }
+
+  /**
+   * Get payment requests associated with a specific booking
+   */
+  async getPaymentRequestsByBooking(bookingId: string): Promise<PaymentRequest[]> {
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.get<PaymentRequest[]>(
+        `${API_BASE_URL}/api/payment-requests/booking/${bookingId}`,
+        { headers }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching payment requests for booking:', error);
+      if (error.response?.status === 401) {
+        throw new Error('Authentication failed');
+      }
+      throw new Error(error.response?.data?.detail || 'Failed to fetch payment requests');
+    }
+  }
+
+  /**
+   * Get all invoices for a payment request (only for paid requests)
+   */
+  async getInvoices(paymentRequestId: string): Promise<PaymentRequestInvoicesResponse> {
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${API_BASE_URL}/api/payment-requests/invoices/${paymentRequestId}`,
+        { headers }
+      );
+      return response.data as PaymentRequestInvoicesResponse;
+    } catch (error: any) {
+      console.error('Error fetching payment request invoices:', error);
+      if (error.response?.status === 401) {
+        throw new Error('Authentication failed');
+      }
+      throw new Error(error.response?.data?.detail || 'Failed to fetch invoices');
+    }
+  }
+
+  /**
+   * Download EZ platform invoice for a payment request
+   */
+  async downloadEzInvoice(paymentRequestId: string): Promise<Blob> {
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.get(
+        `${API_BASE_URL}/api/payment-requests/invoice/ez/${paymentRequestId}`,
+        { 
+          headers,
+          responseType: 'blob'
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Error downloading EZ invoice:', error);
+      if (error.response?.status === 401) {
+        throw new Error('Authentication failed');
+      }
+      throw new Error(error.response?.data?.detail || 'Failed to download invoice');
+    }
+  }
+
+  /**
+   * Get Stripe receipt URL for a payment request
+   */
+  async getStripeReceipt(paymentRequestId: string, sessionId: string): Promise<{ success: boolean; receipt_url: string; session_id: string }> {
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) {
+      throw new Error('User not authenticated');
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await axios.get<{ success: boolean; receipt_url: string; session_id: string }>(
+        `${API_BASE_URL}/api/payment-requests/invoice/stripe/${paymentRequestId}`,
+        { 
+          headers,
+          params: { session_id: sessionId }
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching Stripe receipt:', error);
+      if (error.response?.status === 401) {
+        throw new Error('Authentication failed');
+      }
+      throw new Error(error.response?.data?.detail || 'Failed to fetch Stripe receipt');
+    }
   }
 }
 

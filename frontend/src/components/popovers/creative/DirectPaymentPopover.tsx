@@ -25,10 +25,10 @@ import {
   List,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { Payment, AttachMoney, Description, Person, CalendarToday } from '@mui/icons-material';
+import { Payment, AttachMoney, Description, Person, CalendarToday, AccountBalance, Warning } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
-import { userService, type CreativeClient } from '../../../api/userService';
+import { userService, type CreativeClient, type CreativeProfile } from '../../../api/userService';
 import { bookingService, type Order } from '../../../api/bookingService';
 import { paymentRequestsService } from '../../../api/paymentRequestsService';
 import { useAuth } from '../../../context/auth';
@@ -46,6 +46,7 @@ export interface DirectPaymentPopoverProps {
   open: boolean;
   onClose: () => void;
   onSubmit?: (paymentData: DirectPaymentData) => void;
+  onOpenSettings?: (section?: 'billing') => void; // Callback to open settings
 }
 
 export interface DirectPaymentData {
@@ -61,7 +62,8 @@ type PaymentType = 'booking' | 'client';
 export function DirectPaymentPopover({ 
   open, 
   onClose,
-  onSubmit
+  onSubmit,
+  onOpenSettings
 }: DirectPaymentPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -73,6 +75,7 @@ export function DirectPaymentPopover({
   const [amount, setAmount] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showStripeSetupDialog, setShowStripeSetupDialog] = useState(false);
   
   // Data fetching states
   const [bookings, setBookings] = useState<Order[]>([]);
@@ -82,8 +85,19 @@ export function DirectPaymentPopover({
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [loadingMoreBookings, setLoadingMoreBookings] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [bookingSearchTerm, setBookingSearchTerm] = useState('');
   const [clientSearchTerm, setClientSearchTerm] = useState('');
+  
+  // Creative profile for fee calculation
+  const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
+
+  // Fetch creative profile for fee calculation
+  useEffect(() => {
+    if (open && isAuthenticated) {
+      fetchCreativeProfile();
+    }
+  }, [open, isAuthenticated]);
 
   // Fetch bookings when payment type is 'booking'
   useEffect(() => {
@@ -98,6 +112,18 @@ export function DirectPaymentPopover({
       fetchClients();
     }
   }, [open, paymentType, isAuthenticated]);
+
+  const fetchCreativeProfile = async () => {
+    try {
+      setLoadingProfile(true);
+      const profile = await userService.getCreativeProfile();
+      setCreativeProfile(profile);
+    } catch (error) {
+      console.error('Failed to fetch creative profile:', error);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const fetchBookings = async (loadMore = false) => {
     try {
@@ -263,10 +289,16 @@ export function DirectPaymentPopover({
       handleClose();
     } catch (error: any) {
       console.error('Failed to create payment request:', error);
-      errorToast(
-        'Failed to Create Payment Request',
-        error.message || 'An error occurred while creating the payment request. Please try again.'
-      );
+      
+      // Check if error is due to Stripe not being set up
+      if (error.message && error.message.includes('STRIPE_NOT_SETUP')) {
+        setShowStripeSetupDialog(true);
+      } else {
+        errorToast(
+          'Failed to Create Payment Request',
+          error.message || 'An error occurred while creating the payment request. Please try again.'
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -280,7 +312,18 @@ export function DirectPaymentPopover({
     setNotes('');
     setBookingSearchTerm('');
     setClientSearchTerm('');
+    setShowStripeSetupDialog(false);
     onClose();
+  };
+
+  const handleSetupBankAccount = () => {
+    // Close this popover
+    handleClose();
+    
+    // Open settings to billing section
+    if (onOpenSettings) {
+      onOpenSettings('billing');
+    }
   };
 
   // Filter bookings based on search term
@@ -739,6 +782,63 @@ export function DirectPaymentPopover({
           />
         </Box>
 
+        {/* Earnings Breakdown - Show when amount is set and profile is loaded */}
+        {amount && parseFloat(amount) > 0 && creativeProfile?.subscription_tier_fee_percentage !== undefined && (
+          <Box sx={{
+            p: 2.5,
+            mb: 2,
+            borderRadius: 2,
+            backgroundColor: 'rgba(76, 175, 80, 0.05)',
+            border: '1px solid rgba(76, 175, 80, 0.2)'
+          }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'success.main' }}>
+              💰 Your Earnings Breakdown
+            </Typography>
+            {(() => {
+              const requestAmount = parseFloat(amount);
+              const feePercentage = creativeProfile.subscription_tier_fee_percentage;
+              const platformFee = requestAmount * feePercentage;
+              const yourEarnings = requestAmount - platformFee;
+              const feePercentageDisplay = (feePercentage * 100).toFixed(1);
+              
+              return (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Payment Request Amount:
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      ${requestAmount.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Transaction Fee ({feePercentageDisplay}%):
+                    </Typography>
+                    <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
+                      -${platformFee.toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    pt: 1,
+                    borderTop: '1px solid rgba(76, 175, 80, 0.2)'
+                  }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: 'success.main' }}>
+                      Your Net Earnings:
+                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: 'success.main', fontSize: '1.1rem' }}>
+                      ${yourEarnings.toFixed(2)}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })()}
+          </Box>
+        )}
+
         {/* Notes Input */}
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: theme.palette.text.primary }}>
@@ -811,6 +911,104 @@ export function DirectPaymentPopover({
           </Button>
         </Box>
       </DialogContent>
+
+      {/* Stripe Setup Required Dialog */}
+      <Dialog
+        open={showStripeSetupDialog}
+        onClose={() => setShowStripeSetupDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 1,
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Warning sx={{ color: theme.palette.warning.main, fontSize: 28 }} />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Bank Account Setup Required
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={() => setShowStripeSetupDialog(false)}
+            sx={{
+              position: 'absolute',
+              right: 12,
+              top: 12,
+              color: theme.palette.text.secondary,
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ py: 2 }}>
+            <Typography variant="body1" sx={{ mb: 2, color: theme.palette.text.secondary }}>
+              Before you can request payments, you need to set up your bank account to receive funds.
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                p: 2,
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <AccountBalance sx={{ fontSize: 40, color: theme.palette.primary.main }} />
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                  Connect Your Bank Account
+                </Typography>
+                <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
+                  Set up your Stripe account to start receiving payments securely
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <Box sx={{ px: 3, pb: 3, display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={() => setShowStripeSetupDialog(false)}
+            sx={{
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={handleSetupBankAccount}
+            startIcon={<AccountBalance />}
+            sx={{
+              py: 1.5,
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 700,
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+              boxShadow: `0 4px 14px ${theme.palette.primary.main}40`,
+              '&:hover': {
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
+                boxShadow: `0 6px 20px ${theme.palette.primary.main}50`,
+                transform: 'translateY(-2px)',
+              },
+            }}
+          >
+            Set Up Bank Account
+          </Button>
+        </Box>
+      </Dialog>
     </Dialog>
   );
 }

@@ -2,6 +2,10 @@ from fastapi import HTTPException
 from schemas.user import UserProfile, UpdateRolesRequest, UpdateRolesResponse, SetupStatusResponse, BatchSetupRequest, BatchSetupResponse, RoleProfilesResponse
 from core.validation import validate_roles
 from supabase import Client
+from services.email.email_service import email_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserController:
     @staticmethod
@@ -262,7 +266,6 @@ class UserController:
                 client_row = {
                     'user_id': user_id,
                     'display_name': client_data.get('display_name'),
-                    'title': client_data.get('title'),
                     'email': client_data.get('email'),
                     'profile_banner_url': profile_picture_url,
                     'profile_source': avatar_source,
@@ -305,6 +308,23 @@ class UserController:
             client.table('users').update({
                 'first_login': False
             }).eq('user_id', user_id).execute()
+            
+            # Send welcome email to the new user
+            user_email = user_data.get('email')
+            if user_email and created_profiles:
+                try:
+                    # Use the first created profile role for the email
+                    primary_role = created_profiles[0]
+                    logger.info(f"Sending welcome email to {user_email} for role: {primary_role}")
+                    await email_service.send_welcome_email(
+                        to_email=user_email,
+                        user_name=display_name,
+                        user_role=primary_role
+                    )
+                    logger.info(f"Welcome email sent successfully to {user_email}")
+                except Exception as e:
+                    # Log the error but don't fail the profile creation
+                    logger.error(f"Failed to send welcome email to {user_email}: {str(e)}")
             
             return BatchSetupResponse(
                 success=True,
@@ -365,7 +385,7 @@ class UserController:
                 # Fetch client profile if user has client role (using authenticated client - respects RLS)
                 if 'client' in user_roles:
                     client_result = client.table('clients').select(
-                        'user_id, title'
+                        'user_id'
                     ).eq('user_id', user_id).execute()
                     if client_result.data and len(client_result.data) > 0:
                         client_data = client_result.data[0]
@@ -420,8 +440,8 @@ class UserController:
         try:
             # Query subscription tiers (respects RLS - public read policy allows anonymous access)
             result = client.table('subscription_tiers').select(
-                'id, name, price, storage_amount_bytes, description, fee_percentage'
-            ).eq('is_active', True).order('price', desc=False).execute()
+                'id, name, price, storage_amount_bytes, description, fee_percentage, tier_level'
+            ).eq('is_active', True).order('tier_level', desc=True).order('price', desc=False).execute()
             
             if not result.data:
                 return []
@@ -448,6 +468,7 @@ class UserController:
                     'storage_display': storage_display,
                     'description': tier['description'],
                     'fee_percentage': float(tier['fee_percentage']),
+                    'tier_level': tier.get('tier_level', 0),
                 })
             
             return tiers

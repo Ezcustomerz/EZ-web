@@ -44,6 +44,7 @@ import { useNavigate } from 'react-router-dom';
 import { BookingSchedulePopover, type BookingScheduleData } from './BookingSchedulePopover';
 import { successToast, errorToast } from '../../toast/toast';
 import { bookingService } from '../../../api/bookingService';
+import { useAuth } from '../../../context/auth';
 // Inlined components: ScheduleSessionStep and PaymentStep
  
 
@@ -757,6 +758,8 @@ export interface BookingServicePopoverProps {
     buffer_time_unit: 'minutes' | 'hours';
   } | null;
   onConfirmBooking?: (bookingData: BookingData) => void;
+  isInvitePageBooking?: boolean;
+  inviteToken?: string;
 }
 
 export interface BookingData {
@@ -773,11 +776,14 @@ export function BookingServicePopover({
   onClose, 
   service,
   calendarSettings,
-  onConfirmBooking
+  onConfirmBooking,
+  isInvitePageBooking = false,
+  inviteToken
 }: BookingServicePopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
+  const { session, openAuth } = useAuth();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
@@ -911,6 +917,72 @@ export function BookingServicePopover({
     if (isBookingRequired && activeStep === 0) {
       handleOpenSchedule();
       return;
+    }
+
+    // Check if this is an invite page booking
+    if (isInvitePageBooking) {
+      // If user is not authenticated, store booking data and trigger sign-up
+      if (!session) {
+        console.log('[BookingServicePopover] Invite page booking - user not authenticated');
+        console.log('[BookingServicePopover] Storing booking data and triggering sign-up');
+        
+        // Prepare booking data to store
+        const pendingBooking = {
+          serviceId: service.id,
+          bookingDate: schedulingData?.selectedDate?.toISOString().split('T')[0],
+          startTime: schedulingData?.selectedTime,
+          sessionDuration: schedulingData?.sessionDuration,
+          additionalNotes: additionalNotes.trim() || undefined,
+          isBookingRequired: isBookingRequired
+        };
+        
+        // Store booking data in localStorage
+        localStorage.setItem('pendingServiceBooking', JSON.stringify(pendingBooking));
+        
+        // Store invite token
+        if (inviteToken) {
+          localStorage.setItem('pendingInviteToken', inviteToken);
+          localStorage.setItem('invitePreSelectClient', 'true');
+        }
+        
+        console.log('[BookingServicePopover] Pending booking stored:', pendingBooking);
+        
+        // Close the booking popover
+        handleClose();
+        
+        // Trigger Google sign-up
+        openAuth();
+        return;
+      } else {
+        // User is authenticated - accept invite first before booking
+        console.log('[BookingServicePopover] Invite page booking - user authenticated');
+        console.log('[BookingServicePopover] Will accept invite before creating booking');
+        
+        setIsSubmitting(true);
+        
+        try {
+          // Accept the invite first
+          if (inviteToken) {
+            const { inviteService } = await import('../../../api/inviteService');
+            console.log('[BookingServicePopover] Accepting invite token:', inviteToken.substring(0, 50) + '...');
+            const inviteResponse = await inviteService.acceptInvite(inviteToken);
+            
+            if (!inviteResponse.success) {
+              // If invite acceptance fails (e.g., already accepted), continue with booking anyway
+              console.log('[BookingServicePopover] Invite acceptance note:', inviteResponse.message);
+            } else {
+              console.log('[BookingServicePopover] Invite accepted successfully');
+              successToast('Connected!', inviteResponse.message);
+            }
+          }
+          
+          // Continue with booking creation below
+          // (don't return here - fall through to normal booking logic)
+        } catch (inviteErr: any) {
+          console.error('[BookingServicePopover] Error accepting invite:', inviteErr);
+          // Continue with booking anyway - invite might already be accepted
+        }
+      }
     }
 
     // Final submission (for both booking and non-booking flows)

@@ -1,5 +1,5 @@
-import { Card, CardContent, Box, Typography, IconButton, Tooltip, useTheme } from '@mui/material';
-import { MoreVert } from '@mui/icons-material';
+import { Card, CardContent, Box, Typography, IconButton, Tooltip, useTheme, Button } from '@mui/material';
+import { MoreVert, BookOnline } from '@mui/icons-material';
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGlobe, faLock, faLayerGroup, faGem, faCalendar } from '@fortawesome/free-solid-svg-icons';
@@ -249,19 +249,21 @@ export interface ServiceCardSimpleProps {
   color: string;
   creative: string;
   onBook?: () => void;
+  onClick?: () => void;
   requires_booking?: boolean;
+  showBookButton?: boolean;
 }
 
-export function ServiceCardSimple({ title, description, price, delivery, color, creative, onBook, requires_booking = false }: ServiceCardSimpleProps) {
+export function ServiceCardSimple({ title, description, price, delivery, color, creative, onBook, onClick, requires_booking = false, showBookButton = false }: ServiceCardSimpleProps) {
   const theme = useTheme();
   return (
     <Card
-      onClick={onBook}
+      onClick={showBookButton ? onClick : (onBook || onClick)}
       sx={{
         height: '100%',
         width: '100%',
         maxWidth: '100%',
-        minHeight: { xs: 135, sm: 170 },
+        minHeight: { xs: 135, sm: showBookButton ? 200 : 170 },
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -318,7 +320,7 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
           {description}
         </Typography>
         {/* Price and Delivery Row */}
-        <Box sx={{ mt: 2 }}>
+        <Box sx={{ mt: 'auto' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 0.5 }}>
             <Typography fontWeight={700} color="primary" fontSize="1rem">
               ${price}
@@ -352,9 +354,37 @@ export function ServiceCardSimple({ title, description, price, delivery, color, 
             )}
           </Box>
           {delivery && delivery.trim() && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: showBookButton ? 1 : 0 }}>
               {delivery} delivery
             </Typography>
+          )}
+          {showBookButton && (
+            <Button
+              variant="contained"
+              size="small"
+              fullWidth
+              startIcon={<BookOnline />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onBook?.();
+              }}
+              sx={{
+                mt: 1,
+                py: 0.8,
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                borderRadius: 1.5,
+                textTransform: 'none',
+                background: `linear-gradient(135deg, ${color || theme.palette.primary.main} 0%, ${color || theme.palette.primary.main}CC 100%)`,
+                boxShadow: `0 2px 8px ${color || theme.palette.primary.main}30`,
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${color || theme.palette.primary.main}CC 0%, ${color || theme.palette.primary.main} 100%)`,
+                  boxShadow: `0 4px 12px ${color || theme.palette.primary.main}40`,
+                }
+              }}
+            >
+              Book Service
+            </Button>
           )}
         </Box>
       </CardContent>

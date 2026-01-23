@@ -14,6 +14,31 @@ from schemas.booking import (
 
 logger = logging.getLogger(__name__)
 
+
+async def _send_notification_email(notification_data: Dict[str, Any], recipient_user_id: str, recipient_name: str, client: Client = None):
+    """Helper function to send email after notification creation"""
+    try:
+        from services.notifications.notifications_service import NotificationsController
+        # Get recipient email
+        recipient_email = None
+        if client:
+            try:
+                user_result = client.table('users').select('email').eq('user_id', recipient_user_id).single().execute()
+                if user_result.data:
+                    recipient_email = user_result.data.get('email')
+            except:
+                pass
+        
+        await NotificationsController.send_notification_email(
+            notification_data=notification_data,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            client=client
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send notification email: {str(e)}")
+
+
 class BookingManagementService:
     """Service for handling booking CRUD operations"""
     
@@ -139,7 +164,8 @@ class BookingManagementService:
                     "service_title": service['title'],
                     "client_display_name": client_display_name,
                     "booking_id": str(booking['id']),
-                    "price": str(service['price'])
+                    "price": str(service['price']),
+                    "creative_status": booking.get('creative_status', 'pending_approval')  # Include status to determine which tab
                 },
                 "created_at": datetime.utcnow().isoformat(),
                 "updated_at": datetime.utcnow().isoformat()
@@ -151,14 +177,36 @@ class BookingManagementService:
                     .insert(client_notification_data) \
                     .execute()
                 logger.info(f"Client notification created: {client_notif_result.data}")
+                
+                # Send email notification
+                if client_notif_result.data:
+                    from services.notifications.notifications_service import NotificationsController
+                    await NotificationsController.send_notification_email(
+                        notification_data=client_notification_data,
+                        recipient_email=client_response.data.get('email') if client_response.data else None,
+                        recipient_name=client_display_name,
+                        client=client
+                    )
             except Exception as notif_error:
                 logger.error(f"Failed to create client notification: {notif_error}")
             
             try:
-                creative_notif_result = client.table("notifications") \
+                # Use db_admin to bypass RLS policies for notification insertion
+                # The client user doesn't have permission to create notifications for the creative user
+                creative_notif_result = db_admin.table("notifications") \
                     .insert(creative_notification_data) \
                     .execute()
                 logger.info(f"Creative notification created: {creative_notif_result.data}")
+                
+                # Send email notification
+                if creative_notif_result.data:
+                    from services.notifications.notifications_service import NotificationsController
+                    await NotificationsController.send_notification_email(
+                        notification_data=creative_notification_data,
+                        recipient_email=creative_response.data.get('primary_contact') if creative_response.data else None,
+                        recipient_name=creative_display_name,
+                        client=db_admin
+                    )
             except Exception as notif_error:
                 logger.error(f"Failed to create creative notification: {notif_error}")
             
@@ -314,6 +362,19 @@ class BookingManagementService:
                     .insert(notification_data)\
                     .execute()
                 logger.info(f"Client approval notification created: {notification_result.data}")
+                
+                # Send email notification
+                if notification_result.data:
+                    from services.notifications.notifications_service import NotificationsController
+                    # Get client email
+                    client_user_result = db_admin.table('users').select('email, name').eq('user_id', booking['client_user_id']).single().execute()
+                    client_email = client_user_result.data.get('email') if client_user_result.data else None
+                    await NotificationsController.send_notification_email(
+                        notification_data=notification_data,
+                        recipient_email=client_email,
+                        recipient_name=client_display_name,
+                        client=db_admin
+                    )
             except Exception as notif_error:
                 logger.error(f"Failed to create client approval notification: {notif_error}")
             
@@ -345,6 +406,19 @@ class BookingManagementService:
                     .insert(creative_notification_data)\
                     .execute()
                 logger.info(f"Creative approval notification created: {creative_notification_result.data}")
+                
+                # Send email notification
+                if creative_notification_result.data:
+                    from services.notifications.notifications_service import NotificationsController
+                    # Get creative email
+                    creative_user_result = db_admin.table('users').select('email, name').eq('user_id', user_id).single().execute()
+                    creative_email = creative_user_result.data.get('email') if creative_user_result.data else None
+                    await NotificationsController.send_notification_email(
+                        notification_data=creative_notification_data,
+                        recipient_email=creative_email,
+                        recipient_name=creative_display_name,
+                        client=db_admin
+                    )
             except Exception as notif_error:
                 logger.error(f"Failed to create creative approval notification: {notif_error}")
             
@@ -488,6 +562,14 @@ class BookingManagementService:
                     .insert(notifications_to_insert)\
                     .execute()
                 logger.info(f"Rejection notifications created: {notification_result.data}")
+                
+                # Send email notifications
+                if notification_result.data:
+                    # Send client email
+                    await _send_notification_email(client_notification_data, client_user_id, client_display_name, db_admin)
+                    # Send creative email
+                    if user_id:
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
             except Exception as notif_error:
                 logger.error(f"Failed to create rejection notifications: {notif_error}")
             
@@ -627,6 +709,19 @@ class BookingManagementService:
                     .insert(notifications_to_insert)\
                     .execute()
                 logger.info(f"Cancellation notifications created: {notification_result.data}")
+                
+                # Send email notifications
+                if notification_result.data:
+                    # Get client name
+                    client_response = client.table('clients').select('display_name').eq('user_id', user_id).single().execute()
+                    client_display_name = client_response.data.get('display_name', 'Client') if client_response.data else 'Client'
+                    # Get creative name
+                    creative_response = client.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
+                    creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
+                    
+                    await _send_notification_email(client_notification_data, user_id, client_display_name, db_admin)
+                    if creative_user_id:
+                        await _send_notification_email(creative_notification_data, creative_user_id, creative_display_name, db_admin)
             except Exception as notif_error:
                 logger.error(f"Failed to create cancellation notifications: {notif_error}")
             
@@ -750,6 +845,13 @@ class BookingManagementService:
                     .insert(client_notification_data)\
                     .execute()
                 logger.info(f"Payment reminder notification created: {notification_result.data}")
+                
+                # Send email notification
+                if notification_result.data:
+                    # Get client name
+                    client_response = client.table('clients').select('display_name').eq('user_id', client_user_id).single().execute()
+                    client_display_name = client_response.data.get('display_name', 'Client') if client_response.data else 'Client'
+                    await _send_notification_email(client_notification_data, client_user_id, client_display_name, db_admin)
                 
                 notification_id = None
                 if notification_result.data and len(notification_result.data) > 0:

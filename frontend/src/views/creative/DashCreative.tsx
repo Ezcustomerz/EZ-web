@@ -10,6 +10,8 @@ import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
 import { useAuth } from '../../context/auth';
 import { PaymentActionsPopover } from '../../components/popovers/creative/PaymentActionsPopover';
+import { CreativeSettingsPopover } from '../../components/popovers/creative/CreativeSettingsPopover';
+import type { SettingsSection } from '../../components/popovers/creative/CreativeSettingsPopover';
 
 // Module-level cache to prevent duplicate fetches across remounts
 const notificationsCache = {
@@ -38,6 +40,8 @@ export function DashCreative() {
   const mountedRef = useRef(true);
   const [paymentActionsPopoverOpen, setPaymentActionsPopoverOpen] = useState(false);
   const [paymentRequestIdToOpen, setPaymentRequestIdToOpen] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<SettingsSection>('account');
 
   // Fetch dashboard stats
   useEffect(() => {
@@ -216,7 +220,7 @@ export function DashCreative() {
         } catch (error) {
           notificationsCache.promise = null;
           // Don't update state on polling errors to avoid disrupting UI
-          return null;
+          return [];
         }
       })();
 
@@ -293,6 +297,17 @@ export function DashCreative() {
         setPaymentRequestIdToOpen(null);
       }}
       paymentRequestIdToOpen={paymentRequestIdToOpen}
+      onOpenSettings={(section) => {
+        setSettingsInitialSection(section || 'account');
+        setSettingsOpen(true);
+      }}
+    />
+
+    {/* Creative Settings Popover */}
+    <CreativeSettingsPopover
+      open={settingsOpen}
+      onClose={() => setSettingsOpen(false)}
+      initialSection={settingsInitialSection}
     />
   </Box>
   );

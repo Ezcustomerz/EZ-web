@@ -1,4 +1,4 @@
-import { Box, Typography, Paper, Stack, CircularProgress, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Paper, Stack, Skeleton, useTheme, useMediaQuery } from '@mui/material';
 import { LayoutClient } from '../../layout/client/LayoutClient';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -121,7 +121,7 @@ export function NotificationsClient() {
 
   return (
     <LayoutClient selectedNavItem="dashboard">
-      {({ isSidebarOpen, isMobile: layoutIsMobile, clientProfile }) => (
+      {({ isSidebarOpen: _, isMobile: __, clientProfile: ___ }) => (
         <Box
           sx={{
             p: { xs: 2, sm: 2, md: 3 },
@@ -220,21 +220,82 @@ export function NotificationsClient() {
               }}
             >
               {isLoading ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    py: 8,
-                    gap: 2,
-                  }}
-                >
-                  <CircularProgress size={48} sx={{ color: 'primary.main' }} />
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    Loading notifications...
-                  </Typography>
-                </Box>
+                <Stack spacing={2}>
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <Box
+                      key={`skeleton-${index}`}
+                      sx={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.65)',
+                        backdropFilter: 'blur(20px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                        borderRadius: 2.5,
+                        p: 2,
+                        mb: 2,
+                        mt: 1,
+                        border: '1px solid rgba(0, 0, 0, 0.08)',
+                        borderLeft: '4px solid rgba(0, 0, 0, 0.1)',
+                        animation: `fadeIn 0.5s ease-in ${index * 0.1}s both`,
+                        '@keyframes fadeIn': {
+                          from: { opacity: 0, transform: 'translateX(-30px)' },
+                          to: { opacity: 1, transform: 'translateX(0)' },
+                        },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flex: 1 }}>
+                          {/* Icon box skeleton */}
+                          <Skeleton
+                            variant="rectangular"
+                            width={44}
+                            height={44}
+                            sx={{
+                              borderRadius: 2,
+                              backgroundColor: 'rgba(0, 0, 0, 0.08)',
+                            }}
+                          />
+                          <Box sx={{ flex: 1 }}>
+                            {/* Label and New chip skeleton */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.75, gap: 1 }}>
+                              <Skeleton variant="text" width="60%" height={20} />
+                              {index % 3 === 0 && (
+                                <Skeleton
+                                  variant="rectangular"
+                                  width={40}
+                                  height={20}
+                                  sx={{ borderRadius: 1 }}
+                                />
+                              )}
+                            </Box>
+                            {/* Description skeleton - multiple lines */}
+                            <Skeleton variant="text" width="100%" height={16} sx={{ mb: 0.5 }} />
+                            <Skeleton variant="text" width="85%" height={16} sx={{ mb: 1.25 }} />
+                            {/* Date skeleton for mobile */}
+                            <Skeleton
+                              variant="text"
+                              width={60}
+                              height={14}
+                              sx={{
+                                display: { xs: 'block', md: 'none' },
+                                mt: 1.25,
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                        {/* Date skeleton for desktop */}
+                        <Skeleton
+                          variant="text"
+                          width={60}
+                          height={14}
+                          sx={{
+                            ml: 1.5,
+                            mt: 0.5,
+                            display: { xs: 'none', md: 'block' },
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                  ))}
+                </Stack>
               ) : error ? (
                 <Box
                   sx={{

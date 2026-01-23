@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   Avatar,
-  CircularProgress,
   Skeleton,
 } from '@mui/material';
 import {
@@ -940,8 +939,9 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
                           {creativeProfile.description}
                         </Typography>
                         <Typography variant="caption" color="text.disabled" sx={{ 
-                          mt: 1,
-                          textAlign: 'right',
+                          position: 'absolute',
+                          bottom: 12,
+                          right: 16,
                           fontSize: '0.7rem'
                         }}>
                           {creativeProfile.description.length}/500 characters

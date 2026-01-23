@@ -30,7 +30,6 @@ class CreativeClientResponse(BaseModel):
     totalSpent: float
     projects: int
     profile_picture_url: Optional[str] = None
-    title: Optional[str] = None
 
 class CreativeClientsListResponse(BaseModel):
     clients: List[CreativeClientResponse]

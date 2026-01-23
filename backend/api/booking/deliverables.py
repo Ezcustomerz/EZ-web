@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 import logging
 import uuid
 import os
+from urllib.parse import urlparse
 from core.limiter import limiter
 from core.verify import require_auth
 from db.db_session import get_authenticated_client_dep, db_admin
@@ -14,6 +15,50 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def check_file_exists_in_storage(bucket_name: str, file_path: str) -> bool:
+    """
+    Check if a file exists in Supabase Storage by attempting to list it.
+    
+    Args:
+        bucket_name: Name of the storage bucket
+        file_path: Path to the file in the bucket
+        
+    Returns:
+        True if file exists, False otherwise
+    """
+    try:
+        # Try to list the file - if it exists, it will be in the result
+        # We'll list the parent directory and check if our file is there
+        path_parts = file_path.split('/')
+        if len(path_parts) > 1:
+            # List files in the parent directory (booking_id folder)
+            parent_dir = '/'.join(path_parts[:-1])
+            file_name = path_parts[-1]
+            
+            try:
+                files = db_admin.storage.from_(bucket_name).list(parent_dir)
+                # Check if our file is in the list
+                if files:
+                    # files might be a list of file objects or a dict
+                    if isinstance(files, list):
+                        file_names = [f.name if hasattr(f, 'name') else str(f) for f in files]
+                    elif isinstance(files, dict) and 'data' in files:
+                        file_names = [f.get('name', '') if isinstance(f, dict) else (f.name if hasattr(f, 'name') else str(f)) for f in files.get('data', [])]
+                    else:
+                        # Try to get data attribute
+                        file_names = [f.name if hasattr(f, 'name') else str(f) for f in getattr(files, 'data', [])]
+                    
+                    return file_name in file_names
+            except Exception as list_error:
+                logger.debug(f"Could not list directory {parent_dir}: {list_error}")
+                # If listing fails, we'll assume file doesn't exist
+                return False
+        return False
+    except Exception as e:
+        logger.debug(f"Error checking file existence for {file_path}: {e}")
+        return False
 
 
 def format_storage_size(bytes: int) -> str:
@@ -251,6 +296,28 @@ async def register_uploaded_files(
             # Use the storage path provided (from the upload)
             storage_path = file_info.storage_path
             
+            # Check if file with this file_url already exists for this booking
+            # This prevents duplicate entries if the endpoint is called multiple times
+            existing_file = db_admin.table('booking_deliverables')\
+                .select('id')\
+                .eq('booking_id', booking_id)\
+                .eq('file_url', storage_path)\
+                .limit(1)\
+                .execute()
+            
+            if existing_file.data and len(existing_file.data) > 0:
+                # File already exists, skip insertion
+                logger.warning(f"File with file_url '{storage_path}' already exists for booking {booking_id}, skipping duplicate registration")
+                registered_files.append({
+                    "file_url": storage_path,
+                    "file_name": file_info.file_name,
+                    "file_size": file_info.file_size,
+                    "file_type": file_info.file_type or "application/octet-stream",
+                    "storage_path": storage_path,
+                    "already_exists": True
+                })
+                continue
+            
             # Insert into booking_deliverables table
             try:
                 insert_result = db_admin.table('booking_deliverables').insert({
@@ -269,8 +336,21 @@ async def register_uploaded_files(
                     "storage_path": storage_path
                 })
             except Exception as insert_error:
-                logger.error(f"Failed to register file {file_info.file_name}: {str(insert_error)}")
-                raise HTTPException(status_code=500, detail=f"Failed to register file '{file_info.file_name}': {str(insert_error)}")
+                error_str = str(insert_error)
+                # Check if it's a unique constraint violation (duplicate file_url)
+                if 'unique' in error_str.lower() or 'duplicate' in error_str.lower() or 'already exists' in error_str.lower():
+                    logger.warning(f"File with file_url '{storage_path}' already exists for booking {booking_id}, skipping duplicate registration")
+                    registered_files.append({
+                        "file_url": storage_path,
+                        "file_name": file_info.file_name,
+                        "file_size": file_info.file_size,
+                        "file_type": file_info.file_type or "application/octet-stream",
+                        "storage_path": storage_path,
+                        "already_exists": True
+                    })
+                else:
+                    logger.error(f"Failed to register file {file_info.file_name}: {error_str}")
+                    raise HTTPException(status_code=500, detail=f"Failed to register file '{file_info.file_name}': {error_str}")
         
         return {
             "success": True,
@@ -560,8 +640,9 @@ async def download_deliverables_batch(
     """
     Generate signed URLs for all deliverable files in a booking
     Requires authentication - will return 401 if not authenticated.
-    - Verifies user is the client for this booking
-    - Checks payment status (must be fully paid for locked orders)
+    - Verifies user is either the client or creative for this booking
+    - For clients: Checks payment status (must be fully paid for locked orders)
+    - For creatives: Always allows download (they can see their own deliverables)
     - Generates signed URLs for all files (expires in 1 hour)
     - Returns array of file download info
     """
@@ -570,9 +651,9 @@ async def download_deliverables_batch(
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        # Get booking to verify client and payment status
+        # Get booking to verify client/creative and payment status
         booking_result = client.table('bookings')\
-            .select('id, client_user_id, client_status, payment_status, amount_paid, price')\
+            .select('id, client_user_id, creative_user_id, client_status, payment_status, amount_paid, price')\
             .eq('id', booking_id)\
             .single()\
             .execute()
@@ -582,8 +663,10 @@ async def download_deliverables_batch(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download files for this booking")
         
         # Check if payment is required and if it's been paid
@@ -592,8 +675,10 @@ async def download_deliverables_batch(
         amount_paid = float(booking.get('amount_paid', 0))
         price = float(booking.get('price', 0))
         
-        # Only allow download if client_status is 'download' or 'completed'
-        if client_status not in ['download', 'completed']:
+        # For clients: Only allow download if client_status is 'download' or 'completed'
+        # For creatives: Always allow download (they can see their own deliverables)
+        is_creative = creative_user_id == user_id
+        if not is_creative and client_status not in ['download', 'completed']:
             raise HTTPException(
                 status_code=403, 
                 detail="Files are not available for download yet. Please complete payment if required."
@@ -622,18 +707,56 @@ async def download_deliverables_batch(
         downloaded_at_iso = datetime.now(timezone.utc).isoformat()
         
         # First pass: Generate all signed URLs and collect deliverable IDs
+        failed_files = []
         for deliverable in deliverables_result.data:
             deliverable_id = deliverable.get('id')
             file_path = deliverable.get('file_url')
+            file_name = deliverable.get('file_name', 'Unknown')
             
             if not file_path:
-                logger.warning(f"File path not found for deliverable {deliverable_id}")
+                logger.warning(f"File path not found for deliverable {deliverable_id} ({file_name})")
+                failed_files.append({
+                    "deliverable_id": deliverable_id,
+                    "file_name": file_name,
+                    "error": "File path not found in database"
+                })
                 continue
             
+            # Normalize file path - remove any leading slashes or bucket prefixes
+            # file_path should be in format: "booking_id/filename.ext"
+            normalized_path = file_path.strip()
+            
+            # Remove leading slashes
+            normalized_path = normalized_path.lstrip('/')
+            
+            # Remove bucket name prefix if present
+            if normalized_path.startswith(f"{bucket_name}/"):
+                normalized_path = normalized_path[len(f"{bucket_name}/"):]
+            
+            # If it looks like a full URL, try to extract the path
+            # This handles cases where file_url might have been stored as a URL
+            if normalized_path.startswith('http://') or normalized_path.startswith('https://'):
+                # Try to extract path from URL
+                # Format: https://project.supabase.co/storage/v1/object/public/bucket/path
+                # or: https://project.supabase.co/storage/v1/object/sign/bucket/path
+                try:
+                    parsed = urlparse(normalized_path)
+                    # Extract path after bucket name
+                    path_parts = parsed.path.split('/')
+                    if bucket_name in path_parts:
+                        bucket_index = path_parts.index(bucket_name)
+                        if bucket_index + 1 < len(path_parts):
+                            normalized_path = '/'.join(path_parts[bucket_index + 1:])
+                except Exception as parse_error:
+                    logger.warning(f"Failed to parse URL path for deliverable {deliverable_id}: {parse_error}")
+                    # Keep original path and let it fail with a clear error
+            
             try:
+                logger.debug(f"Attempting to generate signed URL for deliverable {deliverable_id}: {normalized_path}")
+                
                 # Generate signed URL (expires in 1 hour = 3600 seconds)
                 signed_url_result = db_admin.storage.from_(bucket_name).create_signed_url(
-                    file_path,
+                    normalized_path,
                     3600  # expires in 1 hour (seconds)
                 )
                 
@@ -646,23 +769,50 @@ async def download_deliverables_batch(
                     signed_url = getattr(signed_url_result, 'signedURL', None) or getattr(signed_url_result, 'signed_url', None) or getattr(signed_url_result, 'url', None)
                 
                 if not signed_url:
-                    logger.error(f"Failed to generate signed URL for deliverable {deliverable_id}")
+                    logger.error(f"Failed to generate signed URL for deliverable {deliverable_id} ({file_name}): No URL in response")
+                    failed_files.append({
+                        "deliverable_id": deliverable_id,
+                        "file_name": file_name,
+                        "error": "Failed to generate signed URL"
+                    })
                     continue
                 
                 files_with_urls.append({
                     "deliverable_id": deliverable_id,
-                    "file_name": deliverable.get('file_name'),
+                    "file_name": file_name,
                     "signed_url": signed_url,
                     "expires_in": 3600
                 })
                 
                 # Collect deliverable ID for batch update
                 deliverable_ids_to_update.append(deliverable_id)
+                logger.debug(f"Successfully generated signed URL for deliverable {deliverable_id} ({file_name})")
                     
             except Exception as url_error:
-                logger.error(f"Error processing deliverable {deliverable_id} ({deliverable.get('file_name')}): {str(url_error)}", exc_info=True)
+                error_msg = str(url_error)
+                # Check if it's a 404/not found error and provide a clearer message
+                if '404' in error_msg or 'not_found' in error_msg.lower() or 'Object not found' in error_msg:
+                    clear_error = "File not found in storage. The file may have been deleted or never uploaded successfully."
+                    logger.warning(f"File missing from storage for deliverable {deliverable_id} ({file_name}): {normalized_path}")
+                else:
+                    clear_error = f"Failed to generate download URL: {error_msg}"
+                    logger.error(f"Error processing deliverable {deliverable_id} ({file_name}) with path '{normalized_path}': {error_msg}", exc_info=True)
+                
+                failed_files.append({
+                    "deliverable_id": deliverable_id,
+                    "file_name": file_name,
+                    "error": clear_error,
+                    "file_path": normalized_path,
+                    "raw_error": error_msg
+                })
                 # Continue with other files even if one fails
                 continue
+        
+        # Log summary of failed files
+        if failed_files:
+            logger.warning(f"Batch download: {len(failed_files)} files failed to generate signed URLs out of {len(deliverables_result.data)} total files")
+            for failed in failed_files:
+                logger.warning(f"  - {failed.get('file_name')} (ID: {failed.get('deliverable_id')}): {failed.get('error')}")
         
         # Second pass: Update all files as downloaded in a single batch operation
         if deliverable_ids_to_update:
@@ -691,12 +841,35 @@ async def download_deliverables_batch(
                         logger.error(f"CRITICAL: Failed to update deliverable {deliverable_id}: {str(individual_error)}", exc_info=True)
                 logger.warning(f"Fallback update: Successfully updated {success_count} of {len(deliverable_ids_to_update)} files")
         
-        logger.info(f"Batch download: Generated {len(files_with_urls)} signed URLs for booking {booking_id}")
+        # Log final summary
+        total_deliverables = len(deliverables_result.data)
+        successful_files = len(files_with_urls)
+        failed_count = len(failed_files)
+        
+        logger.info(f"Batch download summary for booking {booking_id}: {successful_files} successful, {failed_count} failed out of {total_deliverables} total files")
+        
+        if successful_files == 0 and total_deliverables > 0:
+            logger.error(f"CRITICAL: All {total_deliverables} files failed to generate signed URLs for booking {booking_id}. This may indicate files are missing from storage.")
+        
+        # Include failed files in response with error status so frontend can show them
+        unavailable_files = []
+        for failed in failed_files:
+            unavailable_files.append({
+                "deliverable_id": failed.get("deliverable_id"),
+                "file_name": failed.get("file_name"),
+                "error": failed.get("error"),
+                "file_path": failed.get("file_path"),
+                "available": False
+            })
         
         return {
             "success": True,
             "files": files_with_urls,
-            "total_files": len(files_with_urls)
+            "unavailable_files": unavailable_files,  # Files that exist in DB but not in storage
+            "total_files": len(files_with_urls),
+            "total_deliverables": total_deliverables,
+            "failed_count": failed_count,
+            "available_count": successful_files
         }
         
     except HTTPException:
@@ -717,8 +890,9 @@ async def download_deliverable(
     """
     Generate a signed URL for downloading a deliverable file
     Requires authentication - will return 401 if not authenticated.
-    - Verifies user is the client for this booking
-    - Checks payment status (must be fully paid for locked orders)
+    - Verifies user is either the client or creative for this booking
+    - For clients: Checks payment status (must be fully paid for locked orders)
+    - For creatives: Always allows download (they can see their own deliverables)
     - Generates signed URL (expires in 1 hour)
     """
     try:
@@ -739,9 +913,9 @@ async def download_deliverable(
         deliverable = deliverable_result.data
         booking_id = deliverable.get('booking_id')
         
-        # Get booking to verify client and payment status
+        # Get booking to verify client/creative and payment status
         booking_result = client.table('bookings')\
-            .select('id, client_user_id, client_status, payment_status, amount_paid, price')\
+            .select('id, client_user_id, creative_user_id, client_status, payment_status, amount_paid, price')\
             .eq('id', booking_id)\
             .single()\
             .execute()
@@ -751,8 +925,10 @@ async def download_deliverable(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download this file")
         
         # Check if payment is required and if it's been paid
@@ -761,8 +937,10 @@ async def download_deliverable(
         amount_paid = float(booking.get('amount_paid', 0))
         price = float(booking.get('price', 0))
         
-        # If status is 'locked', payment must be fully paid
-        if client_status == 'locked':
+        # For clients: If status is 'locked', payment must be fully paid
+        # For creatives: Always allow download (they can see their own deliverables)
+        is_creative = creative_user_id == user_id
+        if not is_creative and client_status == 'locked':
             if payment_status != 'fully_paid' and amount_paid < price:
                 raise HTTPException(
                     status_code=403, 

@@ -234,14 +234,17 @@ export function CurrentOrdersTab({ orderIdToOpen, onOrderOpened, onOrderNotFound
           
           // Check if we're looking for an order and it's not in the list
           // Use setTimeout to ensure this runs after state update
-          if (orderIdToOpen && onOrderNotFound) {
+          if (orderIdToOpen && onOrderNotFound && hasCheckedForOrderRef.current !== orderIdToOpen) {
             setTimeout(() => {
-              const orderFound = transformedOrders.some(order => order.id === orderIdToOpen);
-              if (!orderFound) {
-                // Order not found in Current Orders, notify parent to try Past Orders
-                onOrderNotFound();
+              if (mountedRef.current && hasCheckedForOrderRef.current !== orderIdToOpen) {
+                hasCheckedForOrderRef.current = orderIdToOpen;
+                const orderFound = transformedOrders.some(order => order.id === orderIdToOpen);
+                if (!orderFound) {
+                  // Order not found in Current Orders, notify parent to try Past Orders
+                  onOrderNotFound();
+                }
               }
-            }, 100);
+            }, 300); // Increased delay to ensure orders are fully loaded
           }
         }
         // Cache the resolved data
@@ -280,6 +283,24 @@ export function CurrentOrdersTab({ orderIdToOpen, onOrderOpened, onOrderNotFound
       mountedRef.current = false;
     };
   }, [isAuthenticated]); // Re-run when authentication changes
+
+  // Watch for orderIdToOpen changes and check if order is in loaded orders
+  useEffect(() => {
+    if (orderIdToOpen && orders.length > 0 && onOrderNotFound && hasCheckedForOrderRef.current !== orderIdToOpen) {
+      const orderFound = orders.some(order => order.id === orderIdToOpen);
+      if (!orderFound) {
+        // Order not found in Current Orders, notify parent to try Past Orders
+        console.log(`[CurrentOrdersTab] Order ${orderIdToOpen} not found, triggering fallback to Past Orders`);
+        hasCheckedForOrderRef.current = orderIdToOpen;
+        // Use a small delay to ensure state is stable
+        setTimeout(() => {
+          onOrderNotFound();
+        }, 200);
+      } else {
+        hasCheckedForOrderRef.current = orderIdToOpen;
+      }
+    }
+  }, [orderIdToOpen, orders, onOrderNotFound]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));

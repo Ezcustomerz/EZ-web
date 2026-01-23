@@ -11,6 +11,7 @@ import { IntentAuthGate } from '../../components/popovers/auth/IntentAuthGate';
 import { useLoading } from '../../context/loading';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import { DemoSignInBar } from '../../components/dialogs/DemoSignInBar';
+import { SubscriptionTiersPopover } from '../../components/popovers/creative/SubscriptionTiersPopover';
 
 interface LayoutCreativeProps {
   children: ReactNode | ((props: { isSidebarOpen: boolean; isMobile: boolean; creativeProfile: CreativeProfile | null }) => ReactNode);
@@ -29,6 +30,7 @@ export function LayoutCreative({
   const { userProfile, isSetupInProgress } = useAuth();
   const { setProfileLoading, isAnyLoading } = useLoading();
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
+  const [subscriptionTiersOpen, setSubscriptionTiersOpen] = useState(false);
   const fetchingRef = useRef<Set<string>>(new Set());
   
   // Helper function to check if we've already fetched profile for current user
@@ -140,8 +142,11 @@ export function LayoutCreative({
         return;
       }
       
-      // If we already fetched the profile for this user, restore from cache
-      if (hasFetchedProfileForUser(userProfile.user_id)) {
+      // Check if profile refresh is needed (e.g., after subscription update)
+      const refreshNeeded = localStorage.getItem('profile_refresh_needed');
+      
+      // If we already fetched the profile for this user, restore from cache (unless refresh is needed)
+      if (refreshNeeded !== 'true' && hasFetchedProfileForUser(userProfile.user_id)) {
         console.log('[LayoutCreative] Profile already fetched for user, restoring from cache');
         const cachedProfile = getCachedProfileForUser(userProfile.user_id);
         if (cachedProfile) {
@@ -149,6 +154,12 @@ export function LayoutCreative({
         }
         setProfileLoading(false);
         return;
+      }
+      
+      // If refresh is needed, clear the flag before fetching
+      if (refreshNeeded === 'true') {
+        localStorage.removeItem('profile_refresh_needed');
+        console.log('[LayoutCreative] Profile refresh needed flag detected, forcing fresh fetch');
       }
       
       // If we're already fetching for this user, don't start another fetch
@@ -206,6 +217,19 @@ export function LayoutCreative({
       window.removeEventListener('creativeProfileUpdated', handleProfileUpdate);
     };
   }, [userProfile]);
+
+  // Listen for subscription tiers popover open event
+  useEffect(() => {
+    const handleOpenSubscriptionTiers = () => {
+      setSubscriptionTiersOpen(true);
+    };
+
+    window.addEventListener('openSubscriptionTiers', handleOpenSubscriptionTiers);
+    
+    return () => {
+      window.removeEventListener('openSubscriptionTiers', handleOpenSubscriptionTiers);
+    };
+  }, []);
 
   // Save sidebar state to localStorage for desktop (after initialization)
   useEffect(() => {
@@ -301,7 +325,7 @@ export function LayoutCreative({
         onItemSelect={handleNavItemSelect}
         isMobile={isMobile}
         providedProfile={creativeProfile}
-
+        onOpenSubscriptionTiers={() => setSubscriptionTiersOpen(true)}
       />
 
       {/* Mobile Menu Button */}
@@ -502,6 +526,24 @@ export function LayoutCreative({
           isMobile={isMobile} 
         />
       )}
+
+      {/* Subscription Tiers Popover */}
+      <SubscriptionTiersPopover
+        open={subscriptionTiersOpen}
+        onClose={async () => {
+          setSubscriptionTiersOpen(false);
+          // Refresh profile after closing to show updated subscription tier
+          if (userProfile?.user_id) {
+            try {
+              const updatedProfile = await userService.getCreativeProfile();
+              setCreativeProfile(updatedProfile);
+              cacheProfileForUser(userProfile.user_id, updatedProfile);
+            } catch (err) {
+              console.error('Failed to refresh profile after subscription update:', err);
+            }
+          }
+        }}
+      />
     </Box>
   );
 } 

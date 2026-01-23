@@ -1,7 +1,6 @@
-import { Box, Typography, Paper, Stack, CircularProgress, useTheme, useMediaQuery, Chip, Card, CardContent, Avatar, Divider, Skeleton, Pagination } from '@mui/material';
+import { Box, Typography, Paper, Stack, useTheme, useMediaQuery, Chip, Card, CardContent, Avatar, Divider, Skeleton, Pagination } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
 import { paymentRequestsService, type PaymentRequest } from '../../api/paymentRequestsService';
 import { useAuth } from '../../context/auth';
 import { Payment as PaymentIcon, CheckCircle, Cancel } from '@mui/icons-material';
@@ -12,8 +11,6 @@ const PAGE_SIZE = 10;
 export function PaymentRequestsCreative() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +103,7 @@ export function PaymentRequestsCreative() {
 
   return (
     <LayoutCreative selectedNavItem="dashboard">
-      {({ isSidebarOpen, isMobile: layoutIsMobile, creativeProfile }) => (
+      {({ isSidebarOpen: _, isMobile: __, creativeProfile: ___ }) => (
         <Box
           sx={{
             px: { xs: 2, sm: 2, md: 3 },

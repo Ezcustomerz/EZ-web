@@ -10,6 +10,31 @@ from schemas.booking import (
 
 logger = logging.getLogger(__name__)
 
+
+async def _send_notification_email(notification_data: Dict[str, Any], recipient_user_id: str, recipient_name: str, client: Client = None):
+    """Helper function to send email after notification creation"""
+    try:
+        from services.notifications.notifications_service import NotificationsController
+        # Get recipient email
+        recipient_email = None
+        if client:
+            try:
+                user_result = client.table('users').select('email').eq('user_id', recipient_user_id).single().execute()
+                if user_result.data:
+                    recipient_email = user_result.data.get('email')
+            except:
+                pass
+        
+        await NotificationsController.send_notification_email(
+            notification_data=notification_data,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            client=client
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send notification email: {str(e)}")
+
+
 class FinalizationService:
     """Service for handling booking finalization operations"""
     
@@ -115,17 +140,48 @@ class FinalizationService:
             # Save files if provided
             if has_files:
                 deliverables_data = []
+                # Get existing file URLs for this booking to prevent duplicates
+                existing_deliverables = db_admin.table('booking_deliverables')\
+                    .select('file_url')\
+                    .eq('booking_id', booking_id)\
+                    .execute()
+                
+                existing_file_urls = set()
+                if existing_deliverables.data:
+                    existing_file_urls = {d.get('file_url') for d in existing_deliverables.data if d.get('file_url')}
+                
                 for file_info in finalize_request.files:
+                    file_url = file_info.get('url') or file_info.get('file_url')
+                    
+                    # Skip if file with this file_url already exists for this booking
+                    if file_url and file_url in existing_file_urls:
+                        logger.warning(f"File with file_url '{file_url}' already exists for booking {booking_id}, skipping duplicate insertion")
+                        continue
+                    
                     deliverables_data.append({
                         'booking_id': booking_id,
-                        'file_url': file_info.get('url') or file_info.get('file_url'),
+                        'file_url': file_url,
                         'file_name': file_info.get('name') or file_info.get('file_name'),
                         'file_size_bytes': file_info.get('size') or file_info.get('file_size_bytes'),
                         'file_type': file_info.get('type') or file_info.get('file_type')
                     })
+                    
+                    # Add to existing set to prevent duplicates within the same batch
+                    if file_url:
+                        existing_file_urls.add(file_url)
                 
                 if deliverables_data:
-                    db_admin.table('booking_deliverables').insert(deliverables_data).execute()
+                    try:
+                        db_admin.table('booking_deliverables').insert(deliverables_data).execute()
+                    except Exception as insert_error:
+                        error_str = str(insert_error)
+                        # Check if it's a unique constraint violation (duplicate file_url)
+                        if 'unique' in error_str.lower() or 'duplicate' in error_str.lower() or 'already exists' in error_str.lower():
+                            logger.warning(f"Some files already exist for booking {booking_id}, skipping duplicates: {error_str}")
+                            # This is okay - the files already exist, continue with status update
+                        else:
+                            logger.error(f"Failed to insert deliverables for booking {booking_id}: {error_str}")
+                            raise HTTPException(status_code=500, detail=f"Failed to save deliverables: {error_str}")
             
             # Update booking statuses
             update_data = {
@@ -173,8 +229,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
                     logger.info(f"Payment required notification created for client: {booking['client_user_id']}")
+                    
+                    # Send email notification
+                    if notification_result.data:
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
                 
                 elif client_status == 'locked':
                     # Client: Payment to unlock notification
@@ -198,8 +258,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
                     logger.info(f"Payment to unlock notification created for client: {booking['client_user_id']}")
+                    
+                    # Send email notification
+                    if notification_result.data:
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
                     
                     # Creative: Files sent notification
                     creative_notification_data = {
@@ -222,8 +286,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
                     logger.info(f"Files sent notification created for creative: {user_id}")
+                    
+                    # Send email notification
+                    if creative_notification_result.data:
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
                 
                 elif client_status == 'completed':
                     # Both: Service complete notification
@@ -245,8 +313,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    client_notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
                     logger.info(f"Service complete notification created for client: {booking['client_user_id']}")
+                    
+                    # Send email notification
+                    if client_notification_result.data:
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
                     
                     creative_notification_data = {
                         "recipient_user_id": user_id,
@@ -266,8 +338,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
                     logger.info(f"Service complete notification created for creative: {user_id}")
+                    
+                    # Send email notification
+                    if creative_notification_result.data:
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
                 
                 elif client_status == 'download':
                     # Client: Files ready notification
@@ -290,8 +366,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    client_notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
                     logger.info(f"Files ready notification created for client: {booking['client_user_id']}")
+                    
+                    # Send email notification
+                    if client_notification_result.data:
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
                     
                     # Creative: Files sent notification
                     creative_notification_data = {
@@ -314,8 +394,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
                     logger.info(f"Files sent notification created for creative: {user_id}")
+                    
+                    # Send email notification
+                    if creative_notification_result.data:
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
                     
             except Exception as notif_error:
                 logger.error(f"Failed to create finalization notifications: {notif_error}")
