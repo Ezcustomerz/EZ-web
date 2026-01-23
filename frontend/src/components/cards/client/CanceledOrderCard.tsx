@@ -12,6 +12,8 @@ import {
 import { DateRange, Cancel, Replay } from '@mui/icons-material';
 import { useState, useEffect } from 'react';
 import { CanceledOrderDetailPopover, type CanceledOrderDetail, type CanceledPaymentOption } from '../../popovers/client/CanceledOrderDetailPopover';
+import { BookingServicePopover } from '../../popovers/client/BookingServicePopover';
+import { bookingService, type CalendarSettings } from '../../../api/bookingService';
 
 interface CanceledOrderCardProps {
   id: string;
@@ -67,6 +69,8 @@ export function CanceledOrderCard({
   const theme = useTheme();
   const statusColor = '#f44336';
   const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
+  const [bookingPopoverOpen, setBookingPopoverOpen] = useState(false);
+  const [calendarSettings, setCalendarSettings] = useState<CalendarSettings | null>(null);
 
   // Update popover state when defaultOpen changes
   useEffect(() => {
@@ -87,9 +91,24 @@ export function CanceledOrderCard({
     setPopoverOpen(false);
   };
 
-  const handleRebook = (e: React.MouseEvent) => {
+  const handleRebook = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setPopoverOpen(true);
+    // Fetch calendar settings and open booking popover directly
+    if (serviceId) {
+      try {
+        const response = await bookingService.getCalendarSettings(serviceId);
+        setCalendarSettings(response);
+        setBookingPopoverOpen(true);
+      } catch (error: any) {
+        // 404 is expected for services without scheduling - don't treat as error
+        if (error?.status !== 404 && error?.response?.status !== 404) {
+          console.error('Error fetching calendar settings:', error);
+        }
+        // Open booking popover without calendar settings
+        setCalendarSettings(null);
+        setBookingPopoverOpen(true);
+      }
+    }
   };
 
   const orderDetail: CanceledOrderDetail = {
@@ -392,6 +411,30 @@ export function CanceledOrderCard({
       open={popoverOpen}
       onClose={handlePopoverClose}
       order={orderDetail}
+    />
+
+    {/* Booking Service Popover */}
+    <BookingServicePopover
+      open={bookingPopoverOpen}
+      onClose={() => setBookingPopoverOpen(false)}
+      service={{
+        id: serviceId || id,
+        title: serviceName,
+        description: serviceDescription || 'Service description not available',
+        price: price,
+        delivery_time: serviceDeliveryTime || '3-5 days',
+        creative_name: creativeName,
+        creative_display_name: creativeDisplayName || creativeName,
+        creative_title: creativeTitle,
+        creative_avatar_url: creativeAvatarUrl,
+        color: serviceColor || statusColor,
+        payment_option: paymentOption === 'payment_upfront' ? 'upfront' : 
+                        paymentOption === 'split_payment' ? 'split' : 
+                        paymentOption === 'payment_later' ? 'later' : 'upfront',
+        split_deposit_amount: undefined,
+        requires_booking: calendarSettings?.is_scheduling_enabled || false,
+      }}
+      calendarSettings={calendarSettings}
     />
   </>
   );

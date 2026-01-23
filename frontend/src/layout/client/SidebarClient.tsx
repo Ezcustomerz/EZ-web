@@ -415,7 +415,7 @@ export function SidebarClient({ isOpen, onToggle, selectedItem, onItemSelect, is
                       mb: 0.5,
                       textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
                     }}>
-                      {clientProfile?.title || 'Loading...'}
+                      {clientProfile?.email || 'Loading...'}
                     </Typography>
                   </Box>
                 </Box>

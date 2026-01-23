@@ -100,8 +100,8 @@ export function ServicesDetailPopover({
 
   if (!service) return null;
 
-  // Only show booking button for client context - never for creative views
-  const showBookButton = context === 'client-connected' && context !== 'creative-view';
+  // Show booking button for client-connected and invite-page contexts
+  const showBookButton = context === 'client-connected' || context === 'invite-page';
 
   const handleBook = () => {
     if (onBook && service) {

@@ -216,6 +216,59 @@ async def get_pending_payment_requests_count(
         return {'pending': 0, 'total': 0}  # Return 0 on error to avoid breaking UI
 
 
+@router.get("/booking/{booking_id}")
+@limiter.limit("20 per minute")
+async def get_payment_requests_by_booking(
+    request: Request,
+    booking_id: str,
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
+):
+    """Get all payment requests associated with a specific booking
+    Requires authentication - will return 401 if not authenticated.
+    User must be either the client or creative associated with the booking.
+    """
+    try:
+        user_id = current_user.get('sub')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
+        
+        # Get booking to verify user has access
+        booking_result = client.table('bookings')\
+            .select('client_user_id, creative_user_id')\
+            .eq('id', booking_id)\
+            .single()\
+            .execute()
+        
+        if not booking_result.data:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        booking = booking_result.data
+        
+        # Verify user is either the client or creative
+        is_client = booking['client_user_id'] == user_id
+        is_creative = booking['creative_user_id'] == user_id
+        
+        if not is_client and not is_creative:
+            raise HTTPException(status_code=403, detail="You don't have permission to view payment requests for this booking")
+        
+        # Get all payment requests for this booking
+        # Pass user_id and role to help with RLS if needed
+        result = await PaymentRequestService.get_payment_requests_by_booking(
+            booking_id=booking_id,
+            client=client,
+            user_id=user_id,
+            is_creative=is_creative
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch payment requests: {str(e)}")
+
+
 @router.post("/{payment_request_id}/process")
 @limiter.limit("10 per minute")
 async def process_payment_request(

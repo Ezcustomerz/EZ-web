@@ -2,6 +2,10 @@ from fastapi import HTTPException, UploadFile
 from db.db_session import db_admin
 from schemas.advocate import AdvocateSetupResponse, AdvocateUpdateRequest, AdvocateUpdateResponse
 import uuid
+from services.email.email_service import email_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AdvocateController:
     @staticmethod
@@ -85,6 +89,26 @@ class AdvocateController:
             
             if not result.data:
                 raise HTTPException(status_code=500, detail="Failed to create advocate profile")
+            
+            # Mark setup as complete by setting first_login to False
+            user_update_result = db_admin.table('users').update({'first_login': False}).eq('user_id', user_id).execute()
+            
+            if not user_update_result.data:
+                raise HTTPException(status_code=500, detail="Failed to update user first_login status")
+            
+            # Send welcome email to the new advocate
+            if user_email:
+                try:
+                    logger.info(f"Sending welcome email to advocate {user_email}")
+                    await email_service.send_welcome_email(
+                        to_email=user_email,
+                        user_name=display_name,
+                        user_role='advocate'
+                    )
+                    logger.info(f"Welcome email sent successfully to {user_email}")
+                except Exception as e:
+                    # Log the error but don't fail the profile creation
+                    logger.error(f"Failed to send welcome email to advocate: {str(e)}")
             
             return AdvocateSetupResponse(
                 success=True,

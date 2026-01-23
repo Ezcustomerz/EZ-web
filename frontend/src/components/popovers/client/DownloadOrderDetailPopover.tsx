@@ -43,6 +43,7 @@ import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopo
 import { ServiceCardSimple } from '../../cards/creative/ServiceCard';
 import { CreativeDetailPopover } from './CreativeDetailPopover';
 import { bookingService } from '../../../api/bookingService';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -268,68 +269,6 @@ export function DownloadOrderDetailPopover({
 
   const handleCreativeDetailClose = () => {
     setCreativeDetailOpen(false);
-  };
-
-  const handleDownloadFile = async (file: DownloadFile, index?: number) => {
-    setIsDownloading(true);
-    if (onDownloadStateChange) onDownloadStateChange(true);
-    setDownloadProgress(`Preparing ${file.name}...`);
-    if (onDownloadProgress) onDownloadProgress(`Preparing ${file.name}...`);
-    if (index !== undefined) {
-      setDownloadingFileIndex(index);
-    }
-    
-    try {
-      // Get signed URL from backend
-      setDownloadProgress(`Getting download link for ${file.name}...`);
-      if (onDownloadProgress) onDownloadProgress(`Getting download link for ${file.name}...`);
-      const response = await bookingService.downloadDeliverable(file.id);
-      
-      // Download the file using the signed URL
-      setDownloadProgress(`Downloading ${file.name}...`);
-      if (onDownloadProgress) onDownloadProgress(`Downloading ${file.name}...`);
-      const downloadResponse = await fetch(response.signed_url);
-      if (!downloadResponse.ok) {
-        throw new Error('Failed to download file');
-      }
-      
-      const blob = await downloadResponse.blob();
-      
-      // Use the file name from the backend response, fallback to file.name
-      const fileName = response.file_name || file.name;
-      
-      // Create download link and trigger download
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      
-      // Clean up
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }, 100);
-      
-      setDownloadProgress(`Successfully downloaded ${file.name}`);
-      if (onDownloadProgress) onDownloadProgress(`Successfully downloaded ${file.name}`);
-      setTimeout(() => {
-        setIsDownloading(false);
-        setDownloadProgress('');
-        setDownloadingFileIndex(-1);
-        if (onDownloadStateChange) onDownloadStateChange(false);
-        if (onDownloadProgress) onDownloadProgress('');
-      }, 500);
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert(`Failed to download ${file.name}. Please try again.`);
-      setIsDownloading(false);
-      setDownloadProgress('');
-      setDownloadingFileIndex(-1);
-      if (onDownloadStateChange) onDownloadStateChange(false);
-      if (onDownloadProgress) onDownloadProgress('');
-    }
   };
 
   const handleViewEzInvoice = async () => {
@@ -892,6 +831,11 @@ export function DownloadOrderDetailPopover({
               </Box>
             )}
           </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={true} />
 
           <Divider sx={{ my: 2 }} />
 

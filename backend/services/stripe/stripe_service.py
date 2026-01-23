@@ -18,6 +18,30 @@ if not STRIPE_SECRET_KEY:
 stripe.api_key = STRIPE_SECRET_KEY
 
 
+async def _send_notification_email(notification_data: Dict[str, Any], recipient_user_id: str, recipient_name: str, client: Client = None):
+    """Helper function to send email after notification creation"""
+    try:
+        from services.notifications.notifications_service import NotificationsController
+        # Get recipient email
+        recipient_email = None
+        if client:
+            try:
+                user_result = client.table('users').select('email').eq('user_id', recipient_user_id).single().execute()
+                if user_result.data:
+                    recipient_email = user_result.data.get('email')
+            except:
+                pass
+        
+        await NotificationsController.send_notification_email(
+            notification_data=notification_data,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            client=client
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send notification email: {str(e)}")
+
+
 class StripeService:
     @staticmethod
     async def create_connect_account(user_id: str, email: str, client: Client) -> Dict[str, Any]:
@@ -823,6 +847,10 @@ class StripeService:
                         .insert(client_notification_data) \
                         .execute()
                     logger.info(f"Client payment notification created: {client_notif_result.data}")
+                    
+                    # Send email notification
+                    if client_notif_result.data:
+                        await _send_notification_email(client_notification_data, booking.get('client_user_id'), client_display_name, db_admin)
                 except Exception as notif_error:
                     logger.error(f"Failed to create client payment notification: {notif_error}")
                 
@@ -831,6 +859,10 @@ class StripeService:
                         .insert(creative_notification_data) \
                         .execute()
                     logger.info(f"Creative payment notification created: {creative_notif_result.data}")
+                    
+                    # Send email notification
+                    if creative_notif_result.data:
+                        await _send_notification_email(creative_notification_data, creative_user_id, creative_display_name, db_admin)
                 except Exception as notif_error:
                     logger.error(f"Failed to create creative payment notification: {notif_error}")
                     

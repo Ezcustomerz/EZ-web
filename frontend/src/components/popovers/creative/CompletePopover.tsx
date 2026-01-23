@@ -2,7 +2,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   IconButton,
   Box,
   Typography,
@@ -11,11 +10,11 @@ import {
   Slide,
   Chip,
   Avatar,
-  Button,
   Stack,
   Card,
   CardContent,
   Divider,
+  Skeleton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { 
@@ -27,9 +26,8 @@ import {
   CheckCircle,
   Download,
   PictureAsPdf,
-  Receipt,
-  Assignment,
-  Star
+  Star,
+  Visibility
 } from '@mui/icons-material';
 import type { TransitionProps } from '@mui/material/transitions';
 import React, { useState, useEffect } from 'react';
@@ -38,6 +36,7 @@ import { ServicesDetailPopover, type ServiceDetail } from '../ServicesDetailPopo
 import { CalendarSessionDetailPopover } from './CalendarSessionDetailPopover';
 import { CircularProgress } from '@mui/material';
 import { bookingService } from '../../../api/bookingService';
+import { BookingPaymentRequests } from '../../shared/BookingPaymentRequests';
 
 // Define Session interface locally since it's not exported
 interface Session {
@@ -110,16 +109,12 @@ export interface CompletePopoverProps {
   open: boolean;
   onClose: () => void;
   order: CompleteOrder | null;
-  onDownloadReceipt?: (orderId: string) => void;
-  onDownloadSummary?: (orderId: string) => void;
 }
 
 export function CompletePopover({ 
   open, 
   onClose, 
-  order,
-  onDownloadReceipt,
-  onDownloadSummary
+  order
 }: CompletePopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -135,6 +130,8 @@ export function CompletePopover({
   }>>(() => {
     return order?.files && Array.isArray(order.files) && order.files.length > 0 ? order.files : [];
   });
+  const [invoices, setInvoices] = useState<Array<{ type: string; name: string; download_url: string; session_id?: string }>>([]);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(false);
 
   // Fetch files when popover opens if they're not already present
   useEffect(() => {
@@ -182,6 +179,25 @@ export function CompletePopover({
     }
   }, [order]);
 
+  // Fetch invoices when popover opens
+  useEffect(() => {
+    if (open && order && order.id) {
+      setIsLoadingInvoices(true);
+      bookingService.getInvoices(order.id)
+        .then(result => {
+          setInvoices(result.invoices || []);
+          setIsLoadingInvoices(false);
+        })
+        .catch(err => {
+          console.error('Error fetching invoices:', err);
+          setInvoices([]);
+          setIsLoadingInvoices(false);
+        });
+    } else {
+      setInvoices([]);
+    }
+  }, [open, order?.id]);
+
   // Use preserved files if available, otherwise fall back to order files
   const displayFiles = preservedFiles.length > 0 ? preservedFiles : (order?.files || []);
 
@@ -212,11 +228,14 @@ export function CompletePopover({
       case 'upfront':
         return 'Full payment was required before service began. Payment was completed successfully.';
       case 'split':
+        // Check splitDepositAmount parameter first, then order.split_deposit_amount, then order.service.split_deposit_amount
         const depositAmount = splitDepositAmount !== undefined && splitDepositAmount !== null
           ? splitDepositAmount
           : (order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
               ? order.split_deposit_amount
-              : 0);
+              : ((order.service as any)?.split_deposit_amount !== undefined && (order.service as any).split_deposit_amount !== null
+                  ? (order.service as any).split_deposit_amount
+                  : 0));
         const remainingAmount = depositAmount > 0 ? price - depositAmount : price;
         return depositAmount > 0
           ? `Client paid ${formatCurrency(depositAmount)} deposit upfront to secure the booking, then paid the remaining ${formatCurrency(remainingAmount)} after service completion.`
@@ -275,6 +294,57 @@ export function CompletePopover({
     setServiceDetailOpen(true);
   };
 
+  const handleViewEzInvoice = async () => {
+    if (!order) return;
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      // Open PDF in new tab for viewing
+      window.open(url, '_blank');
+      // Clean up after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Failed to view EZ invoice:', error);
+      alert('Failed to view invoice. Please try again.');
+    }
+  };
+
+  const handleDownloadEzInvoice = async () => {
+    if (!order) return;
+    try {
+      const blob = await bookingService.downloadEzInvoice(order.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `EZ_Invoice_${order.id.substring(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+    } catch (error) {
+      console.error('Failed to download EZ invoice:', error);
+      alert('Failed to download invoice. Please try again.');
+    }
+  };
+
+  const handleViewStripeReceipt = async (sessionId: string) => {
+    if (!order) return;
+    try {
+      const response = await bookingService.getStripeReceipt(order.id, sessionId);
+      if (response.success && response.receipt_url) {
+        // Open Stripe receipt in new tab
+        window.open(response.receipt_url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to get Stripe receipt:', error);
+      alert('Failed to open Stripe receipt. Please try again.');
+    }
+  };
+
   const handleServiceDetailClose = () => {
     setServiceDetailOpen(false);
   };
@@ -287,17 +357,6 @@ export function CompletePopover({
     setBookingDetailOpen(false);
   };
 
-  const handleDownloadReceipt = () => {
-    if (onDownloadReceipt) {
-      onDownloadReceipt(order.id);
-    }
-  };
-
-  const handleDownloadSummary = () => {
-    if (onDownloadSummary) {
-      onDownloadSummary(order.id);
-    }
-  };
 
   // Create service detail data for the popover
   const serviceDetail: ServiceDetail = {
@@ -599,9 +658,18 @@ export function CompletePopover({
                         <CheckCircle sx={{ fontSize: 16, color: '#10b981' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981' }}>
                           {formatCurrency(
-                            order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
-                              ? Math.round(order.split_deposit_amount * 100) / 100
-                              : Math.round(order.amount * 0.5 * 100) / 100
+                            (() => {
+                              // Check order.split_deposit_amount first, then order.service.split_deposit_amount, then default to 50%
+                              // Note: split_deposit_amount can be 0, so we check for !== undefined && !== null
+                              const splitDepositAmount = order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                                ? order.split_deposit_amount
+                                : ((order.service as any)?.split_deposit_amount !== undefined && (order.service as any).split_deposit_amount !== null
+                                    ? (order.service as any).split_deposit_amount
+                                    : null);
+                              return splitDepositAmount !== null
+                                ? Math.round(splitDepositAmount * 100) / 100
+                                : Math.round(order.amount * 0.5 * 100) / 100;
+                            })()
                           )}
                         </Typography>
                       </Box>
@@ -623,9 +691,18 @@ export function CompletePopover({
                         <CheckCircle sx={{ fontSize: 16, color: '#10b981' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981' }}>
                           {formatCurrency(
-                            order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
-                              ? Math.round((order.amount - order.split_deposit_amount) * 100) / 100
-                              : Math.round(order.amount * 0.5 * 100) / 100
+                            (() => {
+                              // Check order.split_deposit_amount first, then order.service.split_deposit_amount, then default to 50%
+                              const splitDepositAmount = order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                                ? order.split_deposit_amount
+                                : ((order.service as any)?.split_deposit_amount !== undefined && (order.service as any).split_deposit_amount !== null
+                                    ? (order.service as any).split_deposit_amount
+                                    : null);
+                              const depositAmount = splitDepositAmount !== null
+                                ? splitDepositAmount
+                                : order.amount * 0.5;
+                              return Math.round((order.amount - depositAmount) * 100) / 100;
+                            })()
                           )}
                         </Typography>
                       </Box>
@@ -668,106 +745,137 @@ export function CompletePopover({
             </CardContent>
           </Card>
 
-          {/* Documents Section */}
+          {/* Invoices & Receipts Section */}
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <CardContent>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
-                Documents
+                Invoices & Receipts
               </Typography>
-              
-              <Stack spacing={2}>
-                {/* Receipt PDF */}
-                <Box sx={{ 
-                  p: 2, 
-                  borderRadius: 2, 
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fafafa'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
-                      backgroundColor: '#fee2e2',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Receipt sx={{ fontSize: 24, color: '#dc2626' }} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        Payment Receipt
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                        Official receipt for payment of {formatCurrency(order.amount)}
-                      </Typography>
-                    </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Download />}
-                      onClick={handleDownloadReceipt}
+              {isLoadingInvoices ? (
+                <Stack spacing={1.5}>
+                  {[1, 2].map((i) => (
+                    <Box
+                      key={i}
                       sx={{
-                        borderColor: '#dc2626',
-                        color: '#dc2626',
-                        '&:hover': {
-                          borderColor: '#b91c1c',
-                          backgroundColor: '#fef2f2',
-                        },
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#fafafa',
                       }}
                     >
-                      Download
-                    </Button>
-                  </Box>
-                </Box>
-
-                {/* Service Summary PDF */}
-                <Box sx={{ 
-                  p: 2, 
-                  borderRadius: 2, 
-                  border: '1px solid #e2e8f0',
-                  backgroundColor: '#fafafa'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
-                      backgroundColor: '#dbeafe',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Assignment sx={{ fontSize: 24, color: '#2563eb' }} />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                        <Skeleton variant="rectangular" width={32} height={32} sx={{ borderRadius: 1 }} />
+                        <Box sx={{ flex: 1 }}>
+                          <Skeleton variant="text" width="60%" height={20} sx={{ mb: 0.5 }} />
+                          <Skeleton variant="text" width="40%" height={16} />
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Skeleton variant="circular" width={32} height={32} />
+                        <Skeleton variant="circular" width={32} height={32} />
+                      </Box>
                     </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        Service Summary
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                        Detailed summary of completed service and deliverables
-                      </Typography>
-                    </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Download />}
-                      onClick={handleDownloadSummary}
+                  ))}
+                </Stack>
+              ) : invoices.length > 0 ? (
+                <Stack spacing={1.5}>
+                  {invoices.map((invoice, index) => (
+                    <Box
+                      key={index}
                       sx={{
-                        borderColor: '#2563eb',
-                        color: '#2563eb',
-                        '&:hover': {
-                          borderColor: '#1d4ed8',
-                          backgroundColor: '#eff6ff',
-                        },
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#fafafa',
                       }}
                     >
-                      Download
-                    </Button>
-                  </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <PictureAsPdf sx={{ fontSize: 32, color: invoice.type === 'stripe_receipt' ? '#635bff' : '#f44336' }} />
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {invoice.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {invoice.type === 'stripe_receipt' ? 'Stripe payment receipt' : 'EZ platform invoice'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {invoice.type === 'ez_invoice' && (
+                          <>
+                            <IconButton
+                              size="small"
+                              onClick={handleViewEzInvoice}
+                              sx={{
+                                color: theme.palette.primary.main,
+                                '&:hover': {
+                                  bgcolor: theme.palette.primary.main + '10',
+                                },
+                              }}
+                              title="View invoice"
+                            >
+                              <Visibility />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={handleDownloadEzInvoice}
+                              sx={{
+                                color: theme.palette.primary.main,
+                                '&:hover': {
+                                  bgcolor: theme.palette.primary.main + '10',
+                                },
+                              }}
+                              title="Download invoice"
+                            >
+                              <Download />
+                            </IconButton>
+                          </>
+                        )}
+                        {invoice.type === 'stripe_receipt' && invoice.session_id && (
+                          <IconButton
+                            size="small"
+                            onClick={() => handleViewStripeReceipt(invoice.session_id!)}
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&:hover': {
+                                bgcolor: theme.palette.primary.main + '10',
+                              },
+                            }}
+                            title="View receipt"
+                          >
+                            <Visibility />
+                          </IconButton>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                </Stack>
+              ) : (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    border: '1px solid #e2e8f0',
+                    textAlign: 'center',
+                    backgroundColor: '#fafafa',
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    No invoices available
+                  </Typography>
                 </Box>
-              </Stack>
+              )}
             </CardContent>
           </Card>
+
+          {/* Payment Requests Section */}
+          <BookingPaymentRequests bookingId={order.id} isClient={false} />
 
           {/* Service Card */}
           <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
@@ -941,43 +1049,6 @@ export function CompletePopover({
           )}
         </Box>
       </DialogContent>
-
-      <DialogActions sx={{
-        p: { xs: 2, sm: 3 },
-        pt: 1,
-        flexShrink: 0,
-        justifyContent: 'flex-end',
-        gap: 2
-      }}>
-        <Button
-          variant="outlined"
-          startIcon={<PictureAsPdf />}
-          onClick={handleDownloadReceipt}
-          sx={{
-            borderColor: '#6b7280',
-            color: '#6b7280',
-            '&:hover': {
-              borderColor: '#4b5563',
-              backgroundColor: '#f9fafb',
-            },
-          }}
-        >
-          Download Receipt
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<Assignment />}
-          onClick={handleDownloadSummary}
-          sx={{
-            backgroundColor: '#3b82f6',
-            '&:hover': {
-              backgroundColor: '#2563eb',
-            },
-          }}
-        >
-          Download Summary
-        </Button>
-      </DialogActions>
 
       {/* Service Detail Popover */}
       <ServicesDetailPopover
