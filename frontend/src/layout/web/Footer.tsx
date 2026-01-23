@@ -14,7 +14,7 @@ export function Footer() {
   const pages = [
     { name: 'Pricing', href: '/pricing' },
     { name: 'Creative Features', href: '/creative-features' },
-    { name: 'Client Features', href: '/client-features' },
+    { name: 'Client Portal', href: '/client-features' },
     { name: 'Affiliate Details', href: '/affiliate' }
   ];
 

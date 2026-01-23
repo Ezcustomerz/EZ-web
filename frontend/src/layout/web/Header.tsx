@@ -270,8 +270,15 @@ export function Header() {
     }
     
     console.log('Menu item clicked:', item);
-    alert(`Clicked: ${item}`);
     setFeaturesAnchorEl(null);
+    
+    if (item === 'Creative Features') {
+      navigate('/features/creative');
+    } else if (item === 'Your Clients') {
+      navigate('/client-features');
+    } else {
+      alert(`Clicked: ${item}`);
+    }
   };
 
   const toggleMobileMenu = (event: React.MouseEvent) => {
@@ -458,7 +465,7 @@ export function Header() {
                     </Box>
                   </StyledMenuItem>
                   <StyledMenuItem 
-                    onClick={(event) => handleMenuItemClick(event, 'Client Features')}
+                    onClick={(event) => handleMenuItemClick(event, 'Your Clients')}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                       <FontAwesomeIcon 
@@ -468,7 +475,7 @@ export function Header() {
                           fontSize: '1rem'
                         }}
                       />
-                      <Typography sx={{ fontWeight: 500 }}>Client Features</Typography>
+                      <Typography sx={{ fontWeight: 500 }}>Your Clients</Typography>
                     </Box>
                   </StyledMenuItem>
                   <StyledMenuItem 
@@ -711,8 +718,9 @@ export function Header() {
                     </ListItemButton>
                     <ListItemButton 
                       onClick={() => {
-                        console.log('Client Features clicked');
+                        console.log('Client Portal clicked');
                         closeMobileMenu();
+                        navigate('/client-features');
                       }}
                       sx={{ 
                         mb: 0.5, 
@@ -747,7 +755,7 @@ export function Header() {
                             fontSize: { xs: '0.9rem', sm: '0.95rem' }
                           }}
                         >
-                          Client Features
+                          Your Clients
                         </Typography>
                       </Box>
                     </ListItemButton>
