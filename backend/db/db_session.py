@@ -3,18 +3,47 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 from fastapi import Request, Depends
 from typing import Optional
+import logging
 
 load_dotenv() 
+
+logger = logging.getLogger(__name__)
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
+# Validate environment variables are set
 if not SUPABASE_URL or not SUPABASE_ANON_KEY or not SUPABASE_SERVICE_ROLE_KEY:
-    raise ValueError("Missing Supabase configuration")
+    missing = []
+    if not SUPABASE_URL:
+        missing.append("SUPABASE_URL")
+    if not SUPABASE_ANON_KEY:
+        missing.append("SUPABASE_ANON")
+    if not SUPABASE_SERVICE_ROLE_KEY:
+        missing.append("SUPABASE_SERVICE_ROLE_KEY")
+    error_msg = f"Missing Supabase configuration. Required environment variables not set: {', '.join(missing)}"
+    logger.error(error_msg)
+    raise ValueError(error_msg)
 
-db_client: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-db_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+# Create Supabase clients with better error handling
+try:
+    db_client: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    logger.info(f"Created Supabase client with URL: {SUPABASE_URL}")
+except Exception as e:
+    logger.error(f"Failed to create Supabase client (anon): {e}")
+    logger.error(f"SUPABASE_URL: {SUPABASE_URL[:50]}..." if SUPABASE_URL else "SUPABASE_URL: None")
+    logger.error(f"SUPABASE_ANON_KEY length: {len(SUPABASE_ANON_KEY) if SUPABASE_ANON_KEY else 0}")
+    raise ValueError(f"Invalid Supabase configuration (anon key): {e}")
+
+try:
+    db_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    logger.info("Created Supabase admin client")
+except Exception as e:
+    logger.error(f"Failed to create Supabase admin client (service_role): {e}")
+    logger.error(f"SUPABASE_URL: {SUPABASE_URL[:50]}..." if SUPABASE_URL else "SUPABASE_URL: None")
+    logger.error(f"SUPABASE_SERVICE_ROLE_KEY length: {len(SUPABASE_SERVICE_ROLE_KEY) if SUPABASE_SERVICE_ROLE_KEY else 0}")
+    raise ValueError(f"Invalid Supabase configuration (service_role key): {e}")
 
 def get_authenticated_client(request: Request) -> Client:
     """
@@ -100,11 +129,15 @@ def test_connection_sync():
         # Try a simple operation to test connection
         # Using the client to get session info (doesn't require auth)
         session = db_client.auth.get_session()
-        print("Database connection successful!")
+        logger.info("Database connection successful!")
         return True
     except Exception as e:
-        print(f"Database connection failed: {e}")
+        logger.warning(f"Database connection test failed (this is OK at startup): {e}")
         return False
 
-# Test connection when module is imported
-test_connection_sync()
+# Test connection when module is imported (non-blocking)
+# Don't raise exceptions here - let the app start and fail gracefully on first request if needed
+try:
+    test_connection_sync()
+except Exception as e:
+    logger.warning(f"Initial database connection test failed: {e}. App will continue to start.")

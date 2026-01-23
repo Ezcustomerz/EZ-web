@@ -4,10 +4,18 @@ import os
 from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
 from typing import Dict, Any
+import logging
+import base64
+import json
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+
+# Warn if JWT secret is not configured
+if not SUPABASE_JWT_SECRET:
+    logger.error("SUPABASE_JWT_SECRET is not configured! JWT validation will fail.")
 
 def get_current_user(request: Request) -> Dict[str, Any]:
     """
@@ -59,13 +67,58 @@ async def jwt_auth_middleware(request: Request, call_next):
             token = auth.split(" ")[1]
 
     if token:
-        try:
-            user = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
-            # Store token for reuse in dependencies (avoids redundant extraction)
-            request.state.token = token
-        except JWTError:
-            # Token is invalid or expired - don't set user
-            pass
+        if not SUPABASE_JWT_SECRET:
+            logger.error("SUPABASE_JWT_SECRET not configured - cannot validate JWT tokens")
+        else:
+            try:
+                user = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
+                # Store token for reuse in dependencies (avoids redundant extraction)
+                request.state.token = token
+            except JWTError as e:
+                # Log the actual error for debugging (but don't expose to client)
+                error_msg = str(e)
+                # Only log for non-OPTIONS requests to reduce noise
+                if request.method != "OPTIONS":
+                    # Decode JWT header to see what algorithm it claims to use
+                    try:
+                        parts = token.split('.')
+                        if len(parts) >= 1:
+                            # Decode header (add padding if needed)
+                            header_b64 = parts[0]
+                            # Add padding if needed
+                            padding = 4 - len(header_b64) % 4
+                            if padding != 4:
+                                header_b64 += '=' * padding
+                            header_json = base64.urlsafe_b64decode(header_b64)
+                            header = json.loads(header_json)
+                            token_alg = header.get('alg', 'unknown')
+                            token_typ = header.get('typ', 'unknown')
+                            
+                            # Log at ERROR level to ensure it shows up
+                            logger.error(f"=== JWT VALIDATION FAILURE ===")
+                            logger.error(f"Error: {error_msg}")
+                            logger.error(f"Token algorithm: {token_alg}")
+                            logger.error(f"Token type: {token_typ}")
+                            logger.error(f"Expected algorithm: HS256")
+                            logger.error(f"Path: {request.url.path}")
+                            logger.error(f"JWT Secret configured: {'Yes' if SUPABASE_JWT_SECRET else 'No'}")
+                            if SUPABASE_JWT_SECRET:
+                                logger.error(f"JWT Secret length: {len(SUPABASE_JWT_SECRET)}")
+                                logger.error(f"JWT Secret first 20 chars: {SUPABASE_JWT_SECRET[:20]}...")
+                            
+                            if token_alg != 'HS256':
+                                logger.error(f"❌ MISMATCH: Token uses '{token_alg}' but we only allow HS256!")
+                                logger.error(f"This suggests Supabase is using a different signing algorithm.")
+                                logger.error(f"Solution: Update code to support {token_alg} or check Supabase JWT settings.")
+                            elif "alg value is not allowed" in error_msg.lower():
+                                logger.error(f"❌ JWT SECRET MISMATCH: The SUPABASE_JWT_SECRET doesn't match the production project!")
+                                logger.error(f"Solution: Get the correct JWT secret from Supabase dashboard for project aiquphhunaarkdndiiom")
+                            logger.error(f"==============================")
+                    except Exception as decode_error:
+                        logger.error(f"Could not decode JWT header for debugging: {decode_error}")
+                        logger.error(f"JWT validation failed: {error_msg} (path: {request.url.path})")
+                # Token is invalid or expired - don't set user
+                pass
 
     request.state.user = user  # Always set it (None if no valid token)
     return await call_next(request)

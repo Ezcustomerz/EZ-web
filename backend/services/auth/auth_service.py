@@ -153,6 +153,46 @@ class AuthController:
         except JWTError as e:
             # Token is invalid, expired, or malformed
             error_msg = str(e)
+            
+            # Decode JWT header to see what algorithm it claims to use
+            try:
+                import base64
+                import json
+                parts = token.split('.')
+                if len(parts) >= 1:
+                    # Decode header (add padding if needed)
+                    header_b64 = parts[0]
+                    # Add padding if needed
+                    padding = 4 - len(header_b64) % 4
+                    if padding != 4:
+                        header_b64 += '=' * padding
+                    header_json = base64.urlsafe_b64decode(header_b64)
+                    header = json.loads(header_json)
+                    token_alg = header.get('alg', 'unknown')
+                    token_typ = header.get('typ', 'unknown')
+                    
+                    # Log at ERROR level to ensure it shows up
+                    logger.error(f"=== JWT VALIDATION FAILURE (auth_service) ===")
+                    logger.error(f"Error: {error_msg}")
+                    logger.error(f"Token algorithm: {token_alg}")
+                    logger.error(f"Token type: {token_typ}")
+                    logger.error(f"Expected algorithm: HS256")
+                    logger.error(f"JWT Secret configured: {'Yes' if SUPABASE_JWT_SECRET else 'No'}")
+                    if SUPABASE_JWT_SECRET:
+                        logger.error(f"JWT Secret length: {len(SUPABASE_JWT_SECRET)}")
+                        logger.error(f"JWT Secret first 20 chars: {SUPABASE_JWT_SECRET[:20]}...")
+                    
+                    if token_alg != 'HS256':
+                        logger.error(f"❌ MISMATCH: Token uses '{token_alg}' but we only allow HS256!")
+                        logger.error(f"This suggests Supabase is using a different signing algorithm.")
+                        logger.error(f"Solution: Update code to support {token_alg} or check Supabase JWT settings.")
+                    elif "alg value is not allowed" in error_msg.lower():
+                        logger.error(f"❌ JWT SECRET MISMATCH: The SUPABASE_JWT_SECRET doesn't match the production project!")
+                        logger.error(f"Solution: Get the correct JWT secret from Supabase dashboard for project aiquphhunaarkdndiiom")
+                    logger.error(f"==============================================")
+            except Exception as decode_error:
+                logger.error(f"Could not decode JWT header for debugging: {decode_error}")
+            
             # Only log detailed error for debugging, but provide user-friendly message
             logger.warning(f"JWT validation failed: {error_msg}")
             raise HTTPException(status_code=401, detail=f"Invalid or expired token: {error_msg}")
