@@ -25,10 +25,21 @@ class EmailService:
         # TODO: Replace with your verified domain once set up
         # self.from_email = "EZ-web <noreply@yourdomain.com>"
         
+        # Check environment to determine if we should use test mode
+        env = os.getenv("ENV", "dev").lower()
+        
         # For testing: redirect all emails to this address
         # Set to None to send to actual recipients (when domain is verified)
         self.test_email = "ezcustomers.info@gmail.com"
-        self.is_test_mode = True  # Set to True to redirect all emails to test address
+        
+        # In production, disable test mode so emails go to actual recipients
+        # In all other environments, use test mode to prevent sending to real users
+        if env == "prod" or env == "production":
+            self.is_test_mode = False
+            logger.info("Email service: PRODUCTION mode - emails will be sent to actual recipients")
+        else:
+            self.is_test_mode = True
+            logger.info("Email service: TEST mode - emails will be redirected to test address")
         
         # Load logo file path for embedding in emails
         self.logo_path = self._find_logo_path()
