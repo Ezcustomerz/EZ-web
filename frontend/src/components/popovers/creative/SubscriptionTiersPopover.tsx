@@ -19,6 +19,7 @@ import {
   Star,
   TrendingUp,
   Diamond,
+  ExpandMore,
 } from '@mui/icons-material';
 import { userService, type SubscriptionTier, type CreativeProfile } from '../../../api/userService';
 import { subscriptionService } from '../../../api/subscriptionService';
@@ -79,6 +80,19 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
   const [currentTierId, setCurrentTierId] = useState<string | null>(null);
   const [currentTierLevel, setCurrentTierLevel] = useState<number>(0);
   const [processingTierId, setProcessingTierId] = useState<string | null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (tierId: string) => {
+    setExpandedCards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tierId)) {
+        newSet.delete(tierId);
+      } else {
+        newSet.add(tierId);
+      }
+      return newSet;
+    });
+  };
 
   // Fetch subscription tiers when popover opens
   useEffect(() => {
@@ -181,7 +195,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
         sx: {
           borderRadius: isMobile ? 0 : 3,
           m: 0,
-          maxHeight: isMobile ? '100vh' : '90vh',
+          maxHeight: { xs: '100vh', sm: '90vh', md: '90vh' },
           background: 'linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%)',
           boxShadow: isMobile 
             ? 'none' 
@@ -209,9 +223,9 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          pb: 2,
-          pt: 3,
-          px: 3,
+          pb: { xs: 2, sm: 2, md: 2 },
+          pt: { xs: 2, sm: 2, md: 3 },
+          px: { xs: 2, sm: 2, md: 3 },
           background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
           color: 'white',
           borderRadius: isMobile ? 0 : '12px 12px 0 0',
@@ -238,7 +252,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
           }),
         }}
       >
-        <Typography variant="h5" fontWeight={700} sx={{ color: '#fff' }}>
+        <Typography variant="h5" fontWeight={700} sx={{ color: '#fff', fontSize: { xs: '1.25rem', sm: '1rem', md: '1.25rem' } }}>
           Subscription Plans
         </Typography>
         <IconButton
@@ -256,8 +270,8 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
       </DialogTitle>
 
       <DialogContent sx={{ 
-        p: { xs: 2, sm: 3 }, 
-        pt: 3, 
+        p: { xs: 1.5, sm: 2, md: 3 }, 
+        pt: { xs: 2, sm: 2, md: 3 }, 
         overflow: 'auto', 
         position: 'relative',
         ...(isMobile && {
@@ -417,6 +431,10 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                       sx={{ 
                         position: 'relative',
                         isolation: 'isolate',
+                        transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                        },
                       }}
                     >
                       {metadata.popular && (
@@ -448,7 +466,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                             height: 20,
                             zIndex: 2,
                             border: '1px solid rgba(184, 134, 11, 0.5)',
-                            boxShadow: '0 0 0 2px #fff, 0 2px 4px rgba(0, 0, 0, 0.1)',
+                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                           }}
                         />
                       )}
@@ -461,11 +479,11 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                 ? '2px solid rgba(184, 134, 11, 0.4)'
                                 : '1px solid rgba(51, 65, 85, 0.15)',
                             borderRadius: 3,
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                             background: '#fff',
                             position: 'relative',
                             boxShadow: isCurrentTier ? '0 4px 20px rgba(51, 65, 85, 0.25)' : '0 2px 8px rgba(51, 65, 85, 0.08)',
-                            '&:hover': {
+                            '.MuiBox-root:hover &': {
                               border: metadata.popular 
                                 ? '3px solid rgba(184, 134, 11, 0.8)'
                                 : isCurrentTier
@@ -476,7 +494,6 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                 : metadata.popular
                                   ? '0 8px 24px rgba(184, 134, 11, 0.3)'
                                   : '0 8px 24px rgba(51, 65, 85, 0.2)',
-                              transform: 'translateY(-2px)',
                             },
                           }}
                         >
@@ -509,7 +526,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                             </Box>
                           </Box>
 
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2, alignItems: 'flex-start' }}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1.5, alignItems: 'flex-start' }}>
                             <Box
                               sx={{
                                 display: 'inline-block',
@@ -538,8 +555,41 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                 {(tier.fee_percentage * 100).toFixed(1)}% platform fee
                               </Typography>
                             </Box>
-                            {tier.description && (
-                              <>
+                          </Box>
+
+                          {/* Expand Button */}
+                          <Box
+                            onClick={() => toggleExpand(tier.id)}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 0.5,
+                              py: 0.75,
+                              cursor: 'pointer',
+                              color: 'text.secondary',
+                              borderRadius: 1,
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                color: 'text.primary',
+                                backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                              },
+                            }}
+                          >
+                            <Typography variant="caption" fontWeight={600} sx={{ fontSize: '0.75rem' }}>
+                              {expandedCards.has(tier.id) ? 'Show less' : 'Show more'}
+                            </Typography>
+                            <ExpandMore sx={{ 
+                              fontSize: 18,
+                              transform: expandedCards.has(tier.id) ? 'rotate(180deg)' : 'none',
+                              transition: 'transform 0.3s ease',
+                            }} />
+                          </Box>
+
+                          {/* Expandable Content - Description Only */}
+                          {expandedCards.has(tier.id) && tier.description && (
+                            <Box sx={{ width: '100%', mb: 2 }}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-start' }}>
                                 {tier.description.includes('/') ? (
                                   tier.description.split('/').map((part, index) => {
                                     const trimmedPart = part.trim();
@@ -578,11 +628,11 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                     </Typography>
                                   </Box>
                                 )}
-                              </>
-                            )}
-                          </Box>
+                              </Box>
+                            </Box>
+                          )}
 
-                          {/* Action Button */}
+                          {/* Action Button - Always Visible */}
                           {(() => {
                             const action = getTierAction(tier);
                             
@@ -677,11 +727,13 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
             {/* Desktop View - Centered 2 Cards */}
             <Box sx={{ 
               display: { xs: 'none', sm: 'flex' },
-              gap: 3,
+              gap: { sm: 1, md: 3 },
               width: '100%',
               justifyContent: 'center',
-              alignItems: 'stretch',
+              alignItems: 'flex-start',
               position: 'relative',
+              transform: { sm: 'scale(0.65)', md: 'scale(1)' },
+              transformOrigin: 'top center',
             }}>
               {subscriptionTiers.map((tier, index) => {
                 const metadata = getTierMetadata(index, subscriptionTiers.length, tier.name);
@@ -693,10 +745,14 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                     key={tier.id} 
                     sx={{ 
                       flex: '0 1 auto',
-                      minWidth: 280,
-                      maxWidth: 350,
+                      minWidth: { sm: 200, md: 280 },
+                      maxWidth: { sm: 280, md: 350 },
                       position: 'relative',
                       isolation: 'isolate',
+                      transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                      },
                     }}
                   >
                     {metadata.popular && (
@@ -719,16 +775,16 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                         size="small"
                         sx={{
                           position: 'absolute',
-                          top: -10,
+                          top: { sm: -7, md: -10 },
                           left: '50%',
                           transform: 'translateX(-50%)',
                           background: 'linear-gradient(135deg, rgba(184, 134, 11, 0.9) 0%, rgba(212, 175, 55, 0.9) 100%)',
                           color: 'white',
                           fontWeight: 700,
-                          fontSize: '0.7rem',
+                          fontSize: { sm: '0.6rem', md: '0.7rem' },
                           zIndex: 2,
                           border: '1px solid rgba(184, 134, 11, 0.5)',
-                          boxShadow: '0 0 0 2px #fff, 0 2px 4px rgba(0, 0, 0, 0.1)',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                         }}
                       />
                     )}
@@ -743,13 +799,12 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                           boxShadow: isCurrentTier 
                             ? '0 8px 32px rgba(51, 65, 85, 0.25)' 
                             : '0 2px 8px rgba(51, 65, 85, 0.08)',
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                           position: 'relative',
                           background: '#fff',
                           color: 'inherit',
-                          height: '100%',
                           borderRadius: 3,
-                          '&:hover': {
+                          '.MuiBox-root:hover &': {
                             border: metadata.popular 
                               ? '5px solid rgba(184, 134, 11, 0.8)'
                               : isCurrentTier
@@ -760,21 +815,20 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                               : metadata.popular
                                 ? '0 12px 40px rgba(184, 134, 11, 0.35)'
                                 : '0 12px 40px rgba(51, 65, 85, 0.25)',
-                            transform: 'translateY(-4px)',
                           },
                         }}
                       >
-                      <CardContent sx={{ p: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                      <CardContent sx={{ p: { sm: 2, md: 3 }, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: { sm: 1.5, md: 2 } }}>
                           <IconComponent 
                             sx={{ 
-                              fontSize: 48, 
+                              fontSize: { sm: 40, md: 48 }, 
                               color: '#334155',
                             }} 
                           />
                         </Box>
                         
-                        <Typography variant="h5" fontWeight={700} sx={{ color: 'text.primary', mb: 0.5 }}>
+                        <Typography variant="h5" fontWeight={700} sx={{ color: 'text.primary', mb: 0.5, fontSize: { sm: '1.1rem', md: '1.25rem' } }}>
                           {tier.name}
                         </Typography>
                         {metadata.subtitle && (
@@ -782,49 +836,79 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                             {metadata.subtitle}
                           </Typography>
                         )}
-                        <Typography variant="h4" fontWeight={800} sx={{ color: '#334155', mb: 2 }}>
+                        <Typography variant="h4" fontWeight={800} sx={{ color: '#334155', mb: { sm: 1.5, md: 2 }, fontSize: { sm: '1.5rem', md: '2rem' } }}>
                           ${tier.price}
-                          <Typography component="span" variant="body2" sx={{ opacity: 0.7, fontWeight: 400, color: 'text.secondary' }}>
+                          <Typography component="span" variant="body2" sx={{ opacity: 0.7, fontWeight: 400, color: 'text.secondary', fontSize: { sm: '0.75rem', md: '0.875rem' } }}>
                             /month
                           </Typography>
                         </Typography>
 
-                        <Box sx={{ mb: 2, width: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Box sx={{ mb: { sm: 1.5, md: 1.5 }, width: '100%', display: 'flex', flexDirection: 'column', gap: { sm: 0.75, md: 1 }, alignItems: 'center' }}>
                           <Box
                             sx={{
                               display: 'inline-block',
-                              px: 2,
-                              py: 0.75,
+                              px: { sm: 1.5, md: 2 },
+                              py: { sm: 0.6, md: 0.75 },
                               borderRadius: '20px',
                               backgroundColor: 'rgba(0, 0, 0, 0.05)',
                               border: '1px solid rgba(0, 0, 0, 0.1)',
                             }}
                           >
-                            <Typography variant="body2" sx={{ color: metadata.popular ? 'rgba(184, 134, 11, 0.95)' : 'text.primary', fontWeight: 500 }}>
+                            <Typography variant="body2" sx={{ color: metadata.popular ? 'rgba(184, 134, 11, 0.95)' : 'text.primary', fontWeight: 500, fontSize: { sm: '0.8rem', md: '0.875rem' } }}>
                               {tier.storage_display}
                             </Typography>
                           </Box>
                           <Box
                             sx={{
                               display: 'inline-block',
-                              px: 2,
-                              py: 0.75,
+                              px: { sm: 1.5, md: 2 },
+                              py: { sm: 0.6, md: 0.75 },
                               borderRadius: '20px',
                               backgroundColor: 'rgba(0, 0, 0, 0.05)',
                               border: '1px solid rgba(0, 0, 0, 0.1)',
                             }}
                           >
-                            <Typography variant="body2" sx={{ color: metadata.popular ? 'rgba(184, 134, 11, 0.95)' : 'text.primary', fontWeight: 500, fontSize: '0.85rem' }}>
+                            <Typography variant="body2" sx={{ color: metadata.popular ? 'rgba(184, 134, 11, 0.95)' : 'text.primary', fontWeight: 500, fontSize: { sm: '0.8rem', md: '0.85rem' } }}>
                               {(tier.fee_percentage * 100).toFixed(1)}% platform fee
                             </Typography>
                           </Box>
                         </Box>
 
-                        {tier.description && (
-                          <>
-                            {tier.description.includes('/') ? (
-                              <Box sx={{ mt: 1, width: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                {tier.description.split('/').map((part, index) => {
+                        {/* Expand Button */}
+                        <Box
+                          onClick={() => toggleExpand(tier.id)}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 0.5,
+                            py: { sm: 0.6, md: 0.75 },
+                            cursor: 'pointer',
+                            color: 'text.secondary',
+                            borderRadius: 1,
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              color: 'text.primary',
+                              backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                            },
+                          }}
+                        >
+                          <Typography variant="caption" fontWeight={600} sx={{ fontSize: { sm: '0.7rem', md: '0.75rem' } }}>
+                            {expandedCards.has(tier.id) ? 'Show less' : 'Show more'}
+                          </Typography>
+                          <ExpandMore sx={{ 
+                            fontSize: { sm: 16, md: 18 },
+                            transform: expandedCards.has(tier.id) ? 'rotate(180deg)' : 'none',
+                            transition: 'transform 0.3s ease',
+                          }} />
+                        </Box>
+
+                        {/* Expandable Content - Description Only */}
+                        {expandedCards.has(tier.id) && tier.description && (
+                          <Box sx={{ width: '100%', mt: { sm: 1.5, md: 2 }, mb: { sm: 1.5, md: 2 } }}>
+                            <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+                              {tier.description.includes('/') ? (
+                                tier.description.split('/').map((part, index) => {
                                   const trimmedPart = part.trim();
                                   if (!trimmedPart) return null;
                                   return (
@@ -844,29 +928,28 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                       </Typography>
                                     </Box>
                                   );
-                                })}
-                              </Box>
-                            ) : (
-                              <Box
-                                sx={{
-                                  display: 'inline-block',
-                                  px: 2,
-                                  py: 1,
-                                  borderRadius: '20px',
-                                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                                  border: '1px solid rgba(0, 0, 0, 0.08)',
-                                  mt: 1,
-                                }}
-                              >
-                                <Typography variant="body2" sx={{ fontSize: '0.85rem', textAlign: 'center', color: 'text.secondary' }}>
-                                  {tier.description}
-                                </Typography>
-                              </Box>
-                            )}
-                          </>
+                                })
+                              ) : (
+                                <Box
+                                  sx={{
+                                    display: 'inline-block',
+                                    px: 2,
+                                    py: 1,
+                                    borderRadius: '20px',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                                    border: '1px solid rgba(0, 0, 0, 0.08)',
+                                  }}
+                                >
+                                  <Typography variant="body2" sx={{ fontSize: '0.85rem', textAlign: 'center', color: 'text.secondary' }}>
+                                    {tier.description}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
+                          </Box>
                         )}
 
-                        {/* Action Button */}
+                        {/* Action Button - Always Visible */}
                         {(() => {
                           const action = getTierAction(tier);
                           
@@ -876,7 +959,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                           
                           if (action === 'current') {
                             return (
-                              <Box sx={{ mt: 3, width: '100%' }}>
+                              <Box sx={{ mt: { sm: 2, md: 3 }, width: '100%' }}>
                                 <Button
                                   variant="contained"
                                   fullWidth
@@ -885,7 +968,8 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                     background: 'linear-gradient(135deg, #334155 0%, #1e293b 100%)',
                                     color: '#fff',
                                     fontWeight: 600,
-                                    py: 1.5,
+                                    py: { sm: 1.25, md: 1.5 },
+                                    fontSize: { sm: '0.875rem', md: '1rem' },
                                     borderRadius: 2,
                                     textTransform: 'none',
                                     cursor: 'default',
@@ -908,7 +992,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                           const isUpgrade = action === 'upgrade';
                           
                           return (
-                            <Box sx={{ mt: 3, width: '100%' }}>
+                            <Box sx={{ mt: { sm: 2, md: 3 }, width: '100%' }}>
                               <Button
                                 variant="contained"
                                 fullWidth
@@ -922,7 +1006,8 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
                                     : 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
                                   color: '#fff',
                                   fontWeight: 600,
-                                  py: 1.5,
+                                  py: { sm: 1.25, md: 1.5 },
+                                  fontSize: { sm: '0.875rem', md: '1rem' },
                                   borderRadius: 2,
                                   textTransform: 'none',
                                   '&:hover': {
