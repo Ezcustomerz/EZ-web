@@ -6,11 +6,22 @@ import os
 import logging
 from typing import Dict, Any
 import re
+import base64
+import json
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+if not SUPABASE_URL:
+    logger.error("SUPABASE_URL not configured - ES256 JWKS fetching will fail")
+
+# Import ES256 support from verify module
+try:
+    from core.verify import get_public_key_from_jwks
+except ImportError:
+    logger.error("ES256 support not available - import from core.verify failed")
+    raise
 
 
 class AuthController:
@@ -119,7 +130,7 @@ class AuthController:
     @staticmethod
     def validate_jwt_token(token: str) -> Dict[str, Any]:
         """
-        Validate a JWT token and return its payload.
+        Validate a JWT token and return its payload using ES256 (asymmetric keys).
         This ensures only valid Supabase tokens are accepted.
         
         Args:
@@ -129,10 +140,10 @@ class AuthController:
             Decoded token payload
             
         Raises:
-            HTTPException: If token is invalid, expired, or JWT secret is not configured
+            HTTPException: If token is invalid, expired, or SUPABASE_URL is not configured
         """
-        if not SUPABASE_JWT_SECRET:
-            raise HTTPException(status_code=500, detail="JWT secret not configured")
+        if not SUPABASE_URL:
+            raise HTTPException(status_code=500, detail="SUPABASE_URL not configured - required for ES256 validation")
         
         # Trim whitespace (common issue with JSON parsing)
         token = token.strip()
@@ -142,13 +153,58 @@ class AuthController:
             logger.warning(f"Invalid JWT format: token does not have 3 segments")
             raise HTTPException(status_code=401, detail="Invalid token format: not a valid JWT")
         
+        # Decode header to get algorithm and key ID
+        token_alg = None
+        token_kid = None
         try:
+            parts = token.split('.')
+            if len(parts) < 1:
+                raise ValueError("Token has no header part")
+            
+            header_b64 = parts[0]
+            # Add padding if needed for base64 decoding
+            padding = 4 - len(header_b64) % 4
+            if padding != 4:
+                header_b64 += '=' * padding
+            
+            try:
+                header_json = base64.urlsafe_b64decode(header_b64)
+            except Exception as e:
+                error_str = str(e) if e else "Unknown error"
+                logger.error(f"Base64 decode failed for header: {error_str}, header_b64 length: {len(parts[0])}")
+                raise ValueError(f"Invalid base64 in header: {error_str}")
+            
+            try:
+                header = json.loads(header_json)
+            except Exception as e:
+                logger.error(f"JSON parse failed for header: {e}, header_json: {header_json[:100] if header_json else 'None'}")
+                raise ValueError(f"Invalid JSON in header: {e}")
+            
+            token_alg = header.get('alg', 'unknown')
+            token_kid = header.get('kid', None)
+        except Exception as e:
+            logger.error(f"Failed to decode JWT header: {e}, token preview: {token[:50]}...")
+            raise HTTPException(status_code=401, detail=f"Invalid token format: cannot decode header - {str(e)}")
+        
+        # Validate using ES256 only (asymmetric keys from JWKS)
+        try:
+            if not token_kid:
+                raise JWTError("Token missing 'kid' (key ID) - required for ES256 validation")
+            
+            if token_alg != 'ES256':
+                raise JWTError(f"Unsupported algorithm: {token_alg}. Only ES256 is supported.")
+            
+            public_key = get_public_key_from_jwks(token_kid)
+            if not public_key:
+                raise JWTError(f"Could not find public key for kid: {token_kid}")
+            
             payload = jwt.decode(
                 token,
-                SUPABASE_JWT_SECRET,
-                algorithms=["HS256"],
+                public_key,
+                algorithms=["ES256"],
                 audience="authenticated"
             )
+            logger.debug(f"Successfully validated ES256 token with kid: {token_kid}")
             return payload
         except JWTError as e:
             # Token is invalid, expired, or malformed
@@ -156,8 +212,6 @@ class AuthController:
             
             # Decode JWT header to see what algorithm it claims to use
             try:
-                import base64
-                import json
                 parts = token.split('.')
                 if len(parts) >= 1:
                     # Decode header (add padding if needed)
@@ -176,19 +230,15 @@ class AuthController:
                     logger.error(f"Error: {error_msg}")
                     logger.error(f"Token algorithm: {token_alg}")
                     logger.error(f"Token type: {token_typ}")
-                    logger.error(f"Expected algorithm: HS256")
-                    logger.error(f"JWT Secret configured: {'Yes' if SUPABASE_JWT_SECRET else 'No'}")
-                    if SUPABASE_JWT_SECRET:
-                        logger.error(f"JWT Secret length: {len(SUPABASE_JWT_SECRET)}")
-                        logger.error(f"JWT Secret first 20 chars: {SUPABASE_JWT_SECRET[:20]}...")
+                    logger.error(f"Expected algorithm: ES256")
+                    logger.error(f"SUPABASE_URL: {SUPABASE_URL}")
                     
-                    if token_alg != 'HS256':
-                        logger.error(f"❌ MISMATCH: Token uses '{token_alg}' but we only allow HS256!")
-                        logger.error(f"This suggests Supabase is using a different signing algorithm.")
-                        logger.error(f"Solution: Update code to support {token_alg} or check Supabase JWT settings.")
-                    elif "alg value is not allowed" in error_msg.lower():
-                        logger.error(f"❌ JWT SECRET MISMATCH: The SUPABASE_JWT_SECRET doesn't match the production project!")
-                        logger.error(f"Solution: Get the correct JWT secret from Supabase dashboard for project aiquphhunaarkdndiiom")
+                    if token_alg != 'ES256':
+                        logger.error(f"❌ UNSUPPORTED ALGORITHM: Token uses '{token_alg}' but only ES256 is supported!")
+                        logger.error(f"Ensure your Supabase project is configured to use ES256 (asymmetric keys).")
+                    else:
+                        logger.error(f"❌ ES256 VALIDATION FAILED: {error_msg}")
+                        logger.error(f"Check that SUPABASE_URL is correct and JWKS endpoint is accessible.")
                     logger.error(f"==============================================")
             except Exception as decode_error:
                 logger.error(f"Could not decode JWT header for debugging: {decode_error}")
