@@ -205,6 +205,7 @@ export function PastOrdersTable({
         description: order.description || '',
         specialRequirements: order.description,
         files: order.files || [],
+        split_deposit_amount: order.split_deposit_amount !== undefined ? order.split_deposit_amount : (order.service?.split_deposit_amount !== undefined ? order.service.split_deposit_amount : undefined),
       };
       setSelectedCompleteOrder(completeOrder);
       setCompletePopoverOpen(true);
@@ -229,8 +230,10 @@ export function PastOrdersTable({
     // Only search once per orderIdToOpen
     if (orderIdToOpen && orders.length > 0 && !popoverOpen && !completePopoverOpen && hasSearchedForOrderRef.current !== orderIdToOpen) {
       hasSearchedForOrderRef.current = orderIdToOpen;
+      console.log(`[PastOrdersTable] Searching for order ${orderIdToOpen} in ${orders.length} orders`);
       const orderToOpen = orders.find(order => order.id === orderIdToOpen);
       if (orderToOpen) {
+        console.log(`[PastOrdersTable] Found order ${orderIdToOpen} with status: ${orderToOpen.status}`);
         // Handle Canceled/Rejected orders
         if (orderToOpen.status === 'Canceled' || orderToOpen.status === 'Rejected') {
           const cancelledOrder: CancelledOrder = {

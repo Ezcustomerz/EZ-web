@@ -4,6 +4,10 @@ from schemas.client import ClientSetupRequest, ClientSetupResponse, ClientCreati
 from core.validation import validate_email
 from supabase import Client
 import uuid
+from services.email.email_service import email_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ClientController:
     @staticmethod
@@ -59,6 +63,19 @@ class ClientController:
             
             if not user_update_result.data:
                 raise HTTPException(status_code=500, detail="Failed to update user first_login status")
+            
+            # Send welcome email to the new user
+            try:
+                logger.info(f"Sending welcome email to {setup_request.email}")
+                await email_service.send_welcome_email(
+                    to_email=setup_request.email,
+                    user_name=setup_request.display_name,
+                    user_role='client'
+                )
+                logger.info(f"Welcome email sent successfully to {setup_request.email}")
+            except Exception as e:
+                # Log the error but don't fail the profile creation
+                logger.error(f"Failed to send welcome email to {setup_request.email}: {str(e)}")
             
             return ClientSetupResponse(
                 success=True,

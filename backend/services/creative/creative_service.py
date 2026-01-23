@@ -16,6 +16,10 @@ from core.timezone_utils import (
     convert_time_slots_from_utc,
     get_user_timezone_from_request
 )
+from services.email.email_service import email_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreativeController:
     @staticmethod
@@ -143,6 +147,29 @@ class CreativeController:
             
             if not user_update_result.data:
                 raise HTTPException(status_code=500, detail="Failed to update user first_login status")
+            
+            # Send welcome email to the new creative
+            # Use primary_contact if it's an email, otherwise skip
+            try:
+                email_to_send = None
+                if setup_request.primary_contact and '@' in setup_request.primary_contact:
+                    email_to_send = setup_request.primary_contact
+                elif setup_request.secondary_contact and '@' in setup_request.secondary_contact:
+                    email_to_send = setup_request.secondary_contact
+                
+                if email_to_send:
+                    logger.info(f"Sending welcome email to creative {email_to_send}")
+                    await email_service.send_welcome_email(
+                        to_email=email_to_send,
+                        user_name=setup_request.display_name,
+                        user_role='creative'
+                    )
+                    logger.info(f"Welcome email sent successfully to {email_to_send}")
+                else:
+                    logger.info(f"No email address found for creative {user_id}, skipping welcome email")
+            except Exception as e:
+                # Log the error but don't fail the profile creation
+                logger.error(f"Failed to send welcome email to creative: {str(e)}")
             
             return CreativeSetupResponse(
                 success=True,

@@ -2,7 +2,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   IconButton,
   Box,
   Typography,
@@ -11,11 +10,11 @@ import {
   Slide,
   Chip,
   Avatar,
-  Button,
   Stack,
   Card,
   CardContent,
   Divider,
+  Skeleton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { 
@@ -27,7 +26,6 @@ import {
   CheckCircle,
   Download,
   PictureAsPdf,
-  Assignment,
   Star,
   Visibility
 } from '@mui/icons-material';
@@ -111,16 +109,12 @@ export interface CompletePopoverProps {
   open: boolean;
   onClose: () => void;
   order: CompleteOrder | null;
-  onDownloadReceipt?: (orderId: string) => void;
-  onDownloadSummary?: (orderId: string) => void;
 }
 
 export function CompletePopover({ 
   open, 
   onClose, 
-  order,
-  onDownloadReceipt,
-  onDownloadSummary
+  order
 }: CompletePopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -234,11 +228,14 @@ export function CompletePopover({
       case 'upfront':
         return 'Full payment was required before service began. Payment was completed successfully.';
       case 'split':
+        // Check splitDepositAmount parameter first, then order.split_deposit_amount, then order.service.split_deposit_amount
         const depositAmount = splitDepositAmount !== undefined && splitDepositAmount !== null
           ? splitDepositAmount
           : (order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
               ? order.split_deposit_amount
-              : 0);
+              : ((order.service as any)?.split_deposit_amount !== undefined && (order.service as any).split_deposit_amount !== null
+                  ? (order.service as any).split_deposit_amount
+                  : 0));
         const remainingAmount = depositAmount > 0 ? price - depositAmount : price;
         return depositAmount > 0
           ? `Client paid ${formatCurrency(depositAmount)} deposit upfront to secure the booking, then paid the remaining ${formatCurrency(remainingAmount)} after service completion.`
@@ -360,17 +357,6 @@ export function CompletePopover({
     setBookingDetailOpen(false);
   };
 
-  const handleDownloadReceipt = () => {
-    if (onDownloadReceipt) {
-      onDownloadReceipt(order.id);
-    }
-  };
-
-  const handleDownloadSummary = () => {
-    if (onDownloadSummary) {
-      onDownloadSummary(order.id);
-    }
-  };
 
   // Create service detail data for the popover
   const serviceDetail: ServiceDetail = {
@@ -672,9 +658,18 @@ export function CompletePopover({
                         <CheckCircle sx={{ fontSize: 16, color: '#10b981' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981' }}>
                           {formatCurrency(
-                            order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
-                              ? Math.round(order.split_deposit_amount * 100) / 100
-                              : Math.round(order.amount * 0.5 * 100) / 100
+                            (() => {
+                              // Check order.split_deposit_amount first, then order.service.split_deposit_amount, then default to 50%
+                              // Note: split_deposit_amount can be 0, so we check for !== undefined && !== null
+                              const splitDepositAmount = order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                                ? order.split_deposit_amount
+                                : ((order.service as any)?.split_deposit_amount !== undefined && (order.service as any).split_deposit_amount !== null
+                                    ? (order.service as any).split_deposit_amount
+                                    : null);
+                              return splitDepositAmount !== null
+                                ? Math.round(splitDepositAmount * 100) / 100
+                                : Math.round(order.amount * 0.5 * 100) / 100;
+                            })()
                           )}
                         </Typography>
                       </Box>
@@ -696,9 +691,18 @@ export function CompletePopover({
                         <CheckCircle sx={{ fontSize: 16, color: '#10b981' }} />
                         <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981' }}>
                           {formatCurrency(
-                            order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
-                              ? Math.round((order.amount - order.split_deposit_amount) * 100) / 100
-                              : Math.round(order.amount * 0.5 * 100) / 100
+                            (() => {
+                              // Check order.split_deposit_amount first, then order.service.split_deposit_amount, then default to 50%
+                              const splitDepositAmount = order.split_deposit_amount !== undefined && order.split_deposit_amount !== null
+                                ? order.split_deposit_amount
+                                : ((order.service as any)?.split_deposit_amount !== undefined && (order.service as any).split_deposit_amount !== null
+                                    ? (order.service as any).split_deposit_amount
+                                    : null);
+                              const depositAmount = splitDepositAmount !== null
+                                ? splitDepositAmount
+                                : order.amount * 0.5;
+                              return Math.round((order.amount - depositAmount) * 100) / 100;
+                            })()
                           )}
                         </Typography>
                       </Box>
@@ -748,9 +752,34 @@ export function CompletePopover({
                 Invoices & Receipts
               </Typography>
               {isLoadingInvoices ? (
-                <Typography variant="body2" color="text.secondary">
-                  Loading invoices...
-                </Typography>
+                <Stack spacing={1.5}>
+                  {[1, 2].map((i) => (
+                    <Box
+                      key={i}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#fafafa',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                        <Skeleton variant="rectangular" width={32} height={32} sx={{ borderRadius: 1 }} />
+                        <Box sx={{ flex: 1 }}>
+                          <Skeleton variant="text" width="60%" height={20} sx={{ mb: 0.5 }} />
+                          <Skeleton variant="text" width="40%" height={16} />
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Skeleton variant="circular" width={32} height={32} />
+                        <Skeleton variant="circular" width={32} height={32} />
+                      </Box>
+                    </Box>
+                  ))}
+                </Stack>
               ) : invoices.length > 0 ? (
                 <Stack spacing={1.5}>
                   {invoices.map((invoice, index) => (
@@ -1020,43 +1049,6 @@ export function CompletePopover({
           )}
         </Box>
       </DialogContent>
-
-      <DialogActions sx={{
-        p: { xs: 2, sm: 3 },
-        pt: 1,
-        flexShrink: 0,
-        justifyContent: 'flex-end',
-        gap: 2
-      }}>
-        <Button
-          variant="outlined"
-          startIcon={<PictureAsPdf />}
-          onClick={handleDownloadReceipt}
-          sx={{
-            borderColor: '#6b7280',
-            color: '#6b7280',
-            '&:hover': {
-              borderColor: '#4b5563',
-              backgroundColor: '#f9fafb',
-            },
-          }}
-        >
-          Download Receipt
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<Assignment />}
-          onClick={handleDownloadSummary}
-          sx={{
-            backgroundColor: '#3b82f6',
-            '&:hover': {
-              backgroundColor: '#2563eb',
-            },
-          }}
-        >
-          Download Summary
-        </Button>
-      </DialogActions>
 
       {/* Service Detail Popover */}
       <ServicesDetailPopover

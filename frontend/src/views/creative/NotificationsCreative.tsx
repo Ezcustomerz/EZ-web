@@ -82,8 +82,16 @@ export function NotificationsCreative() {
       navigate('/creative/activity');
       // Store booking_id in localStorage to open popover after navigation
       localStorage.setItem('open-order-popover', bookingId);
-      // New booking requests are typically in Current Orders (Pending Approval status)
-      localStorage.setItem('activity-active-tab', '0');
+      // Check metadata for creative_status to determine which tab
+      // If status is completed/rejected/canceled, it's in Past Orders (tab 1)
+      // Otherwise, it's likely in Current Orders (tab 0)
+      const creativeStatus = item.metadata?.creative_status;
+      if (creativeStatus && (creativeStatus === 'completed' || creativeStatus === 'rejected' || creativeStatus === 'canceled')) {
+        localStorage.setItem('activity-active-tab', '1'); // Past Orders
+      } else {
+        // Default to Current Orders, but fallback will check Past Orders if not found
+        localStorage.setItem('activity-active-tab', '0'); // Current Orders
+      }
     } else if (notificationType === 'payment_received') {
       // Check if this is a payment request notification (not booking-related)
       const isPaymentRequest = item.metadata?.payment_request_id || 

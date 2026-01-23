@@ -640,8 +640,9 @@ async def download_deliverables_batch(
     """
     Generate signed URLs for all deliverable files in a booking
     Requires authentication - will return 401 if not authenticated.
-    - Verifies user is the client for this booking
-    - Checks payment status (must be fully paid for locked orders)
+    - Verifies user is either the client or creative for this booking
+    - For clients: Checks payment status (must be fully paid for locked orders)
+    - For creatives: Always allows download (they can see their own deliverables)
     - Generates signed URLs for all files (expires in 1 hour)
     - Returns array of file download info
     """
@@ -650,9 +651,9 @@ async def download_deliverables_batch(
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        # Get booking to verify client and payment status
+        # Get booking to verify client/creative and payment status
         booking_result = client.table('bookings')\
-            .select('id, client_user_id, client_status, payment_status, amount_paid, price')\
+            .select('id, client_user_id, creative_user_id, client_status, payment_status, amount_paid, price')\
             .eq('id', booking_id)\
             .single()\
             .execute()
@@ -662,8 +663,10 @@ async def download_deliverables_batch(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download files for this booking")
         
         # Check if payment is required and if it's been paid
@@ -672,8 +675,10 @@ async def download_deliverables_batch(
         amount_paid = float(booking.get('amount_paid', 0))
         price = float(booking.get('price', 0))
         
-        # Only allow download if client_status is 'download' or 'completed'
-        if client_status not in ['download', 'completed']:
+        # For clients: Only allow download if client_status is 'download' or 'completed'
+        # For creatives: Always allow download (they can see their own deliverables)
+        is_creative = creative_user_id == user_id
+        if not is_creative and client_status not in ['download', 'completed']:
             raise HTTPException(
                 status_code=403, 
                 detail="Files are not available for download yet. Please complete payment if required."
@@ -885,8 +890,9 @@ async def download_deliverable(
     """
     Generate a signed URL for downloading a deliverable file
     Requires authentication - will return 401 if not authenticated.
-    - Verifies user is the client for this booking
-    - Checks payment status (must be fully paid for locked orders)
+    - Verifies user is either the client or creative for this booking
+    - For clients: Checks payment status (must be fully paid for locked orders)
+    - For creatives: Always allows download (they can see their own deliverables)
     - Generates signed URL (expires in 1 hour)
     """
     try:
@@ -907,9 +913,9 @@ async def download_deliverable(
         deliverable = deliverable_result.data
         booking_id = deliverable.get('booking_id')
         
-        # Get booking to verify client and payment status
+        # Get booking to verify client/creative and payment status
         booking_result = client.table('bookings')\
-            .select('id, client_user_id, client_status, payment_status, amount_paid, price')\
+            .select('id, client_user_id, creative_user_id, client_status, payment_status, amount_paid, price')\
             .eq('id', booking_id)\
             .single()\
             .execute()
@@ -919,8 +925,10 @@ async def download_deliverable(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download this file")
         
         # Check if payment is required and if it's been paid
@@ -929,8 +937,10 @@ async def download_deliverable(
         amount_paid = float(booking.get('amount_paid', 0))
         price = float(booking.get('price', 0))
         
-        # If status is 'locked', payment must be fully paid
-        if client_status == 'locked':
+        # For clients: If status is 'locked', payment must be fully paid
+        # For creatives: Always allow download (they can see their own deliverables)
+        is_creative = creative_user_id == user_id
+        if not is_creative and client_status == 'locked':
             if payment_status != 'fully_paid' and amount_paid < price:
                 raise HTTPException(
                     status_code=403, 

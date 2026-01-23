@@ -29,14 +29,35 @@ interface BookingPaymentRequestsProps {
 export function BookingPaymentRequests({ bookingId, isClient }: BookingPaymentRequestsProps) {
   const theme = useTheme();
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState<PaymentRequest | null>(null);
   const [detailPopoverOpen, setDetailPopoverOpen] = useState(false);
   const fetchingRef = useRef(false);
   const lastBookingIdRef = useRef<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (!bookingId) return;
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    if (!bookingId) {
+      setIsLoading(false);
+      setPaymentRequests([]);
+      setHasFetched(false);
+      fetchingRef.current = false;
+      return;
+    }
+
+    // Reset state when bookingId changes
+    if (lastBookingIdRef.current !== bookingId) {
+      setHasFetched(false);
+      setPaymentRequests([]);
+      fetchingRef.current = false;
+    }
 
     // Prevent duplicate fetches
     if (fetchingRef.current && lastBookingIdRef.current === bookingId) {
@@ -48,28 +69,55 @@ export function BookingPaymentRequests({ bookingId, isClient }: BookingPaymentRe
     lastBookingIdRef.current = bookingId;
     setIsLoading(true);
     
+    // Add aggressive timeout to prevent infinite loading
+    // Set timeout to 2 seconds - if it takes longer, assume no payment requests
+    timeoutRef.current = setTimeout(() => {
+      if (isMounted && fetchingRef.current) {
+        console.warn(`[BookingPaymentRequests] Fetch timeout for booking ${bookingId} - assuming no payment requests, hiding section`);
+        setPaymentRequests([]);
+        setIsLoading(false);
+        setHasFetched(true);
+        fetchingRef.current = false;
+      }
+    }, 2000); // 2 second timeout - fail fast and hide section
+    
     paymentRequestsService.getPaymentRequestsByBooking(bookingId)
       .then(requests => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         if (isMounted) {
-          setPaymentRequests(requests);
+          // Ensure requests is an array
+          const paymentRequestsArray = Array.isArray(requests) ? requests : [];
+          console.log(`[BookingPaymentRequests] Fetched ${paymentRequestsArray.length} payment requests for booking ${bookingId}`);
+          setPaymentRequests(paymentRequestsArray);
           setIsLoading(false);
+          setHasFetched(true);
+          fetchingRef.current = false;
         }
       })
       .catch(err => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
         if (isMounted) {
-          console.error('Error fetching payment requests for booking:', err);
+          console.error(`[BookingPaymentRequests] Error fetching payment requests for booking ${bookingId}:`, err);
+          // On error, assume no payment requests (don't show section)
           setPaymentRequests([]);
           setIsLoading(false);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
+          setHasFetched(true);
           fetchingRef.current = false;
         }
       });
 
     return () => {
       isMounted = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     };
   }, [bookingId]);
 
@@ -120,25 +168,12 @@ export function BookingPaymentRequests({ bookingId, isClient }: BookingPaymentRe
     setDetailPopoverOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <Card sx={{ border: '1px solid #e2e8f0', borderRadius: 2 }}>
-        <CardContent>
-          <Typography variant="h6" fontWeight={600} sx={{ mb: 2, color: 'text.primary' }}>
-            Payment Requests
-          </Typography>
-          <Stack spacing={1.5}>
-            {[1, 2].map((i) => (
-              <Skeleton key={i} variant="rectangular" height={80} sx={{ borderRadius: 2 }} />
-            ))}
-          </Stack>
-        </CardContent>
-      </Card>
-    );
-  }
-
+  // CRITICAL: Don't show section at all if there are no payment requests
+  // Only show if we actually have payment requests to display
   if (paymentRequests.length === 0) {
-    return null; // Don't show section if no payment requests
+    // Don't show skeleton or anything - just return null
+    // The timeout will ensure we don't get stuck in loading state
+    return null;
   }
 
   return (

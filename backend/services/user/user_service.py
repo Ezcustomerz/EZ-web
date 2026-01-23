@@ -2,6 +2,10 @@ from fastapi import HTTPException
 from schemas.user import UserProfile, UpdateRolesRequest, UpdateRolesResponse, SetupStatusResponse, BatchSetupRequest, BatchSetupResponse, RoleProfilesResponse
 from core.validation import validate_roles
 from supabase import Client
+from services.email.email_service import email_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserController:
     @staticmethod
@@ -304,6 +308,23 @@ class UserController:
             client.table('users').update({
                 'first_login': False
             }).eq('user_id', user_id).execute()
+            
+            # Send welcome email to the new user
+            user_email = user_data.get('email')
+            if user_email and created_profiles:
+                try:
+                    # Use the first created profile role for the email
+                    primary_role = created_profiles[0]
+                    logger.info(f"Sending welcome email to {user_email} for role: {primary_role}")
+                    await email_service.send_welcome_email(
+                        to_email=user_email,
+                        user_name=display_name,
+                        user_role=primary_role
+                    )
+                    logger.info(f"Welcome email sent successfully to {user_email}")
+                except Exception as e:
+                    # Log the error but don't fail the profile creation
+                    logger.error(f"Failed to send welcome email to {user_email}: {str(e)}")
             
             return BatchSetupResponse(
                 success=True,

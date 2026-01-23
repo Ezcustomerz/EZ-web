@@ -46,7 +46,7 @@ async def download_compliance_sheet(
         
         booking = booking_result.data
         
-        # Verify user is the client
+        # Verify user is the client (compliance sheet is client-only)
         if booking.get('client_user_id') != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download the compliance sheet for this booking")
         
@@ -162,17 +162,24 @@ async def get_invoices(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to view invoices for this booking")
         
-        # Check if status allows invoice download
+        # Check if status allows invoice download OR if payment has been received
         client_status = booking.get('client_status', '').lower()
+        amount_paid = float(booking.get('amount_paid', 0) or 0)
         allowed_statuses = ['canceled', 'cancelled', 'completed', 'download']
-        if client_status not in allowed_statuses:
+        
+        # Allow invoice viewing if:
+        # 1. Status is in allowed statuses, OR
+        # 2. Payment has been received (amount_paid > 0) - for payment_received emails
+        if client_status not in allowed_statuses and amount_paid == 0:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Invoices are only available for orders with status: canceled, completed, or download. Current status: {client_status}"
+                detail=f"Invoices are only available for orders with status: canceled, completed, or download, or when payment has been received. Current status: {client_status}, Amount paid: ${amount_paid:.2f}"
             )
         
         invoices = []
@@ -281,17 +288,24 @@ async def download_ez_invoice(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download the invoice for this booking")
         
-        # Check if status allows invoice download
+        # Check if status allows invoice download OR if payment has been received
         client_status = booking.get('client_status', '').lower()
+        amount_paid = float(booking.get('amount_paid', 0) or 0)
         allowed_statuses = ['canceled', 'cancelled', 'completed', 'download']
-        if client_status not in allowed_statuses:
+        
+        # Allow invoice download if:
+        # 1. Status is in allowed statuses, OR
+        # 2. Payment has been received (amount_paid > 0) - for payment_received emails
+        if client_status not in allowed_statuses and amount_paid == 0:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Invoice is only available for orders with status: canceled, completed, or download. Current status: {client_status}"
+                detail=f"Invoice is only available for orders with status: canceled, completed, or download, or when payment has been received. Current status: {client_status}, Amount paid: ${amount_paid:.2f}"
             )
         
         # Get service information
@@ -414,17 +428,24 @@ async def download_stripe_receipt(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download the receipt for this booking")
         
-        # Check if status allows receipt download
+        # Check if status allows receipt download OR if payment has been received
         client_status = booking.get('client_status', '').lower()
+        amount_paid = float(booking.get('amount_paid', 0) or 0)
         allowed_statuses = ['canceled', 'cancelled', 'completed', 'download']
-        if client_status not in allowed_statuses:
+        
+        # Allow receipt download if:
+        # 1. Status is in allowed statuses, OR
+        # 2. Payment has been received (amount_paid > 0) - for payment_received emails
+        if client_status not in allowed_statuses and amount_paid == 0:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Receipt is only available for orders with status: canceled, completed, or download. Current status: {client_status}"
+                detail=f"Receipt is only available for orders with status: canceled, completed, or download, or when payment has been received. Current status: {client_status}, Amount paid: ${amount_paid:.2f}"
             )
         
         # Get creative's Stripe account ID

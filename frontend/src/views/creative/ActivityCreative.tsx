@@ -1,6 +1,7 @@
 import { Box, Paper, Tab, Tabs, Typography, useTheme, useMediaQuery, Menu, MenuItem, ListItemIcon, ListItemText, Grow, Tooltip } from '@mui/material';
 import { LayoutCreative } from '../../layout/creative/LayoutCreative';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ReceiptLong, BarChart, MusicNote, Payment, InfoOutlined } from '@mui/icons-material';
 import { CurrentOrdersTab } from './tabs/CurrentOrdersTab';
 import { PastOrdersTab } from './tabs/PastOrdersTab';
@@ -25,6 +26,7 @@ const tabLabels = [
 ];
 
 export function ActivityCreative() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
     const stored = localStorage.getItem('activity-active-tab');
     return stored !== null ? Number(stored) : 0;
@@ -44,8 +46,14 @@ export function ActivityCreative() {
     localStorage.setItem('activity-active-tab', String(newValue));
   };
 
-  // Check for order popover to open from notification
+  // Check for order popover to open from notification or URL query parameter
   const [orderIdToOpen, setOrderIdToOpen] = useState<string | null>(() => {
+    // First check URL query parameter
+    const urlOrderId = searchParams.get('orderId');
+    if (urlOrderId) {
+      return urlOrderId;
+    }
+    // Then check localStorage (from notification clicks)
     const stored = localStorage.getItem('open-order-popover');
     if (stored) {
       localStorage.removeItem('open-order-popover');
@@ -53,6 +61,22 @@ export function ActivityCreative() {
     }
     return null;
   });
+
+  // Watch for URL parameter changes and handle orderId from URL
+  useEffect(() => {
+    const urlOrderId = searchParams.get('orderId');
+    if (urlOrderId && urlOrderId !== orderIdToOpen) {
+      console.log(`[ActivityCreative] Reading orderId from URL: ${urlOrderId}`);
+      setOrderIdToOpen(urlOrderId);
+      // Remove the query parameter from URL after reading it (clean up URL)
+      // Use a small delay to ensure the orderId is set before cleaning URL
+      setTimeout(() => {
+        const newSearchParams = new URLSearchParams(searchParams);
+        newSearchParams.delete('orderId');
+        setSearchParams(newSearchParams, { replace: true });
+      }, 100);
+    }
+  }, [searchParams, orderIdToOpen, setSearchParams]);
 
   // When orderIdToOpen is set, also check and apply the correct tab from localStorage
   useEffect(() => {
@@ -65,21 +89,7 @@ export function ActivityCreative() {
         }
       }
     }
-  }, [orderIdToOpen]); // Only depend on orderIdToOpen, not activeTab to avoid loops
-
-  // Also check on mount in case we're navigating to this page with a pending order
-  useEffect(() => {
-    const pendingOrder = localStorage.getItem('open-order-popover');
-    if (pendingOrder && !orderIdToOpen) {
-      const storedTab = localStorage.getItem('activity-active-tab');
-      if (storedTab !== null) {
-        const tabToUse = Number(storedTab);
-        if (activeTab !== tabToUse) {
-          setActiveTab(tabToUse);
-        }
-      }
-    }
-  }, []); // Only run on mount
+  }, [orderIdToOpen, activeTab]); // Include activeTab to avoid stale closure
 
   // Fallback: if order not found in the selected tab, try the other tab
   const hasTriedOtherTabRef = useRef<string | null>(null);
@@ -88,15 +98,13 @@ export function ActivityCreative() {
       hasTriedOtherTabRef.current = orderIdToOpen;
       // Switch to the other tab
       const otherTab = activeTab === 0 ? 1 : 0;
+      console.log(`[ActivityCreative] Order ${orderIdToOpen} not found in tab ${activeTab}, switching to tab ${otherTab}`);
       setActiveTab(otherTab);
       localStorage.setItem('activity-active-tab', String(otherTab));
-      // Clear the ref when orderIdToOpen changes so we can search again
-      if (orderIdToOpen) {
-        // Reset the ref after a short delay to allow the new tab to load
-        setTimeout(() => {
-          hasTriedOtherTabRef.current = null;
-        }, 100);
-      }
+      // Reset the ref after a delay to allow the new tab to load and search
+      setTimeout(() => {
+        hasTriedOtherTabRef.current = null;
+      }, 500); // Increased delay to allow tab switch and data loading
     }
   }, [orderIdToOpen, activeTab]);
 
