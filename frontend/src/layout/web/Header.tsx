@@ -265,18 +265,15 @@ export function Header() {
     
     // Only execute if features menu is actually open and we're not in mobile mode
     if (!featuresOpen || isMobile) {
-      console.log('Menu item click blocked - menu not open or in mobile mode');
       return;
     }
     
-    console.log('Menu item clicked:', item);
     alert(`Clicked: ${item}`);
     setFeaturesAnchorEl(null);
   };
 
   const toggleMobileMenu = (event: React.MouseEvent) => {
     event.stopPropagation();
-    console.log('Hamburger menu clicked');
     setMobileMenuOpen(!mobileMenuOpen);
   };
 
@@ -386,7 +383,7 @@ export function Header() {
             </NavButton>
             
             <NavButton 
-              onClick={() => console.log('Pricing clicked')}
+              onClick={() => {}}
               onMouseEnter={() => {
                 if (featuresOpen) {
                   handleCloseMenu();
@@ -574,7 +571,6 @@ export function Header() {
               </ListItemButton>
               <ListItemButton 
                 onClick={() => {
-                  console.log('Pricing clicked');
                   closeMobileMenu();
                 }}
                 sx={{ 
@@ -669,7 +665,6 @@ export function Header() {
                   <List sx={{ py: { xs: 1, sm: 1.5 } }}>
                     <ListItemButton 
                       onClick={() => {
-                        console.log('Creative Features clicked');
                         closeMobileMenu();
                       }}
                       sx={{ 
@@ -711,7 +706,6 @@ export function Header() {
                     </ListItemButton>
                     <ListItemButton 
                       onClick={() => {
-                        console.log('Client Features clicked');
                         closeMobileMenu();
                       }}
                       sx={{ 
@@ -753,7 +747,6 @@ export function Header() {
                     </ListItemButton>
                     <Box
                       onClick={() => {
-                        console.log('Advocate Details clicked');
                         closeMobileMenu();
                       }}
                       sx={{ 

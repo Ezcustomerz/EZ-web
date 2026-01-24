@@ -89,17 +89,8 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
 
   // Fetch advocate profile once at layout level and provide to children/sidebar
   useEffect(() => {
-    console.log('[LayoutAdvocate] useEffect triggered', { 
-      userProfile: userProfile?.user_id, 
-      userRoles: userProfile?.roles,
-      hasProfile: !!advocateProfile,
-      hasFetched: userProfile ? hasFetchedProfileForUser(userProfile.user_id) : false,
-      isFetching: userProfile ? fetchingRef.current.has(userProfile.user_id) : false
-    });
-    
     const loadProfile = async () => {
       if (!userProfile) {
-        console.log('[LayoutAdvocate] No userProfile, setting null profile');
         setAdvocateProfile(null);
         setProfileLoading(false);
         clearCachedProfiles();
@@ -108,10 +99,6 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
       
       // Don't fetch role-specific profiles during setup or if first_login is true
       if (isSetupInProgress || userProfile.first_login) {
-        console.log('[LayoutAdvocate] Setup in progress or first login, skipping profile fetch', { 
-          isSetupInProgress, 
-          first_login: userProfile.first_login 
-        });
         setAdvocateProfile(null);
         setProfileLoading(false);
         return;
@@ -119,7 +106,6 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
       
       // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
-        console.log('[LayoutAdvocate] Profile already fetched for user, restoring from cache');
         const cachedProfile = getCachedProfileForUser(userProfile.user_id);
         if (cachedProfile) {
           setAdvocateProfile(cachedProfile);
@@ -130,16 +116,11 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
       
       // If we're already fetching for this user, don't start another fetch
       if (fetchingRef.current.has(userProfile.user_id)) {
-        console.log('[LayoutAdvocate] Already fetching for user, skipping duplicate call');
         return;
       }
       
-      console.log('[LayoutAdvocate] Fetching advocate profile for user:', userProfile.user_id);
-      console.log('[LayoutAdvocate] User roles:', userProfile.roles);
-      
       // Check if user has advocate role
       if (!userProfile.roles.includes('advocate')) {
-        console.log('[LayoutAdvocate] User does not have advocate role, setting null profile');
         setAdvocateProfile(null);
         setProfileLoading(false);
         return;
@@ -149,7 +130,6 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
       setProfileLoading(true);
       try {
         const profile = await userService.getAdvocateProfile();
-        console.log('[LayoutAdvocate] Advocate profile fetched successfully:', profile);
         setAdvocateProfile(profile);
         cacheProfileForUser(userProfile.user_id, profile);
       } catch (e) {
