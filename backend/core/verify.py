@@ -77,10 +77,6 @@ def get_public_key_from_jwks(kid: str) -> Optional[Any]:
 
 # ES256 only - no symmetric key needed
 
-# Warn if JWT secret is not configured
-if not SUPABASE_JWT_SECRET:
-    logger.error("SUPABASE_JWT_SECRET is not configured! JWT validation will fail.")
-
 def get_current_user(request: Request) -> Dict[str, Any]:
     """
     Dependency function that requires authentication.
