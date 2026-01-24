@@ -34,10 +34,15 @@ class UserController:
         except HTTPException:
             raise
         except Exception as e:
-            # Check if it's an RLS/permission error (0 rows returned)
+            # Log the full error for debugging
             error_str = str(e)
-            if 'PGRST116' in error_str or '0 rows' in error_str.lower():
+            logger.error(f"Error fetching user profile for user_id {user_id}: {error_str}")
+            logger.error(f"Error type: {type(e).__name__}")
+            
+            # Check if it's an RLS/permission error (0 rows returned)
+            if 'PGRST116' in error_str or '0 rows' in error_str.lower() or 'permission denied' in error_str.lower():
                 # RLS blocked the query - likely authentication issue
+                logger.warning(f"RLS blocked query for user_id {user_id} - authentication may not be working correctly")
                 raise HTTPException(
                     status_code=401, 
                     detail="Authentication failed: Unable to access user profile. Please sign in again."

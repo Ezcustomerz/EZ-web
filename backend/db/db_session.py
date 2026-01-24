@@ -81,38 +81,46 @@ def get_authenticated_client(request: Request) -> Client:
     
     # Create client and authenticate with JWT token for RLS
     # The JWT token must be set in the Authorization header for RLS policies to work
+    # For Supabase Python client, we need to set the token on the postgrest client's session
     try:
         # Create a new client instance
         client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
         
-        # Set the JWT token in the postgrest client's headers
-        # This is required for RLS policies to evaluate auth.uid()
-        # The Supabase Python client uses postgrest for database queries
+        # Set the JWT token on the postgrest client's session headers
+        # This is required for RLS policies to evaluate auth.uid() correctly
         if hasattr(client, 'postgrest'):
-            # Try to set the Authorization header directly
-            # This is the most reliable way to ensure RLS works
             try:
-                # Access the underlying session/headers and set Authorization
+                # The postgrest client uses a session object with headers
+                # We need to set the Authorization header with the JWT token
                 if hasattr(client.postgrest, 'session'):
                     # Set headers on the session object
+                    if not hasattr(client.postgrest.session, 'headers'):
+                        # If headers don't exist, try to create them
+                        client.postgrest.session.headers = {}
                     client.postgrest.session.headers['Authorization'] = f'Bearer {token}'
                     client.postgrest.session.headers['apikey'] = SUPABASE_ANON_KEY
+                    logger.debug("Set JWT token on postgrest session headers")
                 elif hasattr(client.postgrest, 'headers'):
-                    # Set headers directly if session doesn't exist
+                    # Fallback: set headers directly if session doesn't exist
                     client.postgrest.headers['Authorization'] = f'Bearer {token}'
                     client.postgrest.headers['apikey'] = SUPABASE_ANON_KEY
+                    logger.debug("Set JWT token on postgrest headers")
                 else:
-                    # Try the auth() method as fallback
+                    # Last resort: try using the auth() method if available
                     if hasattr(client.postgrest, 'auth'):
                         client.postgrest.auth(token)
+                        logger.debug("Set JWT token using postgrest auth() method")
             except Exception as header_error:
-                logger.warning(f"Could not set JWT headers directly: {header_error}, trying auth() method")
-                # Fallback to auth() method
+                logger.warning(f"Could not set JWT headers on postgrest client: {header_error}")
+                # Try alternative method
                 try:
                     if hasattr(client.postgrest, 'auth'):
                         client.postgrest.auth(token)
+                        logger.debug("Set JWT token using postgrest auth() method (fallback)")
                 except Exception as auth_error:
-                    logger.error(f"Failed to set JWT token via auth() method: {auth_error}")
+                    logger.error(f"Failed to set JWT token via any method: {auth_error}")
+        
+        logger.debug(f"Created authenticated Supabase client with JWT token (token length: {len(token)})")
     except Exception as e:
         # If authentication fails, log and return unauthenticated client
         logger.error(f"Failed to authenticate Supabase client with JWT token: {e}")
