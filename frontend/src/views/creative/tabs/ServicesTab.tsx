@@ -34,6 +34,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<CreativeService | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [loadFromDraft, setLoadFromDraft] = useState(false);
   
   // Bundle editing and deletion state
   const [editingBundle, setEditingBundle] = useState<CreativeBundle | null>(null);
@@ -165,6 +166,13 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
   const handleDeleteService = (service: CreativeService) => {
     setServiceToDelete(service);
     setDeleteDialogOpen(true);
+  };
+
+  // Handle resume draft
+  const handleResumeDraft = () => {
+    setLoadFromDraft(true);
+    setServiceCreationOpen(false);
+    setServiceFormOpen(true);
   };
 
   // Handle edit bundle
@@ -718,6 +726,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
         open={serviceCreationOpen}
         onClose={() => setServiceCreationOpen(false)}
         onCreateService={() => {
+          setLoadFromDraft(false);
           setServiceCreationOpen(false);
           setServiceFormOpen(true);
         }}
@@ -725,6 +734,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           setServiceCreationOpen(false);
           setBundleCreationOpen(true);
         }}
+        onResumeDraft={handleResumeDraft}
       />
 
       {/* Service Form Popover */}
@@ -733,10 +743,12 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
         onClose={() => {
           setServiceFormOpen(false);
           setEditingService(null); // Clear editing state when closing
+          setLoadFromDraft(false); // Reset draft flag
         }}
         onBack={() => {
           setServiceFormOpen(false);
           setEditingService(null); // Clear editing state when going back
+          setLoadFromDraft(false); // Reset draft flag
           setServiceCreationOpen(true);
         }}
         onSubmit={async () => {
@@ -745,9 +757,11 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           await refreshServices();
           setServiceFormOpen(false);
           setEditingService(null);
+          setLoadFromDraft(false); // Reset draft flag
         }}
         mode={editingService ? 'edit' : 'create'}
         creativeProfile={creativeProfile}
+        loadFromDraft={loadFromDraft}
         initialService={editingService ? {
           id: editingService.id,
           title: editingService.title,
