@@ -7,6 +7,7 @@ import {
   Stack,
   IconButton,
   Alert,
+  Collapse,
 } from '@mui/material';
 import { 
   Upload,
@@ -18,6 +19,42 @@ import {
 } from '@mui/icons-material';
 import React, { useCallback, useState, useEffect } from 'react';
 import { errorToast } from '../../toast/toast';
+
+// Progress bar component for duplicate error alert
+const DuplicateErrorProgressBar = ({ startTime, duration = 3000 }: { startTime: number; duration?: number }) => {
+  const [progress, setProgress] = useState(100);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, duration - elapsed);
+      const progressPercent = (remaining / duration) * 100;
+      setProgress(progressPercent);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 50); // Update every 50ms for smooth animation
+
+    return () => clearInterval(interval);
+  }, [startTime, duration]);
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        height: 4,
+        backgroundColor: '#d32f2f', // Dark red color for error alerts
+        width: `${progress}%`,
+        transition: 'width 50ms linear',
+        borderRadius: '0 0 4px 4px',
+        zIndex: 1,
+      }}
+    />
+  );
+};
 
 // Define uploaded file interface
 interface UploadedFile {
@@ -54,6 +91,8 @@ export function ServiceFinalizationStep({
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [duplicateFileError, setDuplicateFileError] = useState<string | null>(null);
+  const [duplicateErrorStartTime, setDuplicateErrorStartTime] = useState<number>(0);
 
   // Check if current uploaded files would exceed storage limit
   const checkCurrentStorageExceeded = useCallback(() => {
@@ -139,8 +178,32 @@ export function ServiceFinalizationStep({
       return;
     }
 
+    // Check for duplicate filenames
+    const existingFilenames = new Set(uploadedFiles.map(f => f.name));
+    const duplicates: string[] = [];
+    const uniqueFiles = validFiles.filter(file => {
+      if (existingFilenames.has(file.name)) {
+        duplicates.push(file.name);
+        return false;
+      }
+      return true;
+    });
+
+    // Show warning if duplicates were detected
+    if (duplicates.length > 0) {
+      setDuplicateFileError(duplicates.length === 1 ? 'Duplicate file detected' : `${duplicates.length} duplicate files detected`);
+      setDuplicateErrorStartTime(Date.now());
+      // Clear error after 3 seconds
+      setTimeout(() => setDuplicateFileError(null), 3000);
+    }
+
+    if (uniqueFiles.length === 0) {
+      setIsUploading(false);
+      return;
+    }
+
     // Check storage limit before allowing upload
-    const storageCheck = checkStorageLimit(validFiles);
+    const storageCheck = checkStorageLimit(uniqueFiles);
     if (!storageCheck.allowed) {
       setStorageError(storageCheck.error || 'Storage limit would be exceeded');
       errorToast(storageCheck.error || 'Storage limit would be exceeded');
@@ -155,7 +218,7 @@ export function ServiceFinalizationStep({
     const newFiles: UploadedFile[] = [];
     let processedCount = 0;
     
-    validFiles.forEach((file) => {
+    uniqueFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const newFile: UploadedFile = {
@@ -172,14 +235,14 @@ export function ServiceFinalizationStep({
         processedCount++;
         
         // When all files are processed, add them all at once
-        if (processedCount === validFiles.length) {
+        if (processedCount === uniqueFiles.length) {
           onFilesChange([...uploadedFiles, ...newFiles]);
           setIsUploading(false);
         }
       };
       reader.onerror = () => {
         processedCount++;
-        if (processedCount === validFiles.length) {
+        if (processedCount === uniqueFiles.length) {
           onFilesChange([...uploadedFiles, ...newFiles]);
           setIsUploading(false);
         }
@@ -364,6 +427,24 @@ export function ServiceFinalizationStep({
             {storageError}
           </Alert>
         )}
+
+        {/* Duplicate File Error Alert */}
+        <Collapse in={!!duplicateFileError}>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 3,
+              position: 'relative',
+              overflow: 'hidden',
+              paddingBottom: '0 !important', // Remove bottom padding to show progress bar
+            }}
+          >
+            <Box sx={{ pb: 1 }}>
+              {duplicateFileError}
+            </Box>
+            {duplicateErrorStartTime > 0 && <DuplicateErrorProgressBar startTime={duplicateErrorStartTime} />}
+          </Alert>
+        </Collapse>
 
         {/* Upload Area */}
         <Box
