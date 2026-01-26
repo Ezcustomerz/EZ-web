@@ -2546,20 +2546,13 @@ export function ServiceFormPopover({
         pb: 2,
         flexShrink: 0
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {onBack && (
-            <IconButton onClick={onBack} size="small">
-              <ArrowBackIcon />
-            </IconButton>
-          )}
-          <Box>
-            <Typography variant="h6" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
-              {mode === 'edit' ? 'Edit Service' : 'Create Service'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Step {activeStep + 1} of {steps.length}: {steps[activeStep]}
-            </Typography>
-          </Box>
+        <Box>
+          <Typography variant="h6" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
+            {mode === 'edit' ? 'Edit Service' : 'Create Service'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Step {activeStep + 1} of {steps.length}: {steps[activeStep]}
+          </Typography>
         </Box>
         <IconButton onClick={onClose} size="small">
           <CloseIcon />
