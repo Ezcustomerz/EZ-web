@@ -1082,6 +1082,285 @@ class EmailService:
             'button_text': 'View Details'
         })
 
+    async def send_contact_form_email(
+        self,
+        sender_name: str,
+        sender_email: str,
+        message: str
+    ) -> bool:
+        """
+        Send contact form submission to admin email
+
+        Args:
+            sender_name: Name of the person contacting
+            sender_email: Email of the person contacting
+            message: Their message
+
+        Returns:
+            True if email was sent successfully, False otherwise
+        """
+        if not resend.api_key:
+            logger.warning(f"Skipping contact form email - RESEND_API_KEY not configured")
+            return False
+
+        try:
+            # In test mode, redirect to test email
+            admin_email = "ezcustomers.info@gmail.com"
+            actual_recipient = self.test_email if self.is_test_mode and self.test_email else admin_email
+
+            # Build HTML email
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }}
+                    .header {{
+                        text-align: center;
+                        padding: 30px 0;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border-radius: 8px 8px 0 0;
+                    }}
+                    .content {{
+                        padding: 30px;
+                        background: #f8fafc;
+                        border-radius: 0 0 8px 8px;
+                    }}
+                    .contact-card {{
+                        background: white;
+                        padding: 20px;
+                        border-radius: 8px;
+                        margin: 20px 0;
+                        border-left: 4px solid #667eea;
+                    }}
+                    .field {{
+                        margin-bottom: 15px;
+                    }}
+                    .label {{
+                        font-weight: bold;
+                        color: #667eea;
+                        margin-bottom: 5px;
+                    }}
+                    .value {{
+                        color: #333;
+                    }}
+                    .footer {{
+                        text-align: center;
+                        padding: 20px;
+                        color: #666;
+                        font-size: 14px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    {f'<img src="cid:logo" alt="EZ-web Logo" style="max-width: 120px; height: auto; margin-bottom: 20px;" />' if self.logo_path else ''}
+                    <h1 style="margin: 0;">New Contact Form Submission</h1>
+                </div>
+                <div class="content">
+                    {'<p style="background: #fef3c7; padding: 10px; border-radius: 4px; font-size: 14px;">⚠️ TEST MODE: This email was redirected to test address</p>' if self.is_test_mode else ''}
+                    <p>You have received a new message from the EZ-web contact form:</p>
+
+                    <div class="contact-card">
+                        <div class="field">
+                            <div class="label">From:</div>
+                            <div class="value">{sender_name}</div>
+                        </div>
+                        <div class="field">
+                            <div class="label">Email:</div>
+                            <div class="value">{sender_email}</div>
+                        </div>
+                        <div class="field">
+                            <div class="label">Message:</div>
+                            <div class="value" style="white-space: pre-wrap;">{message}</div>
+                        </div>
+                    </div>
+
+                    <p style="color: #666; font-size: 14px;">
+                        You can reply directly to this email to respond to {sender_name}.
+                    </p>
+                </div>
+                <div class="footer">
+                    <p>&copy; 2026 EZ-web. All rights reserved.</p>
+                </div>
+            </body>
+            </html>
+            """
+
+            # Prepare email parameters with reply-to
+            params = {
+                "from": self.from_email,
+                "to": [actual_recipient],
+                "reply_to": [sender_email],
+                "subject": "New Contact Form Submission - EZ-web",
+                "html": html_content
+            }
+
+            # Add logo as inline attachment if available
+            if self.logo_path:
+                try:
+                    with open(self.logo_path, "rb") as logo_file:
+                        logo_data = logo_file.read()
+                        logo_base64 = base64.b64encode(logo_data).decode('utf-8')
+                        params["attachments"] = [{
+                            "filename": "logo.png",
+                            "content": logo_base64,
+                            "content_id": "logo",
+                            "content_type": "image/png"
+                        }]
+                except Exception as e:
+                    logger.warning(f"Failed to attach logo: {str(e)}")
+
+            response = resend.Emails.send(params)
+            logger.info(f"Contact form email sent to {actual_recipient}. Email ID: {response.get('id')}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to send contact form email: {str(e)}")
+            return False
+
+    async def send_contact_confirmation_email(
+        self,
+        to_email: str,
+        name: str,
+        message: str
+    ) -> bool:
+        """
+        Send confirmation email to user who submitted contact form
+
+        Args:
+            to_email: Email of the person who contacted us
+            name: Their name
+            message: Copy of their message
+
+        Returns:
+            True if email was sent successfully, False otherwise
+        """
+        if not resend.api_key:
+            logger.warning(f"Skipping contact confirmation email - RESEND_API_KEY not configured")
+            return False
+
+        try:
+            # In test mode, redirect to test email
+            actual_recipient = self.test_email if self.is_test_mode and self.test_email else to_email
+
+            # Build HTML email
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 20px;
+                    }}
+                    .header {{
+                        text-align: center;
+                        padding: 30px 0;
+                        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                        color: white;
+                        border-radius: 8px 8px 0 0;
+                    }}
+                    .content {{
+                        padding: 30px;
+                        background: #f8fafc;
+                        border-radius: 0 0 8px 8px;
+                    }}
+                    .message-card {{
+                        background: white;
+                        padding: 20px;
+                        border-radius: 8px;
+                        margin: 20px 0;
+                        border-left: 4px solid #10b981;
+                    }}
+                    .footer {{
+                        text-align: center;
+                        padding: 20px;
+                        color: #666;
+                        font-size: 14px;
+                    }}
+                    a {{
+                        color: #667eea;
+                        text-decoration: none;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    {f'<img src="cid:logo" alt="EZ-web Logo" style="max-width: 120px; height: auto; margin-bottom: 20px;" />' if self.logo_path else ''}
+                    <h1 style="margin: 0;">Thanks for Contacting Us!</h1>
+                </div>
+                <div class="content">
+                    {'<p style="background: #fef3c7; padding: 10px; border-radius: 4px; font-size: 14px;">⚠️ TEST MODE: This email was redirected to test address</p>' if self.is_test_mode else ''}
+                    <p>Hi {name},</p>
+
+                    <p>Thank you for reaching out to EZ-web! We've received your message and will get back to you as soon as possible.</p>
+
+                    <div class="message-card">
+                        <p style="font-weight: bold; color: #10b981; margin-top: 0;">Your message:</p>
+                        <p style="white-space: pre-wrap; color: #666;">{message}</p>
+                    </div>
+
+                    <p>We typically respond within 24-48 hours. In the meantime, feel free to explore our platform at <a href="https://ez-web.com">ez-web.com</a>.</p>
+
+                    <p>Best regards,<br>The EZ-web Team</p>
+                </div>
+                <div class="footer">
+                    <p>This email was sent to {to_email}</p>
+                    <p>&copy; 2026 EZ-web. All rights reserved.</p>
+                </div>
+            </body>
+            </html>
+            """
+
+            # Prepare email parameters
+            params = {
+                "from": self.from_email,
+                "to": [actual_recipient],
+                "subject": "Thanks for contacting EZ-web!",
+                "html": html_content
+            }
+
+            # Add logo as inline attachment if available
+            if self.logo_path:
+                try:
+                    with open(self.logo_path, "rb") as logo_file:
+                        logo_data = logo_file.read()
+                        logo_base64 = base64.b64encode(logo_data).decode('utf-8')
+                        params["attachments"] = [{
+                            "filename": "logo.png",
+                            "content": logo_base64,
+                            "content_id": "logo",
+                            "content_type": "image/png"
+                        }]
+                except Exception as e:
+                    logger.warning(f"Failed to attach logo: {str(e)}")
+
+            response = resend.Emails.send(params)
+            if self.is_test_mode and self.test_email and actual_recipient != to_email:
+                logger.info(f"Contact confirmation sent to TEST EMAIL ({actual_recipient}) - originally for {to_email}. Email ID: {response.get('id')}")
+            else:
+                logger.info(f"Contact confirmation sent to {to_email}. Email ID: {response.get('id')}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to send contact confirmation email to {to_email}: {str(e)}")
+            return False
+
 
 # Create a singleton instance
 email_service = EmailService()
