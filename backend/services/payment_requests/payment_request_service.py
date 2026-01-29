@@ -3,6 +3,7 @@ import logging
 import stripe
 from typing import Dict, Any, Optional
 from fastapi import HTTPException
+from core.safe_errors import log_exception_if_dev, is_dev_env
 from supabase import Client
 from db.db_session import db_admin
 
@@ -30,7 +31,7 @@ async def _send_notification_email(notification_data: Dict[str, Any], recipient_
             client=client
         )
     except Exception as e:
-        logger.warning(f"Failed to send notification email: {str(e)}")
+        log_exception_if_dev(logger, "Failed to send notification email", e)
 
 # Get Stripe secret key from environment
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
@@ -197,7 +198,8 @@ class PaymentRequestService:
                 }
                 
                 notification_result = db_admin.table("notifications").insert(notification_data).execute()
-                logger.info(f"Payment request notification created for client: {final_client_user_id}, notification_id: {notification_result.data[0]['id'] if notification_result.data else 'unknown'}")
+                if is_dev_env():
+                    logger.info("Payment request notification created for client: %s, notification_id: %s", final_client_user_id, notification_result.data[0]['id'] if notification_result.data else 'unknown')
                 
                 # Send email notification
                 if notification_result.data:
@@ -207,19 +209,19 @@ class PaymentRequestService:
                         client_name = client_result.data.get('display_name', 'Client') if client_result.data else 'Client'
                         await _send_notification_email(notification_data, final_client_user_id, client_name, db_admin)
                     except Exception as email_error:
-                        logger.warning(f"Failed to send payment request email: {str(email_error)}")
+                        log_exception_if_dev(logger, "Failed to send payment request email", email_error)
             except Exception as notif_error:
                 # Log error but don't fail payment request creation
-                logger.error(f"Failed to create payment request notification: {notif_error}", exc_info=True)
+                log_exception_if_dev(logger, "Failed to create payment request notification", notif_error)
             
             return payment_request
             
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error creating payment request: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to create payment request: {str(e)}")
-    
+            log_exception_if_dev(logger, "Error creating payment request", e)
+            raise HTTPException(status_code=500, detail="Failed to create payment request")
+
     @staticmethod
     async def get_client_payment_requests(
         client_user_id: str,
@@ -349,9 +351,9 @@ class PaymentRequestService:
             }
             
         except Exception as e:
-            logger.error(f"Error fetching payment requests: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch payment requests: {str(e)}")
-    
+            log_exception_if_dev(logger, "Error fetching payment requests", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch payment requests")
+
     @staticmethod
     async def get_creative_payment_requests(
         creative_user_id: str,
@@ -480,8 +482,8 @@ class PaymentRequestService:
             }
             
         except Exception as e:
-            logger.error(f"Error fetching creative payment requests: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch payment requests: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching creative payment requests", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch payment requests")
     
     @staticmethod
     async def get_pending_count(
@@ -507,7 +509,7 @@ class PaymentRequestService:
             return result.count or 0
             
         except Exception as e:
-            logger.error(f"Error fetching pending count: {e}")
+            log_exception_if_dev(logger, "Error fetching pending count", e)
             return 0  # Return 0 on error to avoid breaking UI
     
     @staticmethod
@@ -597,8 +599,8 @@ class PaymentRequestService:
             return payment_requests
             
         except Exception as e:
-            logger.error(f"Error fetching payment requests for booking: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch payment requests: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching payment requests for booking", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch payment requests")
     
     @staticmethod
     async def process_payment_request(
@@ -722,8 +724,8 @@ class PaymentRequestService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error processing payment request: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to process payment: {str(e)}")
+            log_exception_if_dev(logger, "Error processing payment request", e)
+            raise HTTPException(status_code=500, detail="Failed to process payment")
     
     @staticmethod
     async def verify_payment_request(
@@ -929,19 +931,21 @@ class PaymentRequestService:
                     client_notif_result = db_admin.table("notifications")\
                         .insert(client_notification_data)\
                         .execute()
-                    logger.info(f"Client payment notification created for client: {client_user_id}, notification_id: {client_notif_result.data[0]['id'] if client_notif_result.data else 'unknown'}")
+                    if is_dev_env():
+                        logger.info("Client payment notification created for client: %s, notification_id: %s", client_user_id, client_notif_result.data[0]['id'] if client_notif_result.data else 'unknown')
                     
                     # Send email notification
                     if client_notif_result.data:
                         await _send_notification_email(client_notification_data, client_user_id, client_display_name, db_admin)
                 except Exception as notif_error:
-                    logger.error(f"Failed to create client payment notification: {notif_error}", exc_info=True)
+                    log_exception_if_dev(logger, "Failed to create client payment notification", notif_error)
                 
                 try:
                     creative_notif_result = db_admin.table("notifications")\
                         .insert(creative_notification_data)\
                         .execute()
-                    logger.info(f"Creative payment notification created for creative: {creative_user_id}, notification_id: {creative_notif_result.data[0]['id'] if creative_notif_result.data else 'unknown'}")
+                    if is_dev_env():
+                        logger.info("Creative payment notification created for creative: %s, notification_id: %s", creative_user_id, creative_notif_result.data[0]['id'] if creative_notif_result.data else 'unknown')
                     
                     # Send email notification
                     if creative_notif_result.data:
@@ -951,13 +955,13 @@ class PaymentRequestService:
                             creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
                             await _send_notification_email(creative_notification_data, creative_user_id, creative_name, db_admin)
                         except Exception as email_error:
-                            logger.warning(f"Failed to send payment received email to creative: {str(email_error)}")
+                            log_exception_if_dev(logger, "Failed to send payment received email to creative", email_error)
                 except Exception as notif_error:
-                    logger.error(f"Failed to create creative payment notification: {notif_error}", exc_info=True)
-                    
+                    log_exception_if_dev(logger, "Failed to create creative payment notification", notif_error)
+
             except Exception as notif_error:
                 # Log error but don't fail payment verification
-                logger.error(f"Error creating payment notifications: {notif_error}", exc_info=True)
+                log_exception_if_dev(logger, "Error creating payment notifications", notif_error)
             
             return {
                 "success": True,
@@ -968,10 +972,11 @@ class PaymentRequestService:
             }
             
         except stripe.error.StripeError as e:
-            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+            log_exception_if_dev(logger, "Stripe error verifying payment", e)
+            raise HTTPException(status_code=400, detail="Payment verification failed")
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error verifying payment request: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to verify payment: {str(e)}")
+            log_exception_if_dev(logger, "Error verifying payment request", e)
+            raise HTTPException(status_code=500, detail="Failed to verify payment")
 

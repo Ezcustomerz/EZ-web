@@ -734,13 +734,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Clear pending booking data
                 localStorage.removeItem('pendingServiceBooking');
                 
-                // Navigate to orders page instead of dashboard
-                navigate('/client/orders', { replace: true });
-                
+                // Ensure profile (and loading state) are committed before navigation so
+                // /client/orders RoleGuard sees updated userProfile and renders content
+                setSetupCompletionLoading(false);
+                try {
+                  await fetchUserProfile(false);
+                } catch (e) {
+                  console.warn('[Auth] Profile refresh before navigate:', e);
+                }
+                // Defer navigate so React commits state; avoids white screen on orders page
                 setTimeout(() => {
-                  setSetupCompletionLoading(false);
+                  navigate('/client/orders', { replace: true });
                   console.log('[Auth] ===== BOOKING COMPLETE =====');
-                }, 100);
+                }, 0);
               } else {
                 throw new Error(bookingResponse.message || 'Failed to create booking');
               }

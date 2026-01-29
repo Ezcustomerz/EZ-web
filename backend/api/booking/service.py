@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 import logging
 from core.verify import get_current_user_optional
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from services.booking.booking_service import BookingService
 from supabase import Client
@@ -29,7 +30,7 @@ async def get_calendar_settings(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching calendar settings: {e}")
+        log_exception_if_dev(logger, "Error fetching calendar settings", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/service/{service_id}/weekly-schedule")
@@ -52,7 +53,7 @@ async def get_weekly_schedule(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching weekly schedule: {e}")
+        log_exception_if_dev(logger, "Error fetching weekly schedule", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/service/{service_id}/time-slots")
@@ -83,7 +84,7 @@ async def get_time_slots(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching time slots: {e}")
+        log_exception_if_dev(logger, "Error fetching time slots", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/service/{service_id}/available-dates")
@@ -119,7 +120,7 @@ async def get_available_dates(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching available dates: {e}")
+        log_exception_if_dev(logger, "Error fetching available dates", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/service/{service_id}/available-time-slots")
@@ -144,7 +145,7 @@ async def get_available_time_slots(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching available time slots: {e}")
+        log_exception_if_dev(logger, "Error fetching available time slots", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/service/{service_id}/booking-data")
@@ -165,6 +166,6 @@ async def get_service_booking_data(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching service booking data: {e}")
+        log_exception_if_dev(logger, "Error fetching service booking data", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 

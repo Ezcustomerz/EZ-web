@@ -10,6 +10,7 @@ from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+from core.safe_errors import log_exception_if_dev
 import logging
 
 logger = logging.getLogger(__name__)
@@ -276,7 +277,7 @@ class InvoiceService:
             return buffer.getvalue()
             
         except Exception as e:
-            logger.error(f"Error generating invoice: {e}")
+            log_exception_if_dev(logger, "Error generating invoice", e)
             raise
 
 

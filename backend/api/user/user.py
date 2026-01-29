@@ -1,13 +1,16 @@
+import logging
 from fastapi import APIRouter, Request, HTTPException, Depends
 from services.user.user_service import UserController
 from schemas.user import RoleProfilesResponse
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/profile")
 @limiter.limit("2 per second")
@@ -31,11 +34,12 @@ async def get_user_profile(
     except HTTPException:
         raise
     except Exception as e:
+        log_exception_if_dev(logger, "Error in get_user_profile", e)
         # Check if it's an authentication-related error
         error_str = str(e).lower()
         if 'auth' in error_str or 'unauthorized' in error_str or 'permission' in error_str:
             raise HTTPException(status_code=401, detail="Authentication failed: Sign in was unsuccessful")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch user profile: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch user profile")
 
 @router.get("/role-profiles", response_model=RoleProfilesResponse)
 @limiter.limit("2 per second")
@@ -60,11 +64,12 @@ async def get_user_role_profiles(
     except HTTPException:
         raise
     except Exception as e:
+        log_exception_if_dev(logger, "Error in get_user_role_profiles", e)
         # Check if it's an authentication-related error
         error_str = str(e).lower()
-        if 'auth' in error_str or 'unauthorized' in error_str or 'permission' in error_str or 'PGRST116' in error_str:
+        if 'auth' in error_str or 'unauthorized' in error_str or 'permission' in error_str or 'pgrst116' in error_str:
             raise HTTPException(status_code=401, detail="Authentication failed: Unable to access role profiles")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch role profiles: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch role profiles")
 
 @router.get("/subscription-tiers")
 @limiter.limit("10 per second")
@@ -84,4 +89,5 @@ async def get_subscription_tiers(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch subscription tiers: {str(e)}")
+        log_exception_if_dev(logger, "Error in get_subscription_tiers", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch subscription tiers")

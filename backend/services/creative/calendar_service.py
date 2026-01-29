@@ -1,13 +1,17 @@
 """Calendar settings service for creative services"""
+import logging
 from fastapi import HTTPException, Request
+from core.safe_errors import log_exception_if_dev
 from db.db_session import db_admin
 from schemas.creative import CalendarSettingsRequest
 from supabase import Client
 from core.timezone_utils import (
-    convert_time_blocks_to_utc, 
+    convert_time_blocks_to_utc,
     convert_time_slots_to_utc,
     get_user_timezone_from_request
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CalendarService:
@@ -114,9 +118,12 @@ class CalendarService:
                         
                         if time_slots_data:
                             db_admin.table('time_slots').insert(time_slots_data).execute()
-            
+
+        except HTTPException:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save calendar settings: {str(e)}")
+            log_exception_if_dev(logger, "Failed to save calendar settings", e)
+            raise HTTPException(status_code=500, detail="Failed to save calendar settings")
 
     @staticmethod
     async def get_calendar_settings(service_id: str, user_id: str, client: Client):
@@ -204,5 +211,6 @@ class CalendarService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get calendar settings: {str(e)}")
+            log_exception_if_dev(logger, "Failed to get calendar settings", e)
+            raise HTTPException(status_code=500, detail="Failed to get calendar settings")
 

@@ -5,6 +5,7 @@ import os
 from fastapi import HTTPException
 from supabase import Client
 from db.db_session import db_admin
+from core.safe_errors import log_exception_if_dev, is_dev_env
 from schemas.booking import (
     OrdersListResponse, OrderResponse, OrderFile, Invoice,
     CalendarSessionsResponse, CalendarSessionResponse
@@ -26,7 +27,8 @@ class OrderService:
             logger.info(f"[_get_invoices_for_booking] Allowed statuses: {allowed_statuses}")
             
             if client_status not in allowed_statuses:
-                logger.warning(f"[_get_invoices_for_booking] Status '{client_status}' not in allowed statuses {allowed_statuses}, returning empty list")
+                if is_dev_env():
+                    logger.warning("[_get_invoices_for_booking] Status not in allowed statuses, returning empty list")
                 return []
             
             invoices = []
@@ -45,7 +47,8 @@ class OrderService:
                 import stripe
                 stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
                 if not stripe_secret_key:
-                    logger.warning(f"STRIPE_SECRET_KEY not found in environment variables, skipping Stripe receipts for booking {booking_id}")
+                    if is_dev_env():
+                        logger.warning("STRIPE_SECRET_KEY not found, skipping Stripe receipts for booking")
                     return invoices
                 stripe.api_key = stripe_secret_key
                 
@@ -99,13 +102,13 @@ class OrderService:
                             download_url=f'/api/bookings/invoice/stripe/{booking_id}?session_id={booking_sessions[0].id}'
                         ))
             except Exception as e:
-                logger.warning(f"Could not retrieve Stripe receipts for booking {booking_id}: {e}")
+                log_exception_if_dev(logger, "Could not retrieve Stripe receipts for booking", e)
                 # Continue without Stripe receipts
             
             logger.info(f"[_get_invoices_for_booking] Returning {len(invoices)} invoices for booking {booking_id}")
             return invoices
         except Exception as e:
-            logger.error(f"Error getting invoices for booking {booking.get('id')}: {e}", exc_info=True)
+            log_exception_if_dev(logger, "Error getting invoices for booking", e)
             return []
 
     @staticmethod
@@ -134,7 +137,7 @@ class OrderService:
                 else:
                     booking_date_display = f"{date_str}T00:00:00Z"
             except Exception as e:
-                logger.warning(f"Error formatting booking date: {e}")
+                log_exception_if_dev(logger, "Error formatting booking date", e)
                 booking_date_display = None
         
         # Determine the status for view
@@ -161,7 +164,7 @@ class OrderService:
                     order_files = [OrderFile(**f) if isinstance(f, dict) else f for f in files]
                     logger.debug(f"[_build_order_response] Converted {len(order_files)} files for booking {booking.get('id')} (creative view)")
                 except Exception as e:
-                    logger.error(f"[_build_order_response] Error converting files to OrderFile: {e}", exc_info=True)
+                    log_exception_if_dev(logger, "[_build_order_response] Error converting files to OrderFile", e)
                     order_files = None
             
             return OrderResponse(
@@ -203,7 +206,7 @@ class OrderService:
                     order_files = [OrderFile(**f) for f in files]
                     logger.debug(f"[_build_order_response] Converted {len(order_files)} files for booking {booking.get('id')}")
                 except Exception as e:
-                    logger.error(f"[_build_order_response] Error converting files to OrderFile: {e}", exc_info=True)
+                    log_exception_if_dev(logger, "[_build_order_response] Error converting files to OrderFile", e)
                     order_files = None
             
             # Get invoices if client is provided and status allows
@@ -216,7 +219,7 @@ class OrderService:
                     if order_invoices is None:
                         order_invoices = []
                 except Exception as e:
-                    logger.error(f"Could not get invoices for booking {booking.get('id')}: {e}", exc_info=True)
+                    log_exception_if_dev(logger, "Could not get invoices for booking", e)
                     order_invoices = []
             else:
                 logger.debug(f"[_build_order_response] Skipping invoices - client: {client is not None}, is_creative_view: {is_creative_view}")
@@ -368,7 +371,7 @@ class OrderService:
                     logger.info(f"[get_client_orders] Deliverables dict has {len(deliverables_dict)} bookings with files")
                     logger.info(f"[get_client_orders] Deliverables dict keys: {list(deliverables_dict.keys())}")
                 except Exception as e:
-                    logger.error(f"Error fetching deliverables in get_client_orders: {e}", exc_info=True)
+                    log_exception_if_dev(logger, "Error fetching deliverables in get_client_orders", e)
                     deliverables_dict = {}
             
             orders = []
@@ -398,8 +401,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching client orders: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch client orders: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching client orders", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch client orders")
 
     @staticmethod
     async def get_client_in_progress_orders(user_id: str, client: Client) -> OrdersListResponse:
@@ -460,8 +463,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching client in-progress orders: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch client in-progress orders: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching client in-progress orders", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch client in-progress orders")
 
     @staticmethod
     async def get_client_action_needed_orders(user_id: str, client: Client) -> OrdersListResponse:
@@ -571,7 +574,7 @@ class OrderService:
                     logger.info(f"[get_client_action_needed_orders] Deliverables dict keys: {list(deliverables_dict.keys())}")
                     logger.info(f"[get_client_action_needed_orders] Deliverables dict: {deliverables_dict}")
                 except Exception as e:
-                    logger.error(f"Error fetching deliverables: {e}", exc_info=True)
+                    log_exception_if_dev(logger, "Error fetching deliverables", e)
                     deliverables_dict = {}
             
             orders = []
@@ -596,8 +599,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching client action-needed orders: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch client action-needed orders: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching client action-needed orders", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch client action-needed orders")
 
     @staticmethod
     async def get_client_history_orders(user_id: str, client: Client) -> OrdersListResponse:
@@ -669,8 +672,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching client history orders: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch client history orders: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching client history orders", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch client history orders")
 
     @staticmethod
     async def get_client_upcoming_bookings(user_id: str, client: Client) -> OrdersListResponse:
@@ -744,8 +747,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching client upcoming bookings: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch client upcoming bookings: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching client upcoming bookings", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch client upcoming bookings")
 
     @staticmethod
     async def get_creative_orders(user_id: str, client: Client) -> OrdersListResponse:
@@ -803,8 +806,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching creative orders: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative orders: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching creative orders", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative orders")
 
     @staticmethod
     async def get_creative_current_orders(user_id: str, client: Client) -> OrdersListResponse:
@@ -862,8 +865,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching creative current orders: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative current orders: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching creative current orders", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative current orders")
 
     @staticmethod
     async def get_creative_past_orders(user_id: str, client: Client) -> OrdersListResponse:
@@ -958,7 +961,7 @@ class OrderService:
                             'downloaded_at': deliverable.get('downloaded_at')
                         })
                 except Exception as e:
-                    logger.error(f"Error fetching deliverables in get_creative_past_orders: {e}", exc_info=True)
+                    log_exception_if_dev(logger, "Error fetching deliverables in get_creative_past_orders", e)
                     deliverables_dict = {}
             
             orders = []
@@ -983,8 +986,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching creative past orders: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative past orders: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching creative past orders", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative past orders")
 
     @staticmethod
     async def get_creative_dashboard_stats(user_id: str, client: Client) -> Dict[str, Any]:
@@ -1139,8 +1142,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching creative dashboard stats: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative dashboard stats: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching creative dashboard stats", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative dashboard stats")
 
     @staticmethod
     async def get_creative_calendar_sessions(user_id: str, year: int, month: int, client: Client) -> CalendarSessionsResponse:
@@ -1259,8 +1262,8 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching creative calendar sessions: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch calendar sessions: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching creative calendar sessions", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch calendar sessions")
 
     @staticmethod
     async def get_creative_calendar_sessions_week(user_id: str, start_date: str, end_date: str, client: Client) -> CalendarSessionsResponse:
@@ -1375,6 +1378,6 @@ class OrderService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching creative calendar sessions for week: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch calendar sessions: {str(e)}")
+            log_exception_if_dev(logger, "Error fetching creative calendar sessions for week", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch calendar sessions")
 

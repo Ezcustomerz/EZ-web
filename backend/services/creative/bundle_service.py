@@ -1,5 +1,7 @@
 """Bundle service for creative bundles"""
+import logging
 from fastapi import HTTPException
+from core.safe_errors import log_exception_if_dev
 from db.db_session import db_admin
 from schemas.creative import (
     CreateBundleRequest, CreateBundleResponse,
@@ -7,6 +9,8 @@ from schemas.creative import (
     CreativeBundleResponse, CreativeBundlesListResponse, BundleServiceResponse
 )
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 
 
 class BundleService:
@@ -98,7 +102,8 @@ class BundleService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create bundle: {str(e)}")
+            log_exception_if_dev(logger, "Failed to create bundle", e)
+            raise HTTPException(status_code=500, detail="Failed to create bundle")
 
     @staticmethod
     async def update_bundle(user_id: str, bundle_id: str, bundle_request: UpdateBundleRequest, client: Client = None) -> UpdateBundleResponse:
@@ -191,7 +196,8 @@ class BundleService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update bundle: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update bundle", e)
+            raise HTTPException(status_code=500, detail="Failed to update bundle")
 
     @staticmethod
     async def delete_bundle(user_id: str, bundle_id: str, client: Client = None) -> DeleteBundleResponse:
@@ -233,5 +239,6 @@ class BundleService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete bundle: {str(e)}")
+            log_exception_if_dev(logger, "Failed to delete bundle", e)
+            raise HTTPException(status_code=500, detail="Failed to delete bundle")
 

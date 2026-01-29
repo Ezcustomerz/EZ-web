@@ -1,7 +1,8 @@
+import logging
 from fastapi import HTTPException
 from typing import List, Optional, Dict, Any
-import logging
 from supabase import Client
+from core.safe_errors import log_exception_if_dev
 from db.db_session import db_admin
 from schemas.notifications import NotificationResponse, UnreadCountResponse
 from postgrest.exceptions import APIError
@@ -134,7 +135,7 @@ class NotificationsController:
                             if booking.get('creative_user_id'):
                                 user_ids_needing_avatar_color.add(booking['creative_user_id'])
                 except Exception as e:
-                    logger.error(f"Error batch fetching bookings: {e}")
+                    log_exception_if_dev(logger, "Error batch fetching bookings", e)
             
             # Batch fetch all service colors
             services_map = {}
@@ -155,7 +156,7 @@ class NotificationsController:
                         for service in services_response.data:
                             services_map[service['id']] = service
                 except Exception as e:
-                    logger.error(f"Error batch fetching service colors: {e}")
+                    log_exception_if_dev(logger, "Error batch fetching service colors", e)
             
             # Batch fetch all creative avatar colors (using authenticated client - respects RLS)
             creatives_map = {}
@@ -170,7 +171,7 @@ class NotificationsController:
                         for creative in creatives_response.data:
                             creatives_map[creative['user_id']] = creative
                 except Exception as e:
-                    logger.error(f"Error batch fetching creative avatar colors: {e}")
+                    log_exception_if_dev(logger, "Error batch fetching creative avatar colors", e)
             
             # Enrich notifications with batch-fetched data
             for notification in filtered_notifications:
@@ -212,9 +213,9 @@ class NotificationsController:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching notifications: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch notifications: {str(e)}")
-    
+            log_exception_if_dev(logger, "Error fetching notifications", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch notifications")
+
     @staticmethod
     async def get_unread_count(
         user_id: str,
@@ -288,9 +289,9 @@ class NotificationsController:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error fetching unread count: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to fetch unread count: {str(e)}")
-    
+            log_exception_if_dev(logger, "Error fetching unread count", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch unread count")
+
     @staticmethod
     async def mark_as_read(
         user_id: str,
@@ -367,10 +368,10 @@ class NotificationsController:
                     # The error contains notification data - use it directly
                     notification_data = error_data
                 else:
-                    logger.error(f"Could not extract notification data from APIError", exc_info=True)
+                    log_exception_if_dev(logger, "Could not extract notification data from APIError", api_error)
                     raise HTTPException(status_code=404, detail="Notification not found")
             except Exception as fetch_error:
-                logger.error(f"Error fetching notification: {fetch_error}", exc_info=True)
+                log_exception_if_dev(logger, "Error fetching notification", fetch_error)
                 raise HTTPException(status_code=404, detail="Notification not found")
             
             # Get notification data from response if we have it
@@ -397,15 +398,12 @@ class NotificationsController:
                     .eq("recipient_user_id", user_id) \
                     .execute()
             except Exception as update_error:
-                logger.error(f"Error updating notification in database: {update_error}", exc_info=True)
-                raise HTTPException(
-                    status_code=500, 
-                    detail=f"Failed to update notification: {str(update_error)}"
-                )
+                log_exception_if_dev(logger, "Error updating notification in database", update_error)
+                raise HTTPException(status_code=500, detail="Failed to update notification")
             
             if not update_response.data or len(update_response.data) == 0:
-                logger.error(f"Update response was empty for notification {notification_id}")
-                raise HTTPException(status_code=500, detail="Failed to update notification: no data returned")
+                log_exception_if_dev(logger, "Update response was empty for notification", None)
+                raise HTTPException(status_code=500, detail="Failed to update notification")
             
             # Use the notification data we already have and update is_read and updated_at
             # This avoids potential issues with the update response format
@@ -455,42 +453,17 @@ class NotificationsController:
                 
                 return NotificationResponse(**response_data)
             except ValueError as validation_error:
-                logger.error(f"Validation error creating NotificationResponse: {validation_error}", exc_info=True)
-                raise HTTPException(
-                    status_code=500, 
-                    detail=f"Notification marked as read but response validation failed: {str(validation_error)}"
-                )
+                log_exception_if_dev(logger, "Validation error creating NotificationResponse", validation_error)
+                raise HTTPException(status_code=500, detail="Failed to mark notification as read")
             except Exception as validation_error:
-                logger.error(f"Unexpected error creating NotificationResponse: {type(validation_error).__name__}: {validation_error}", exc_info=True)
-                raise HTTPException(
-                    status_code=500, 
-                    detail="Notification marked as read but response validation failed"
-                )
+                log_exception_if_dev(logger, "Unexpected error creating NotificationResponse", validation_error)
+                raise HTTPException(status_code=500, detail="Failed to mark notification as read")
             
         except HTTPException:
             raise
         except Exception as e:
-            # Extract error message safely - avoid including large data structures
-            if isinstance(e, Exception):
-                error_message = str(e)
-                # If the error message contains a dict representation, truncate it
-                if error_message.startswith('{') and len(error_message) > 200:
-                    error_message = "Error occurred (details logged)"
-            elif isinstance(e, str):
-                error_message = e
-                if error_message.startswith('{') and len(error_message) > 200:
-                    error_message = "Error occurred (details logged)"
-            else:
-                error_message = "An unexpected error occurred"
-            
-            # Log the full error with exception info
-            logger.error(f"Error marking notification as read: {type(e).__name__}: {e}", exc_info=True)
-            
-            # Return a clean error message without potentially large data structures
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Failed to mark notification as read: {error_message}"
-            )
+            log_exception_if_dev(logger, "Error marking notification as read", e)
+            raise HTTPException(status_code=500, detail="Failed to mark notification as read")
     
     @staticmethod
     async def send_notification_email(
@@ -561,7 +534,7 @@ class NotificationsController:
                                 if not recipient_name:
                                     recipient_name = creative_response.data.get('display_name')
                     except Exception as fetch_error:
-                        logger.warning(f"Failed to fetch recipient info for email: {str(fetch_error)}")
+                        log_exception_if_dev(logger, "Failed to fetch recipient info for email", fetch_error)
             
             # If still no email, skip sending
             if not recipient_email:
@@ -595,7 +568,6 @@ class NotificationsController:
             )
             
         except Exception as e:
-            # Log error but don't fail notification creation
-            logger.error(f"Failed to send notification email: {str(e)}")
+            log_exception_if_dev(logger, "Failed to send notification email", e)
             return False
 

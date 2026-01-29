@@ -1,9 +1,10 @@
-from fastapi import HTTPException
-from typing import Dict, Any, Optional
+import logging
+import os
 from datetime import datetime, timedelta
 import jwt
-import os
-import logging
+from fastapi import HTTPException
+from core.safe_errors import log_exception_if_dev
+from typing import Dict, Any, Optional
 from supabase import Client
 from schemas.invite import (
     GenerateInviteResponse,
@@ -39,7 +40,7 @@ async def _send_notification_email(notification_data: Dict[str, Any], recipient_
             client=client
         )
     except Exception as e:
-        logger.warning(f"Failed to send notification email: {str(e)}")
+        log_exception_if_dev(logger, "Failed to send notification email", e)
 
 
 class InviteController:
@@ -102,10 +103,8 @@ class InviteController:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error generating invite link: {e}")
-            import traceback
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Failed to generate invite link: {str(e)}")
+            log_exception_if_dev(logger, "Error generating invite link", e)
+            raise HTTPException(status_code=500, detail="Failed to generate invite link")
     
     @staticmethod
     async def validate_invite_token(invite_token: str, user_info: Optional[Dict[str, Any]] = None, client: Client = None) -> ValidateInviteResponse:
@@ -146,8 +145,8 @@ class InviteController:
                 
                 logger.info(f"Creative query response: {creative_response.data}")
             except Exception as query_error:
-                logger.error(f"Error querying creatives table: {query_error}")
-                raise HTTPException(status_code=500, detail=f"Database query failed: {str(query_error)}")
+                log_exception_if_dev(logger, "Error querying creatives table", query_error)
+                raise HTTPException(status_code=500, detail="Failed to validate invite token")
             
             if not creative_response.data or len(creative_response.data) == 0:
                 logger.warning(f"Creative not found for user_id: {creative_user_id}")
@@ -186,7 +185,7 @@ class InviteController:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error validating invite token: {e}")
+            log_exception_if_dev(logger, "Error validating invite token", e)
             raise HTTPException(status_code=500, detail="Failed to validate invite token")
     
     @staticmethod
@@ -328,11 +327,11 @@ class InviteController:
                             creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
                             await _send_notification_email(notification_data, creative_user_id, creative_name, db_admin)
                         except Exception as email_error:
-                            logger.warning(f"Failed to send new client email: {str(email_error)}")
+                            log_exception_if_dev(logger, "Failed to send new client email", email_error)
                 except Exception as notif_error:
-                    logger.error(f"Failed to create notification: {notif_error}")
+                    log_exception_if_dev(logger, "Failed to create notification", notif_error)
                     # Don't fail the invite acceptance if notification creation fails
-                
+
                 return AcceptInviteResponse(
                     success=True,
                     message="Successfully connected with creative!",
@@ -349,9 +348,9 @@ class InviteController:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error accepting invite: {e}")
+            log_exception_if_dev(logger, "Error accepting invite", e)
             raise HTTPException(status_code=500, detail="Failed to accept invite")
-    
+
     @staticmethod
     async def accept_invite_after_role_setup(invite_token: str, client_user_id: str, client: Client = None) -> AcceptInviteResponse:
         """Accept an invite after user has set up their client role
@@ -484,11 +483,11 @@ class InviteController:
                             creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
                             await _send_notification_email(notification_data, creative_user_id, creative_name, db_admin)
                         except Exception as email_error:
-                            logger.warning(f"Failed to send new client email: {str(email_error)}")
+                            log_exception_if_dev(logger, "Failed to send new client email", email_error)
                 except Exception as notif_error:
-                    logger.error(f"Failed to create notification: {notif_error}")
+                    log_exception_if_dev(logger, "Failed to create notification", notif_error)
                     # Don't fail the invite acceptance if notification creation fails
-                
+
                 return AcceptInviteResponse(
                     success=True,
                     message="Successfully connected with creative after role setup!",
@@ -504,6 +503,6 @@ class InviteController:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error accepting invite after role setup: {e}")
+            log_exception_if_dev(logger, "Error accepting invite after role setup", e)
             raise HTTPException(status_code=500, detail="Failed to accept invite after role setup")
 

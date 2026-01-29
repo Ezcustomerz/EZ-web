@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '../../context/auth';
 import { useRoleRedirect } from '../../utils/roleRedirect';
 
@@ -57,9 +58,25 @@ export function RoleGuard({ requiredRole, children }: RoleGuardProps) {
     }
   }, [userProfile, isAuthenticated, isLoadingProfile, requiredRole, navigate, location.pathname, getRedirectUrl]);
 
-  // If still loading, show nothing (or a loading spinner)
-  if (isLoadingProfile) {
-    return null;
+  // If still loading or profile not ready (e.g. after invite redirect), show loading so we don't get a white screen
+  if (isLoadingProfile || (isAuthenticated && !userProfile)) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '60vh',
+          gap: 2,
+        }}
+      >
+        <CircularProgress size={40} />
+        <Typography variant="body2" color="text.secondary">
+          Loading...
+        </Typography>
+      </Box>
+    );
   }
 
   // If not authenticated, allow demo mode browsing
@@ -68,9 +85,13 @@ export function RoleGuard({ requiredRole, children }: RoleGuardProps) {
     return <>{children}</>;
   }
 
-  // If no user profile yet, wait for it to load
+  // If no user profile yet (shouldn't happen after loading state above), wait for it to load
   if (!userProfile) {
-    return null;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <CircularProgress size={40} />
+      </Box>
+    );
   }
 
   // Check if user has the required role

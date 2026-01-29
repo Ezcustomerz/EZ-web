@@ -5,6 +5,7 @@ import logging
 import stripe
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 from services.compliance.compliance_service import ComplianceService
@@ -129,8 +130,8 @@ async def download_compliance_sheet(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating compliance sheet: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate compliance sheet: {str(e)}")
+        log_exception_if_dev(logger, "Error generating compliance sheet", e)
+        raise HTTPException(status_code=500, detail="Failed to generate compliance sheet")
 
 
 @router.get("/invoices/{booking_id}")
@@ -244,7 +245,7 @@ async def get_invoices(
                         'download_url': f'/api/bookings/invoice/stripe/{booking_id}?session_id={booking_sessions[0].id}'
                     })
         except Exception as e:
-            logger.warning(f"Could not retrieve Stripe receipts: {e}")
+            log_exception_if_dev(logger, "Could not retrieve Stripe receipts", e)
             # Continue without Stripe receipts
         
         return {
@@ -256,8 +257,8 @@ async def get_invoices(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting invoices: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get invoices: {str(e)}")
+        log_exception_if_dev(logger, "Error getting invoices", e)
+        raise HTTPException(status_code=500, detail="Failed to get invoices")
 
 
 @router.get("/invoice/ez/{booking_id}")
@@ -394,8 +395,8 @@ async def download_ez_invoice(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating invoice: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate invoice: {str(e)}")
+        log_exception_if_dev(logger, "Error generating invoice", e)
+        raise HTTPException(status_code=500, detail="Failed to generate invoice")
 
 
 @router.get("/invoice/stripe/{booking_id}")
@@ -486,7 +487,8 @@ async def download_stripe_receipt(
                 stripe_account=stripe_account_id
             )
         except stripe.error.StripeError as e:
-            raise HTTPException(status_code=404, detail=f"Payment intent not found: {str(e)}")
+            log_exception_if_dev(logger, "Payment intent not found", e)
+            raise HTTPException(status_code=404, detail="Payment intent not found")
         
         # Get charges from payment intent
         # The charges attribute is a list of charge IDs, not expanded objects
@@ -546,6 +548,6 @@ async def download_stripe_receipt(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting Stripe receipt: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get Stripe receipt: {str(e)}")
+        log_exception_if_dev(logger, "Error getting Stripe receipt", e)
+        raise HTTPException(status_code=500, detail="Failed to get Stripe receipt")
 

@@ -1,9 +1,10 @@
+import logging
 from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import Optional, List, Dict, Any
-import logging
 from supabase import Client
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from services.notifications import NotificationsController
 from schemas.notifications import NotificationResponse, UnreadCountResponse
@@ -43,8 +44,8 @@ async def get_notifications(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching notifications: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch notifications: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching notifications", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch notifications")
 
 
 @router.get("/unread-count", response_model=UnreadCountResponse)
@@ -72,8 +73,8 @@ async def get_unread_count(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching unread count: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch unread count: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching unread count", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch unread count")
 
 
 @router.put("/{notification_id}/read", response_model=NotificationResponse)
@@ -97,9 +98,5 @@ async def mark_notification_as_read(
     except HTTPException:
         raise
     except Exception as e:
-        error_msg = str(e) if isinstance(e, Exception) else repr(e)
-        # Avoid including large data structures in error messages
-        if error_msg.startswith('{') and len(error_msg) > 200:
-            error_msg = "An error occurred while marking notification as read"
-        logger.error(f"Error marking notification as read: {type(e).__name__}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to mark notification as read: {error_msg}")
+        log_exception_if_dev(logger, "Error marking notification as read", e)
+        raise HTTPException(status_code=500, detail="Failed to mark notification as read")

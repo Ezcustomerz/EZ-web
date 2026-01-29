@@ -1,4 +1,5 @@
 """Profile router for creative endpoints"""
+import logging
 from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Depends
 from services.creative.profile_service import ProfileService
 from schemas.creative import (
@@ -8,11 +9,13 @@ from schemas.creative import (
 from services.booking.order_service import OrderService
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/profile")
@@ -35,7 +38,8 @@ async def get_creative_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative profile: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch creative profile", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch creative profile")
 
 
 @router.get("/profile/{user_id}")
@@ -54,7 +58,8 @@ async def get_creative_profile_by_id(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative profile: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch creative profile", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch creative profile")
 
 
 @router.put("/profile/settings", response_model=CreativeProfileSettingsResponse)
@@ -78,7 +83,8 @@ async def update_creative_profile_settings(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update profile settings: {str(e)}")
+        log_exception_if_dev(logger, "Failed to update profile settings", e)
+        raise HTTPException(status_code=500, detail="Failed to update profile settings")
 
 
 @router.post("/profile/upload-photo", response_model=ProfilePhotoUploadResponse)
@@ -102,7 +108,8 @@ async def upload_profile_photo(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
+        log_exception_if_dev(logger, "Failed to upload profile photo", e)
+        raise HTTPException(status_code=500, detail="Failed to upload profile photo")
 
 
 @router.get("/dashboard/stats", response_model=CreativeDashboardStatsResponse)
@@ -131,5 +138,6 @@ async def get_creative_dashboard_stats(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch dashboard stats: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch dashboard stats", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch dashboard stats")
 

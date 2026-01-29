@@ -7,6 +7,7 @@ import os
 from urllib.parse import urlparse
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev, is_dev_env
 from db.db_session import get_authenticated_client_dep, db_admin
 from supabase import Client
 from services.file_scanning.scanner_service import ScannerService
@@ -163,7 +164,7 @@ async def check_storage_limit(
         return True, ""
     
     except Exception as e:
-        logger.error(f"Error checking storage limit: {e}", exc_info=True)
+        log_exception_if_dev(logger, "Error checking storage limit", e)
         # On error, allow upload (fail open) but log the error
         return True, ""
 
@@ -218,7 +219,8 @@ async def get_upload_paths(
         # Ensure bucket exists
         bucket_name = "booking-deliverables"
         if not ensure_bucket_exists(bucket_name, is_public=False):
-            logger.error(f"Failed to ensure bucket '{bucket_name}' exists")
+            if is_dev_env():
+                logger.error("Failed to ensure bucket exists")
             raise HTTPException(status_code=500, detail="Storage bucket not available. Please contact support.")
         
         # Generate unique storage paths for each file
@@ -241,8 +243,8 @@ async def get_upload_paths(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating upload paths: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate upload paths: {str(e)}")
+        log_exception_if_dev(logger, "Error generating upload paths", e)
+        raise HTTPException(status_code=500, detail="Failed to generate upload paths")
 
 
 @router.post("/register-uploaded-files")
@@ -307,7 +309,8 @@ async def register_uploaded_files(
             
             if existing_file.data and len(existing_file.data) > 0:
                 # File already exists, skip insertion
-                logger.warning(f"File with file_url '{storage_path}' already exists for booking {booking_id}, skipping duplicate registration")
+                if is_dev_env():
+                    logger.warning("File with same path already exists for booking, skipping duplicate registration")
                 registered_files.append({
                     "file_url": storage_path,
                     "file_name": file_info.file_name,
@@ -339,7 +342,8 @@ async def register_uploaded_files(
                 error_str = str(insert_error)
                 # Check if it's a unique constraint violation (duplicate file_url)
                 if 'unique' in error_str.lower() or 'duplicate' in error_str.lower() or 'already exists' in error_str.lower():
-                    logger.warning(f"File with file_url '{storage_path}' already exists for booking {booking_id}, skipping duplicate registration")
+                    if is_dev_env():
+                        logger.warning("File with same path already exists for booking, skipping duplicate registration")
                     registered_files.append({
                         "file_url": storage_path,
                         "file_name": file_info.file_name,
@@ -349,8 +353,8 @@ async def register_uploaded_files(
                         "already_exists": True
                     })
                 else:
-                    logger.error(f"Failed to register file {file_info.file_name}: {error_str}")
-                    raise HTTPException(status_code=500, detail=f"Failed to register file '{file_info.file_name}': {error_str}")
+                    log_exception_if_dev(logger, "Failed to register file", insert_error)
+                    raise HTTPException(status_code=500, detail="Failed to register file")
         
         return {
             "success": True,
@@ -361,8 +365,8 @@ async def register_uploaded_files(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error registering uploaded files: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to register files: {str(e)}")
+        log_exception_if_dev(logger, "Error registering uploaded files", e)
+        raise HTTPException(status_code=500, detail="Failed to register files")
 
 
 @router.post("/upload-deliverables")
@@ -407,8 +411,9 @@ async def upload_deliverables(
         # Ensure bucket exists before uploading
         bucket_name = "booking-deliverables"
         if not ensure_bucket_exists(bucket_name, is_public=False):
-            logger.error(f"Failed to ensure bucket '{bucket_name}' exists")
-            raise HTTPException(status_code=500, detail=f"Storage bucket not available. Please contact support.")
+            if is_dev_env():
+                logger.error("Failed to ensure bucket exists")
+            raise HTTPException(status_code=500, detail="Storage bucket not available. Please contact support.")
         
         # First pass: read all files to get sizes for storage check
         # We need to read files first to check storage, but files can only be read once
@@ -430,8 +435,8 @@ async def upload_deliverables(
                     'content_type': file.content_type
                 })
             except Exception as e:
-                logger.error(f"Error reading file {file.filename}: {e}")
-                raise HTTPException(status_code=500, detail=f"Failed to read file '{file.filename}': {str(e)}")
+                log_exception_if_dev(logger, "Error reading file", e)
+                raise HTTPException(status_code=500, detail="Failed to read file")
         
         # Check storage limit before processing files
         is_allowed, error_message = await check_storage_limit(user_id, total_new_files_size, client)
@@ -477,7 +482,7 @@ async def upload_deliverables(
                 )
                 
                 if not is_safe:
-                    raise HTTPException(status_code=400, detail=f"File '{file_info['filename']}' validation failed: {error_message}")
+                    raise HTTPException(status_code=400, detail="File validation failed")
                 
                 # Generate unique filename
                 file_extension = os.path.splitext(file_info['filename'])[1] if file_info['filename'] and '.' in file_info['filename'] else ''
@@ -495,8 +500,8 @@ async def upload_deliverables(
                         }
                     )
                 except Exception as upload_error:
-                    logger.error(f"Failed to upload file {file_info['filename']} to storage: {str(upload_error)}")
-                    raise HTTPException(status_code=500, detail=f"Failed to upload file '{file_info['filename']}': {str(upload_error)}")
+                    log_exception_if_dev(logger, "Failed to upload file to storage", upload_error)
+                    raise HTTPException(status_code=500, detail="Failed to upload file")
                 
                 uploaded_files.append({
                     "file_url": storage_path,
@@ -509,8 +514,8 @@ async def upload_deliverables(
             except HTTPException:
                 raise
             except Exception as e:
-                logger.error(f"Error processing file {file.filename}: {e}")
-                raise HTTPException(status_code=500, detail=f"Failed to process file '{file.filename}': {str(e)}")
+                log_exception_if_dev(logger, "Error processing file", e)
+                raise HTTPException(status_code=500, detail="Failed to process file")
         
         return {
             "success": True,
@@ -521,8 +526,8 @@ async def upload_deliverables(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error uploading deliverables: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload deliverables: {str(e)}")
+        log_exception_if_dev(logger, "Error uploading deliverables", e)
+        raise HTTPException(status_code=500, detail="Failed to upload deliverables")
 
 
 @router.post("/upload-deliverable")
@@ -593,8 +598,9 @@ async def upload_deliverable(
         
         # Ensure bucket exists before uploading
         if not ensure_bucket_exists(bucket_name, is_public=False):
-            logger.error(f"Failed to ensure bucket '{bucket_name}' exists")
-            raise HTTPException(status_code=500, detail=f"Storage bucket not available. Please contact support.")
+            if is_dev_env():
+                logger.error("Failed to ensure bucket exists")
+            raise HTTPException(status_code=500, detail="Storage bucket not available. Please contact support.")
         
         try:
             upload_result = db_admin.storage.from_(bucket_name).upload(
@@ -606,8 +612,8 @@ async def upload_deliverable(
                 }
             )
         except Exception as upload_error:
-            logger.error(f"Failed to upload file to storage: {str(upload_error)}")
-            raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(upload_error)}")
+            log_exception_if_dev(logger, "Failed to upload file to storage", upload_error)
+            raise HTTPException(status_code=500, detail="Failed to upload file")
         
         # Get the storage path (not public URL - we'll use signed URLs for downloads)
         # Store the path, not a public URL
@@ -625,8 +631,8 @@ async def upload_deliverable(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error uploading deliverable: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to upload deliverable: {str(e)}")
+        log_exception_if_dev(logger, "Error uploading deliverable", e)
+        raise HTTPException(status_code=500, detail="Failed to upload deliverable")
 
 
 @router.get("/download-deliverables/{booking_id}")
@@ -714,7 +720,8 @@ async def download_deliverables_batch(
             file_name = deliverable.get('file_name', 'Unknown')
             
             if not file_path:
-                logger.warning(f"File path not found for deliverable {deliverable_id} ({file_name})")
+                if is_dev_env():
+                    logger.warning("File path not found for deliverable")
                 failed_files.append({
                     "deliverable_id": deliverable_id,
                     "file_name": file_name,
@@ -748,7 +755,7 @@ async def download_deliverables_batch(
                         if bucket_index + 1 < len(path_parts):
                             normalized_path = '/'.join(path_parts[bucket_index + 1:])
                 except Exception as parse_error:
-                    logger.warning(f"Failed to parse URL path for deliverable {deliverable_id}: {parse_error}")
+                    log_exception_if_dev(logger, "Failed to parse URL path for deliverable", parse_error)
                     # Keep original path and let it fail with a clear error
             
             try:
@@ -769,7 +776,8 @@ async def download_deliverables_batch(
                     signed_url = getattr(signed_url_result, 'signedURL', None) or getattr(signed_url_result, 'signed_url', None) or getattr(signed_url_result, 'url', None)
                 
                 if not signed_url:
-                    logger.error(f"Failed to generate signed URL for deliverable {deliverable_id} ({file_name}): No URL in response")
+                    if is_dev_env():
+                        logger.error("Failed to generate signed URL for deliverable: No URL in response")
                     failed_files.append({
                         "deliverable_id": deliverable_id,
                         "file_name": file_name,
@@ -793,26 +801,24 @@ async def download_deliverables_batch(
                 # Check if it's a 404/not found error and provide a clearer message
                 if '404' in error_msg or 'not_found' in error_msg.lower() or 'Object not found' in error_msg:
                     clear_error = "File not found in storage. The file may have been deleted or never uploaded successfully."
-                    logger.warning(f"File missing from storage for deliverable {deliverable_id} ({file_name}): {normalized_path}")
+                    if is_dev_env():
+                        logger.warning("File missing from storage for deliverable: %s", normalized_path)
                 else:
-                    clear_error = f"Failed to generate download URL: {error_msg}"
-                    logger.error(f"Error processing deliverable {deliverable_id} ({file_name}) with path '{normalized_path}': {error_msg}", exc_info=True)
+                    clear_error = "Failed to generate download URL."
+                    log_exception_if_dev(logger, "Error processing deliverable", url_error)
                 
                 failed_files.append({
                     "deliverable_id": deliverable_id,
                     "file_name": file_name,
                     "error": clear_error,
-                    "file_path": normalized_path,
-                    "raw_error": error_msg
+                    "file_path": normalized_path
                 })
                 # Continue with other files even if one fails
                 continue
         
-        # Log summary of failed files
-        if failed_files:
-            logger.warning(f"Batch download: {len(failed_files)} files failed to generate signed URLs out of {len(deliverables_result.data)} total files")
-            for failed in failed_files:
-                logger.warning(f"  - {failed.get('file_name')} (ID: {failed.get('deliverable_id')}): {failed.get('error')}")
+        # Log summary of failed files (dev only to avoid leaking detail)
+        if failed_files and is_dev_env():
+            logger.warning("Batch download: %s files failed to generate signed URLs", len(failed_files))
         
         # Second pass: Update all files as downloaded in a single batch operation
         if deliverable_ids_to_update:
@@ -827,7 +833,7 @@ async def download_deliverables_batch(
                 logger.info(f"Batch download: Updated deliverable IDs: {deliverable_ids_to_update}")
             except Exception as batch_update_error:
                 # If batch update fails, try individual updates as fallback
-                logger.error(f"Batch update failed, attempting individual updates: {str(batch_update_error)}", exc_info=True)
+                log_exception_if_dev(logger, "Batch update failed, attempting individual updates", batch_update_error)
                 success_count = 0
                 for deliverable_id in deliverable_ids_to_update:
                     try:
@@ -838,8 +844,9 @@ async def download_deliverables_batch(
                         success_count += 1
                         logger.info(f"Fallback: Marked deliverable {deliverable_id} as downloaded")
                     except Exception as individual_error:
-                        logger.error(f"CRITICAL: Failed to update deliverable {deliverable_id}: {str(individual_error)}", exc_info=True)
-                logger.warning(f"Fallback update: Successfully updated {success_count} of {len(deliverable_ids_to_update)} files")
+                        log_exception_if_dev(logger, "Failed to update deliverable", individual_error)
+                if is_dev_env():
+                    logger.warning("Fallback update: Successfully updated %s of %s files", success_count, len(deliverable_ids_to_update))
         
         # Log final summary
         total_deliverables = len(deliverables_result.data)
@@ -848,8 +855,8 @@ async def download_deliverables_batch(
         
         logger.info(f"Batch download summary for booking {booking_id}: {successful_files} successful, {failed_count} failed out of {total_deliverables} total files")
         
-        if successful_files == 0 and total_deliverables > 0:
-            logger.error(f"CRITICAL: All {total_deliverables} files failed to generate signed URLs for booking {booking_id}. This may indicate files are missing from storage.")
+        if successful_files == 0 and total_deliverables > 0 and is_dev_env():
+            logger.error("CRITICAL: All files failed to generate signed URLs for booking. Files may be missing from storage.")
         
         # Include failed files in response with error status so frontend can show them
         unavailable_files = []
@@ -875,8 +882,8 @@ async def download_deliverables_batch(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating batch download URLs: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate download URLs: {str(e)}")
+        log_exception_if_dev(logger, "Error generating batch download URLs", e)
+        raise HTTPException(status_code=500, detail="Failed to generate download URLs")
 
 
 @router.get("/download-deliverable/{deliverable_id}")
@@ -988,7 +995,7 @@ async def download_deliverable(
                 logger.info(f"Updated downloaded_at for deliverable {deliverable_id} to {downloaded_at_iso}")
             except Exception as update_error:
                 # Log error but don't fail the download
-                logger.error(f"Failed to update downloaded_at for deliverable {deliverable_id}: {str(update_error)}", exc_info=True)
+                log_exception_if_dev(logger, "Failed to update downloaded_at for deliverable", update_error)
             
             return {
                 "success": True,
@@ -998,14 +1005,14 @@ async def download_deliverable(
             }
             
         except Exception as url_error:
-            logger.error(f"Failed to generate signed URL: {str(url_error)}")
-            raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(url_error)}")
+            log_exception_if_dev(logger, "Failed to generate signed URL", url_error)
+            raise HTTPException(status_code=500, detail="Failed to generate download URL")
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating download URL: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate download URL: {str(e)}")
+        log_exception_if_dev(logger, "Error generating download URL", e)
+        raise HTTPException(status_code=500, detail="Failed to generate download URL")
 
 
 @router.get("/creative-deliverables")
@@ -1114,8 +1121,8 @@ async def get_creative_deliverables(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching creative deliverables: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch deliverables: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching creative deliverables", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch deliverables")
 
 
 @router.delete("/deliverable/{deliverable_id}")
@@ -1179,7 +1186,7 @@ async def delete_deliverable(
             db_admin.storage.from_(bucket_name).remove([file_path])
             logger.info(f"Deleted file from storage: {file_path}")
         except Exception as storage_error:
-            logger.error(f"Failed to delete file from storage: {str(storage_error)}")
+            log_exception_if_dev(logger, "Failed to delete file from storage", storage_error)
             # Continue with database delete even if storage delete fails
             # This prevents orphaned database records
         
@@ -1189,8 +1196,8 @@ async def delete_deliverable(
             .eq('id', deliverable_id)\
             .execute()
         
-        if not delete_result.data:
-            logger.warning(f"Deliverable {deliverable_id} may not have been deleted from database")
+        if not delete_result.data and is_dev_env():
+            logger.warning("Deliverable may not have been deleted from database")
         
         return {
             "success": True,
@@ -1200,6 +1207,6 @@ async def delete_deliverable(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting deliverable: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete deliverable: {str(e)}")
+        log_exception_if_dev(logger, "Error deleting deliverable", e)
+        raise HTTPException(status_code=500, detail="Failed to delete deliverable")
 

@@ -4,6 +4,7 @@ from typing import Dict, Any
 import logging
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 from services.booking.booking_management_service import BookingManagementService
@@ -45,8 +46,8 @@ async def create_booking(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating booking: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create booking: {str(e)}")
+        log_exception_if_dev(logger, "Error creating booking", e)
+        raise HTTPException(status_code=500, detail="Failed to create booking")
 
 
 @router.post("/approve", response_model=ApproveBookingResponse)
@@ -74,8 +75,8 @@ async def approve_booking(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error approving booking: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to approve booking: {str(e)}")
+        log_exception_if_dev(logger, "Error approving booking", e)
+        raise HTTPException(status_code=500, detail="Failed to approve booking")
 
 
 @router.post("/reject", response_model=RejectBookingResponse)
@@ -102,8 +103,8 @@ async def reject_booking(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error rejecting booking: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to reject booking: {str(e)}")
+        log_exception_if_dev(logger, "Error rejecting booking", e)
+        raise HTTPException(status_code=500, detail="Failed to reject booking")
 
 
 @router.post("/cancel", response_model=CancelBookingResponse)
@@ -134,8 +135,8 @@ async def cancel_booking(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error canceling booking: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to cancel booking: {str(e)}")
+        log_exception_if_dev(logger, "Error canceling booking", e)
+        raise HTTPException(status_code=500, detail="Failed to cancel booking")
 
 
 @router.post("/finalize", response_model=FinalizeServiceResponse)
@@ -169,8 +170,8 @@ async def finalize_service(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error finalizing service: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to finalize service: {str(e)}")
+        log_exception_if_dev(logger, "Error finalizing service", e)
+        raise HTTPException(status_code=500, detail="Failed to finalize service")
 
 
 @router.post("/mark-download-complete", response_model=MarkDownloadCompleteResponse)
@@ -199,8 +200,8 @@ async def mark_download_complete(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error marking download as complete: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to mark download as complete: {str(e)}")
+        log_exception_if_dev(logger, "Error marking download as complete", e)
+        raise HTTPException(status_code=500, detail="Failed to mark download as complete")
 
 
 @router.post("/send-payment-reminder", response_model=SendPaymentReminderResponse)
@@ -227,6 +228,6 @@ async def send_payment_reminder(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error sending payment reminder: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to send payment reminder: {str(e)}")
+        log_exception_if_dev(logger, "Error sending payment reminder", e)
+        raise HTTPException(status_code=500, detail="Failed to send payment reminder")
 

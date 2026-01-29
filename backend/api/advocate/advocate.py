@@ -3,9 +3,12 @@ from services.advocate.advocate_service import AdvocateController
 from schemas.advocate import AdvocateUpdateRequest, AdvocateUpdateResponse
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/profile")
 @limiter.limit("2 per second")
@@ -25,7 +28,8 @@ async def get_advocate_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch advocate profile: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch advocate profile", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch advocate profile")
 
 @router.put("/profile", response_model=AdvocateUpdateResponse)
 @limiter.limit("2 per second")
@@ -46,7 +50,8 @@ async def update_advocate_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update advocate profile: {str(e)}")
+        log_exception_if_dev(logger, "Failed to update advocate profile", e)
+        raise HTTPException(status_code=500, detail="Failed to update advocate profile")
 
 @router.post("/profile/upload-photo")
 @limiter.limit("2 per second")
@@ -68,4 +73,5 @@ async def upload_profile_photo(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
+        log_exception_if_dev(logger, "Failed to upload profile photo", e)
+        raise HTTPException(status_code=500, detail="Failed to upload profile photo")

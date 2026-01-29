@@ -1,13 +1,16 @@
 """Role management router for creative endpoints"""
+import logging
 from fastapi import APIRouter, Request, HTTPException, Depends
 from services.creative.creative_service import CreativeController
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.delete("/role")
@@ -41,5 +44,6 @@ async def delete_creative_role(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete creative role: {str(e)}")
+        log_exception_if_dev(logger, "Failed to delete creative role", e)
+        raise HTTPException(status_code=500, detail="Failed to delete creative role")
 

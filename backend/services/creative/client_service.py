@@ -1,7 +1,11 @@
 """Client service for creative-client relationships"""
+import logging
 from fastapi import HTTPException
+from core.safe_errors import log_exception_if_dev
 from schemas.creative import CreativeClientsListResponse, CreativeClientResponse
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 
 
 class ClientService:
@@ -109,5 +113,6 @@ class ClientService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative clients: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch creative clients", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative clients")
 
