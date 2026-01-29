@@ -101,6 +101,14 @@ def get_current_user(request: Request) -> Dict[str, Any]:
 # Alias for backward compatibility
 require_auth = get_current_user
 
+
+def get_current_user_optional(request: Request) -> Optional[Dict[str, Any]]:
+    """
+    Dependency that returns the current user if authenticated, or None if not.
+    Use for routes that work for both authenticated and anonymous users (e.g. invite page).
+    """
+    return getattr(request.state, "user", None)
+
     
 async def jwt_auth_middleware(request: Request, call_next):
     """

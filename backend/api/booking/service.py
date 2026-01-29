@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import Optional, Dict, Any
 from datetime import datetime
 import logging
-from core.verify import require_auth
+from core.verify import get_current_user_optional
 from db.db_session import get_authenticated_client_dep
 from services.booking.booking_service import BookingService
 from supabase import Client
@@ -15,12 +15,10 @@ router = APIRouter()
 async def get_calendar_settings(
     service_id: str,
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get calendar settings for a service
-    Requires authentication - will return 401 if not authenticated.
-    """
+    """Get calendar settings for a service. Works without auth for invite page (public services only via RLS)."""
     try:
         settings = BookingService.get_calendar_settings(service_id, client)
         
@@ -38,12 +36,10 @@ async def get_calendar_settings(
 async def get_weekly_schedule(
     service_id: str,
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get weekly schedule for a service
-    Requires authentication - will return 401 if not authenticated.
-    """
+    """Get weekly schedule for a service. Works without auth for invite page (public services only via RLS)."""
     try:
         # First get calendar settings to get the calendar_setting_id
         calendar_settings = BookingService.get_calendar_settings(service_id, client)
@@ -63,12 +59,10 @@ async def get_weekly_schedule(
 async def get_time_slots(
     service_id: str,
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get all time slots for a service
-    Requires authentication - will return 401 if not authenticated.
-    """
+    """Get all time slots for a service. Works without auth for invite page (public services only via RLS)."""
     try:
         # First get calendar settings to get the calendar_setting_id
         calendar_settings = BookingService.get_calendar_settings(service_id, client)
@@ -98,12 +92,10 @@ async def get_available_dates(
     request: Request,
     start_date: Optional[str] = Query(None, description="Start date in YYYY-MM-DD format"),
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
-    current_user: Dict[str, Any] = Depends(require_auth),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get available booking dates for a service
-    Requires authentication - will return 401 if not authenticated.
-    """
+    """Get available booking dates for a service. Works without auth for invite page (public services only via RLS)."""
     try:
         # Parse dates
         start = None
@@ -135,12 +127,10 @@ async def get_available_time_slots(
     service_id: str,
     request: Request,
     booking_date: str = Query(..., description="Booking date in YYYY-MM-DD format"),
-    current_user: Dict[str, Any] = Depends(require_auth),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get available time slots for a specific date
-    Requires authentication - will return 401 if not authenticated.
-    """
+    """Get available time slots for a specific date. Works without auth for invite page (public services only via RLS)."""
     try:
         # Parse date
         try:
@@ -161,12 +151,10 @@ async def get_available_time_slots(
 async def get_service_booking_data(
     service_id: str,
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth),
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
     client: Client = Depends(get_authenticated_client_dep)
 ):
-    """Get complete booking data for a service (calendar settings, weekly schedule, and time slots)
-    Requires authentication - will return 401 if not authenticated.
-    """
+    """Get complete booking data for a service. Works without auth for invite page (public services only via RLS)."""
     try:
         booking_data = BookingService.get_service_booking_data(service_id, client)
         
