@@ -4,6 +4,7 @@ import logging
 from fastapi import HTTPException
 from supabase import Client
 from db.db_session import db_admin
+from core.safe_errors import log_exception_if_dev
 from schemas.booking import (
     CreateBookingRequest, CreateBookingResponse,
     ApproveBookingResponse,
@@ -36,7 +37,7 @@ async def _send_notification_email(notification_data: Dict[str, Any], recipient_
             client=client
         )
     except Exception as e:
-        logger.warning(f"Failed to send notification email: {str(e)}")
+        log_exception_if_dev(logger, "Failed to send notification email", e)
 
 
 class BookingManagementService:
@@ -188,7 +189,7 @@ class BookingManagementService:
                         client=client
                     )
             except Exception as notif_error:
-                logger.error(f"Failed to create client notification: {notif_error}")
+                log_exception_if_dev(logger, "Failed to create client notification", notif_error)
             
             try:
                 # Use db_admin to bypass RLS policies for notification insertion
@@ -208,7 +209,7 @@ class BookingManagementService:
                         client=db_admin
                     )
             except Exception as notif_error:
-                logger.error(f"Failed to create creative notification: {notif_error}")
+                log_exception_if_dev(logger, "Failed to create creative notification", notif_error)
             
             return CreateBookingResponse(
                 success=True,
@@ -220,8 +221,8 @@ class BookingManagementService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error creating booking: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to create booking: {str(e)}")
+            log_exception_if_dev(logger, "Error creating booking", e)
+            raise HTTPException(status_code=500, detail="Failed to create booking")
 
     @staticmethod
     async def approve_booking(user_id: str, booking_id: str, client: Client) -> ApproveBookingResponse:
@@ -376,7 +377,7 @@ class BookingManagementService:
                         client=db_admin
                     )
             except Exception as notif_error:
-                logger.error(f"Failed to create client approval notification: {notif_error}")
+                log_exception_if_dev(logger, "Failed to create client approval notification", notif_error)
             
             # Create notification for creative confirming they approved the service
             try:
@@ -420,7 +421,7 @@ class BookingManagementService:
                         client=db_admin
                     )
             except Exception as notif_error:
-                logger.error(f"Failed to create creative approval notification: {notif_error}")
+                log_exception_if_dev(logger, "Failed to create creative approval notification", notif_error)
             
             return ApproveBookingResponse(
                 success=True,
@@ -430,8 +431,8 @@ class BookingManagementService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error approving booking: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to approve booking: {str(e)}")
+            log_exception_if_dev(logger, "Error approving booking", e)
+            raise HTTPException(status_code=500, detail="Failed to approve booking")
 
     @staticmethod
     async def reject_booking(user_id: str, booking_id: str, client: Client) -> RejectBookingResponse:
@@ -571,7 +572,7 @@ class BookingManagementService:
                     if user_id:
                         await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
             except Exception as notif_error:
-                logger.error(f"Failed to create rejection notifications: {notif_error}")
+                log_exception_if_dev(logger, "Failed to create rejection notifications", notif_error)
             
             return RejectBookingResponse(
                 success=True,
@@ -581,8 +582,8 @@ class BookingManagementService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error rejecting booking: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to reject booking: {str(e)}")
+            log_exception_if_dev(logger, "Error rejecting booking", e)
+            raise HTTPException(status_code=500, detail="Failed to reject booking")
 
     @staticmethod
     async def cancel_booking(user_id: str, booking_id: str, client: Client) -> CancelBookingResponse:
@@ -723,7 +724,7 @@ class BookingManagementService:
                     if creative_user_id:
                         await _send_notification_email(creative_notification_data, creative_user_id, creative_display_name, db_admin)
             except Exception as notif_error:
-                logger.error(f"Failed to create cancellation notifications: {notif_error}")
+                log_exception_if_dev(logger, "Failed to create cancellation notifications", notif_error)
             
             return CancelBookingResponse(
                 success=True,
@@ -733,8 +734,8 @@ class BookingManagementService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error canceling booking: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to cancel booking: {str(e)}")
+            log_exception_if_dev(logger, "Error canceling booking", e)
+            raise HTTPException(status_code=500, detail="Failed to cancel booking")
     
     @staticmethod
     async def send_payment_reminder(creative_user_id: str, booking_id: str, client: Client) -> Dict[str, Any]:
@@ -863,12 +864,12 @@ class BookingManagementService:
                     "notification_id": notification_id
                 }
             except Exception as notif_error:
-                logger.error(f"Failed to create payment reminder notification: {notif_error}")
-                raise HTTPException(status_code=500, detail=f"Failed to send payment reminder: {str(notif_error)}")
+                log_exception_if_dev(logger, "Failed to create payment reminder notification", notif_error)
+                raise HTTPException(status_code=500, detail="Failed to send payment reminder")
             
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error sending payment reminder: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to send payment reminder: {str(e)}")
+            log_exception_if_dev(logger, "Error sending payment reminder", e)
+            raise HTTPException(status_code=500, detail="Failed to send payment reminder")
 

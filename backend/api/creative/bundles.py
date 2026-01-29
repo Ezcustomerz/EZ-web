@@ -1,4 +1,5 @@
 """Bundles router for creative endpoints"""
+import logging
 from fastapi import APIRouter, Request, HTTPException, Depends
 from services.creative.bundle_service import BundleService
 from schemas.creative import (
@@ -7,11 +8,13 @@ from schemas.creative import (
 )
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/bundles", response_model=CreateBundleResponse)
@@ -35,7 +38,8 @@ async def create_bundle(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create bundle: {str(e)}")
+        log_exception_if_dev(logger, "Failed to create bundle", e)
+        raise HTTPException(status_code=500, detail="Failed to create bundle")
 
 
 @router.put("/bundles/{bundle_id}", response_model=UpdateBundleResponse)
@@ -60,7 +64,8 @@ async def update_bundle(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update bundle: {str(e)}")
+        log_exception_if_dev(logger, "Failed to update bundle", e)
+        raise HTTPException(status_code=500, detail="Failed to update bundle")
 
 
 @router.delete("/bundles/{bundle_id}", response_model=DeleteBundleResponse)
@@ -84,5 +89,6 @@ async def delete_bundle(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete bundle: {str(e)}")
+        log_exception_if_dev(logger, "Failed to delete bundle", e)
+        raise HTTPException(status_code=500, detail="Failed to delete bundle")
 

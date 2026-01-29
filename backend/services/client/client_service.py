@@ -2,6 +2,7 @@ from fastapi import HTTPException, UploadFile
 from db.db_session import db_admin
 from schemas.client import ClientSetupRequest, ClientSetupResponse, ClientCreativesListResponse, ClientCreativeResponse, ClientUpdateRequest, ClientUpdateResponse
 from core.validation import validate_email
+from core.safe_errors import log_exception_if_dev, is_dev_env
 from supabase import Client
 import uuid
 from services.email.email_service import email_service
@@ -74,8 +75,8 @@ class ClientController:
                 )
                 logger.info(f"Welcome email sent successfully to {setup_request.email}")
             except Exception as e:
-                # Log the error but don't fail the profile creation
-                logger.error(f"Failed to send welcome email to {setup_request.email}: {str(e)}")
+                # Log the error but don't fail the profile creation; full detail only in dev
+                log_exception_if_dev(logger, "Failed to send welcome email to client", e)
             
             return ClientSetupResponse(
                 success=True,
@@ -85,7 +86,8 @@ class ClientController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to set up client profile: {str(e)}")
+            log_exception_if_dev(logger, "Failed to set up client profile", e)
+            raise HTTPException(status_code=500, detail="Failed to set up client profile")
 
     @staticmethod
     async def get_client_profile(user_id: str, client: Client) -> dict:
@@ -107,7 +109,8 @@ class ClientController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch client profile: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch client profile", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch client profile")
 
     @staticmethod
     async def update_client_profile(user_id: str, update_data: ClientUpdateRequest, client: Client) -> ClientUpdateResponse:
@@ -152,7 +155,8 @@ class ClientController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update client profile: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update client profile", e)
+            raise HTTPException(status_code=500, detail="Failed to update client profile")
 
     @staticmethod
     async def upload_profile_photo(user_id: str, file: UploadFile, client: Client) -> dict:
@@ -189,7 +193,8 @@ class ClientController:
                     file_options={"content-type": file.content_type}
                 )
             except Exception as upload_error:
-                raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(upload_error)}")
+                log_exception_if_dev(logger, "Failed to upload file", upload_error)
+                raise HTTPException(status_code=500, detail="Failed to upload file")
             
             # Get the public URL
             public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
@@ -213,9 +218,9 @@ class ClientController:
                         try:
                             db_admin.storage.from_(bucket_name).remove([old_file_path])
                         except Exception as delete_error:
-                            print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+                            log_exception_if_dev(logger, "Failed to delete old profile photo", delete_error)
                 except Exception as delete_error:
-                    print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+                    log_exception_if_dev(logger, "Failed to delete old profile photo", delete_error)
             
             return {
                 "success": True,
@@ -226,7 +231,8 @@ class ClientController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
+            log_exception_if_dev(logger, "Failed to upload profile photo", e)
+            raise HTTPException(status_code=500, detail="Failed to upload profile photo")
 
     @staticmethod
     async def get_client_creatives(user_id: str, client: Client) -> ClientCreativesListResponse:
@@ -272,9 +278,10 @@ class ClientController:
                     # Use the count from the result
                     count = service_count_result.count if hasattr(service_count_result, 'count') else 0
                     services_count_map[creative_user_id] = count
-                    print(f"🔍 Creative {creative_user_id} has {count} services (using count)")
+                    if is_dev_env():
+                        logger.debug("Creative has %s services (using count)", count)
                 except Exception as e:
-                    print(f"Error getting service count for creative {creative_user_id}: {e}")
+                    log_exception_if_dev(logger, "Error getting service count for creative", e)
                     # Fallback to counting data length
                     try:
                         service_count_result = client.table('creative_services').select(
@@ -282,9 +289,10 @@ class ClientController:
                         ).eq('creative_user_id', creative_user_id).eq('is_active', True).execute()
                         count = len(service_count_result.data) if service_count_result.data else 0
                         services_count_map[creative_user_id] = count
-                        print(f"🔍 Creative {creative_user_id} has {count} services (fallback)")
+                        if is_dev_env():
+                            logger.debug("Creative has %s services (fallback)", count)
                     except Exception as e2:
-                        print(f"Fallback also failed for creative {creative_user_id}: {e2}")
+                        log_exception_if_dev(logger, "Fallback also failed for creative", e2)
                         services_count_map[creative_user_id] = 0
             
             creatives = []
@@ -328,7 +336,8 @@ class ClientController:
                 
                 # Get service count
                 servicesCount = services_count_map.get(creative_user_id, 0)
-                print(f"🔍 Final service count for {creative_name} ({creative_user_id}): {servicesCount}")
+                if is_dev_env():
+                    logger.debug("Final service count for creative: %s", servicesCount)
                 
                 # For now, use default values for rating, reviewCount, isOnline
                 rating = 4.5  # Default rating - no reviews system yet
@@ -361,7 +370,8 @@ class ClientController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch client creatives: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch client creatives", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch client creatives")
 
     @staticmethod
     async def get_connected_services(user_id: str) -> dict:
@@ -406,7 +416,8 @@ class ClientController:
             try:
                 return await ClientController._get_connected_services_fallback(user_id)
             except Exception as fallback_error:
-                raise HTTPException(status_code=500, detail=f"Failed to fetch connected services: {str(fallback_error)}")
+                log_exception_if_dev(logger, "Failed to fetch connected services", fallback_error)
+                raise HTTPException(status_code=500, detail="Failed to fetch connected services")
 
     @staticmethod
     async def _get_connected_services_fallback(user_id: str) -> dict:
@@ -493,7 +504,8 @@ class ClientController:
             return {"services": services, "total_count": len(services)}
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch connected services: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch connected services", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch connected services")
 
     @staticmethod
     async def get_connected_services_and_bundles(user_id: str, client: Client) -> dict:
@@ -692,4 +704,5 @@ class ClientController:
             return {"services": services, "bundles": bundles, "total_count": len(services) + len(bundles)}
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch connected services and bundles: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch connected services and bundles", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch connected services and bundles")

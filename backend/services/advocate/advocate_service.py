@@ -3,6 +3,7 @@ from db.db_session import db_admin
 from schemas.advocate import AdvocateSetupResponse, AdvocateUpdateRequest, AdvocateUpdateResponse
 import uuid
 from services.email.email_service import email_service
+from core.safe_errors import log_exception_if_dev
 import logging
 
 logger = logging.getLogger(__name__)
@@ -107,8 +108,8 @@ class AdvocateController:
                     )
                     logger.info(f"Welcome email sent successfully to {user_email}")
                 except Exception as e:
-                    # Log the error but don't fail the profile creation
-                    logger.error(f"Failed to send welcome email to advocate: {str(e)}")
+                    # Log the error but don't fail the profile creation; full detail only in dev
+                    log_exception_if_dev(logger, "Failed to send welcome email to advocate", e)
             
             return AdvocateSetupResponse(
                 success=True,
@@ -118,7 +119,8 @@ class AdvocateController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to set up advocate profile: {str(e)}")
+            log_exception_if_dev(logger, "Failed to set up advocate profile", e)
+            raise HTTPException(status_code=500, detail="Failed to set up advocate profile")
 
     @staticmethod
     async def get_advocate_profile(user_id: str) -> dict:
@@ -135,7 +137,8 @@ class AdvocateController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch advocate profile: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch advocate profile", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch advocate profile")
 
     @staticmethod
     async def update_advocate_profile(user_id: str, update_data: AdvocateUpdateRequest) -> AdvocateUpdateResponse:
@@ -171,7 +174,8 @@ class AdvocateController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update advocate profile: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update advocate profile", e)
+            raise HTTPException(status_code=500, detail="Failed to update advocate profile")
 
     @staticmethod
     async def upload_profile_photo(user_id: str, file: UploadFile) -> dict:
@@ -208,7 +212,8 @@ class AdvocateController:
                     file_options={"content-type": file.content_type}
                 )
             except Exception as upload_error:
-                raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(upload_error)}")
+                log_exception_if_dev(logger, "Failed to upload file", upload_error)
+                raise HTTPException(status_code=500, detail="Failed to upload file")
             
             # Get the public URL
             public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
@@ -232,9 +237,9 @@ class AdvocateController:
                         try:
                             db_admin.storage.from_(bucket_name).remove([old_file_path])
                         except Exception as delete_error:
-                            print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+                            log_exception_if_dev(logger, "Failed to delete old profile photo", delete_error)
                 except Exception as delete_error:
-                    print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+                    log_exception_if_dev(logger, "Failed to delete old profile photo", delete_error)
             
             return {
                 "success": True,
@@ -245,4 +250,5 @@ class AdvocateController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
+            log_exception_if_dev(logger, "Failed to upload profile photo", e)
+            raise HTTPException(status_code=500, detail="Failed to upload profile photo")

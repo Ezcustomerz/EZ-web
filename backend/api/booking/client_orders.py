@@ -4,6 +4,7 @@ from typing import Dict, Any
 import logging
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 from services.booking.order_service import OrderService
@@ -34,8 +35,8 @@ async def get_client_orders(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching client orders: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch client orders: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching client orders", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch client orders")
 
 
 @router.get("/client/in-progress", response_model=OrdersListResponse)
@@ -59,8 +60,8 @@ async def get_client_in_progress_orders(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching client in-progress orders: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch client in-progress orders: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching client in-progress orders", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch client in-progress orders")
 
 
 @router.get("/client/action-needed", response_model=OrdersListResponse)
@@ -84,8 +85,8 @@ async def get_client_action_needed_orders(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching client action-needed orders: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch client action-needed orders: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching client action-needed orders", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch client action-needed orders")
 
 
 @router.get("/client/history", response_model=OrdersListResponse)
@@ -109,8 +110,8 @@ async def get_client_history_orders(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching client history orders: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch client history orders: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching client history orders", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch client history orders")
 
 
 @router.get("/client/upcoming", response_model=OrdersListResponse)
@@ -135,6 +136,6 @@ async def get_client_upcoming_bookings(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching client upcoming bookings: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch client upcoming bookings: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching client upcoming bookings", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch client upcoming bookings")
 

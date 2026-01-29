@@ -3,11 +3,14 @@ from services.client.client_service import ClientController
 from schemas.client import ClientCreativesListResponse, ClientUpdateRequest, ClientUpdateResponse
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/profile")
 @limiter.limit("2 per second")
@@ -30,7 +33,8 @@ async def get_client_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch client profile: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch client profile", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch client profile")
 
 @router.put("/profile", response_model=ClientUpdateResponse)
 @limiter.limit("2 per second")
@@ -54,7 +58,8 @@ async def update_client_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update client profile: {str(e)}")
+        log_exception_if_dev(logger, "Failed to update client profile", e)
+        raise HTTPException(status_code=500, detail="Failed to update client profile")
 
 @router.post("/profile/upload-photo")
 @limiter.limit("2 per second")
@@ -77,7 +82,8 @@ async def upload_profile_photo(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
+        log_exception_if_dev(logger, "Failed to upload profile photo", e)
+        raise HTTPException(status_code=500, detail="Failed to upload profile photo")
 
 @router.get("/creatives", response_model=ClientCreativesListResponse)
 @limiter.limit("2 per second")
@@ -100,7 +106,8 @@ async def get_client_creatives(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch client creatives: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch client creatives", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch client creatives")
 
 @router.get("/services", response_model=dict)
 @limiter.limit("2 per second")
@@ -123,4 +130,5 @@ async def get_connected_services_and_bundles(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch connected services and bundles: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch connected services and bundles", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch connected services and bundles")

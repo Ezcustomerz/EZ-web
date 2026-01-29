@@ -1,14 +1,17 @@
 """Clients router for creative endpoints"""
+import logging
 from fastapi import APIRouter, Request, HTTPException, Depends
 from services.creative.client_service import ClientService
 from schemas.creative import CreativeClientsListResponse
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/clients", response_model=CreativeClientsListResponse)
@@ -32,5 +35,6 @@ async def get_creative_clients(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative clients: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch creative clients", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch creative clients")
 

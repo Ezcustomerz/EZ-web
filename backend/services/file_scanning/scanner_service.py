@@ -2,6 +2,7 @@ from typing import Tuple, Optional, Dict
 from fastapi import UploadFile
 from services.file_scanning.clamav_scanner import ClamAVScanner
 from util.file_validator import FileValidator
+from core.safe_errors import is_dev_env
 import logging
 import os
 
@@ -50,7 +51,8 @@ class ScannerService:
         
         # Step 2: ClamAV scan (primary) - currently disabled
         if self.skip_clamav:
-            logger.info(f"ClamAV scanning skipped for {file.filename}")
+            if is_dev_env():
+                logger.info("ClamAV scanning skipped")
             scan_details['clamav'] = {
                 'available': False,
                 'scanned': False,
@@ -61,7 +63,8 @@ class ScannerService:
             if fail_if_scanner_unavailable:
                 return False, "File scanning service unavailable. Please try again later.", scan_details
             else:
-                logger.warning(f"ClamAV unavailable for {file.filename}, proceeding without scan")
+                if is_dev_env():
+                    logger.warning("ClamAV unavailable, proceeding without scan")
                 scan_details['clamav'] = {'available': False, 'scanned': False}
         else:
             is_safe, threat, clamav_details = await self.clamav.scan_file(file)

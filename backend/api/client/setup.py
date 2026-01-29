@@ -2,11 +2,14 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from services.client.client_service import ClientController
 from schemas.client import ClientSetupRequest
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from typing import Dict, Any
 from supabase import Client
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/setup")
 async def setup_client_profile(
@@ -29,4 +32,5 @@ async def setup_client_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to set up client profile: {str(e)}")
+        log_exception_if_dev(logger, "Failed to set up client profile", e)
+        raise HTTPException(status_code=500, detail="Failed to set up client profile")

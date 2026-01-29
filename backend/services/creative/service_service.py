@@ -1,5 +1,9 @@
 """Service management for creative services"""
+import logging
+import re
+import json
 from fastapi import HTTPException, Request
+from core.safe_errors import log_exception_if_dev
 from db.db_session import db_admin
 from schemas.creative import (
     CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse,
@@ -8,10 +12,10 @@ from schemas.creative import (
 )
 from supabase import Client
 from typing import Optional
-import re
-import json
 from services.creative.photo_service import PhotoService
 from services.creative.calendar_service import CalendarService
+
+logger = logging.getLogger(__name__)
 
 
 class ServiceService:
@@ -118,7 +122,8 @@ class ServiceService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to create service", e)
+            raise HTTPException(status_code=500, detail="Failed to create service")
 
     @staticmethod
     async def create_service_with_photos(user_id: str, request, client: Client = None) -> CreateServiceResponse:
@@ -147,9 +152,9 @@ class ServiceService:
                     calendar_data = json.loads(calendar_settings_json)
                     calendar_settings = CalendarSettingsRequest(**calendar_data)
                 except (json.JSONDecodeError, ValueError) as e:
-                    print(f"Warning: Failed to parse calendar settings: {e}")
+                    log_exception_if_dev(logger, "Failed to parse calendar settings", e)
                     calendar_settings = None
-            
+
             # Validate that the user has a creative profile
             creative_result = client.table('creatives').select('user_id').eq('user_id', user_id).single().execute()
             if not creative_result.data:
@@ -227,7 +232,8 @@ class ServiceService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to create service", e)
+            raise HTTPException(status_code=500, detail="Failed to create service")
 
     @staticmethod
     async def update_service(user_id: str, service_id: str, service_request: CreateServiceRequest, request: Request = None, client: Client = None) -> UpdateServiceResponse:
@@ -306,7 +312,8 @@ class ServiceService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update service", e)
+            raise HTTPException(status_code=500, detail="Failed to update service")
 
     @staticmethod
     async def update_service_with_photos(
@@ -397,7 +404,8 @@ class ServiceService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update service", e)
+            raise HTTPException(status_code=500, detail="Failed to update service")
 
     @staticmethod
     async def delete_service(user_id: str, service_id: str, client: Client = None) -> DeleteServiceResponse:
@@ -448,7 +456,8 @@ class ServiceService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to delete service", e)
+            raise HTTPException(status_code=500, detail="Failed to delete service")
 
     @staticmethod
     async def get_creative_services_and_bundles(user_id: str, client: Client, public_only: bool = False) -> PublicServicesAndBundlesResponse:
@@ -612,5 +621,6 @@ class ServiceService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative services and bundles: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch creative services and bundles", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative services and bundles")
 

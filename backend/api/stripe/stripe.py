@@ -1,12 +1,15 @@
+import logging
 from fastapi import APIRouter, Request, HTTPException, Depends
 from services.stripe.stripe_service import StripeService
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/connect/create-account")
@@ -39,7 +42,8 @@ async def create_stripe_connect_account(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create Stripe account: {str(e)}")
+        log_exception_if_dev(logger, "Error creating Stripe account", e)
+        raise HTTPException(status_code=500, detail="Failed to create Stripe account")
 
 
 @router.get("/connect/account-status")
@@ -63,7 +67,8 @@ async def get_stripe_account_status(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get account status: {str(e)}")
+        log_exception_if_dev(logger, "Error getting Stripe account status", e)
+        raise HTTPException(status_code=500, detail="Failed to get account status")
 
 
 @router.post("/connect/create-login-link")
@@ -87,7 +92,8 @@ async def create_stripe_login_link(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create login link: {str(e)}")
+        log_exception_if_dev(logger, "Error creating Stripe login link", e)
+        raise HTTPException(status_code=500, detail="Failed to create login link")
 
 
 @router.post("/payment/process")
@@ -120,7 +126,8 @@ async def process_payment(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process payment: {str(e)}")
+        log_exception_if_dev(logger, "Error processing payment", e)
+        raise HTTPException(status_code=500, detail="Failed to process payment")
 
 
 @router.post("/payment/verify")
@@ -166,4 +173,5 @@ async def verify_payment(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to verify payment: {str(e)}")
+        log_exception_if_dev(logger, "Error verifying payment", e)
+        raise HTTPException(status_code=500, detail="Failed to verify payment")

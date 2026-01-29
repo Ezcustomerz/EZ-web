@@ -4,6 +4,7 @@ from typing import Dict, Any
 import logging
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 from services.booking.order_service import OrderService
@@ -34,8 +35,8 @@ async def get_creative_orders(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching creative orders: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative orders: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching creative orders", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch creative orders")
 
 
 @router.get("/creative/current", response_model=OrdersListResponse)
@@ -59,8 +60,8 @@ async def get_creative_current_orders(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching creative current orders: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative current orders: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching creative current orders", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch creative current orders")
 
 
 @router.get("/creative/past", response_model=OrdersListResponse)
@@ -84,8 +85,8 @@ async def get_creative_past_orders(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching creative past orders: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative past orders: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching creative past orders", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch creative past orders")
 
 
 @router.get("/creative/calendar", response_model=CalendarSessionsResponse)
@@ -115,8 +116,8 @@ async def get_creative_calendar_sessions(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching creative calendar sessions: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch calendar sessions: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching creative calendar sessions", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch calendar sessions")
 
 
 @router.get("/creative/calendar/week", response_model=CalendarSessionsResponse)
@@ -146,6 +147,6 @@ async def get_creative_calendar_sessions_week(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching creative calendar sessions for week: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch calendar sessions: {str(e)}")
+        log_exception_if_dev(logger, "Error fetching creative calendar sessions for week", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch calendar sessions")
 

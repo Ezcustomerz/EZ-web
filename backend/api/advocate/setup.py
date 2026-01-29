@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from services.advocate.advocate_service import AdvocateController
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/setup")
 async def setup_advocate_profile(
@@ -22,4 +25,5 @@ async def setup_advocate_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to set up advocate profile: {str(e)}")
+        log_exception_if_dev(logger, "Failed to set up advocate profile", e)
+        raise HTTPException(status_code=500, detail="Failed to set up advocate profile")

@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import logging
 from datetime import datetime
 from db.db_session import db_admin
+from core.safe_errors import log_exception_if_dev
 
 load_dotenv()
 
@@ -141,13 +142,13 @@ class SubscriptionService:
             }
             
         except stripe.error.StripeError as e:
-            logger.error(f"Stripe error creating checkout session: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+            log_exception_if_dev(logger, "Stripe error creating checkout session", e)
+            raise HTTPException(status_code=400, detail="Failed to create checkout session. Please try again.")
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error creating checkout session: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to create checkout session: {str(e)}")
+            log_exception_if_dev(logger, "Error creating checkout session", e)
+            raise HTTPException(status_code=500, detail="Failed to create checkout session")
     
     @staticmethod
     async def verify_subscription_and_update(
@@ -206,7 +207,7 @@ class SubscriptionService:
                             cancel_at_period_end=True
                         )
                     except Exception as e:
-                        logger.warning(f"Failed to cancel old subscription in Stripe: {e}")
+                        log_exception_if_dev(logger, "Failed to cancel old subscription in Stripe", e)
                 
                 # Update status in database using admin client
                 db_admin.table('user_subscriptions').update({
@@ -245,13 +246,13 @@ class SubscriptionService:
             }
             
         except stripe.error.StripeError as e:
-            logger.error(f"Stripe error verifying subscription: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+            log_exception_if_dev(logger, "Stripe error verifying subscription", e)
+            raise HTTPException(status_code=400, detail="Subscription verification failed. Please try again.")
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error verifying subscription: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to verify subscription: {str(e)}")
+            log_exception_if_dev(logger, "Error verifying subscription", e)
+            raise HTTPException(status_code=500, detail="Failed to verify subscription")
     
     @staticmethod
     async def get_subscription_status(
@@ -295,8 +296,8 @@ class SubscriptionService:
             }
             
         except Exception as e:
-            logger.error(f"Error getting subscription status: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to get subscription status: {str(e)}")
+            log_exception_if_dev(logger, "Error getting subscription status", e)
+            raise HTTPException(status_code=500, detail="Failed to get subscription status")
     
     @staticmethod
     async def cancel_subscription(
@@ -346,13 +347,13 @@ class SubscriptionService:
             }
             
         except stripe.error.StripeError as e:
-            logger.error(f"Stripe error canceling subscription: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+            log_exception_if_dev(logger, "Stripe error canceling subscription", e)
+            raise HTTPException(status_code=400, detail="Failed to cancel subscription. Please try again.")
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error canceling subscription: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to cancel subscription: {str(e)}")
+            log_exception_if_dev(logger, "Error canceling subscription", e)
+            raise HTTPException(status_code=500, detail="Failed to cancel subscription")
     
     @staticmethod
     async def get_billing_details(
@@ -462,7 +463,7 @@ class SubscriptionService:
                     ]
                     
                 except stripe.error.StripeError as e:
-                    logger.warning(f"Stripe error fetching payment details: {str(e)}")
+                    log_exception_if_dev(logger, "Stripe error fetching payment details", e)
                     # Continue without payment method/invoice data
             
             return response_data
@@ -470,8 +471,8 @@ class SubscriptionService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error getting billing details: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to get billing details: {str(e)}")
+            log_exception_if_dev(logger, "Error getting billing details", e)
+            raise HTTPException(status_code=500, detail="Failed to get billing details")
     
     @staticmethod
     async def create_billing_portal_session(
@@ -514,10 +515,10 @@ class SubscriptionService:
             }
             
         except stripe.error.StripeError as e:
-            logger.error(f"Stripe error creating billing portal session: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+            log_exception_if_dev(logger, "Stripe error creating billing portal session", e)
+            raise HTTPException(status_code=400, detail="Failed to create billing portal session. Please try again.")
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error creating billing portal session: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to create billing portal session: {str(e)}")
+            log_exception_if_dev(logger, "Error creating billing portal session", e)
+            raise HTTPException(status_code=500, detail="Failed to create billing portal session")

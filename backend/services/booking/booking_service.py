@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, date, time, timedelta
 import logging
 from supabase import Client
+from core.safe_errors import log_exception_if_dev
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class BookingService:
                 return response.data[0]
             return None
         except Exception as e:
-            logger.error(f"Error fetching calendar settings: {e}")
+            log_exception_if_dev(logger, "Error fetching calendar settings", e)
             return None
 
     @staticmethod
@@ -76,7 +77,7 @@ class BookingService:
             
             return schedule
         except Exception as e:
-            logger.error(f"Error fetching weekly schedule: {e}")
+            log_exception_if_dev(logger, "Error fetching weekly schedule", e)
             return []
 
     @staticmethod
@@ -107,7 +108,7 @@ class BookingService:
             
             return slots
         except Exception as e:
-            logger.error(f"Error fetching time slots: {e}")
+            log_exception_if_dev(logger, "Error fetching time slots", e)
             return []
 
     @staticmethod
@@ -256,7 +257,7 @@ class BookingService:
 
             return available_dates
         except Exception as e:
-            logger.error(f"Error calculating available dates: {e}")
+            log_exception_if_dev(logger, "Error calculating available dates", e)
             return []
 
     @staticmethod
@@ -369,7 +370,7 @@ class BookingService:
 
             return available_slots
         except Exception as e:
-            logger.error(f"Error fetching available time slots: {e}")
+            log_exception_if_dev(logger, "Error fetching available time slots", e)
             return []
 
     @staticmethod
@@ -408,6 +409,6 @@ class BookingService:
                 "time_slots": time_slots
             }
         except Exception as e:
-            logger.error(f"Error fetching service booking data: {e}")
-            return {"error": str(e)}
+            log_exception_if_dev(logger, "Error fetching service booking data", e)
+            return {"error": "Service booking data unavailable"}
 

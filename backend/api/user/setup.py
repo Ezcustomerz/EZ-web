@@ -1,12 +1,15 @@
+import logging
 from fastapi import APIRouter, Request, HTTPException, Depends
 from services.user.user_service import UserController
 from schemas.user import BatchSetupRequest, UpdateRolesRequest
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from typing import Dict, Any
 from supabase import Client
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/batch-setup")
 async def batch_setup_profiles(
@@ -30,7 +33,8 @@ async def batch_setup_profiles(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create profiles: {str(e)}")
+        log_exception_if_dev(logger, "Error in batch_setup_profiles", e)
+        raise HTTPException(status_code=500, detail="Failed to create profiles")
     
 
 @router.post("/update-roles")
@@ -55,7 +59,8 @@ async def update_user_roles(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update user roles: {str(e)}")
+        log_exception_if_dev(logger, "Error in update_user_roles", e)
+        raise HTTPException(status_code=500, detail="Failed to update user roles")
     
     
 @router.get("/setup-status")
@@ -79,4 +84,5 @@ async def get_setup_status(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to check setup status: {str(e)}")
+        log_exception_if_dev(logger, "Error in get_setup_status", e)
+        raise HTTPException(status_code=500, detail="Failed to check setup status")

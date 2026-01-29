@@ -7,8 +7,11 @@ from dotenv import load_dotenv
 import logging
 from datetime import datetime
 from db.db_session import db_admin
+from core.safe_errors import log_exception_if_dev, is_dev_env
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Initialize Stripe with secret key from environment
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
@@ -39,7 +42,7 @@ async def _send_notification_email(notification_data: Dict[str, Any], recipient_
             client=client
         )
     except Exception as e:
-        logger.warning(f"Failed to send notification email: {str(e)}")
+        log_exception_if_dev(logger, "Failed to send notification email", e)
 
 
 class StripeService:
@@ -108,16 +111,17 @@ class StripeService:
             }
             
         except stripe.error.StripeError as e:
-            error_message = str(e)
+            log_exception_if_dev(logger, "Stripe error creating connect account", e)
             # Provide more helpful error messages
-            if "Connect" in error_message or "connect" in error_message.lower():
+            if "Connect" in str(e) or "connect" in str(e).lower():
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail="Stripe Connect is not enabled on your account. Please enable Connect in your Stripe Dashboard at https://dashboard.stripe.com/settings/connect"
                 )
-            raise HTTPException(status_code=400, detail=f"Stripe error: {error_message}")
+            raise HTTPException(status_code=400, detail="Stripe error occurred. Please try again.")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create Stripe account: {str(e)}")
+            log_exception_if_dev(logger, "Error creating Stripe account", e)
+            raise HTTPException(status_code=500, detail="Failed to create Stripe account")
     
     @staticmethod
     async def get_account_status(user_id: str, client: Client) -> Dict[str, Any]:
@@ -253,7 +257,7 @@ class StripeService:
                         'stripe_payouts_enabled': False
                     }).eq('user_id', user_id).execute()
                 
-                logging.error("Stripe error in get_account_status for user %s: %s", user_id, str(e))
+                log_exception_if_dev(logger, "Stripe error in get_account_status", e)
                 return {
                     "connected": False,
                     "payouts_enabled": False,
@@ -264,7 +268,8 @@ class StripeService:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get account status: {str(e)}")
+            log_exception_if_dev(logger, "Error getting account status", e)
+            raise HTTPException(status_code=500, detail="Failed to get account status")
     
     @staticmethod
     async def create_login_link(user_id: str, client: Client) -> Dict[str, Any]:
@@ -296,28 +301,25 @@ class StripeService:
             }
             
         except stripe.error.StripeError as e:
-            error_message = str(e)
+            log_exception_if_dev(logger, "Stripe error in create_login_link", e)
             # Check if account hasn't completed onboarding
-            if "onboarding" in error_message.lower() or "not completed" in error_message.lower():
-                # Return a special response indicating onboarding is needed
-                logging.error(f"Stripe onboarding error for user {user_id}: {error_message}")
+            if "onboarding" in str(e).lower() or "not completed" in str(e).lower():
                 return {
                     "login_url": None,
                     "needs_onboarding": True,
                     "error": "Stripe onboarding incomplete. Please complete onboarding in your Stripe dashboard."
                 }
             # Provide more helpful error messages
-            if "Connect" in error_message or "connect" in error_message.lower():
+            if "Connect" in str(e) or "connect" in str(e).lower():
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail="Stripe Connect is not enabled on your account. Please enable Connect in your Stripe Dashboard at https://dashboard.stripe.com/settings/connect"
                 )
-            logging.error(f"Stripe error for user {user_id}, account {account_id}: {error_message}")
             raise HTTPException(status_code=400, detail="Failed to create login link due to a Stripe error. Please try again later or contact support.")
         except HTTPException:
             raise
         except Exception as e:
-            logging.error(f"Unexpected error in create_login_link for user {user_id}: {str(e)}")
+            log_exception_if_dev(logger, "Unexpected error in create_login_link", e)
             raise HTTPException(status_code=500, detail="An internal server error occurred while creating the Stripe login link.")
     
     @staticmethod
@@ -435,17 +437,18 @@ class StripeService:
             }
             
         except stripe.error.StripeError as e:
-            error_message = str(e)
-            if "Connect" in error_message or "connect" in error_message.lower():
+            log_exception_if_dev(logger, "Stripe error processing payment", e)
+            if "Connect" in str(e) or "connect" in str(e).lower():
                 raise HTTPException(
-                    status_code=400, 
-                    detail="Stripe Connect is not enabled on your account. Please enable Connect in your Stripe Dashboard."
+                    status_code=400,
+                    detail="Stripe Connect is not enabled on your account. Please enable Connect in your Stripe Dashboard at https://dashboard.stripe.com/settings/connect"
                 )
-            raise HTTPException(status_code=400, detail=f"Stripe error: {error_message}")
+            raise HTTPException(status_code=400, detail="Payment processing failed. Please try again.")
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to process payment: {str(e)}")
+            log_exception_if_dev(logger, "Error processing payment", e)
+            raise HTTPException(status_code=500, detail="Failed to process payment")
     
     @staticmethod
     async def verify_payment_and_update_booking(
@@ -502,8 +505,8 @@ class StripeService:
             # Verify payment was successful
             if checkout_session.payment_status != 'paid':
                 raise HTTPException(
-                    status_code=400, 
-                    detail=f"Payment not completed. Status: {checkout_session.payment_status}"
+                    status_code=400,
+                    detail="Payment not completed."
                 )
             
             # Verify booking_id in metadata matches
@@ -640,8 +643,6 @@ class StripeService:
             
             # Create notifications for both client and creative after successful payment
             try:
-                logger = logging.getLogger(__name__)
-                
                 # Get service and user information for notifications
                 service_id = booking.get('service_id')
                 service_title = 'Service'
@@ -846,30 +847,31 @@ class StripeService:
                     client_notif_result = db_admin.table("notifications") \
                         .insert(client_notification_data) \
                         .execute()
-                    logger.info(f"Client payment notification created: {client_notif_result.data}")
+                    if is_dev_env():
+                        logger.info("Client payment notification created: %s", client_notif_result.data)
                     
                     # Send email notification
                     if client_notif_result.data:
                         await _send_notification_email(client_notification_data, booking.get('client_user_id'), client_display_name, db_admin)
                 except Exception as notif_error:
-                    logger.error(f"Failed to create client payment notification: {notif_error}")
+                    log_exception_if_dev(logger, "Failed to create client payment notification", notif_error)
                 
                 try:
                     creative_notif_result = db_admin.table("notifications") \
                         .insert(creative_notification_data) \
                         .execute()
-                    logger.info(f"Creative payment notification created: {creative_notif_result.data}")
+                    if is_dev_env():
+                        logger.info("Creative payment notification created: %s", creative_notif_result.data)
                     
                     # Send email notification
                     if creative_notif_result.data:
                         await _send_notification_email(creative_notification_data, creative_user_id, creative_display_name, db_admin)
                 except Exception as notif_error:
-                    logger.error(f"Failed to create creative payment notification: {notif_error}")
+                    log_exception_if_dev(logger, "Failed to create creative payment notification", notif_error)
                     
             except Exception as notif_error:
                 # Log error but don't fail payment verification
-                logger = logging.getLogger(__name__)
-                logger.error(f"Error creating payment notifications: {notif_error}")
+                log_exception_if_dev(logger, "Error creating payment notifications", notif_error)
             
             return {
                 "success": True,
@@ -882,9 +884,11 @@ class StripeService:
             }
             
         except stripe.error.StripeError as e:
-            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+            log_exception_if_dev(logger, "Stripe error verifying payment", e)
+            raise HTTPException(status_code=400, detail="Payment verification failed")
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to verify payment: {str(e)}")
+            log_exception_if_dev(logger, "Error verifying payment", e)
+            raise HTTPException(status_code=500, detail="Failed to verify payment")
 
