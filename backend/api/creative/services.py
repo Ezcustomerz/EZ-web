@@ -1,4 +1,6 @@
 """Services router for creative endpoints"""
+import logging
+import json
 from fastapi import APIRouter, Request, HTTPException, Depends
 from services.creative.service_service import ServiceService
 from services.creative.calendar_service import CalendarService
@@ -8,12 +10,13 @@ from schemas.creative import (
 )
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
-import json
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/services", response_model=PublicServicesAndBundlesResponse)
@@ -37,7 +40,8 @@ async def get_creative_services_and_bundles(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative services and bundles: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch creative services and bundles", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch creative services and bundles")
 
 
 @router.get("/services/{user_id}", response_model=PublicServicesAndBundlesResponse)
@@ -56,7 +60,8 @@ async def get_creative_services_by_id(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch creative services and bundles: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch creative services and bundles", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch creative services and bundles")
 
 
 @router.post("/services", response_model=CreateServiceResponse)
@@ -80,7 +85,8 @@ async def create_service(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+        log_exception_if_dev(logger, "Failed to create service", e)
+        raise HTTPException(status_code=500, detail="Failed to create service")
 
 
 @router.post("/services/with-photos", response_model=CreateServiceResponse)
@@ -103,7 +109,8 @@ async def create_service_with_photos(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+        log_exception_if_dev(logger, "Failed to create service", e)
+        raise HTTPException(status_code=500, detail="Failed to create service")
 
 
 @router.delete("/services/{service_id}", response_model=DeleteServiceResponse)
@@ -127,7 +134,8 @@ async def delete_service(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete service: {str(e)}")
+        log_exception_if_dev(logger, "Failed to delete service", e)
+        raise HTTPException(status_code=500, detail="Failed to delete service")
 
 
 @router.put("/services/{service_id}", response_model=UpdateServiceResponse)
@@ -152,7 +160,8 @@ async def update_service(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+        log_exception_if_dev(logger, "Failed to update service", e)
+        raise HTTPException(status_code=500, detail="Failed to update service")
 
 
 @router.put("/services/{service_id}/photos", response_model=UpdateServiceResponse)
@@ -194,7 +203,7 @@ async def update_service_with_photos(
                 calendar_data = json.loads(calendar_settings_json)
                 calendar_settings = CalendarSettingsRequest(**calendar_data)
             except (json.JSONDecodeError, ValueError) as e:
-                print(f"Warning: Failed to parse calendar settings: {e}")
+                log_exception_if_dev(logger, "Failed to parse calendar settings", e)
                 calendar_settings = None
         
         # Extract existing photos to keep (sent as JSON array from frontend)
@@ -204,7 +213,7 @@ async def update_service_with_photos(
             try:
                 existing_photos_to_keep = json.loads(existing_photos_json)
             except (json.JSONDecodeError, ValueError) as e:
-                print(f"Warning: Failed to parse existing_photos: {e}")
+                log_exception_if_dev(logger, "Failed to parse existing_photos", e)
                 existing_photos_to_keep = []
         
         # Get photo files
@@ -218,7 +227,8 @@ async def update_service_with_photos(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update service photos: {str(e)}")
+        log_exception_if_dev(logger, "Failed to update service photos", e)
+        raise HTTPException(status_code=500, detail="Failed to update service photos")
 
 
 @router.get("/services/{service_id}/calendar")
@@ -247,5 +257,6 @@ async def get_service_calendar_settings(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get calendar settings: {str(e)}")
+        log_exception_if_dev(logger, "Failed to get calendar settings", e)
+        raise HTTPException(status_code=500, detail="Failed to get calendar settings")
 

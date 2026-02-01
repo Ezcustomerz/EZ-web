@@ -104,16 +104,8 @@ export function LayoutClient({
 
   // Fetch client profile once at layout level and provide to sidebar
   useEffect(() => {
-    console.log('[LayoutClient] useEffect triggered', { 
-      userProfile: userProfile?.user_id, 
-      hasProfile: !!clientProfile,
-      hasFetched: userProfile ? hasFetchedProfileForUser(userProfile.user_id) : false,
-      isFetching: userProfile ? fetchingRef.current.has(userProfile.user_id) : false
-    });
-    
     const loadProfile = async () => {
       if (!userProfile) {
-        console.log('[LayoutClient] No userProfile, setting demo data');
         setClientProfile(demoClientData as unknown as ClientProfile);
         setProfileLoading(false);
         clearCachedProfiles();
@@ -122,10 +114,6 @@ export function LayoutClient({
       
       // Don't fetch role-specific profiles during setup or if first_login is true
       if (isSetupInProgress || userProfile.first_login) {
-        console.log('[LayoutClient] Setup in progress or first login, skipping profile fetch', { 
-          isSetupInProgress, 
-          first_login: userProfile.first_login 
-        });
         setClientProfile(demoClientData as unknown as ClientProfile);
         setProfileLoading(false);
         return;
@@ -133,7 +121,6 @@ export function LayoutClient({
       
       // If we already fetched the profile for this user, restore from cache
       if (hasFetchedProfileForUser(userProfile.user_id)) {
-        console.log('[LayoutClient] Profile already fetched for user, restoring from cache');
         const cachedProfile = getCachedProfileForUser(userProfile.user_id);
         if (cachedProfile) {
           setClientProfile(cachedProfile);
@@ -144,16 +131,11 @@ export function LayoutClient({
       
       // If we're already fetching for this user, don't start another fetch
       if (fetchingRef.current.has(userProfile.user_id)) {
-        console.log('[LayoutClient] Already fetching for user, skipping duplicate call');
         return;
       }
       
-      console.log('[LayoutClient] Fetching client profile for user:', userProfile.user_id);
-      console.log('[LayoutClient] User roles:', userProfile.roles);
-      
       // Check if user has client role
       if (!userProfile.roles.includes('client')) {
-        console.log('[LayoutClient] User does not have client role, using demo data');
         setClientProfile(demoClientData as unknown as ClientProfile);
         setProfileLoading(false);
         return;
@@ -163,7 +145,6 @@ export function LayoutClient({
       setProfileLoading(true);
       try {
         const profile = await userService.getClientProfile();
-        console.log('[LayoutClient] Client profile fetched successfully:', profile);
         setClientProfile(profile);
         cacheProfileForUser(userProfile.user_id, profile);
       } catch (e) {
@@ -181,10 +162,8 @@ export function LayoutClient({
   useEffect(() => {
     const handleProfileUpdate = async () => {
       if (userProfile && !isSetupInProgress && !userProfile.first_login) {
-        console.log('[LayoutClient] Profile update event received, refetching profile');
         try {
           const profile = await userService.getClientProfile();
-          console.log('[LayoutClient] Profile refetched after update:', profile);
           setClientProfile(profile);
           if (userProfile.user_id) {
             cacheProfileForUser(userProfile.user_id, profile);

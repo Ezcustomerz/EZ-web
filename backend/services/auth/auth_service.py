@@ -6,11 +6,23 @@ import os
 import logging
 from typing import Dict, Any
 import re
+import base64
+import json
+from core.safe_errors import log_exception_if_dev, is_dev_env
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+if not SUPABASE_URL:
+    logger.error("SUPABASE_URL not configured - ES256 JWKS fetching will fail")
+
+# Import ES256 support from verify module
+try:
+    from core.verify import get_public_key_from_jwks
+except ImportError:
+    logger.error("ES256 support not available - import from core.verify failed")
+    raise
 
 
 class AuthController:
@@ -119,7 +131,7 @@ class AuthController:
     @staticmethod
     def validate_jwt_token(token: str) -> Dict[str, Any]:
         """
-        Validate a JWT token and return its payload.
+        Validate a JWT token and return its payload using ES256 (asymmetric keys).
         This ensures only valid Supabase tokens are accepted.
         
         Args:
@@ -129,33 +141,78 @@ class AuthController:
             Decoded token payload
             
         Raises:
-            HTTPException: If token is invalid, expired, or JWT secret is not configured
+            HTTPException: If token is invalid, expired, or SUPABASE_URL is not configured
         """
-        if not SUPABASE_JWT_SECRET:
-            raise HTTPException(status_code=500, detail="JWT secret not configured")
+        if not SUPABASE_URL:
+            raise HTTPException(status_code=500, detail="SUPABASE_URL not configured - required for ES256 validation")
         
         # Trim whitespace (common issue with JSON parsing)
         token = token.strip()
         
         # Quick format check before attempting decode
         if not AuthController._is_valid_jwt_format(token):
-            logger.warning(f"Invalid JWT format: token does not have 3 segments")
-            raise HTTPException(status_code=401, detail="Invalid token format: not a valid JWT")
+            if is_dev_env():
+                logger.warning("Invalid JWT format: token does not have 3 segments")
+            raise HTTPException(status_code=401, detail="Invalid token format")
         
+        # Decode header to get algorithm and key ID
+        token_alg = None
+        token_kid = None
         try:
+            parts = token.split('.')
+            if len(parts) < 1:
+                raise ValueError("Token has no header part")
+            
+            header_b64 = parts[0]
+            # Add padding if needed for base64 decoding
+            padding = 4 - len(header_b64) % 4
+            if padding != 4:
+                header_b64 += '=' * padding
+            
+            try:
+                header_json = base64.urlsafe_b64decode(header_b64)
+            except Exception as e:
+                log_exception_if_dev(logger, "Base64 decode failed for JWT header", e)
+                raise ValueError("Invalid base64 in header")
+            
+            try:
+                header = json.loads(header_json)
+            except Exception as e:
+                log_exception_if_dev(logger, "JSON parse failed for JWT header", e)
+                raise ValueError("Invalid JSON in header")
+            
+            token_alg = header.get('alg', 'unknown')
+            token_kid = header.get('kid', None)
+        except ValueError:
+            raise HTTPException(status_code=401, detail="Invalid token format")
+        except Exception as e:
+            log_exception_if_dev(logger, "Failed to decode JWT header", e)
+            raise HTTPException(status_code=401, detail="Invalid token format")
+        
+        # Validate using ES256 only (asymmetric keys from JWKS)
+        try:
+            if not token_kid:
+                raise JWTError("Token missing 'kid' (key ID) - required for ES256 validation")
+            
+            if token_alg != 'ES256':
+                raise JWTError(f"Unsupported algorithm: {token_alg}. Only ES256 is supported.")
+            
+            public_key = get_public_key_from_jwks(token_kid)
+            if not public_key:
+                raise JWTError(f"Could not find public key for kid: {token_kid}")
+            
             payload = jwt.decode(
                 token,
-                SUPABASE_JWT_SECRET,
-                algorithms=["HS256"],
+                public_key,
+                algorithms=["ES256"],
                 audience="authenticated"
             )
+            logger.debug(f"Successfully validated ES256 token with kid: {token_kid}")
             return payload
         except JWTError as e:
-            # Token is invalid, expired, or malformed
-            error_msg = str(e)
-            # Only log detailed error for debugging, but provide user-friendly message
-            logger.warning(f"JWT validation failed: {error_msg}")
-            raise HTTPException(status_code=401, detail=f"Invalid or expired token: {error_msg}")
+            # Token is invalid, expired, or malformed - log full details only in dev
+            log_exception_if_dev(logger, "JWT validation failure", e)
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     @staticmethod
     async def set_cookies(access_token: str, refresh_token: str) -> JSONResponse:
@@ -189,9 +246,8 @@ class AuthController:
         # Validate refresh token (can be JWT or opaque token format)
         # Supabase refresh tokens can be either JWT or opaque tokens
         if not AuthController._is_valid_token_format(refresh_token):
-            # Log the token format for debugging (truncated for security)
-            token_preview = refresh_token[:50] + "..." if len(refresh_token) > 50 else refresh_token
-            logger.warning(f"Invalid refresh_token format. Length: {len(refresh_token) if refresh_token else 0}, Preview: {token_preview}")
+            if is_dev_env():
+                logger.warning("Invalid refresh_token format (length: %s)", len(refresh_token) if refresh_token else 0)
             raise HTTPException(status_code=400, detail="Invalid refresh_token format")
 
         # Validate access_token cryptographically (this should always be a JWT)
@@ -209,7 +265,8 @@ class AuthController:
             len(refresh_token) > 4096 or
             not re.match(b64url_pattern, refresh_token)
         ):
-            logger.warning(f"Rejected suspicious refresh_token format")
+            if is_dev_env():
+                logger.warning("Rejected suspicious refresh_token format")
             raise HTTPException(status_code=400, detail="Invalid refresh_token format")
 
         # This ensures only valid tokens are stored in cookies
@@ -249,9 +306,8 @@ class AuthController:
                 # The session will expire naturally when the token expires
                 pass  # Session revocation is handled client-side by Supabase
             except Exception as e:
-                # Log the error but don't fail the logout
-                # Cookies are already cleared, which is the critical part
-                logger.warning(f"Failed to revoke session during logout (non-critical): {str(e)}")
+                # Log the error but don't fail the logout; full detail only in dev
+                log_exception_if_dev(logger, "Failed to revoke session during logout (non-critical)", e)
         
         return response
 

@@ -138,7 +138,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
           }
         }
       } catch (err) {
-        console.warn('Failed to check tier level:', err);
+        // Failed to check tier level
       }
     };
 

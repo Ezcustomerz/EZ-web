@@ -59,6 +59,7 @@ function transformOrders(fetchedOrders: Order[]) {
         clientPhone: undefined, // TODO: Add client phone if available
         specialRequirements: order.description,
         files: order.files || [], // Include files with download status
+        split_deposit_amount: order.split_deposit_amount, // Include split_deposit_amount from backend
       };
     });
 }
@@ -68,6 +69,7 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
   const [orders, setOrders] = useState<Array<any>>([]);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const hasCheckedForOrderRef = useRef<string | null>(null);
 
   // Fetch orders on mount - only once
   useEffect(() => {
@@ -92,6 +94,12 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
         const transformedOrders = transformOrders(fetchCache.data);
         setOrders(transformedOrders);
         setLoading(false);
+        
+        // Check if we're looking for an order in Past Orders
+        if (orderIdToOpen && transformedOrders.some(order => order.id === orderIdToOpen)) {
+          // Order found in Past Orders - it will be opened by PastOrdersTable
+          console.log(`[PastOrdersTab] Order ${orderIdToOpen} found in Past Orders`);
+        }
       }
       return;
     }
@@ -128,6 +136,21 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
         if (mountedRef.current) {
           setOrders(transformedOrders);
           setLoading(false);
+          
+          // Check if we're looking for an order in Past Orders
+          if (orderIdToOpen && hasCheckedForOrderRef.current !== orderIdToOpen) {
+            setTimeout(() => {
+              if (mountedRef.current && hasCheckedForOrderRef.current !== orderIdToOpen) {
+                hasCheckedForOrderRef.current = orderIdToOpen;
+                const orderFound = transformedOrders.some(order => order.id === orderIdToOpen);
+                if (orderFound) {
+                  console.log(`[PastOrdersTab] Order ${orderIdToOpen} found in Past Orders`);
+                } else {
+                  console.log(`[PastOrdersTab] Order ${orderIdToOpen} not found in Past Orders`);
+                }
+              }
+            }, 100);
+          }
         }
         
         // Cache the resolved data
@@ -166,6 +189,17 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
       mountedRef.current = false;
     };
   }, [isAuthenticated]); // Re-run when authentication changes
+
+  // Watch for orderIdToOpen changes and check if order is in loaded orders
+  useEffect(() => {
+    if (orderIdToOpen && orders.length > 0 && hasCheckedForOrderRef.current !== orderIdToOpen) {
+      const orderFound = orders.some(order => order.id === orderIdToOpen);
+      if (orderFound) {
+        console.log(`[PastOrdersTab] Order ${orderIdToOpen} found in Past Orders via useEffect`);
+        hasCheckedForOrderRef.current = orderIdToOpen;
+      }
+    }
+  }, [orderIdToOpen, orders]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));

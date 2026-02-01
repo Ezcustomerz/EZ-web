@@ -2,8 +2,11 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 from services.auth.auth_service import AuthController
 from core.limiter import limiter
+from core.safe_errors import log_exception_if_dev
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/set-cookies")
@@ -31,7 +34,8 @@ async def set_cookies(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to set cookies: {str(e)}")
+        log_exception_if_dev(logger, "Failed to set cookies", e)
+        raise HTTPException(status_code=500, detail="Failed to set cookies")
 
 
 @router.post("/logout")
@@ -47,7 +51,8 @@ async def logout(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to logout: {str(e)}")
+        log_exception_if_dev(logger, "Failed to logout", e)
+        raise HTTPException(status_code=500, detail="Failed to logout")
 
 
 @router.get("/jwt_check")

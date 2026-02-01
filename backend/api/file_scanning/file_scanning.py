@@ -1,10 +1,11 @@
+import logging
 from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Depends
 from typing import List, Dict, Any
 from services.file_scanning.scanner_service import ScannerService
 from schemas.file_scanning import FileScanResponse, FileScanResult
 from core.limiter import limiter
 from core.verify import require_auth
-import logging
+from core.safe_errors import log_exception_if_dev
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +55,11 @@ async def scan_files(
                     unsafe_count += 1
                     
             except Exception as e:
-                logger.error(f"Error scanning file {file.filename}: {str(e)}", exc_info=True)
+                log_exception_if_dev(logger, "Error scanning file", e)
                 results.append(FileScanResult(
                     filename=file.filename or "unknown",
                     is_safe=False,
-                    error_message=f"Scan error: {str(e)}",
+                    error_message="Scan error",
                     scan_details=None
                 ))
                 unsafe_count += 1
@@ -76,8 +77,8 @@ async def scan_files(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"File scanning error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to scan files: {str(e)}")
+        log_exception_if_dev(logger, "File scanning error", e)
+        raise HTTPException(status_code=500, detail="Failed to scan files")
 
 @router.post("/scan/single", response_model=FileScanResult)
 @limiter.limit("20 per minute")
@@ -109,6 +110,6 @@ async def scan_single_file(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"File scanning error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to scan file: {str(e)}")
+        log_exception_if_dev(logger, "File scanning error", e)
+        raise HTTPException(status_code=500, detail="Failed to scan file")
 

@@ -10,6 +10,31 @@ from schemas.booking import (
 
 logger = logging.getLogger(__name__)
 
+
+async def _send_notification_email(notification_data: Dict[str, Any], recipient_user_id: str, recipient_name: str, client: Client = None):
+    """Helper function to send email after notification creation"""
+    try:
+        from services.notifications.notifications_service import NotificationsController
+        # Get recipient email
+        recipient_email = None
+        if client:
+            try:
+                user_result = client.table('users').select('email').eq('user_id', recipient_user_id).single().execute()
+                if user_result.data:
+                    recipient_email = user_result.data.get('email')
+            except:
+                pass
+        
+        await NotificationsController.send_notification_email(
+            notification_data=notification_data,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            client=client
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send notification email: {str(e)}")
+
+
 class FinalizationService:
     """Service for handling booking finalization operations"""
     
@@ -204,8 +229,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
                     logger.info(f"Payment required notification created for client: {booking['client_user_id']}")
+                    
+                    # Send email notification
+                    if notification_result.data:
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
                 
                 elif client_status == 'locked':
                     # Client: Payment to unlock notification
@@ -229,8 +258,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
                     logger.info(f"Payment to unlock notification created for client: {booking['client_user_id']}")
+                    
+                    # Send email notification
+                    if notification_result.data:
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
                     
                     # Creative: Files sent notification
                     creative_notification_data = {
@@ -253,8 +286,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
                     logger.info(f"Files sent notification created for creative: {user_id}")
+                    
+                    # Send email notification
+                    if creative_notification_result.data:
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
                 
                 elif client_status == 'completed':
                     # Both: Service complete notification
@@ -276,8 +313,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    client_notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
                     logger.info(f"Service complete notification created for client: {booking['client_user_id']}")
+                    
+                    # Send email notification
+                    if client_notification_result.data:
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
                     
                     creative_notification_data = {
                         "recipient_user_id": user_id,
@@ -297,8 +338,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
                     logger.info(f"Service complete notification created for creative: {user_id}")
+                    
+                    # Send email notification
+                    if creative_notification_result.data:
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
                 
                 elif client_status == 'download':
                     # Client: Files ready notification
@@ -321,8 +366,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(client_notification_data).execute()
+                    client_notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
                     logger.info(f"Files ready notification created for client: {booking['client_user_id']}")
+                    
+                    # Send email notification
+                    if client_notification_result.data:
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
                     
                     # Creative: Files sent notification
                     creative_notification_data = {
@@ -345,8 +394,12 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
                     logger.info(f"Files sent notification created for creative: {user_id}")
+                    
+                    # Send email notification
+                    if creative_notification_result.data:
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
                     
             except Exception as notif_error:
                 logger.error(f"Failed to create finalization notifications: {notif_error}")

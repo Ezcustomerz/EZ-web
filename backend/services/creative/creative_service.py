@@ -16,6 +16,11 @@ from core.timezone_utils import (
     convert_time_slots_from_utc,
     get_user_timezone_from_request
 )
+from services.email.email_service import email_service
+from core.safe_errors import log_exception_if_dev
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CreativeController:
     @staticmethod
@@ -144,6 +149,29 @@ class CreativeController:
             if not user_update_result.data:
                 raise HTTPException(status_code=500, detail="Failed to update user first_login status")
             
+            # Send welcome email to the new creative
+            # Use primary_contact if it's an email, otherwise skip
+            try:
+                email_to_send = None
+                if setup_request.primary_contact and '@' in setup_request.primary_contact:
+                    email_to_send = setup_request.primary_contact
+                elif setup_request.secondary_contact and '@' in setup_request.secondary_contact:
+                    email_to_send = setup_request.secondary_contact
+                
+                if email_to_send:
+                    logger.info(f"Sending welcome email to creative {email_to_send}")
+                    await email_service.send_welcome_email(
+                        to_email=email_to_send,
+                        user_name=setup_request.display_name,
+                        user_role='creative'
+                    )
+                    logger.info(f"Welcome email sent successfully to {email_to_send}")
+                else:
+                    logger.info(f"No email address found for creative {user_id}, skipping welcome email")
+            except Exception as e:
+                # Log the error but don't fail the profile creation
+                log_exception_if_dev(logger, "Failed to send welcome email to creative", e)
+            
             return CreativeSetupResponse(
                 success=True,
                 message="Creative profile created successfully"
@@ -152,7 +180,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to set up creative profile: {str(e)}")
+            log_exception_if_dev(logger, "Failed to set up creative profile", e)
+            raise HTTPException(status_code=500, detail="Failed to set up creative profile")
 
     @staticmethod
     async def get_creative_profile(user_id: str, client: Client) -> dict:
@@ -201,7 +230,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative profile: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch creative profile", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative profile")
 
     @staticmethod
     async def get_creative_clients(user_id: str, client: Client) -> CreativeClientsListResponse:
@@ -284,7 +314,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative clients: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch creative clients", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative clients")
 
     @staticmethod
     async def get_creative_services(user_id: str) -> CreativeServicesListResponse:
@@ -323,7 +354,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative services: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch creative services", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative services")
 
     @staticmethod
     async def create_service(user_id: str, service_request: CreateServiceRequest, request: Request = None, client: Client = None) -> CreateServiceResponse:
@@ -397,7 +429,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to create service", e)
+            raise HTTPException(status_code=500, detail="Failed to create service")
 
     @staticmethod
     async def create_service_with_photos(user_id: str, request, client: Client = None) -> CreateServiceResponse:
@@ -433,7 +466,7 @@ class CreativeController:
                     calendar_data = json.loads(calendar_settings_json)
                     calendar_settings = CalendarSettingsRequest(**calendar_data)
                 except (json.JSONDecodeError, ValueError) as e:
-                    print(f"Warning: Failed to parse calendar settings: {e}")
+                    log_exception_if_dev(logger, "Failed to parse calendar settings", e)
                     calendar_settings = None
             
             # Validate that the user has a creative profile (using authenticated client - respects RLS)
@@ -495,7 +528,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to create service", e)
+            raise HTTPException(status_code=500, detail="Failed to create service")
 
     @staticmethod
     async def _save_calendar_settings(service_id: str, calendar_settings, request: Request = None):
@@ -601,7 +635,8 @@ class CreativeController:
                             db_admin.table('time_slots').insert(time_slots_data).execute()
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save calendar settings: {str(e)}")
+            log_exception_if_dev(logger, "Failed to save calendar settings", e)
+            raise HTTPException(status_code=500, detail="Failed to save calendar settings")
 
     @staticmethod
     async def _save_service_photos(service_id: str, photos):
@@ -627,7 +662,8 @@ class CreativeController:
                     db_admin.table('service_photos').insert(photos_data).execute()
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save service photos: {str(e)}")
+            log_exception_if_dev(logger, "Failed to save service photos", e)
+            raise HTTPException(status_code=500, detail="Failed to save service photos")
 
     @staticmethod
     async def _save_service_photos_from_files(service_id: str, photo_files):
@@ -684,7 +720,7 @@ class CreativeController:
                                 'display_order': index
                             }
                     except Exception as e:
-                        print(f"Failed to upload photo {index}: {str(e)}")
+                        log_exception_if_dev(logger, "Failed to upload photo", e)
                         return None
                 
                 # Upload all photos in parallel with error handling
@@ -707,7 +743,8 @@ class CreativeController:
                     db_admin.table('service_photos').insert(photos_data).execute()
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to save service photos: {str(e)}")
+            log_exception_if_dev(logger, "Failed to save service photos", e)
+            raise HTTPException(status_code=500, detail="Failed to save service photos")
 
     @staticmethod
     async def _update_service_photos_selective(service_id: str, existing_photos_to_keep: list, new_photo_files):
@@ -775,7 +812,7 @@ class CreativeController:
                     try:
                         db_admin.storage.from_("creative-assets").remove(files_to_delete)
                     except Exception as e:
-                        print(f"Failed to delete photos from storage: {str(e)}")
+                        log_exception_if_dev(logger, "Failed to delete photos from storage", e)
                 
                 # Delete photo records from database
                 if photo_ids_to_delete:
@@ -827,7 +864,7 @@ class CreativeController:
                                 'photo_size_bytes': len(file_content),
                             }
                     except Exception as e:
-                        print(f"Failed to upload photo {index}: {str(e)}")
+                        log_exception_if_dev(logger, "Failed to upload photo", e)
                         return None
                 
                 # Upload all new photos in parallel
@@ -881,8 +918,8 @@ class CreativeController:
                 db_admin.table('service_photos').insert(new_photos_to_insert).execute()
             
         except Exception as e:
-            print(f"Failed to update service photos: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Failed to update service photos: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update service photos", e)
+            raise HTTPException(status_code=500, detail="Failed to update service photos")
     
     @staticmethod
     async def _delete_service_photos(service_id: str):
@@ -984,7 +1021,7 @@ class CreativeController:
                 print(f"Successfully deleted photo records from database")
             
         except Exception as e:
-            print(f"Failed to delete service photos for service {service_id}: {str(e)}")
+            log_exception_if_dev(logger, "Failed to delete service photos for service", e)
             # Don't raise exception here as service deletion should still succeed even if photo cleanup fails
 
     @staticmethod
@@ -1073,7 +1110,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to get calendar settings: {str(e)}")
+            log_exception_if_dev(logger, "Failed to get calendar settings", e)
+            raise HTTPException(status_code=500, detail="Failed to get calendar settings")
 
     @staticmethod
     async def delete_service(user_id: str, service_id: str, client: Client = None) -> DeleteServiceResponse:
@@ -1132,7 +1170,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to delete service", e)
+            raise HTTPException(status_code=500, detail="Failed to delete service")
 
 
     @staticmethod
@@ -1206,7 +1245,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update service", e)
+            raise HTTPException(status_code=500, detail="Failed to update service")
 
     @staticmethod
     async def update_service_with_photos(user_id: str, service_id: str, service_data: dict, photo_files, calendar_settings=None, request: Request = None, client: Client = None, existing_photos_to_keep: list = None) -> UpdateServiceResponse:
@@ -1284,7 +1324,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update service: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update service", e)
+            raise HTTPException(status_code=500, detail="Failed to update service")
 
     @staticmethod
     async def update_profile_settings(user_id: str, settings_request: CreativeProfileSettingsRequest, client: Client = None) -> CreativeProfileSettingsResponse:
@@ -1334,15 +1375,15 @@ class CreativeController:
                     service_result = client.table('creative_services').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
                     service_exists = service_result.data and len(service_result.data) > 0
                 except Exception as e:
-                    print(f"Service validation error: {e}")
+                    log_exception_if_dev(logger, "Service validation error", e)
                     service_exists = False
-                
+
                 # Check bundles (using authenticated client - respects RLS)
                 try:
                     bundle_result = client.table('creative_bundles').select('id').eq('id', settings_request.primary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
                     bundle_exists = bundle_result.data and len(bundle_result.data) > 0
                 except Exception as e:
-                    print(f"Bundle validation error: {e}")
+                    log_exception_if_dev(logger, "Bundle validation error", e)
                     bundle_exists = False
                 
                 if not service_exists and not bundle_exists:
@@ -1358,17 +1399,17 @@ class CreativeController:
                     service_result = client.table('creative_services').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
                     service_exists = service_result.data and len(service_result.data) > 0
                 except Exception as e:
-                    print(f"Service validation error: {e}")
+                    log_exception_if_dev(logger, "Service validation error", e)
                     service_exists = False
-                
+
                 # Check bundles (using authenticated client - respects RLS)
                 try:
                     bundle_result = client.table('creative_bundles').select('id').eq('id', settings_request.secondary_service_id).eq('creative_user_id', user_id).eq('is_active', True).execute()
                     bundle_exists = bundle_result.data and len(bundle_result.data) > 0
                 except Exception as e:
-                    print(f"Bundle validation error: {e}")
+                    log_exception_if_dev(logger, "Bundle validation error", e)
                     bundle_exists = False
-                
+
                 if not service_exists and not bundle_exists:
                     validation_errors.append("Secondary service: Service or bundle not found or doesn't belong to you")
             
@@ -1445,7 +1486,8 @@ class CreativeController:
                     if not result.data:
                         raise HTTPException(status_code=500, detail="Failed to create creative profile")
                 except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Failed to create creative profile: {str(e)}")
+                    log_exception_if_dev(logger, "Failed to create creative profile", e)
+                    raise HTTPException(status_code=500, detail="Failed to create creative profile")
             else:
                 # Update existing creative profile (using authenticated client - respects RLS)
                 try:
@@ -1453,8 +1495,9 @@ class CreativeController:
                     if not result.data:
                         raise HTTPException(status_code=404, detail="Creative profile not found")
                 except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Failed to update creative profile: {str(e)}")
-            
+                    log_exception_if_dev(logger, "Failed to update creative profile", e)
+                    raise HTTPException(status_code=500, detail="Failed to update creative profile")
+
             return CreativeProfileSettingsResponse(
                 success=True,
                 message="Profile settings updated successfully"
@@ -1463,7 +1506,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update profile settings: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update profile settings", e)
+            raise HTTPException(status_code=500, detail="Failed to update profile settings")
 
     @staticmethod
     async def upload_profile_photo(user_id: str, file: UploadFile, client: Client = None) -> ProfilePhotoUploadResponse:
@@ -1511,7 +1555,8 @@ class CreativeController:
                     file_options={"content-type": file.content_type}
                 )
             except Exception as upload_error:
-                raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(upload_error)}")
+                log_exception_if_dev(logger, "Failed to upload file", upload_error)
+                raise HTTPException(status_code=500, detail="Failed to upload file")
             
             # Get the public URL
             public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
@@ -1541,11 +1586,11 @@ class CreativeController:
                             db_admin.storage.from_(bucket_name).remove([old_file_path])
                         except Exception as delete_error:
                             # Don't fail the upload if deletion fails, just log it
-                            print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
+                            log_exception_if_dev(logger, "Failed to delete old profile photo", delete_error)
                 except Exception as delete_error:
                     # Don't fail the upload if deletion fails, just log it
-                    print(f"Warning: Failed to delete old profile photo: {str(delete_error)}")
-            
+                    log_exception_if_dev(logger, "Failed to delete old profile photo", delete_error)
+
             return ProfilePhotoUploadResponse(
                 success=True,
                 message="Profile photo uploaded successfully",
@@ -1555,7 +1600,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to upload profile photo: {str(e)}")
+            log_exception_if_dev(logger, "Failed to upload profile photo", e)
+            raise HTTPException(status_code=500, detail="Failed to upload profile photo")
 
     @staticmethod
     async def create_bundle(user_id: str, bundle_request: CreateBundleRequest, client: Client = None) -> CreateBundleResponse:
@@ -1649,7 +1695,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to create bundle: {str(e)}")
+            log_exception_if_dev(logger, "Failed to create bundle", e)
+            raise HTTPException(status_code=500, detail="Failed to create bundle")
 
     @staticmethod
     async def get_creative_bundles(user_id: str) -> CreativeBundlesListResponse:
@@ -1767,7 +1814,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative bundles: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch creative bundles", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative bundles")
 
     @staticmethod
     async def get_creative_services_and_bundles(user_id: str, client: Client, public_only: bool = False) -> PublicServicesAndBundlesResponse:
@@ -1941,7 +1989,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch creative services and bundles: {str(e)}")
+            log_exception_if_dev(logger, "Failed to fetch creative services and bundles", e)
+            raise HTTPException(status_code=500, detail="Failed to fetch creative services and bundles")
 
     @staticmethod
     async def update_bundle(user_id: str, bundle_id: str, bundle_request: UpdateBundleRequest, client: Client = None) -> UpdateBundleResponse:
@@ -2041,7 +2090,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to update bundle: {str(e)}")
+            log_exception_if_dev(logger, "Failed to update bundle", e)
+            raise HTTPException(status_code=500, detail="Failed to update bundle")
 
     @staticmethod
     async def delete_bundle(user_id: str, bundle_id: str, client: Client = None) -> DeleteBundleResponse:
@@ -2091,7 +2141,8 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete bundle: {str(e)}")
+            log_exception_if_dev(logger, "Failed to delete bundle", e)
+            raise HTTPException(status_code=500, detail="Failed to delete bundle")
     
     @staticmethod
     async def delete_creative_role(user_id: str, client: Client):
@@ -2171,7 +2222,7 @@ class CreativeController:
                                 db_admin.storage.from_('creative-assets').remove(files_to_delete)
                                 deleted_items["service_photos"] += len(files_to_delete)
                             except Exception as e:
-                                print(f"Warning: Failed to delete service photos: {str(e)}")
+                                log_exception_if_dev(logger, "Failed to delete service photos", e)
             
             # 1b. Delete profile photos from storage (profile-photos bucket)
             try:
@@ -2220,11 +2271,11 @@ class CreativeController:
                                     files_to_delete.append(file_path)
                     except Exception as e:
                         # Subdirectory might not exist, that's okay
-                        print(f"Note: No subdirectory found at creatives/{user_id}/: {str(e)}")
-                        
+                        log_exception_if_dev(logger, "No subdirectory found at creatives/{user_id}/", e)
+
                 except Exception as e:
-                    print(f"Warning: Failed to list profile photos directory: {str(e)}")
-                
+                    log_exception_if_dev(logger, "Failed to list profile photos directory", e)
+
                 # Delete all profile photos at once
                 if files_to_delete:
                     print(f"Deleting {len(files_to_delete)} profile photos from storage: {files_to_delete}")
@@ -2233,7 +2284,7 @@ class CreativeController:
                 else:
                     print("No profile photos found to delete")
             except Exception as e:
-                print(f"Warning: Failed to delete profile photos: {str(e)}")
+                log_exception_if_dev(logger, "Failed to delete profile photos", e)
             
             # ========== STEP 2: Delete database records (in correct order for foreign keys) ==========
             
@@ -2286,7 +2337,7 @@ class CreativeController:
                     if calendar_delete_result.data:
                         deleted_items["calendar_settings"] = len(calendar_delete_result.data)
             except Exception as e:
-                print(f"Warning: Failed to delete calendar data: {str(e)}")
+                log_exception_if_dev(logger, "Failed to delete calendar data", e)
             
             # 2c. Delete bookings
             try:
@@ -2294,15 +2345,15 @@ class CreativeController:
                 if bookings_delete_result.data:
                     deleted_items["bookings"] = len(bookings_delete_result.data)
             except Exception as e:
-                print(f"Warning: Failed to delete bookings: {str(e)}")
-            
+                log_exception_if_dev(logger, "Failed to delete bookings", e)
+
             # 2d. Delete service photos records from database
             try:
                 if services_result.data:
                     service_ids = [s['id'] for s in services_result.data]
                     db_admin.table('service_photos').delete().in_('service_id', service_ids).execute()
             except Exception as e:
-                print(f"Warning: Failed to delete service photos records: {str(e)}")
+                log_exception_if_dev(logger, "Failed to delete service photos records", e)
             
             # 2e. Delete bundle_services (links between bundles and services)
             try:
@@ -2319,7 +2370,7 @@ class CreativeController:
                 if bundles_delete_result.data:
                     deleted_items["bundles"] = len(bundles_delete_result.data)
             except Exception as e:
-                print(f"Warning: Failed to delete bundles: {str(e)}")
+                log_exception_if_dev(logger, "Failed to delete bundles", e)
             
             # 2g. Delete services
             try:
@@ -2327,21 +2378,22 @@ class CreativeController:
                 if services_delete_result.data:
                     deleted_items["services"] = len(services_delete_result.data)
             except Exception as e:
-                print(f"Warning: Failed to delete services: {str(e)}")
-            
+                log_exception_if_dev(logger, "Failed to delete services", e)
+
             # 2h. Delete creative-client relationships
             try:
                 relationships_delete_result = db_admin.table('creative_client_relationships').delete().eq('creative_user_id', user_id).execute()
                 if relationships_delete_result.data:
                     deleted_items["client_relationships"] = len(relationships_delete_result.data)
             except Exception as e:
-                print(f"Warning: Failed to delete client relationships: {str(e)}")
+                log_exception_if_dev(logger, "Failed to delete client relationships", e)
             
             # 2i. Delete creative profile
             try:
                 db_admin.table('creatives').delete().eq('user_id', user_id).execute()
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Failed to delete creative profile: {str(e)}")
+                log_exception_if_dev(logger, "Failed to delete creative profile", e)
+                raise HTTPException(status_code=500, detail="Failed to delete creative profile")
             
             # ========== STEP 3: Update user roles to remove 'creative' ==========
             try:
@@ -2352,8 +2404,8 @@ class CreativeController:
                         updated_roles = [role for role in current_roles if role != 'creative']
                         db_admin.table('users').update({'roles': updated_roles}).eq('user_id', user_id).execute()
             except Exception as e:
-                print(f"Warning: Failed to update user roles: {str(e)}")
-            
+                log_exception_if_dev(logger, "Failed to update user roles", e)
+
             return {
                 "success": True,
                 "message": "Creative role and all associated data have been permanently deleted",
@@ -2363,5 +2415,6 @@ class CreativeController:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete creative role: {str(e)}")
+            log_exception_if_dev(logger, "Failed to delete creative role", e)
+            raise HTTPException(status_code=500, detail="Failed to delete creative role")
 

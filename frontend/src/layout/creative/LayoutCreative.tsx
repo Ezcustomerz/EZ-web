@@ -105,17 +105,8 @@ export function LayoutCreative({
 
   // Fetch creative profile once at layout level and provide to children/sidebar
   useEffect(() => {
-    console.log('[LayoutCreative] useEffect triggered', { 
-      userProfile: userProfile?.user_id, 
-      userRoles: userProfile?.roles,
-      hasProfile: !!creativeProfile,
-      hasFetched: userProfile ? hasFetchedProfileForUser(userProfile.user_id) : false,
-      isFetching: userProfile ? fetchingRef.current.has(userProfile.user_id) : false
-    });
-    
     const loadProfile = async () => {
       if (!userProfile) {
-        console.log('[LayoutCreative] No userProfile, setting demo data');
         setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
         setProfileLoading(false);
         clearCachedProfiles();
@@ -124,11 +115,6 @@ export function LayoutCreative({
       
       // Don't fetch role-specific profiles during setup or if first_login is true
       if (isSetupInProgress || userProfile.first_login) {
-        console.log('[LayoutCreative] Setup in progress or first login, skipping profile fetch', { 
-          isSetupInProgress, 
-          first_login: userProfile.first_login,
-          userProfile: userProfile
-        });
         setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
         setProfileLoading(false);
         return;
@@ -136,7 +122,6 @@ export function LayoutCreative({
       
       // Check if user has creative role before proceeding
       if (!userProfile.roles.includes('creative')) {
-        console.log('[LayoutCreative] User does not have creative role, using demo data');
         setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
         setProfileLoading(false);
         return;
@@ -147,7 +132,6 @@ export function LayoutCreative({
       
       // If we already fetched the profile for this user, restore from cache (unless refresh is needed)
       if (refreshNeeded !== 'true' && hasFetchedProfileForUser(userProfile.user_id)) {
-        console.log('[LayoutCreative] Profile already fetched for user, restoring from cache');
         const cachedProfile = getCachedProfileForUser(userProfile.user_id);
         if (cachedProfile) {
           setCreativeProfile(cachedProfile);
@@ -159,23 +143,17 @@ export function LayoutCreative({
       // If refresh is needed, clear the flag before fetching
       if (refreshNeeded === 'true') {
         localStorage.removeItem('profile_refresh_needed');
-        console.log('[LayoutCreative] Profile refresh needed flag detected, forcing fresh fetch');
       }
       
       // If we're already fetching for this user, don't start another fetch
       if (fetchingRef.current.has(userProfile.user_id)) {
-        console.log('[LayoutCreative] Already fetching for user, skipping duplicate call');
         return;
       }
-      
-      console.log('[LayoutCreative] Fetching creative profile for user:', userProfile.user_id);
-      console.log('[LayoutCreative] User roles:', userProfile.roles);
       
       fetchingRef.current.add(userProfile.user_id);
       setProfileLoading(true);
       try {
         const profile = await userService.getCreativeProfile();
-        console.log('[LayoutCreative] Creative profile fetched successfully:', profile);
         setCreativeProfile(profile);
         cacheProfileForUser(userProfile.user_id, profile);
       } catch (e) {
@@ -192,8 +170,6 @@ export function LayoutCreative({
   // Listen for profile updates from settings popover
   useEffect(() => {
     const handleProfileUpdate = async () => {
-      console.log('[LayoutCreative] Profile update event received, refreshing profile data');
-      
       if (!userProfile || !userProfile.roles.includes('creative')) {
         return;
       }
@@ -203,7 +179,6 @@ export function LayoutCreative({
         const updatedProfile = await userService.getCreativeProfile();
         setCreativeProfile(updatedProfile);
         cacheProfileForUser(userProfile.user_id, updatedProfile);
-        console.log('[LayoutCreative] Profile data refreshed successfully');
       } catch (error) {
         console.error('[LayoutCreative] Failed to refresh profile data:', error);
       } finally {

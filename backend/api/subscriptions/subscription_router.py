@@ -15,6 +15,7 @@ from schemas.subscription import (
     CreateBillingPortalResponse,
 )
 from services.subscriptions.subscription_service import SubscriptionService
+from core.safe_errors import log_exception_if_dev
 import logging
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ async def create_checkout_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in create_checkout_session endpoint: {str(e)}")
+        log_exception_if_dev(logger, "Error in create_checkout_session endpoint", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create checkout session"
@@ -84,7 +85,7 @@ async def verify_subscription(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in verify_subscription endpoint: {str(e)}")
+        log_exception_if_dev(logger, "Error in verify_subscription endpoint", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to verify subscription"
@@ -115,7 +116,7 @@ async def get_subscription_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in get_subscription_status endpoint: {str(e)}")
+        log_exception_if_dev(logger, "Error in get_subscription_status endpoint", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get subscription status"
@@ -146,7 +147,7 @@ async def cancel_subscription(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in cancel_subscription endpoint: {str(e)}")
+        log_exception_if_dev(logger, "Error in cancel_subscription endpoint", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to cancel subscription"
@@ -176,7 +177,7 @@ async def get_billing_details(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in get_billing_details endpoint: {str(e)}")
+        log_exception_if_dev(logger, "Error in get_billing_details endpoint", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get billing details"
@@ -209,7 +210,7 @@ async def create_billing_portal(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in create_billing_portal endpoint: {str(e)}")
+        log_exception_if_dev(logger, "Error in create_billing_portal endpoint", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create billing portal session"

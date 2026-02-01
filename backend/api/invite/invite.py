@@ -1,9 +1,10 @@
+import logging
 from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import Dict, Any, Optional
-import logging
 from supabase import Client
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from services.invite import InviteController
 from schemas.invite import (
@@ -36,8 +37,8 @@ async def generate_invite_link(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating invite link: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate invite link: {str(e)}")
+        log_exception_if_dev(logger, "Error generating invite link", e)
+        raise HTTPException(status_code=500, detail="Failed to generate invite link")
 
 
 @router.get("/validate/{invite_token}", response_model=ValidateInviteResponse)
@@ -81,7 +82,7 @@ async def validate_invite_token(
                         logger.warning(f"Authenticated user {user_id} not found in users table")
                 except Exception as e:
                     # Log the error but don't fail the request since user info is optional
-                    logger.error(f"Error fetching user info for optional auth in validate endpoint: {e}")
+                    log_exception_if_dev(logger, "Error fetching user info for optional auth in validate endpoint", e)
         
         # Pass client to service method - always set (authenticated or anon)
         # RLS policy "Allow public to read creative profiles" allows anon users to read
@@ -89,7 +90,7 @@ async def validate_invite_token(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error validating invite token: {e}")
+        log_exception_if_dev(logger, "Error validating invite token", e)
         raise HTTPException(status_code=500, detail="Failed to validate invite token")
 
 
@@ -114,8 +115,8 @@ async def accept_invite(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error accepting invite: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to accept invite: {str(e)}")
+        log_exception_if_dev(logger, "Error accepting invite", e)
+        raise HTTPException(status_code=500, detail="Failed to accept invite")
 
 
 @router.post("/accept-after-role-setup/{invite_token}", response_model=AcceptInviteResponse)
@@ -139,6 +140,6 @@ async def accept_invite_after_role_setup(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error accepting invite after role setup: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to accept invite after role setup: {str(e)}")
+        log_exception_if_dev(logger, "Error accepting invite after role setup", e)
+        raise HTTPException(status_code=500, detail="Failed to accept invite after role setup")
 

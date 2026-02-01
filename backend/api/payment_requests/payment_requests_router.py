@@ -1,15 +1,16 @@
+import logging
+import os
 from fastapi import APIRouter, Request, HTTPException, Depends, Response
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from typing import Dict, Any, Optional
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 from services.payment_requests.payment_request_service import PaymentRequestService
 from services.invoice.invoice_service import InvoiceService
 from pydantic import BaseModel
-import logging
 import stripe
-import os
 
 logger = logging.getLogger(__name__)
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
@@ -86,7 +87,8 @@ async def create_payment_request(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to create payment request: {str(e)}")
+        log_exception_if_dev(logger, "Failed to create payment request", e)
+        raise HTTPException(status_code=500, detail="Failed to create payment request")
 
 
 @router.get("/client")
@@ -130,7 +132,8 @@ async def get_client_payment_requests(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch payment requests: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch payment requests", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch payment requests")
 
 
 @router.get("/creative")
@@ -185,7 +188,8 @@ async def get_creative_payment_requests(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch payment requests: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch payment requests", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch payment requests")
 
 
 @router.get("/client/count")
@@ -213,6 +217,7 @@ async def get_pending_payment_requests_count(
     except HTTPException:
         raise
     except Exception as e:
+        log_exception_if_dev(logger, "Failed to fetch pending payment requests count", e)
         return {'pending': 0, 'total': 0}  # Return 0 on error to avoid breaking UI
 
 
@@ -246,13 +251,19 @@ async def get_payment_requests_by_booking(
         booking = booking_result.data
         
         # Verify user is either the client or creative
-        if booking['client_user_id'] != user_id and booking['creative_user_id'] != user_id:
+        is_client = booking['client_user_id'] == user_id
+        is_creative = booking['creative_user_id'] == user_id
+        
+        if not is_client and not is_creative:
             raise HTTPException(status_code=403, detail="You don't have permission to view payment requests for this booking")
         
         # Get all payment requests for this booking
+        # Pass user_id and role to help with RLS if needed
         result = await PaymentRequestService.get_payment_requests_by_booking(
             booking_id=booking_id,
-            client=client
+            client=client,
+            user_id=user_id,
+            is_creative=is_creative
         )
         
         return result
@@ -260,7 +271,8 @@ async def get_payment_requests_by_booking(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch payment requests: {str(e)}")
+        log_exception_if_dev(logger, "Failed to fetch payment requests", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch payment requests")
 
 
 @router.post("/{payment_request_id}/process")
@@ -290,7 +302,8 @@ async def process_payment_request(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process payment: {str(e)}")
+        log_exception_if_dev(logger, "Failed to process payment", e)
+        raise HTTPException(status_code=500, detail="Failed to process payment")
 
 
 class VerifyPaymentRequestRequest(BaseModel):
@@ -345,7 +358,8 @@ async def verify_payment_request(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to verify payment: {str(e)}")
+        log_exception_if_dev(logger, "Failed to verify payment", e)
+        raise HTTPException(status_code=500, detail="Failed to verify payment")
 
 
 @router.get("/invoices/{payment_request_id}")
@@ -428,7 +442,7 @@ async def get_payment_request_invoices(
                             'download_url': f'/api/payment-requests/invoice/stripe/{payment_request_id}?session_id={stripe_session_id}'
                         })
             except Exception as e:
-                logger.warning(f"Error fetching Stripe receipt for payment request {payment_request_id}: {e}")
+                log_exception_if_dev(logger, "Error fetching Stripe receipt for payment request", e)
                 # Continue without Stripe receipt if there's an error
         
         return {
@@ -440,8 +454,8 @@ async def get_payment_request_invoices(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting invoices: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get invoices: {str(e)}")
+        log_exception_if_dev(logger, "Error getting invoices", e)
+        raise HTTPException(status_code=500, detail="Failed to get invoices")
 
 
 @router.get("/invoice/ez/{payment_request_id}")
@@ -579,8 +593,8 @@ async def download_payment_request_ez_invoice(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating invoice: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate invoice: {str(e)}")
+        log_exception_if_dev(logger, "Error generating invoice", e)
+        raise HTTPException(status_code=500, detail="Failed to generate invoice")
 
 
 @router.get("/invoice/stripe/{payment_request_id}")
@@ -675,6 +689,6 @@ async def get_payment_request_stripe_receipt(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting Stripe receipt: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get Stripe receipt: {str(e)}")
+        log_exception_if_dev(logger, "Error getting Stripe receipt", e)
+        raise HTTPException(status_code=500, detail="Failed to get Stripe receipt")
 

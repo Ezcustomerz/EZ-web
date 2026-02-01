@@ -5,6 +5,7 @@ import logging
 import stripe
 from core.limiter import limiter
 from core.verify import require_auth
+from core.safe_errors import log_exception_if_dev
 from db.db_session import get_authenticated_client_dep
 from supabase import Client
 from services.compliance.compliance_service import ComplianceService
@@ -46,7 +47,7 @@ async def download_compliance_sheet(
         
         booking = booking_result.data
         
-        # Verify user is the client
+        # Verify user is the client (compliance sheet is client-only)
         if booking.get('client_user_id') != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download the compliance sheet for this booking")
         
@@ -129,8 +130,8 @@ async def download_compliance_sheet(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating compliance sheet: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate compliance sheet: {str(e)}")
+        log_exception_if_dev(logger, "Error generating compliance sheet", e)
+        raise HTTPException(status_code=500, detail="Failed to generate compliance sheet")
 
 
 @router.get("/invoices/{booking_id}")
@@ -162,17 +163,24 @@ async def get_invoices(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to view invoices for this booking")
         
-        # Check if status allows invoice download
+        # Check if status allows invoice download OR if payment has been received
         client_status = booking.get('client_status', '').lower()
+        amount_paid = float(booking.get('amount_paid', 0) or 0)
         allowed_statuses = ['canceled', 'cancelled', 'completed', 'download']
-        if client_status not in allowed_statuses:
+        
+        # Allow invoice viewing if:
+        # 1. Status is in allowed statuses, OR
+        # 2. Payment has been received (amount_paid > 0) - for payment_received emails
+        if client_status not in allowed_statuses and amount_paid == 0:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Invoices are only available for orders with status: canceled, completed, or download. Current status: {client_status}"
+                detail=f"Invoices are only available for orders with status: canceled, completed, or download, or when payment has been received. Current status: {client_status}, Amount paid: ${amount_paid:.2f}"
             )
         
         invoices = []
@@ -237,7 +245,7 @@ async def get_invoices(
                         'download_url': f'/api/bookings/invoice/stripe/{booking_id}?session_id={booking_sessions[0].id}'
                     })
         except Exception as e:
-            logger.warning(f"Could not retrieve Stripe receipts: {e}")
+            log_exception_if_dev(logger, "Could not retrieve Stripe receipts", e)
             # Continue without Stripe receipts
         
         return {
@@ -249,8 +257,8 @@ async def get_invoices(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting invoices: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get invoices: {str(e)}")
+        log_exception_if_dev(logger, "Error getting invoices", e)
+        raise HTTPException(status_code=500, detail="Failed to get invoices")
 
 
 @router.get("/invoice/ez/{booking_id}")
@@ -281,17 +289,24 @@ async def download_ez_invoice(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download the invoice for this booking")
         
-        # Check if status allows invoice download
+        # Check if status allows invoice download OR if payment has been received
         client_status = booking.get('client_status', '').lower()
+        amount_paid = float(booking.get('amount_paid', 0) or 0)
         allowed_statuses = ['canceled', 'cancelled', 'completed', 'download']
-        if client_status not in allowed_statuses:
+        
+        # Allow invoice download if:
+        # 1. Status is in allowed statuses, OR
+        # 2. Payment has been received (amount_paid > 0) - for payment_received emails
+        if client_status not in allowed_statuses and amount_paid == 0:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Invoice is only available for orders with status: canceled, completed, or download. Current status: {client_status}"
+                detail=f"Invoice is only available for orders with status: canceled, completed, or download, or when payment has been received. Current status: {client_status}, Amount paid: ${amount_paid:.2f}"
             )
         
         # Get service information
@@ -380,8 +395,8 @@ async def download_ez_invoice(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error generating invoice: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate invoice: {str(e)}")
+        log_exception_if_dev(logger, "Error generating invoice", e)
+        raise HTTPException(status_code=500, detail="Failed to generate invoice")
 
 
 @router.get("/invoice/stripe/{booking_id}")
@@ -414,17 +429,24 @@ async def download_stripe_receipt(
         
         booking = booking_result.data
         
-        # Verify user is the client
-        if booking.get('client_user_id') != user_id:
+        # Verify user is either the client or the creative
+        client_user_id = booking.get('client_user_id')
+        creative_user_id = booking.get('creative_user_id')
+        if client_user_id != user_id and creative_user_id != user_id:
             raise HTTPException(status_code=403, detail="You are not authorized to download the receipt for this booking")
         
-        # Check if status allows receipt download
+        # Check if status allows receipt download OR if payment has been received
         client_status = booking.get('client_status', '').lower()
+        amount_paid = float(booking.get('amount_paid', 0) or 0)
         allowed_statuses = ['canceled', 'cancelled', 'completed', 'download']
-        if client_status not in allowed_statuses:
+        
+        # Allow receipt download if:
+        # 1. Status is in allowed statuses, OR
+        # 2. Payment has been received (amount_paid > 0) - for payment_received emails
+        if client_status not in allowed_statuses and amount_paid == 0:
             raise HTTPException(
                 status_code=400, 
-                detail=f"Receipt is only available for orders with status: canceled, completed, or download. Current status: {client_status}"
+                detail=f"Receipt is only available for orders with status: canceled, completed, or download, or when payment has been received. Current status: {client_status}, Amount paid: ${amount_paid:.2f}"
             )
         
         # Get creative's Stripe account ID
@@ -465,7 +487,8 @@ async def download_stripe_receipt(
                 stripe_account=stripe_account_id
             )
         except stripe.error.StripeError as e:
-            raise HTTPException(status_code=404, detail=f"Payment intent not found: {str(e)}")
+            log_exception_if_dev(logger, "Payment intent not found", e)
+            raise HTTPException(status_code=404, detail="Payment intent not found")
         
         # Get charges from payment intent
         # The charges attribute is a list of charge IDs, not expanded objects
@@ -525,6 +548,6 @@ async def download_stripe_receipt(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting Stripe receipt: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get Stripe receipt: {str(e)}")
+        log_exception_if_dev(logger, "Error getting Stripe receipt", e)
+        raise HTTPException(status_code=500, detail="Failed to get Stripe receipt")
 

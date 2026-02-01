@@ -34,6 +34,7 @@ import { ServicesDetailPopover } from '../components/popovers/ServicesDetailPopo
 import { BundleDetailPopover } from '../components/popovers/BundleDetailPopover';
 import { ServiceCardSimple } from '../components/cards/creative/ServiceCard';
 import { BundleCard } from '../components/cards/creative/BundleCard';
+import { BookingServicePopover } from '../components/popovers/client/BookingServicePopover';
 import { errorToast } from '../components/toast/toast';
 
 export function InvitePage() {
@@ -59,6 +60,8 @@ export function InvitePage() {
   const [selectedService, setSelectedService] = useState<CreativeService | null>(null);
   const [bundleDetailOpen, setBundleDetailOpen] = useState(false);
   const [selectedBundle, setSelectedBundle] = useState<CreativeBundle | null>(null);
+  const [bookingPopoverOpen, setBookingPopoverOpen] = useState(false);
+  const [serviceToBook, setServiceToBook] = useState<CreativeService | null>(null);
 
   // InvitePage is a public page - no need to fetch user profiles
   // The auth context will handle user profile loading when needed
@@ -163,6 +166,17 @@ export function InvitePage() {
   const handleBundleDetailClose = () => {
     setBundleDetailOpen(false);
     setSelectedBundle(null);
+  };
+
+  const handleBookService = (service: CreativeService) => {
+    // Open booking popover to collect booking details first
+    setServiceToBook(service);
+    setBookingPopoverOpen(true);
+  };
+
+  const handleCloseBookingPopover = () => {
+    setBookingPopoverOpen(false);
+    setServiceToBook(null);
   };
 
 
@@ -562,15 +576,26 @@ export function InvitePage() {
                                   delivery={(item.data as CreativeService).delivery_time}
                                   color={item.data.color}
                                   creative={creative?.display_name || 'Creative'}
-                                  onBook={() => handleServiceClick(item.data as CreativeService)}
+                                  onClick={() => handleServiceClick(item.data as CreativeService)}
+                                  onBook={() => handleBookService(item.data as CreativeService)}
                                   requires_booking={(item.data as CreativeService).requires_booking}
+                                  showBookButton={true}
                                 />
                               ) : (
                                 <BundleCard
                                   bundle={item.data as CreativeBundle}
                                   creative={creative?.display_name || 'Creative'}
                                   showStatus={false}
+                                  showBookButton={true}
                                   onClick={() => handleBundleClick(item.data as CreativeBundle)}
+                                  onBook={() => {
+                                    // For bundles, just do the simple auth flow
+                                    if (inviteToken) {
+                                      localStorage.setItem('pendingInviteToken', inviteToken);
+                                      localStorage.setItem('invitePreSelectClient', 'true');
+                                    }
+                                    openAuth();
+                                  }}
                                 />
                               )}
                             </Box>
@@ -661,6 +686,7 @@ export function InvitePage() {
         onClose={handleServiceDetailClose}
         service={selectedService}
         context="invite-page"
+        onBook={selectedService ? () => handleBookService(selectedService) : undefined}
       />
 
       {/* Bundle Detail Popover */}
@@ -669,7 +695,37 @@ export function InvitePage() {
         onClose={handleBundleDetailClose}
         bundle={selectedBundle}
         context="invite-page"
+        onBook={() => {
+          // For bundles, just do the simple auth flow
+          if (inviteToken) {
+            localStorage.setItem('pendingInviteToken', inviteToken);
+            localStorage.setItem('invitePreSelectClient', 'true');
+          }
+          openAuth();
+        }}
       />
+
+      {/* Booking Service Popover - for invite page service booking */}
+      {serviceToBook && (
+        <BookingServicePopover
+          open={bookingPopoverOpen}
+          onClose={handleCloseBookingPopover}
+          service={{
+            ...serviceToBook,
+            creative_name: creativeProfile?.user?.display_name || validationData?.creative?.display_name || 'Creative',
+            creative_display_name: creativeProfile?.user?.display_name,
+            creative_title: creativeProfile?.title,
+            creative_avatar_url: creativeProfile?.user?.avatar_url,
+          }}
+          calendarSettings={null}
+          onConfirmBooking={async (bookingData) => {
+            // This will be handled differently - explained below
+            console.log('[InvitePage] Booking data collected:', bookingData);
+          }}
+          isInvitePageBooking={true}
+          inviteToken={inviteToken}
+        />
+      )}
     </Box>
   );
 }

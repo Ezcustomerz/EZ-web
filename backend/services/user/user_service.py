@@ -2,6 +2,10 @@ from fastapi import HTTPException
 from schemas.user import UserProfile, UpdateRolesRequest, UpdateRolesResponse, SetupStatusResponse, BatchSetupRequest, BatchSetupResponse, RoleProfilesResponse
 from core.validation import validate_roles
 from supabase import Client
+from services.email.email_service import email_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserController:
     @staticmethod
@@ -30,10 +34,15 @@ class UserController:
         except HTTPException:
             raise
         except Exception as e:
-            # Check if it's an RLS/permission error (0 rows returned)
+            # Log the full error for debugging
             error_str = str(e)
-            if 'PGRST116' in error_str or '0 rows' in error_str.lower():
+            logger.error(f"Error fetching user profile for user_id {user_id}: {error_str}")
+            logger.error(f"Error type: {type(e).__name__}")
+            
+            # Check if it's an RLS/permission error (0 rows returned)
+            if 'PGRST116' in error_str or '0 rows' in error_str.lower() or 'permission denied' in error_str.lower():
                 # RLS blocked the query - likely authentication issue
+                logger.warning(f"RLS blocked query for user_id {user_id} - authentication may not be working correctly")
                 raise HTTPException(
                     status_code=401, 
                     detail="Authentication failed: Unable to access user profile. Please sign in again."
@@ -304,6 +313,23 @@ class UserController:
             client.table('users').update({
                 'first_login': False
             }).eq('user_id', user_id).execute()
+            
+            # Send welcome email to the new user
+            user_email = user_data.get('email')
+            if user_email and created_profiles:
+                try:
+                    # Use the first created profile role for the email
+                    primary_role = created_profiles[0]
+                    logger.info(f"Sending welcome email to {user_email} for role: {primary_role}")
+                    await email_service.send_welcome_email(
+                        to_email=user_email,
+                        user_name=display_name,
+                        user_role=primary_role
+                    )
+                    logger.info(f"Welcome email sent successfully to {user_email}")
+                except Exception as e:
+                    # Log the error but don't fail the profile creation
+                    logger.error(f"Failed to send welcome email to {user_email}: {str(e)}")
             
             return BatchSetupResponse(
                 success=True,
