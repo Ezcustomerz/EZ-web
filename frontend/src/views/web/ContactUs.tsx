@@ -92,6 +92,8 @@ const sparkle = keyframes`
   }
 `;
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 // Creative theme icons
 const creativeThemes = [
   { icon: faMicrophone, color: '#FF6B6B', name: 'Music', emoji: '🎵' },
@@ -129,7 +131,7 @@ export function ContactUs() {
     }
 
     try {
-      const response = await fetch('/api/contact', {
+      const response = await fetch(`${API_BASE_URL}/api/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, message }),

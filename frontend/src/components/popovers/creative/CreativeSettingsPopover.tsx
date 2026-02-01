@@ -2854,6 +2854,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       onClose={() => setComingSoonDialogOpen(false)}
       featureName={comingSoonFeatureName}
       description="We're working hard to bring you this feature. It will be available in an upcoming update!"
+    />
     {/* Confirm Delete Dialog */}
     <ConfirmDeleteDialog
       open={deleteConfirmOpen}
