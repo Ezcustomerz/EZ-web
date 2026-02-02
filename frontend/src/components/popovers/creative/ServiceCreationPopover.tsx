@@ -13,9 +13,12 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import type { TransitionProps } from '@mui/material/transitions';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { DraftResumeCard } from '../../cards/DraftResumeCard';
+import { hasDraft, loadDraft, clearDraft } from '../../../utils/serviceDraftManager';
+import { successToast } from '../../toast/toast';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -30,16 +33,80 @@ export interface ServiceCreationPopoverProps {
   onClose: () => void;
   onCreateService: () => void;
   onCreateBundle: () => void;
+  onResumeDraft?: () => void;
 }
 
 export function ServiceCreationPopover({ 
   open, 
   onClose, 
   onCreateService, 
-  onCreateBundle 
+  onCreateBundle,
+  onResumeDraft
 }: ServiceCreationPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [draftExists, setDraftExists] = useState(false);
+  const [draftData, setDraftData] = useState<any>(null);
+
+  // Check for draft when popover opens
+  useEffect(() => {
+    if (open) {
+      const exists = hasDraft();
+      setDraftExists(exists);
+      if (exists) {
+        const draft = loadDraft();
+        setDraftData(draft);
+      }
+    }
+  }, [open]);
+  
+  // Listen for storage changes (cross-tab synchronization)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'service-draft' && open) {
+        // Draft was updated or deleted in another tab
+        if (e.newValue === null) {
+          // Draft was deleted
+          setDraftExists(false);
+          setDraftData(null);
+        } else if (e.newValue) {
+          // Draft was updated
+          try {
+            const draft = JSON.parse(e.newValue);
+            setDraftExists(true);
+            setDraftData(draft);
+          } catch (error) {
+            console.error('Failed to parse draft from storage event:', error);
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [open]);
+
+  const handleResumeDraft = () => {
+    if (onResumeDraft) {
+      onResumeDraft();
+      onClose();
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft();
+    setDraftExists(false);
+    setDraftData(null);
+    successToast('Draft discarded successfully');
+  };
+
+  const steps = [
+    'Service Details',
+    'Pricing & Delivery',
+    'Upload Photos',
+    'Calendar Scheduling',
+    'Customization & Review'
+  ];
 
   return (
     <Dialog
@@ -99,6 +166,23 @@ export function ServiceCreationPopover({
         display: 'flex',
         flexDirection: 'column',
       }}>
+        {/* Draft Resume Card */}
+        {draftExists && draftData && (
+          <Box sx={{ mb: 3 }}>
+            <DraftResumeCard
+              activeStep={draftData.activeStep}
+              totalSteps={5}
+              stepName={steps[draftData.activeStep] || 'Service Details'}
+              timestamp={draftData.timestamp}
+              title={draftData.formData?.title}
+              price={draftData.formData?.price}
+              photoCount={draftData.photoData?.length || 0}
+              onResume={handleResumeDraft}
+              onDiscard={handleDiscardDraft}
+            />
+          </Box>
+        )}
+
         <Box sx={{ 
           display: 'grid',
           gap: { xs: 2, sm: 3 },

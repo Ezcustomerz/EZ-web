@@ -39,7 +39,7 @@ import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import type { TransitionProps } from '@mui/material/transitions';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { userService, type CreateServiceRequest, type ServicePhoto, type CreativeProfile } from '../../../api/userService';
 import { successToast, errorToast } from '../../toast/toast';
 import { ServiceCard } from '../../cards/creative/ServiceCard';
@@ -50,6 +50,14 @@ import {
   convertTimeSlotsFromUTC,
   getUserTimezone 
 } from '../../../utils/timezoneUtils';
+import { 
+  saveDraft, 
+  loadDraft, 
+  clearDraft,
+  convertPhotosToBase64,
+  convertBase64ToFiles,
+  type ServiceDraft
+} from '../../../utils/serviceDraftManager';
 
 // Slide transition for dialogs
 const Transition = React.forwardRef(function Transition(
@@ -96,6 +104,7 @@ export interface ServiceFormPopoverProps {
       }[];
     };
   } | null;
+  loadFromDraft?: boolean;
 }
 
 export interface ServiceFormData {
@@ -147,6 +156,7 @@ export function ServiceFormPopover({
   mode = 'create',
   creativeProfile = null,
   initialService = null,
+  loadFromDraft = false,
 }: ServiceFormPopoverProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -178,6 +188,10 @@ export function ServiceFormPopover({
 
   // Calendar scheduling (UI-only)
   const [isSchedulingEnabled, setIsSchedulingEnabled] = useState(false);
+  
+  // Track if draft was loaded to prevent overwriting
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Common presets for quick selection
   const commonDurations = ['15', '30', '45', '60', '90', '120', '180'];
   
@@ -711,6 +725,10 @@ export function ServiceFormPopover({
 
       if (response.success) {
         successToast(response.message);
+        // Clear draft on successful submit (only in create mode)
+        if (mode === 'create') {
+          clearDraft();
+        }
         onSubmit(formData); // handle UI updates
         onClose();
       } else {
@@ -850,7 +868,51 @@ export function ServiceFormPopover({
           setTimeSlotsLoadedFromBackend(false);
         }
       } else {
-        // Reset form data for create mode
+        // Check if we should load from draft
+        if (loadFromDraft && !draftLoaded) {
+          const draft = loadDraft();
+          if (draft) {
+            console.log('Loading draft:', draft);
+            setDraftLoaded(true);
+            
+            // Restore form data
+            setFormData(draft.formData);
+            setActiveStep(draft.activeStep);
+            setDeliveryTime(draft.deliveryTimeState);
+            setIsDeliveryTimeEnabled(draft.isDeliveryTimeEnabled);
+            
+            // Restore scheduling data
+            setIsSchedulingEnabled(draft.schedulingData.isSchedulingEnabled);
+            setSessionDuration(draft.schedulingData.sessionDuration);
+            setDefaultSessionLength(draft.schedulingData.defaultSessionLength);
+            setMinNotice(draft.schedulingData.minNotice);
+            setMaxAdvance(draft.schedulingData.maxAdvance);
+            setBufferTime(draft.schedulingData.bufferTime);
+            setWeeklySchedule(draft.schedulingData.weeklySchedule);
+            
+            // Restore photos from base64
+            if (draft.photoData && draft.photoData.length > 0) {
+              const restoredFiles = convertBase64ToFiles(draft.photoData);
+              setFormData(prev => ({
+                ...prev,
+                photos: restoredFiles
+              }));
+            }
+            
+            // Scroll to correct position
+            setTimeout(() => {
+              const dialogContent = document.querySelector('.MuiDialogContent-root');
+              if (dialogContent) {
+                dialogContent.scrollTop = 0;
+              }
+            }, 100);
+            
+            return;
+          }
+        }
+        
+        // Reset form data for create mode (no draft)
+        setDraftLoaded(false);
         setTimeSlotsLoadedFromBackend(false);
         setIsDeliveryTimeEnabled(true);
         setFormData({
@@ -898,7 +960,82 @@ export function ServiceFormPopover({
       }
       setIsSubmitting(false);
     }
-  }, [open, mode, initialService]);
+  }, [open, mode, initialService, loadFromDraft, draftLoaded]);
+  
+  // Auto-save draft (only in create mode, not edit mode)
+  useEffect(() => {
+    // Clear any existing timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    // Don't save drafts in edit mode or if dialog is closed
+    if (!open || mode === 'edit') {
+      return;
+    }
+    
+    // Only save if user has entered something meaningful
+    const hasContent = formData.title || formData.description || formData.price;
+    if (!hasContent) {
+      return;
+    }
+    
+    // Debounce auto-save by 2 seconds
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Convert photos to base64
+        const photoData = formData.photos.length > 0
+          ? await convertPhotosToBase64(formData.photos)
+          : [];
+        
+        const draft: ServiceDraft = {
+          formData,
+          activeStep,
+          timestamp: Date.now(),
+          deliveryTimeState: deliveryTime,
+          isDeliveryTimeEnabled,
+          schedulingData: {
+            isSchedulingEnabled,
+            sessionDuration,
+            defaultSessionLength,
+            minNotice,
+            maxAdvance,
+            bufferTime,
+            weeklySchedule,
+          },
+          photoData,
+        };
+        
+        const saved = saveDraft(draft);
+        if (!saved) {
+          console.warn('Draft save failed or saved without photos');
+        }
+      } catch (error) {
+        console.error('Failed to auto-save draft:', error);
+      }
+    }, 2000);
+    
+    // Cleanup
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [
+    open,
+    mode,
+    formData,
+    activeStep,
+    deliveryTime,
+    isDeliveryTimeEnabled,
+    isSchedulingEnabled,
+    sessionDuration,
+    defaultSessionLength,
+    minNotice,
+    maxAdvance,
+    bufferTime,
+    weeklySchedule,
+  ]);
 
   // Initialize delivery time on component mount
   useEffect(() => {
