@@ -1013,7 +1013,8 @@ export function ServiceFormPopover({
                 p: 2.5,
                 borderRadius: 2,
                 backgroundColor: 'rgba(76, 175, 80, 0.05)',
-                border: '1px solid rgba(76, 175, 80, 0.2)'
+                border: '1px solid rgba(76, 175, 80, 0.2)',
+                overflow: 'visible'
               }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'success.main' }}>
                   💰 Your Earnings Breakdown
@@ -1026,7 +1027,7 @@ export function ServiceFormPopover({
                   const feePercentageDisplay = (feePercentage * 100).toFixed(1);
                   
                   return (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'visible' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="body2" color="text.secondary">
                           Service Price:
@@ -1039,21 +1040,30 @@ export function ServiceFormPopover({
                         <Typography variant="body2" color="text.secondary">
                           Transaction Fee ({feePercentageDisplay}%):
                         </Typography>
-                        <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
+                        <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
                           -${platformFee.toFixed(2)}
                         </Typography>
                       </Box>
                       <Box sx={{ 
                         display: 'flex', 
                         justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        pt: 1,
+                        alignItems: 'flex-start',
+                        pt: 2,
+                        pb: 1,
                         borderTop: '1px solid rgba(76, 175, 80, 0.2)'
                       }}>
-                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main' }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
                           Your Earnings:
                         </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
+                        <Typography 
+                          component="div"
+                          sx={{ 
+                            fontWeight: 700, 
+                            color: 'text.primary',
+                            fontSize: '1.125rem',
+                            fontFamily: 'inherit'
+                          }}
+                        >
                           ${yourEarnings.toFixed(2)}
                         </Typography>
                       </Box>
