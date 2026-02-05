@@ -35,6 +35,7 @@ ENV = os.getenv("ENV", "dev").lower()
 
 # Log CORS configuration for debugging
 import logging
+from core.safe_errors import is_dev_env
 logger = logging.getLogger(__name__)
 
 # CORS origins configuration via ALLOWED_ORIGINS environment variable (comma-separated)
@@ -43,23 +44,27 @@ ALLOWED_ORIGINS_STR = os.getenv("ALLOWED_ORIGINS")
 if ALLOWED_ORIGINS_STR:
     # If ALLOWED_ORIGINS is explicitly set, use it and split by comma
     ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",") if origin.strip()]
-    logger.info(f"Using ALLOWED_ORIGINS from environment variable: {ALLOWED_ORIGINS}")
+    if is_dev_env():
+        logger.info(f"Using ALLOWED_ORIGINS from environment variable: {ALLOWED_ORIGINS}")
 elif ENV == "dev":
     # Local development: minimal fallback to localhost for convenience
     # In production, ALLOWED_ORIGINS should always be set
     ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
-    logger.warning(f"ALLOWED_ORIGINS not set for ENV='{ENV}'. Using localhost fallback. Set ALLOWED_ORIGINS in .env for proper configuration.")
+    if is_dev_env():
+        logger.warning(f"ALLOWED_ORIGINS not set for ENV='{ENV}'. Using localhost fallback. Set ALLOWED_ORIGINS in .env for proper configuration.")
 elif ENV == "prod" or ENV == "production":
     # Production MUST have ALLOWED_ORIGINS set - fail if not set
+    # Note: We still log this error in prod as it's a critical configuration issue
     logger.error("ENV is 'prod' but ALLOWED_ORIGINS is not set! CORS will not work correctly.")
     # Fallback to empty list to prevent wildcard access
     ALLOWED_ORIGINS = []
 else:
     # For dev_deploy or any other environment, require ALLOWED_ORIGINS to be set
-    logger.error(f"ALLOWED_ORIGINS not set for ENV='{ENV}'. CORS will not work correctly. Please set ALLOWED_ORIGINS in your environment.")
+    if is_dev_env():
+        logger.error(f"ALLOWED_ORIGINS not set for ENV='{ENV}'. CORS will not work correctly. Please set ALLOWED_ORIGINS in your environment.")
     ALLOWED_ORIGINS = []
 
-if ENV != "prod" and ENV != "production":
+if is_dev_env():
     logger.info(f"CORS Configuration - ENV: {ENV}, Allowed Origins: {ALLOWED_ORIGINS}")
 
 # Add other middleware first (JWT, SlowAPI)

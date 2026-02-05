@@ -11,6 +11,7 @@ import json
 import httpx
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.backends import default_backend
+from core.safe_errors import is_dev_env
 
 load_dotenv()
 
@@ -47,12 +48,15 @@ def get_jwks() -> Dict:
         response.raise_for_status()
         _jwks_cache = response.json()
         _jwks_cache_time = time.time()
-        logger.info(f"Fetched JWKS from Supabase: {len(_jwks_cache.get('keys', []))} keys")
+        if is_dev_env():
+            logger.info(f"Fetched JWKS from Supabase: {len(_jwks_cache.get('keys', []))} keys")
         return _jwks_cache
     except Exception as e:
-        logger.error(f"Failed to fetch JWKS from {jwks_url}: {e}")
+        if is_dev_env():
+            logger.error(f"Failed to fetch JWKS from {jwks_url}: {e}")
         if _jwks_cache:
-            logger.warning("Using cached JWKS despite fetch failure")
+            if is_dev_env():
+                logger.warning("Using cached JWKS despite fetch failure")
             return _jwks_cache
         raise
 
@@ -170,7 +174,8 @@ async def jwt_auth_middleware(request: Request, call_next):
                 algorithms=["ES256"],
                 audience="authenticated"
             )
-            logger.debug(f"Successfully validated ES256 token with kid: {token_kid}")
+            if is_dev_env():
+                logger.debug(f"Successfully validated ES256 token with kid: {token_kid}")
             
             # Store token for reuse in dependencies
             request.state.token = token
@@ -194,25 +199,27 @@ async def jwt_auth_middleware(request: Request, call_next):
                             token_alg = header.get('alg', 'unknown')
                             token_typ = header.get('typ', 'unknown')
                             
-                            # Log at ERROR level to ensure it shows up
-                            logger.error(f"=== JWT VALIDATION FAILURE ===")
-                            logger.error(f"Error: {error_msg}")
-                            logger.error(f"Token algorithm: {token_alg}")
-                            logger.error(f"Token type: {token_typ}")
-                            logger.error(f"Expected algorithm: ES256")
-                            logger.error(f"Path: {request.url.path}")
-                            logger.error(f"SUPABASE_URL: {SUPABASE_URL}")
-                            
-                            if token_alg != 'ES256':
-                                logger.error(f"❌ UNSUPPORTED ALGORITHM: Token uses '{token_alg}' but only ES256 is supported!")
-                                logger.error(f"Ensure your Supabase project is configured to use ES256 (asymmetric keys).")
-                            else:
-                                logger.error(f"❌ ES256 VALIDATION FAILED: {error_msg}")
-                                logger.error(f"Check that SUPABASE_URL is correct and JWKS endpoint is accessible.")
-                            logger.error(f"==============================")
+                            # Log at ERROR level only in dev to avoid leaking details in production
+                            if is_dev_env():
+                                logger.error(f"=== JWT VALIDATION FAILURE ===")
+                                logger.error(f"Error: {error_msg}")
+                                logger.error(f"Token algorithm: {token_alg}")
+                                logger.error(f"Token type: {token_typ}")
+                                logger.error(f"Expected algorithm: ES256")
+                                logger.error(f"Path: {request.url.path}")
+                                logger.error(f"SUPABASE_URL: {SUPABASE_URL}")
+                                
+                                if token_alg != 'ES256':
+                                    logger.error(f"❌ UNSUPPORTED ALGORITHM: Token uses '{token_alg}' but only ES256 is supported!")
+                                    logger.error(f"Ensure your Supabase project is configured to use ES256 (asymmetric keys).")
+                                else:
+                                    logger.error(f"❌ ES256 VALIDATION FAILED: {error_msg}")
+                                    logger.error(f"Check that SUPABASE_URL is correct and JWKS endpoint is accessible.")
+                                logger.error(f"==============================")
                     except Exception as decode_error:
-                        logger.error(f"Could not decode JWT header for debugging: {decode_error}")
-                        logger.error(f"JWT validation failed: {error_msg} (path: {request.url.path})")
+                        if is_dev_env():
+                            logger.error(f"Could not decode JWT header for debugging: {decode_error}")
+                            logger.error(f"JWT validation failed: {error_msg} (path: {request.url.path})")
                 # Token is invalid or expired - don't set user
                 pass
 

@@ -5,6 +5,7 @@ import os
 import logging
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from core.safe_errors import is_dev_env
 
 load_dotenv()
 
@@ -37,10 +38,12 @@ def ensure_bucket_exists(bucket_name: str, is_public: bool = False) -> bool:
             existing_bucket = next((b for b in buckets if b.name == bucket_name), None)
             
             if existing_bucket:
-                logger.info(f"Bucket '{bucket_name}' already exists")
+                if is_dev_env():
+                    logger.info(f"Bucket '{bucket_name}' already exists")
                 return True
         except Exception as e:
-            logger.warning(f"Could not list buckets: {e}")
+            if is_dev_env():
+                logger.warning(f"Could not list buckets: {e}")
         
         # Bucket doesn't exist, create it
         try:
@@ -69,24 +72,30 @@ def ensure_bucket_exists(bucket_name: str, is_public: bool = False) -> bool:
             )
             
             if response.status_code in [200, 201]:
-                logger.info(f"Successfully created bucket '{bucket_name}'")
+                if is_dev_env():
+                    logger.info(f"Successfully created bucket '{bucket_name}'")
                 return True
             elif response.status_code == 409:
                 # Bucket already exists (race condition)
-                logger.info(f"Bucket '{bucket_name}' already exists")
+                if is_dev_env():
+                    logger.info(f"Bucket '{bucket_name}' already exists")
                 return True
             else:
-                logger.error(f"Failed to create bucket: {response.status_code} - {response.text}")
+                if is_dev_env():
+                    logger.error(f"Failed to create bucket: {response.status_code} - {response.text}")
                 return False
                 
         except ImportError:
-            logger.error("requests library not available. Please install it: pip install requests")
+            if is_dev_env():
+                logger.error("requests library not available. Please install it: pip install requests")
             return False
         except Exception as e:
-            logger.error(f"Error creating bucket: {e}")
+            if is_dev_env():
+                logger.error(f"Error creating bucket: {e}")
             return False
             
     except Exception as e:
-        logger.error(f"Error ensuring bucket exists: {e}")
+        if is_dev_env():
+            logger.error(f"Error ensuring bucket exists: {e}")
         return False
 

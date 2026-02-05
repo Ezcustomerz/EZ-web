@@ -4,6 +4,7 @@ from core.validation import validate_roles
 from supabase import Client
 from services.email.email_service import email_service
 import logging
+from core.safe_errors import is_dev_env
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +37,15 @@ class UserController:
         except Exception as e:
             # Log the full error for debugging
             error_str = str(e)
-            logger.error(f"Error fetching user profile for user_id {user_id}: {error_str}")
-            logger.error(f"Error type: {type(e).__name__}")
+            if is_dev_env():
+                logger.error(f"Error fetching user profile for user_id {user_id}: {error_str}")
+                logger.error(f"Error type: {type(e).__name__}")
             
             # Check if it's an RLS/permission error (0 rows returned)
             if 'PGRST116' in error_str or '0 rows' in error_str.lower() or 'permission denied' in error_str.lower():
                 # RLS blocked the query - likely authentication issue
-                logger.warning(f"RLS blocked query for user_id {user_id} - authentication may not be working correctly")
+                if is_dev_env():
+                    logger.warning(f"RLS blocked query for user_id {user_id} - authentication may not be working correctly")
                 raise HTTPException(
                     status_code=401, 
                     detail="Authentication failed: Unable to access user profile. Please sign in again."
@@ -320,16 +323,19 @@ class UserController:
                 try:
                     # Use the first created profile role for the email
                     primary_role = created_profiles[0]
-                    logger.info(f"Sending welcome email to {user_email} for role: {primary_role}")
+                    if is_dev_env():
+                        logger.info(f"Sending welcome email to {user_email} for role: {primary_role}")
                     await email_service.send_welcome_email(
                         to_email=user_email,
                         user_name=display_name,
                         user_role=primary_role
                     )
-                    logger.info(f"Welcome email sent successfully to {user_email}")
+                    if is_dev_env():
+                        logger.info(f"Welcome email sent successfully to {user_email}")
                 except Exception as e:
                     # Log the error but don't fail the profile creation
-                    logger.error(f"Failed to send welcome email to {user_email}: {str(e)}")
+                    if is_dev_env():
+                        logger.error(f"Failed to send welcome email to {user_email}: {str(e)}")
             
             return BatchSetupResponse(
                 success=True,
