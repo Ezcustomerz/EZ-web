@@ -723,7 +723,8 @@ class EmailService:
         recipient_name: Optional[str] = None,
         booking_id: Optional[str] = None,
         payment_request_id: Optional[str] = None,
-        metadata: Optional[dict] = None
+        metadata: Optional[dict] = None,
+        client: Optional[Client] = None
     ) -> bool:
         """
         Send a notification email to a user
@@ -775,10 +776,14 @@ class EmailService:
                 '''
             
             # Fetch invoice/receipt PDFs for payment_received notifications
+            # Use authenticated client if provided, otherwise fallback to db_admin
+            # RLS policies allow: bookings SELECT (own), creative_services SELECT (in bookings),
+            # creatives SELECT (in bookings), users SELECT (in bookings)
             pdf_attachments = []
             if notification_type == 'payment_received' and booking_id:
                 try:
-                    pdf_attachments = await self._fetch_booking_invoices(booking_id, db_admin, allow_any_status=True)
+                    db_client = client if client else db_admin
+                    pdf_attachments = await self._fetch_booking_invoices(booking_id, db_client, allow_any_status=True)
                     if is_dev_env():
                         logger.info(f"Fetched {len(pdf_attachments)} PDF attachments for booking {booking_id}")
                 except Exception as e:

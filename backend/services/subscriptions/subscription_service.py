@@ -39,8 +39,8 @@ class SubscriptionService:
             Dictionary containing checkout_url and session_id
         """
         try:
-            # Get subscription tier details using admin client to bypass RLS
-            tier_result = db_admin.table('subscription_tiers').select(
+            # Get subscription tier details - RLS: authenticated users can SELECT all
+            tier_result = client.table('subscription_tiers').select(
                 'id, name, price, stripe_price_id, stripe_product_id'
             ).eq('id', subscription_tier_id).single().execute()
             
@@ -56,15 +56,15 @@ class SubscriptionService:
                     detail="This is a free tier. No payment required."
                 )
             
-            # Get or create Stripe customer using admin client
-            user_result = db_admin.table('users').select('user_id, email').eq('user_id', user_id).single().execute()
+            # Get user email - RLS: "public_users_select_own" (user_id = auth.uid())
+            user_result = client.table('users').select('user_id, email').eq('user_id', user_id).single().execute()
             if not user_result.data:
                 raise HTTPException(status_code=404, detail="User not found")
             
             user_email = user_result.data.get('email')
             
-            # Check if user already has a Stripe customer ID in user_subscriptions
-            existing_sub = db_admin.table('user_subscriptions').select(
+            # Check if user already has a Stripe customer ID - RLS: "Users can view their own subscriptions"
+            existing_sub = client.table('user_subscriptions').select(
                 'stripe_customer_id'
             ).eq('user_id', user_id).order('created_at', desc=True).limit(1).execute()
             
@@ -95,7 +95,7 @@ class SubscriptionService:
                     )
                     stripe_product_id = product.id
                     
-                    # Update database with product ID using admin client
+                    # NOTE: db_admin required - no UPDATE policy for subscription_tiers
                     db_admin.table('subscription_tiers').update({
                         'stripe_product_id': stripe_product_id
                     }).eq('id', subscription_tier_id).execute()
@@ -112,7 +112,7 @@ class SubscriptionService:
                 )
                 stripe_price_id = price.id
                 
-                # Update database with price ID using admin client
+                # NOTE: db_admin required - no UPDATE policy for subscription_tiers
                 db_admin.table('subscription_tiers').update({
                     'stripe_price_id': stripe_price_id
                 }).eq('id', subscription_tier_id).execute()
@@ -193,7 +193,9 @@ class SubscriptionService:
             if isinstance(stripe_subscription, str):
                 stripe_subscription = stripe.Subscription.retrieve(stripe_subscription)
             
-            # Cancel any existing active subscriptions for this user using admin client
+            # Cancel any existing active subscriptions for this user
+            # RLS: "Users can view their own subscriptions" - but we need service_role for UPDATE
+            # Using db_admin since we need to update these later
             existing_subs = db_admin.table('user_subscriptions').select('*').eq(
                 'user_id', user_id
             ).eq('status', 'active').execute()
@@ -209,14 +211,14 @@ class SubscriptionService:
                     except Exception as e:
                         log_exception_if_dev(logger, "Failed to cancel old subscription in Stripe", e)
                 
-                # Update status in database using admin client
+                # NOTE: db_admin required - no UPDATE policy for user_subscriptions (only service_role)
                 db_admin.table('user_subscriptions').update({
                     'status': 'canceled',
                     'cancel_at_period_end': True,
                     'canceled_at': datetime.utcnow().isoformat()
                 }).eq('id', sub['id']).execute()
             
-            # Create new subscription record using admin client to bypass RLS
+            # NOTE: db_admin required - no INSERT policy for user_subscriptions (only service_role)
             subscription_data = {
                 'user_id': user_id,
                 'subscription_tier_id': subscription_tier_id,
@@ -233,8 +235,8 @@ class SubscriptionService:
             if not insert_result.data:
                 raise HTTPException(status_code=500, detail="Failed to create subscription record")
             
-            # Update creative's subscription_tier_id using admin client
-            db_admin.table('creatives').update({
+            # Update creative's subscription_tier_id - RLS: "creatives_update_own" (user_id = auth.uid())
+            client.table('creatives').update({
                 'subscription_tier_id': subscription_tier_id
             }).eq('user_id', user_id).execute()
             
@@ -269,8 +271,8 @@ class SubscriptionService:
             Dictionary containing subscription status information
         """
         try:
-            # Get active subscription using admin client
-            sub_result = db_admin.table('user_subscriptions').select(
+            # Get active subscription - RLS: "Users can view their own subscriptions"
+            sub_result = client.table('user_subscriptions').select(
                 '*, subscription_tiers(id, name)'
             ).eq('user_id', user_id).eq('status', 'active').order(
                 'created_at', desc=True
@@ -314,8 +316,8 @@ class SubscriptionService:
             Dictionary containing cancellation status
         """
         try:
-            # Get active subscription using admin client
-            sub_result = db_admin.table('user_subscriptions').select('*').eq(
+            # Get active subscription - RLS: "Users can view their own subscriptions"
+            sub_result = client.table('user_subscriptions').select('*').eq(
                 'user_id', user_id
             ).eq('status', 'active').order('created_at', desc=True).limit(1).execute()
             
@@ -334,7 +336,8 @@ class SubscriptionService:
                 cancel_at_period_end=True
             )
             
-            # Update database using admin client
+            # NOTE: db_admin required for user_subscriptions UPDATE
+            # RLS only allows service_role for INSERT/UPDATE on this table
             db_admin.table('user_subscriptions').update({
                 'cancel_at_period_end': True,
                 'canceled_at': datetime.utcnow().isoformat()
@@ -370,8 +373,8 @@ class SubscriptionService:
             Dictionary containing billing details
         """
         try:
-            # Get user's active subscription from database
-            sub_result = db_admin.table('user_subscriptions').select(
+            # Get user's active subscription - RLS: "Users can view their own subscriptions"
+            sub_result = client.table('user_subscriptions').select(
                 'id, subscription_tier_id, stripe_subscription_id, stripe_customer_id, status, '
                 'current_period_start, current_period_end, cancel_at_period_end, canceled_at'
             ).eq('user_id', user_id).eq('status', 'active').execute()
@@ -403,8 +406,8 @@ class SubscriptionService:
             response_data["canceled_at"] = sub.get('canceled_at')
             response_data["stripe_customer_id"] = sub.get('stripe_customer_id')
             
-            # Get subscription tier details
-            tier_result = db_admin.table('subscription_tiers').select(
+            # Get subscription tier details - RLS: authenticated users can SELECT all
+            tier_result = client.table('subscription_tiers').select(
                 'id, name, price, storage_amount_bytes, storage_display, description, '
                 'fee_percentage, is_active, tier_level, stripe_product_id, stripe_price_id'
             ).eq('id', sub['subscription_tier_id']).single().execute()
@@ -412,8 +415,8 @@ class SubscriptionService:
             if tier_result.data:
                 response_data["subscription_tier"] = tier_result.data
                 
-                # Check if this is the top tier
-                all_tiers_result = db_admin.table('subscription_tiers').select('tier_level').execute()
+                # Check if this is the top tier - RLS: authenticated users can SELECT all
+                all_tiers_result = client.table('subscription_tiers').select('tier_level').execute()
                 if all_tiers_result.data:
                     max_tier_level = max(t['tier_level'] for t in all_tiers_result.data)
                     response_data["is_top_tier"] = tier_result.data['tier_level'] >= max_tier_level
@@ -492,7 +495,8 @@ class SubscriptionService:
         """
         try:
             # Get user's stripe customer ID from active subscription
-            sub_result = db_admin.table('user_subscriptions').select(
+            # RLS: "Users can view their own subscriptions"
+            sub_result = client.table('user_subscriptions').select(
                 'stripe_customer_id'
             ).eq('user_id', user_id).eq('status', 'active').execute()
             

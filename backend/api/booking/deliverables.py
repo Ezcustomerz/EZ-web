@@ -22,6 +22,10 @@ def check_file_exists_in_storage(bucket_name: str, file_path: str) -> bool:
     """
     Check if a file exists in Supabase Storage by attempting to list it.
     
+    Note: Uses db_admin for storage operations because:
+    - Storage client doesn't have JWT token setup in get_authenticated_client
+    - Storage RLS policies are separate from table RLS
+    
     Args:
         bucket_name: Name of the storage bucket
         file_path: Path to the file in the bucket
@@ -81,6 +85,9 @@ async def check_storage_limit(
     """
     Check if uploading new files would exceed storage limit.
     Returns (is_allowed, error_message)
+    
+    Uses authenticated client which respects RLS policies:
+    - Creative can SELECT their own deliverables via "Creatives can manage deliverables" policy
     """
     try:
         # Get creative profile with subscription tier
@@ -127,8 +134,9 @@ async def check_storage_limit(
         else:
             booking_ids = [b['id'] for b in bookings_result.data]
             
-            # Get all deliverables
-            deliverables_result = db_admin.table('booking_deliverables')\
+            # Get all deliverables - uses authenticated client which respects RLS
+            # Creative can SELECT deliverables for their bookings via RLS policy
+            deliverables_result = client.table('booking_deliverables')\
                 .select('file_size_bytes, file_url')\
                 .in_('booking_id', booking_ids)\
                 .execute()
@@ -292,7 +300,8 @@ async def register_uploaded_files(
         if not is_allowed:
             raise HTTPException(status_code=403, detail=error_message)
         
-        # Register files in database
+        # Register files in database using authenticated client
+        # RLS policy "Creatives can manage deliverables for their bookings" allows INSERT
         registered_files = []
         for file_info in register_request.files:
             # Use the storage path provided (from the upload)
@@ -300,7 +309,8 @@ async def register_uploaded_files(
             
             # Check if file with this file_url already exists for this booking
             # This prevents duplicate entries if the endpoint is called multiple times
-            existing_file = db_admin.table('booking_deliverables')\
+            # Uses authenticated client - creative can SELECT via RLS
+            existing_file = client.table('booking_deliverables')\
                 .select('id')\
                 .eq('booking_id', booking_id)\
                 .eq('file_url', storage_path)\
@@ -321,9 +331,10 @@ async def register_uploaded_files(
                 })
                 continue
             
-            # Insert into booking_deliverables table
+            # Insert into booking_deliverables table using authenticated client
+            # Creative can INSERT via RLS policy
             try:
-                insert_result = db_admin.table('booking_deliverables').insert({
+                insert_result = client.table('booking_deliverables').insert({
                     'booking_id': booking_id,
                     'file_url': storage_path,
                     'file_name': file_info.file_name,
@@ -490,6 +501,8 @@ async def upload_deliverables(
                 storage_path = f"{booking_id}/{unique_id}{file_extension}"
                 
                 # Upload to Supabase Storage
+                # Uses db_admin because storage client doesn't have JWT setup
+                # Authorization is verified above (user must be the creative for this booking)
                 try:
                     upload_result = db_admin.storage.from_(bucket_name).upload(
                         path=storage_path,
@@ -602,6 +615,9 @@ async def upload_deliverable(
                 logger.error("Failed to ensure bucket exists")
             raise HTTPException(status_code=500, detail="Storage bucket not available. Please contact support.")
         
+        # Upload to Supabase Storage
+        # Uses db_admin because storage client doesn't have JWT setup
+        # Authorization is verified above (user must be the creative for this booking)
         try:
             upload_result = db_admin.storage.from_(bucket_name).upload(
                 path=storage_path,
@@ -762,6 +778,8 @@ async def download_deliverables_batch(
                 logger.debug(f"Attempting to generate signed URL for deliverable {deliverable_id}: {normalized_path}")
                 
                 # Generate signed URL (expires in 1 hour = 3600 seconds)
+                # Uses db_admin because signed URL generation requires service role key
+                # Authorization is verified above (user must be client or creative for booking)
                 signed_url_result = db_admin.storage.from_(bucket_name).create_signed_url(
                     normalized_path,
                     3600  # expires in 1 hour (seconds)
@@ -821,6 +839,10 @@ async def download_deliverables_batch(
             logger.warning("Batch download: %s files failed to generate signed URLs", len(failed_files))
         
         # Second pass: Update all files as downloaded in a single batch operation
+        # Uses db_admin because:
+        # - Downloads can be by client OR creative
+        # - RLS only allows creatives to UPDATE (clients have SELECT only)
+        # - This is a system tracking operation that should work regardless of who downloads
         if deliverable_ids_to_update:
             try:
                 # Update all deliverables at once using IN clause
@@ -963,7 +985,8 @@ async def download_deliverable(
         bucket_name = "booking-deliverables"
         try:
             # Create signed URL using Supabase Storage
-            # The Python client uses create_signed_url method
+            # Uses db_admin because signed URL generation requires service role key
+            # Authorization is verified above (user must be client or creative for booking)
             signed_url_result = db_admin.storage.from_(bucket_name).create_signed_url(
                 file_path,
                 3600  # expires in 1 hour (seconds)
@@ -982,7 +1005,10 @@ async def download_deliverable(
                 raise HTTPException(status_code=500, detail="Failed to generate download URL")
             
             # Mark the file as downloaded (update downloaded_at timestamp)
-            # Use db_admin to bypass RLS since this is a system tracking update
+            # Uses db_admin because:
+            # - Downloads can be by client OR creative
+            # - RLS only allows creatives to UPDATE (clients have SELECT only)
+            # - This is a system tracking operation that should work regardless of who downloads
             from datetime import datetime, timezone
             try:
                 # Format timestamp as ISO 8601 string for PostgreSQL
@@ -1180,7 +1206,7 @@ async def delete_deliverable(
         # file_url is stored as a storage path (e.g., "booking_id/filename.ext")
         file_path = file_url
         
-        # Delete from storage
+        # Delete from storage - must use db_admin as storage doesn't have DELETE RLS policy
         bucket_name = "booking-deliverables"
         try:
             db_admin.storage.from_(bucket_name).remove([file_path])
@@ -1190,8 +1216,9 @@ async def delete_deliverable(
             # Continue with database delete even if storage delete fails
             # This prevents orphaned database records
         
-        # Delete from database
-        delete_result = db_admin.table('booking_deliverables')\
+        # Delete from database using authenticated client
+        # RLS policy "Creatives can manage deliverables for their bookings" allows DELETE
+        delete_result = client.table('booking_deliverables')\
             .delete()\
             .eq('id', deliverable_id)\
             .execute()

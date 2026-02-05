@@ -555,6 +555,7 @@ class NotificationsController:
                 payment_request_id = metadata.get('payment_request_id')
             
             # Send the email
+            # Pass authenticated client through for RLS-compliant invoice fetching
             return await email_service.send_notification_email(
                 to_email=recipient_email,
                 notification_type=notification_type,
@@ -564,7 +565,8 @@ class NotificationsController:
                 recipient_name=recipient_name,
                 booking_id=booking_id,
                 payment_request_id=payment_request_id,
-                metadata=metadata
+                metadata=metadata,
+                client=client
             )
             
         except Exception as e:

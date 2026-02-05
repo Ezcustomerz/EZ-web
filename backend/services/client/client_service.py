@@ -183,6 +183,10 @@ class ClientController:
             unique_filename = f"{user_id}_{uuid.uuid4().hex}.{file_extension}"
             
             # Upload to Supabase storage
+            # NOTE: Using db_admin for storage operations because:
+            # 1. The profile-photos bucket has no INSERT policy for authenticated users
+            # 2. Storage client with JWT injection has known limitations
+            # 3. RLS policies only cover SELECT (public), UPDATE/DELETE (path matching)
             bucket_name = "profile-photos"
             file_path = f"clients/{unique_filename}"
             
@@ -196,7 +200,7 @@ class ClientController:
                 log_exception_if_dev(logger, "Failed to upload file", upload_error)
                 raise HTTPException(status_code=500, detail="Failed to upload file")
             
-            # Get the public URL
+            # Get the public URL (db_admin required - storage client limitation)
             public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
             
             # Update the client profile with the new photo URL
@@ -216,6 +220,7 @@ class ClientController:
                     
                     if old_file_path.startswith('clients/'):
                         try:
+                            # db_admin required - storage client JWT limitations
                             db_admin.storage.from_(bucket_name).remove([old_file_path])
                         except Exception as delete_error:
                             log_exception_if_dev(logger, "Failed to delete old profile photo", delete_error)
@@ -374,12 +379,17 @@ class ClientController:
             raise HTTPException(status_code=500, detail="Failed to fetch client creatives")
 
     @staticmethod
-    async def get_connected_services(user_id: str) -> dict:
-        """Get all services from creatives connected to this client - optimized with single query"""
+    async def get_connected_services(user_id: str, client: Client) -> dict:
+        """Get all services from creatives connected to this client - optimized with single query
+        
+        Args:
+            user_id: The user ID to fetch services for
+            client: Authenticated Supabase client (respects RLS policies)
+        """
         try:
             # Single optimized query with JOIN to get services, creative names, and photos
-            # This replaces multiple individual queries with one efficient query
-            services_result = db_admin.rpc('get_client_connected_services_with_photos', {
+            # Uses authenticated client - RPC function respects caller's RLS context
+            services_result = client.rpc('get_client_connected_services_with_photos', {
                 'client_user_id': user_id
             }).execute()
             
@@ -414,17 +424,29 @@ class ClientController:
         except Exception as e:
             # Fallback to the original method if RPC fails
             try:
-                return await ClientController._get_connected_services_fallback(user_id)
+                return await ClientController._get_connected_services_fallback(user_id, client)
             except Exception as fallback_error:
                 log_exception_if_dev(logger, "Failed to fetch connected services", fallback_error)
                 raise HTTPException(status_code=500, detail="Failed to fetch connected services")
 
     @staticmethod
-    async def _get_connected_services_fallback(user_id: str) -> dict:
-        """Fallback method using optimized batch queries"""
+    async def _get_connected_services_fallback(user_id: str, client: Client) -> dict:
+        """Fallback method using optimized batch queries
+        
+        Args:
+            user_id: The user ID to fetch services for
+            client: Authenticated Supabase client (respects RLS policies)
+        
+        Note: All queries use authenticated client. RLS policies allow:
+        - creative_client_relationships: "Clients can view their own relationships"
+        - creative_services: "Anyone can view public services" (public + is_active)
+        - creatives: Public SELECT allowed
+        - users: "Clients can view their connected creative users"
+        - service_photos: "Allow public to read service photos for public services"
+        """
         try:
-            # Get creative user IDs
-            relationships_result = db_admin.table('creative_client_relationships').select(
+            # Get creative user IDs (RLS: clients can view their own relationships)
+            relationships_result = client.table('creative_client_relationships').select(
                 'creative_user_id'
             ).eq('client_user_id', user_id).execute()
             
@@ -433,20 +455,21 @@ class ClientController:
             
             creative_user_ids = [rel['creative_user_id'] for rel in relationships_result.data]
             
-            # Get all services from these creatives
-            services_result = db_admin.table('creative_services').select(
+            # Get all services from these creatives (RLS: public services are viewable by anyone)
+            services_result = client.table('creative_services').select(
                 'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, creative_user_id, requires_booking, payment_option, split_deposit_amount'
             ).in_('creative_user_id', creative_user_ids).eq('is_active', True).order('created_at', desc=True).execute()
             
             if not services_result.data:
                 return {"services": [], "total_count": 0}
             
-            # Batch fetch creative names to avoid N+1 queries
-            creatives_result = db_admin.table('creatives').select(
+            # Batch fetch creative names to avoid N+1 queries (RLS: creatives are publicly viewable)
+            creatives_result = client.table('creatives').select(
                 'user_id, display_name'
             ).in_('user_id', creative_user_ids).execute()
             
-            users_result = db_admin.table('users').select(
+            # RLS: "Clients can view their connected creative users"
+            users_result = client.table('users').select(
                 'user_id, name'
             ).in_('user_id', creative_user_ids).execute()
             
@@ -454,9 +477,9 @@ class ClientController:
             creative_names = {c['user_id']: c.get('display_name') for c in creatives_result.data}
             user_names = {u['user_id']: u.get('name') for u in users_result.data}
             
-            # Get photos for all services
+            # Get photos for all services (RLS: photos for public services are viewable)
             service_ids = [service['id'] for service in services_result.data]
-            photos_result = db_admin.table('service_photos').select(
+            photos_result = client.table('service_photos').select(
                 'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
             ).in_('service_id', service_ids).order('service_id').order('display_order', desc=False).execute()
             

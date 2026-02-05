@@ -4,7 +4,6 @@ import re
 import json
 from fastapi import HTTPException, Request
 from core.safe_errors import log_exception_if_dev
-from db.db_session import db_admin
 from schemas.creative import (
     CreateServiceRequest, CreateServiceResponse, DeleteServiceResponse,
     UpdateServiceResponse, CreativeServiceResponse, CreativeServicesListResponse,
@@ -107,11 +106,11 @@ class ServiceService:
             
             # Handle calendar settings if provided
             if service_request.calendar_settings:
-                await CalendarService.save_calendar_settings(service_id, service_request.calendar_settings, request)
+                await CalendarService.save_calendar_settings(service_id, service_request.calendar_settings, client, request)
             
             # Handle photos if provided
             if service_request.photos:
-                await PhotoService.save_service_photos(service_id, service_request.photos)
+                await PhotoService.save_service_photos(service_id, service_request.photos, client)
             
             return CreateServiceResponse(
                 success=True,
@@ -216,12 +215,12 @@ class ServiceService:
             
             # Handle calendar settings if provided
             if calendar_settings:
-                await CalendarService.save_calendar_settings(service_id, calendar_settings, request)
+                await CalendarService.save_calendar_settings(service_id, calendar_settings, client, request)
             
             # Handle photos if provided
             photos = form.getlist('photos')
             if photos:
-                await PhotoService.save_service_photos_from_files(service_id, photos)
+                await PhotoService.save_service_photos_from_files(service_id, photos, client)
             
             return CreateServiceResponse(
                 success=True,
@@ -301,11 +300,11 @@ class ServiceService:
 
             # Handle calendar settings if provided
             if service_request.calendar_settings:
-                await CalendarService.save_calendar_settings(service_id, service_request.calendar_settings, request)
+                await CalendarService.save_calendar_settings(service_id, service_request.calendar_settings, client, request)
             
             # Handle photos if provided
             if service_request.photos:
-                await PhotoService.save_service_photos(service_id, service_request.photos)
+                await PhotoService.save_service_photos(service_id, service_request.photos, client)
 
             return UpdateServiceResponse(success=True, message="Service updated successfully")
 
@@ -394,10 +393,10 @@ class ServiceService:
 
             # Handle calendar settings if provided
             if calendar_settings:
-                await CalendarService.save_calendar_settings(service_id, calendar_settings, request)
+                await CalendarService.save_calendar_settings(service_id, calendar_settings, client, request)
             
             # Handle photos: Delete photos not in the keep list, keep existing ones, add new ones
-            await PhotoService.update_service_photos_selective(service_id, existing_photos_to_keep, photo_files)
+            await PhotoService.update_service_photos_selective(service_id, existing_photos_to_keep, photo_files, client)
 
             return UpdateServiceResponse(success=True, message="Service updated successfully")
 
@@ -446,7 +445,7 @@ class ServiceService:
             }).eq('service_id', service_id).execute()
             
             # Delete associated photos from storage and database
-            await PhotoService.delete_service_photos(service_id)
+            await PhotoService.delete_service_photos(service_id, client)
             
             return DeleteServiceResponse(
                 success=True,

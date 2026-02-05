@@ -2,7 +2,7 @@
 from fastapi import HTTPException, UploadFile
 from db.db_session import db_admin
 from supabase import Client
-from typing import List
+from typing import List, Optional
 import re
 import uuid
 import asyncio
@@ -13,11 +13,23 @@ class PhotoService:
     """Service for handling photo uploads and deletions"""
     
     @staticmethod
-    async def delete_service_photos(service_id: str):
-        """Delete all photos associated with a service from storage and database"""
+    async def delete_service_photos(service_id: str, client: Optional[Client] = None):
+        """Delete all photos associated with a service from storage and database
+        
+        Args:
+            service_id: The service ID to delete photos for
+            client: Authenticated Supabase client (optional, respects RLS policies)
+        
+        Note: Storage operations use db_admin due to client JWT limitations.
+        Database operations use authenticated client when provided.
+        RLS policies: "Users can view service photos", "Creatives can delete service photos"
+        """
+        db_client = client if client else db_admin
+        
         try:
             # Get all photos for this service BEFORE deleting from database
-            photos_result = db_admin.table('service_photos').select(
+            # RLS: "Users can view service photos" (for own services)
+            photos_result = db_client.table('service_photos').select(
                 'photo_url, photo_filename'
             ).eq('service_id', service_id).execute()
             
@@ -48,6 +60,7 @@ class PhotoService:
                                 files_to_delete.append(file_path)
                 
                 # Delete all files at once if we have any
+                # db_admin required for storage operations - client JWT limitations
                 if files_to_delete:
                     print(f"Attempting to delete {len(files_to_delete)} files from storage: {files_to_delete}")
                     try:
@@ -57,8 +70,9 @@ class PhotoService:
                         print(f"Failed to delete photos from storage: {files_to_delete}, error: {str(e)}")
                 
                 # Delete photo records from database AFTER storage cleanup
+                # RLS: "Creatives can delete service photos"
                 print(f"Deleting photo records from database for service {service_id}")
-                db_admin.table('service_photos').delete().eq('service_id', service_id).execute()
+                db_client.table('service_photos').delete().eq('service_id', service_id).execute()
                 print(f"Successfully deleted photo records from database")
             
         except Exception as e:
@@ -66,11 +80,21 @@ class PhotoService:
             # Don't raise exception here as service deletion should still succeed even if photo cleanup fails
 
     @staticmethod
-    async def save_service_photos(service_id: str, photos):
-        """Save service photos for a service"""
+    async def save_service_photos(service_id: str, photos, client: Optional[Client] = None):
+        """Save service photos for a service
+        
+        Args:
+            service_id: The service ID to save photos for
+            photos: List of photo data
+            client: Authenticated Supabase client (optional, respects RLS policies)
+        
+        Note: RLS policy "Creatives can insert service photos" allows INSERT for own services.
+        """
+        db_client = client if client else db_admin
+        
         try:
             # First, delete existing photos from both storage and database
-            await PhotoService.delete_service_photos(service_id)
+            await PhotoService.delete_service_photos(service_id, client)
             
             # Insert new photos
             if photos:
@@ -86,19 +110,32 @@ class PhotoService:
                     })
                 
                 if photos_data:
-                    db_admin.table('service_photos').insert(photos_data).execute()
+                    # RLS: "Creatives can insert service photos"
+                    db_client.table('service_photos').insert(photos_data).execute()
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save service photos: {str(e)}")
 
     @staticmethod
-    async def save_service_photos_from_files(service_id: str, photo_files):
-        """Save service photos from uploaded files with parallel processing"""
+    async def save_service_photos_from_files(service_id: str, photo_files, client: Optional[Client] = None):
+        """Save service photos from uploaded files with parallel processing
+        
+        Args:
+            service_id: The service ID to save photos for
+            photo_files: List of uploaded photo files
+            client: Authenticated Supabase client (optional, respects RLS for database ops)
+        
+        Note: Storage operations use service role key. Database operations use authenticated client.
+        RLS: "Creatives can insert service photos"
+        """
+        db_client = client if client else db_admin
+        
         try:
             # First, delete existing photos from both storage and database
-            await PhotoService.delete_service_photos(service_id)
+            await PhotoService.delete_service_photos(service_id, client)
             
             # Upload photos to Supabase Storage and save metadata
+            # Storage uses service role key (created inside function)
             if photo_files:
                 supabase_url = os.getenv("SUPABASE_URL")
                 supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -162,8 +199,9 @@ class PhotoService:
                 ]
                 
                 # Batch insert all photo metadata
+                # RLS: "Creatives can insert service photos"
                 if photos_data:
-                    db_admin.table('service_photos').insert(photos_data).execute()
+                    db_client.table('service_photos').insert(photos_data).execute()
             
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to save service photos: {str(e)}")
@@ -172,7 +210,8 @@ class PhotoService:
     async def update_service_photos_selective(
         service_id: str, 
         existing_photos_to_keep: List[str], 
-        new_photo_files
+        new_photo_files,
+        client: Optional[Client] = None
     ):
         """Selectively update service photos - keep some existing, delete others, add new ones
         
@@ -180,10 +219,17 @@ class PhotoService:
             service_id: The service ID
             existing_photos_to_keep: List of photo URLs to keep
             new_photo_files: List of new photo files to upload
+            client: Authenticated Supabase client (optional, respects RLS for database ops)
+        
+        Note: Storage operations use db_admin. Database operations use authenticated client when provided.
+        RLS policies: SELECT, INSERT, UPDATE, DELETE all available for own services.
         """
+        db_client = client if client else db_admin
+        
         try:
             # Get all current photos for this service
-            current_photos_result = db_admin.table('service_photos').select(
+            # RLS: "Users can view service photos"
+            current_photos_result = db_client.table('service_photos').select(
                 'id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
             ).eq('service_id', service_id).order('display_order', desc=False).execute()
             
@@ -229,7 +275,7 @@ class PhotoService:
                             file_path = match.group(1).split('?')[0]  # Remove query params
                             files_to_delete.append(file_path)
                 
-                # Delete files from storage
+                # Delete files from storage (db_admin required - client JWT limitations)
                 if files_to_delete:
                     try:
                         db_admin.storage.from_("creative-assets").remove(files_to_delete)
@@ -237,8 +283,9 @@ class PhotoService:
                         print(f"Failed to delete photos from storage: {str(e)}")
                 
                 # Delete photo records from database
+                # RLS: "Creatives can delete service photos"
                 if photo_ids_to_delete:
-                    db_admin.table('service_photos').delete().in_('id', photo_ids_to_delete).execute()
+                    db_client.table('service_photos').delete().in_('id', photo_ids_to_delete).execute()
             
             # Upload new photos and get their metadata
             new_photos_metadata = []
@@ -325,16 +372,18 @@ class PhotoService:
                 })
             
             # Update display order and is_primary for kept photos
+            # RLS: "Creatives can update service photos"
             if all_photos:
                 for photo_update in all_photos:
-                    db_admin.table('service_photos').update({
+                    db_client.table('service_photos').update({
                         'display_order': photo_update['display_order'],
                         'is_primary': photo_update['is_primary']
                     }).eq('id', photo_update['id']).execute()
             
             # Insert new photos
+            # RLS: "Creatives can insert service photos"
             if new_photos_to_insert:
-                db_admin.table('service_photos').insert(new_photos_to_insert).execute()
+                db_client.table('service_photos').insert(new_photos_to_insert).execute()
             
         except Exception as e:
             print(f"Failed to update service photos: {str(e)}")

@@ -4,7 +4,6 @@ import logging
 import os
 from fastapi import HTTPException
 from supabase import Client
-from db.db_session import db_admin
 from core.safe_errors import log_exception_if_dev, is_dev_env
 from schemas.booking import (
     OrdersListResponse, OrderResponse, OrderFile, Invoice,

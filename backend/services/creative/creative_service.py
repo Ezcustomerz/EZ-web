@@ -17,6 +17,7 @@ from core.timezone_utils import (
     get_user_timezone_from_request
 )
 from services.email.email_service import email_service
+from services.creative.calendar_service import CalendarService
 from core.safe_errors import log_exception_if_dev
 import logging
 
@@ -318,11 +319,20 @@ class CreativeController:
             raise HTTPException(status_code=500, detail="Failed to fetch creative clients")
 
     @staticmethod
-    async def get_creative_services(user_id: str) -> CreativeServicesListResponse:
-        """Get all services associated with the creative"""
+    async def get_creative_services(user_id: str, client: Client = None) -> CreativeServicesListResponse:
+        """Get all services associated with the creative
+        
+        Args:
+            user_id: The user ID to fetch services for
+            client: Authenticated Supabase client (required, respects RLS policies)
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             # Query the creative_services table for this creative user
-            result = db_admin.table('creative_services').select(
+            # RLS: "Creative users can view their own services"
+            result = client.table('creative_services').select(
                 'id, title, description, price, delivery_time, status, color, is_active, created_at, updated_at, requires_booking'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
@@ -414,11 +424,11 @@ class CreativeController:
             
             # Handle calendar settings if provided
             if service_request.calendar_settings:
-                await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings, request)
+                await CalendarService.save_calendar_settings(service_id, service_request.calendar_settings, client, request)
             
             # Handle photos if provided
             if service_request.photos:
-                await CreativeController._save_service_photos(service_id, service_request.photos)
+                await CreativeController._save_service_photos(service_id, service_request.photos, client)
             
             return CreateServiceResponse(
                 success=True,
@@ -512,12 +522,12 @@ class CreativeController:
             
             # Handle calendar settings if provided
             if calendar_settings:
-                await CreativeController._save_calendar_settings(service_id, calendar_settings, request)
+                await CalendarService.save_calendar_settings(service_id, calendar_settings, client, request)
             
             # Handle photos if provided
             photos = form.getlist('photos')
             if photos:
-                await CreativeController._save_service_photos_from_files(service_id, photos)
+                await CreativeController._save_service_photos_from_files(service_id, photos, client)
             
             return CreateServiceResponse(
                 success=True,
@@ -532,118 +542,23 @@ class CreativeController:
             raise HTTPException(status_code=500, detail="Failed to create service")
 
     @staticmethod
-    async def _save_calendar_settings(service_id: str, calendar_settings, request: Request = None):
-        """Save calendar settings for a service"""
-        try:
-            # Get user timezone from request headers
-            user_timezone = 'UTC'  # Default to UTC
-            if request:
-                user_timezone = get_user_timezone_from_request(dict(request.headers))
-                print(f"DEBUG: User timezone detected: {user_timezone}")
-                print(f"DEBUG: Request headers: {dict(request.headers)}")
-            
-            # First, delete existing calendar settings for this service
-            db_admin.table('calendar_settings').delete().eq('service_id', service_id).execute()
-            
-            # Insert new calendar settings
-            calendar_data = {
-                'service_id': service_id,
-                'is_scheduling_enabled': calendar_settings.is_scheduling_enabled,
-                'session_duration': calendar_settings.session_duration,
-                'default_session_length': calendar_settings.default_session_length,
-                'min_notice_amount': calendar_settings.min_notice_amount,
-                'min_notice_unit': calendar_settings.min_notice_unit,
-                'max_advance_amount': calendar_settings.max_advance_amount,
-                'max_advance_unit': calendar_settings.max_advance_unit,
-                'buffer_time_amount': calendar_settings.buffer_time_amount,
-                'buffer_time_unit': calendar_settings.buffer_time_unit,
-                'is_active': True
-            }
-            
-            calendar_result = db_admin.table('calendar_settings').insert(calendar_data).execute()
-            if not calendar_result.data:
-                raise HTTPException(status_code=500, detail="Failed to save calendar settings")
-            
-            calendar_setting_id = calendar_result.data[0]['id']
-            
-            # Save weekly schedule
-            for day_schedule in calendar_settings.weekly_schedule:
-                if day_schedule.enabled:  # Only save enabled days
-                    # Insert weekly schedule entry
-                    weekly_data = {
-                        'calendar_setting_id': calendar_setting_id,
-                        'day_of_week': day_schedule.day,
-                        'is_enabled': day_schedule.enabled
-                    }
-                    
-                    weekly_result = db_admin.table('weekly_schedule').insert(weekly_data).execute()
-                    if not weekly_result.data:
-                        continue  # Skip this day if insertion fails
-                    
-                    weekly_schedule_id = weekly_result.data[0]['id']
-                    
-                    # Save time blocks (convert to UTC)
-                    if day_schedule.time_blocks:
-                        time_blocks_data = []
-                        # Convert time blocks to UTC
-                        utc_time_blocks = convert_time_blocks_to_utc(
-                            [{'start': block.start, 'end': block.end} for block in day_schedule.time_blocks],
-                            user_timezone
-                        )
-                        for block in utc_time_blocks:
-                            # Validate that start_time < end_time (database constraint requirement)
-                            start_time_str = block['start']
-                            end_time_str = block['end']
-                            
-                            # Parse times to compare
-                            start_hour, start_min = map(int, start_time_str.split(':'))
-                            end_hour, end_min = map(int, end_time_str.split(':'))
-                            
-                            # Convert to minutes for comparison
-                            start_minutes = start_hour * 60 + start_min
-                            end_minutes = end_hour * 60 + end_min
-                            
-                            # Only add if end_time > start_time
-                            if end_minutes > start_minutes:
-                                time_blocks_data.append({
-                                    'weekly_schedule_id': weekly_schedule_id,
-                                    'start_time': start_time_str,
-                                    'end_time': end_time_str
-                                })
-                            else:
-                                print(f"WARNING: Skipping invalid time block: start={start_time_str}, end={end_time_str} (end_time must be > start_time)")
-                        
-                        if time_blocks_data:
-                            db_admin.table('time_blocks').insert(time_blocks_data).execute()
-                    
-                    # Save time slots (always use time slot mode, convert to UTC)
-                    if day_schedule.time_slots:
-                        time_slots_data = []
-                        # Convert time slots to UTC
-                        utc_time_slots = convert_time_slots_to_utc(
-                            [{'time': slot.time, 'enabled': slot.enabled} for slot in day_schedule.time_slots],
-                            user_timezone
-                        )
-                        for slot in utc_time_slots:
-                            time_slots_data.append({
-                                'weekly_schedule_id': weekly_schedule_id,
-                                'slot_time': slot['time'],
-                                'is_enabled': slot['enabled']
-                            })
-                        
-                        if time_slots_data:
-                            db_admin.table('time_slots').insert(time_slots_data).execute()
-            
-        except Exception as e:
-            log_exception_if_dev(logger, "Failed to save calendar settings", e)
-            raise HTTPException(status_code=500, detail="Failed to save calendar settings")
-
-    @staticmethod
-    async def _save_service_photos(service_id: str, photos):
-        """Save service photos for a service"""
+    async def _save_service_photos(service_id: str, photos, client: Client = None):
+        """Save service photos for a service
+        
+        Args:
+            service_id: The service ID to save photos for
+            photos: List of photo data
+            client: Authenticated Supabase client (optional, respects RLS policies)
+        
+        Note: RLS policy "Creatives can insert service photos" allows INSERT for own services.
+        """
+        # Import db_admin only if needed
+        from db.db_session import db_admin
+        db_client = client if client else db_admin
+        
         try:
             # First, delete existing photos from both storage and database
-            await CreativeController._delete_service_photos(service_id)
+            await CreativeController._delete_service_photos(service_id, client)
             
             # Insert new photos
             if photos:
@@ -659,18 +574,31 @@ class CreativeController:
                     })
                 
                 if photos_data:
-                    db_admin.table('service_photos').insert(photos_data).execute()
+                    # RLS: "Creatives can insert service photos"
+                    db_client.table('service_photos').insert(photos_data).execute()
             
         except Exception as e:
             log_exception_if_dev(logger, "Failed to save service photos", e)
             raise HTTPException(status_code=500, detail="Failed to save service photos")
 
     @staticmethod
-    async def _save_service_photos_from_files(service_id: str, photo_files):
-        """Save service photos from uploaded files with parallel processing"""
+    async def _save_service_photos_from_files(service_id: str, photo_files, client: Client = None):
+        """Save service photos from uploaded files with parallel processing
+        
+        Args:
+            service_id: The service ID to save photos for
+            photo_files: List of uploaded photo files
+            client: Authenticated Supabase client (optional, respects RLS for database ops)
+        
+        Note: Storage operations use service role key. Database operations use authenticated client.
+        """
+        # Import db_admin only if needed
+        from db.db_session import db_admin
+        db_client = client if client else db_admin
+        
         try:
             # First, delete existing photos from both storage and database
-            await CreativeController._delete_service_photos(service_id)
+            await CreativeController._delete_service_photos(service_id, client)
             
             # Upload photos to Supabase Storage and save metadata
             if photo_files:
@@ -739,25 +667,34 @@ class CreativeController:
                 ]
                 
                 # Batch insert all photo metadata
+                # RLS: "Creatives can insert service photos"
                 if photos_data:
-                    db_admin.table('service_photos').insert(photos_data).execute()
+                    db_client.table('service_photos').insert(photos_data).execute()
             
         except Exception as e:
             log_exception_if_dev(logger, "Failed to save service photos", e)
             raise HTTPException(status_code=500, detail="Failed to save service photos")
 
     @staticmethod
-    async def _update_service_photos_selective(service_id: str, existing_photos_to_keep: list, new_photo_files):
+    async def _update_service_photos_selective(service_id: str, existing_photos_to_keep: list, new_photo_files, client: Client = None):
         """Selectively update service photos - keep some existing, delete others, add new ones
         
         Args:
             service_id: The service ID
             existing_photos_to_keep: List of photo URLs to keep
             new_photo_files: List of new photo files to upload
+            client: Authenticated Supabase client (optional, respects RLS for database ops)
+        
+        Note: Storage operations use db_admin. Database operations use authenticated client when provided.
         """
+        # Import db_admin only if needed for storage operations
+        from db.db_session import db_admin
+        db_client = client if client else db_admin
+        
         try:
             # Get all current photos for this service
-            current_photos_result = db_admin.table('service_photos').select(
+            # RLS: "Users can view service photos" (for own services)
+            current_photos_result = db_client.table('service_photos').select(
                 'id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
             ).eq('service_id', service_id).order('display_order', desc=False).execute()
             
@@ -807,7 +744,7 @@ class CreativeController:
                             file_path = match.group(1).split('?')[0]  # Remove query params
                             files_to_delete.append(file_path)
                 
-                # Delete files from storage
+                # Delete files from storage (must use db_admin - storage client limitations)
                 if files_to_delete:
                     try:
                         db_admin.storage.from_("creative-assets").remove(files_to_delete)
@@ -815,8 +752,9 @@ class CreativeController:
                         log_exception_if_dev(logger, "Failed to delete photos from storage", e)
                 
                 # Delete photo records from database
+                # RLS: "Creatives can delete service photos"
                 if photo_ids_to_delete:
-                    db_admin.table('service_photos').delete().in_('id', photo_ids_to_delete).execute()
+                    db_client.table('service_photos').delete().in_('id', photo_ids_to_delete).execute()
             
             # Upload new photos and get their metadata
             new_photos_metadata = []
@@ -906,27 +844,42 @@ class CreativeController:
                 })
             
             # Update display order and is_primary for kept photos
+            # RLS: "Creatives can update service photos"
             if all_photos:
                 for photo_update in all_photos:
-                    db_admin.table('service_photos').update({
+                    db_client.table('service_photos').update({
                         'display_order': photo_update['display_order'],
                         'is_primary': photo_update['is_primary']
                     }).eq('id', photo_update['id']).execute()
             
             # Insert new photos
+            # RLS: "Creatives can insert service photos"
             if new_photos_to_insert:
-                db_admin.table('service_photos').insert(new_photos_to_insert).execute()
+                db_client.table('service_photos').insert(new_photos_to_insert).execute()
             
         except Exception as e:
             log_exception_if_dev(logger, "Failed to update service photos", e)
             raise HTTPException(status_code=500, detail="Failed to update service photos")
     
     @staticmethod
-    async def _delete_service_photos(service_id: str):
-        """Delete all photos associated with a service from storage and database"""
+    async def _delete_service_photos(service_id: str, client: Client = None):
+        """Delete all photos associated with a service from storage and database
+        
+        Args:
+            service_id: The service ID to delete photos for
+            client: Authenticated Supabase client (optional, uses db_admin for storage)
+        
+        Note: Storage operations still use db_admin due to Supabase storage client limitations.
+        Database operations use authenticated client when provided.
+        """
+        # Import db_admin only if needed for storage
+        from db.db_session import db_admin
+        
         try:
             # Get all photos for this service BEFORE deleting from database
-            photos_result = db_admin.table('service_photos').select('photo_url, photo_filename').eq('service_id', service_id).execute()
+            # RLS: "Users can view service photos" (for own services)
+            db_client = client if client else db_admin
+            photos_result = db_client.table('service_photos').select('photo_url, photo_filename').eq('service_id', service_id).execute()
             
             print(f"Found {len(photos_result.data) if photos_result.data else 0} photos to delete for service {service_id}")
             
@@ -1016,8 +969,9 @@ class CreativeController:
                     print("No files to delete from storage")
                 
                 # Delete photo records from database AFTER storage cleanup
+                # RLS: "Creatives can delete service photos" (for own services)
                 print(f"Deleting photo records from database for service {service_id}")
-                db_admin.table('service_photos').delete().eq('service_id', service_id).execute()
+                db_client.table('service_photos').delete().eq('service_id', service_id).execute()
                 print(f"Successfully deleted photo records from database")
             
         except Exception as e:
@@ -1160,7 +1114,7 @@ class CreativeController:
             }).eq('service_id', service_id).execute()
             
             # Delete associated photos from storage and database
-            await CreativeController._delete_service_photos(service_id)
+            await CreativeController._delete_service_photos(service_id, client)
             
             return DeleteServiceResponse(
                 success=True,
@@ -1234,11 +1188,11 @@ class CreativeController:
 
             # Handle calendar settings if provided
             if service_request.calendar_settings:
-                await CreativeController._save_calendar_settings(service_id, service_request.calendar_settings, request)
+                await CalendarService.save_calendar_settings(service_id, service_request.calendar_settings, client, request)
             
             # Handle photos if provided
             if service_request.photos:
-                await CreativeController._save_service_photos(service_id, service_request.photos)
+                await CreativeController._save_service_photos(service_id, service_request.photos, client)
 
             return UpdateServiceResponse(success=True, message="Service updated successfully")
 
@@ -1314,10 +1268,10 @@ class CreativeController:
 
             # Handle calendar settings if provided
             if calendar_settings:
-                await CreativeController._save_calendar_settings(service_id, calendar_settings, request)
+                await CalendarService.save_calendar_settings(service_id, calendar_settings, client, request)
             
             # Handle photos: Delete photos not in the keep list, keep existing ones, add new ones
-            await CreativeController._update_service_photos_selective(service_id, existing_photos_to_keep, photo_files)
+            await CreativeController._update_service_photos_selective(service_id, existing_photos_to_keep, photo_files, client)
 
             return UpdateServiceResponse(success=True, message="Service updated successfully")
 
@@ -1544,10 +1498,14 @@ class CreativeController:
             unique_filename = f"{user_id}_{uuid.uuid4().hex}.{file_extension}"
             
             # Upload to Supabase storage
+            # NOTE: Using db_admin for storage operations because:
+            # 1. The profile-photos bucket has no INSERT policy for authenticated users
+            # 2. Storage client with JWT injection has known limitations
+            # 3. RLS policies only cover SELECT (public), UPDATE/DELETE (path matching)
             bucket_name = "profile-photos"
             file_path = f"creatives/{unique_filename}"
             
-            # Upload the new file
+            # Upload the new file (db_admin required - storage client limitation)
             try:
                 upload_result = db_admin.storage.from_(bucket_name).upload(
                     path=file_path,
@@ -1558,7 +1516,7 @@ class CreativeController:
                 log_exception_if_dev(logger, "Failed to upload file", upload_error)
                 raise HTTPException(status_code=500, detail="Failed to upload file")
             
-            # Get the public URL
+            # Get the public URL (db_admin required - storage client limitation)
             public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
             
             # Update the creative profile with the new photo URL (using authenticated client - respects RLS)
@@ -1582,6 +1540,7 @@ class CreativeController:
                     
                     if old_file_path.startswith('creatives/'):
                         # Only delete files from our creatives folder for safety
+                        # db_admin required - storage client JWT limitations
                         try:
                             db_admin.storage.from_(bucket_name).remove([old_file_path])
                         except Exception as delete_error:
@@ -1699,11 +1658,26 @@ class CreativeController:
             raise HTTPException(status_code=500, detail="Failed to create bundle")
 
     @staticmethod
-    async def get_creative_bundles(user_id: str) -> CreativeBundlesListResponse:
-        """Get all bundles associated with the creative - optimized with batch queries"""
+    async def get_creative_bundles(user_id: str, client: Client = None) -> CreativeBundlesListResponse:
+        """Get all bundles associated with the creative - optimized with batch queries
+        
+        Args:
+            user_id: The user ID to fetch bundles for
+            client: Authenticated Supabase client (required, respects RLS policies)
+        
+        Note: All operations use authenticated client. RLS policies allow:
+        - creative_bundles: "Users can view their own bundles"
+        - bundle_services: "Users can view bundle services for their bundles"
+        - creative_services: "Creative users can view their own services"
+        - service_photos: "Users can view service photos"
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             # Query the creative_bundles table for this creative user
-            bundles_result = db_admin.table('creative_bundles').select(
+            # RLS: "Users can view their own bundles"
+            bundles_result = client.table('creative_bundles').select(
                 'id, title, description, color, status, pricing_option, fixed_price, discount_percentage, is_active, created_at, updated_at'
             ).eq('creative_user_id', user_id).eq('is_active', True).order('created_at', desc=True).execute()
             
@@ -1713,7 +1687,8 @@ class CreativeController:
             bundle_ids = [bundle['id'] for bundle in bundles_result.data]
             
             # Batch fetch all bundle services to avoid N+1 queries
-            bundle_services_result = db_admin.table('bundle_services').select(
+            # RLS: "Users can view bundle services for their bundles"
+            bundle_services_result = client.table('bundle_services').select(
                 'bundle_id, service_id'
             ).in_('bundle_id', bundle_ids).execute()
             
@@ -1729,7 +1704,8 @@ class CreativeController:
                 all_service_ids.add(service_id)
             
             # Batch fetch all service details
-            services_result = db_admin.table('creative_services').select(
+            # RLS: "Creative users can view their own services"
+            services_result = client.table('creative_services').select(
                 'id, title, description, price, delivery_time, status, color'
             ).in_('id', list(all_service_ids)).execute()
             
@@ -1737,7 +1713,8 @@ class CreativeController:
             service_data_map = {s['id']: s for s in services_result.data}
             
             # Fetch photos for all bundle services
-            bundle_photos_result = db_admin.table('service_photos').select(
+            # RLS: "Users can view service photos"
+            bundle_photos_result = client.table('service_photos').select(
                 'service_id, photo_url, photo_filename, photo_size_bytes, is_primary, display_order'
             ).in_('service_id', list(all_service_ids)).order('service_id').order('display_order', desc=False).execute()
             
@@ -2193,7 +2170,8 @@ class CreativeController:
                 for service in services_result.data:
                     service_id = service['id']
                     # Get all photos for this service with URLs
-                    photos_result = db_admin.table('service_photos').select('photo_url, photo_filename').eq('service_id', service_id).execute()
+                    # RLS: "Users can view service photos" (for own services)
+                    photos_result = client.table('service_photos').select('photo_url, photo_filename').eq('service_id', service_id).execute()
                     
                     if photos_result.data:
                         files_to_delete = []
@@ -2216,6 +2194,7 @@ class CreativeController:
                                         files_to_delete.append(file_path)
                         
                         # Delete all files at once if we have any
+                        # db_admin required for storage operations - client JWT limitations
                         if files_to_delete:
                             try:
                                 print(f"Deleting {len(files_to_delete)} service photos from storage")
@@ -2249,6 +2228,7 @@ class CreativeController:
                             files_to_delete.append(old_file_path)
                 
                 # List and delete all files in creatives folder for this user
+                # db_admin required for storage operations - client JWT limitations
                 try:
                     # List all files in creatives folder (files are stored as creatives/{user_id}_{uuid}.ext)
                     list_result = db_admin.storage.from_(bucket_name).list('creatives')
@@ -2289,6 +2269,7 @@ class CreativeController:
             # ========== STEP 2: Delete database records (in correct order for foreign keys) ==========
             
             # 2a. Delete all notifications related to this creative
+            # NOTE: db_admin required for notifications DELETE - no DELETE RLS policy exists
             try:
                 # Delete notifications where creative is the recipient
                 recipient_notifications = db_admin.table('notifications').delete().eq('recipient_user_id', user_id).execute()
@@ -2312,6 +2293,7 @@ class CreativeController:
                 print(f"Warning: Failed to delete notifications: {str(e)}")
             
             # 2b. Delete calendar-related data (time_slots, time_blocks, weekly_schedule, calendar_settings)
+            # RLS: ALL policies exist for own calendar data
             try:
                 # Get calendar settings for all services
                 calendar_settings_result = client.table('calendar_settings').select('id').eq('creative_user_id', user_id).execute()
@@ -2323,23 +2305,24 @@ class CreativeController:
                     if weekly_schedules_result.data:
                         weekly_schedule_ids = [ws['id'] for ws in weekly_schedules_result.data]
                         
-                        # Delete time_slots
-                        db_admin.table('time_slots').delete().in_('weekly_schedule_id', weekly_schedule_ids).execute()
+                        # Delete time_slots (RLS: "Users can manage time slots for their own weekly schedule")
+                        client.table('time_slots').delete().in_('weekly_schedule_id', weekly_schedule_ids).execute()
                         
-                        # Delete time_blocks
-                        db_admin.table('time_blocks').delete().in_('weekly_schedule_id', weekly_schedule_ids).execute()
+                        # Delete time_blocks (RLS: "Users can manage time blocks for their own weekly schedule")
+                        client.table('time_blocks').delete().in_('weekly_schedule_id', weekly_schedule_ids).execute()
                         
-                        # Delete weekly_schedule
-                        db_admin.table('weekly_schedule').delete().in_('id', weekly_schedule_ids).execute()
+                        # Delete weekly_schedule (RLS: "Users can manage weekly schedule for their own calendar setting")
+                        client.table('weekly_schedule').delete().in_('id', weekly_schedule_ids).execute()
                     
-                    # Delete calendar_settings
-                    calendar_delete_result = db_admin.table('calendar_settings').delete().in_('id', calendar_setting_ids).execute()
+                    # Delete calendar_settings (RLS: "Users can manage calendar settings for their own services")
+                    calendar_delete_result = client.table('calendar_settings').delete().in_('id', calendar_setting_ids).execute()
                     if calendar_delete_result.data:
                         deleted_items["calendar_settings"] = len(calendar_delete_result.data)
             except Exception as e:
                 log_exception_if_dev(logger, "Failed to delete calendar data", e)
             
             # 2c. Delete bookings
+            # NOTE: db_admin required for bookings DELETE - no DELETE RLS policy exists
             try:
                 bookings_delete_result = db_admin.table('bookings').delete().eq('creative_user_id', user_id).execute()
                 if bookings_delete_result.data:
@@ -2348,61 +2331,68 @@ class CreativeController:
                 log_exception_if_dev(logger, "Failed to delete bookings", e)
 
             # 2d. Delete service photos records from database
+            # RLS: "Creatives can delete service photos"
             try:
                 if services_result.data:
                     service_ids = [s['id'] for s in services_result.data]
-                    db_admin.table('service_photos').delete().in_('service_id', service_ids).execute()
+                    client.table('service_photos').delete().in_('service_id', service_ids).execute()
             except Exception as e:
                 log_exception_if_dev(logger, "Failed to delete service photos records", e)
             
             # 2e. Delete bundle_services (links between bundles and services)
+            # RLS: "Users can delete bundle services for their bundles"
             try:
                 bundles_result = client.table('creative_bundles').select('id').eq('creative_user_id', user_id).execute()
                 if bundles_result.data:
                     bundle_ids = [b['id'] for b in bundles_result.data]
-                    db_admin.table('bundle_services').delete().in_('bundle_id', bundle_ids).execute()
+                    client.table('bundle_services').delete().in_('bundle_id', bundle_ids).execute()
             except Exception as e:
                 print(f"Warning: Failed to delete bundle services: {str(e)}")
             
             # 2f. Delete bundles
+            # RLS: "Users can delete their own bundles"
             try:
-                bundles_delete_result = db_admin.table('creative_bundles').delete().eq('creative_user_id', user_id).execute()
+                bundles_delete_result = client.table('creative_bundles').delete().eq('creative_user_id', user_id).execute()
                 if bundles_delete_result.data:
                     deleted_items["bundles"] = len(bundles_delete_result.data)
             except Exception as e:
                 log_exception_if_dev(logger, "Failed to delete bundles", e)
             
             # 2g. Delete services
+            # RLS: "Creative users can delete their own services"
             try:
-                services_delete_result = db_admin.table('creative_services').delete().eq('creative_user_id', user_id).execute()
+                services_delete_result = client.table('creative_services').delete().eq('creative_user_id', user_id).execute()
                 if services_delete_result.data:
                     deleted_items["services"] = len(services_delete_result.data)
             except Exception as e:
                 log_exception_if_dev(logger, "Failed to delete services", e)
 
             # 2h. Delete creative-client relationships
+            # RLS: "Creatives can delete their own client relationships"
             try:
-                relationships_delete_result = db_admin.table('creative_client_relationships').delete().eq('creative_user_id', user_id).execute()
+                relationships_delete_result = client.table('creative_client_relationships').delete().eq('creative_user_id', user_id).execute()
                 if relationships_delete_result.data:
                     deleted_items["client_relationships"] = len(relationships_delete_result.data)
             except Exception as e:
                 log_exception_if_dev(logger, "Failed to delete client relationships", e)
             
             # 2i. Delete creative profile
+            # RLS: "creatives_delete_own"
             try:
-                db_admin.table('creatives').delete().eq('user_id', user_id).execute()
+                client.table('creatives').delete().eq('user_id', user_id).execute()
             except Exception as e:
                 log_exception_if_dev(logger, "Failed to delete creative profile", e)
                 raise HTTPException(status_code=500, detail="Failed to delete creative profile")
             
             # ========== STEP 3: Update user roles to remove 'creative' ==========
+            # RLS: "public_users_select_own" and "public_users_update_own"
             try:
-                user_result = db_admin.table('users').select('roles').eq('user_id', user_id).single().execute()
+                user_result = client.table('users').select('roles').eq('user_id', user_id).single().execute()
                 if user_result.data:
                     current_roles = user_result.data.get('roles', [])
                     if 'creative' in current_roles:
                         updated_roles = [role for role in current_roles if role != 'creative']
-                        db_admin.table('users').update({'roles': updated_roles}).eq('user_id', user_id).execute()
+                        client.table('users').update({'roles': updated_roles}).eq('user_id', user_id).execute()
             except Exception as e:
                 log_exception_if_dev(logger, "Failed to update user roles", e)
 

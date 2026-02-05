@@ -3,7 +3,6 @@ from datetime import datetime
 import logging
 from fastapi import HTTPException
 from supabase import Client
-from db.db_session import db_admin
 from core.safe_errors import log_exception_if_dev
 from schemas.booking import (
     CreateBookingRequest, CreateBookingResponse,
@@ -14,6 +13,13 @@ from schemas.booking import (
 )
 
 logger = logging.getLogger(__name__)
+
+# NOTE: This service no longer uses db_admin - all operations use authenticated client
+# RLS policies allow:
+# - notifications INSERT: when recipient_user_id = auth.uid(), related_user_id = auth.uid(), 
+#   or notification is related to a booking where user is client/creative
+# - clients/users SELECT: when viewing users in your bookings
+# - bookings: clients can INSERT/UPDATE their own, creatives can UPDATE their own
 
 
 async def _send_notification_email(notification_data: Dict[str, Any], recipient_user_id: str, recipient_name: str, client: Client = None):
@@ -192,9 +198,10 @@ class BookingManagementService:
                 log_exception_if_dev(logger, "Failed to create client notification", notif_error)
             
             try:
-                # Use db_admin to bypass RLS policies for notification insertion
-                # The client user doesn't have permission to create notifications for the creative user
-                creative_notif_result = db_admin.table("notifications") \
+                # Insert notification for creative using authenticated client
+                # RLS policy allows: related_user_id = auth.uid() (client is the related_user)
+                # OR booking relationship (client is the client_user_id of the booking)
+                creative_notif_result = client.table("notifications") \
                     .insert(creative_notification_data) \
                     .execute()
                 logger.info(f"Creative notification created: {creative_notif_result.data}")
@@ -206,7 +213,7 @@ class BookingManagementService:
                         notification_data=creative_notification_data,
                         recipient_email=creative_response.data.get('primary_contact') if creative_response.data else None,
                         recipient_name=creative_display_name,
-                        client=db_admin
+                        client=client
                     )
             except Exception as notif_error:
                 log_exception_if_dev(logger, "Failed to create creative notification", notif_error)
@@ -303,7 +310,8 @@ class BookingManagementService:
                 .single()\
                 .execute()
             
-            client_response = db_admin.table('clients')\
+            # Get client display name - RLS allows viewing clients in your bookings
+            client_response = client.table('clients')\
                 .select('display_name')\
                 .eq('user_id', booking['client_user_id'])\
                 .single()\
@@ -358,8 +366,9 @@ class BookingManagementService:
                 }
             
             # Create notification for client
+            # RLS allows: related_user_id = auth.uid() (creative is the related_user)
             try:
-                notification_result = db_admin.table("notifications")\
+                notification_result = client.table("notifications")\
                     .insert(notification_data)\
                     .execute()
                 logger.info(f"Client approval notification created: {notification_result.data}")
@@ -367,19 +376,20 @@ class BookingManagementService:
                 # Send email notification
                 if notification_result.data:
                     from services.notifications.notifications_service import NotificationsController
-                    # Get client email
-                    client_user_result = db_admin.table('users').select('email, name').eq('user_id', booking['client_user_id']).single().execute()
+                    # Get client email - RLS allows viewing users in your bookings
+                    client_user_result = client.table('users').select('email, name').eq('user_id', booking['client_user_id']).single().execute()
                     client_email = client_user_result.data.get('email') if client_user_result.data else None
                     await NotificationsController.send_notification_email(
                         notification_data=notification_data,
                         recipient_email=client_email,
                         recipient_name=client_display_name,
-                        client=db_admin
+                        client=client
                     )
             except Exception as notif_error:
                 log_exception_if_dev(logger, "Failed to create client approval notification", notif_error)
             
             # Create notification for creative confirming they approved the service
+            # RLS allows: recipient_user_id = auth.uid() (notification for themselves)
             try:
                 creative_notification_data = {
                     "recipient_user_id": user_id,
@@ -403,7 +413,7 @@ class BookingManagementService:
                     "updated_at": datetime.utcnow().isoformat()
                 }
                 
-                creative_notification_result = db_admin.table("notifications")\
+                creative_notification_result = client.table("notifications")\
                     .insert(creative_notification_data)\
                     .execute()
                 logger.info(f"Creative approval notification created: {creative_notification_result.data}")
@@ -411,14 +421,14 @@ class BookingManagementService:
                 # Send email notification
                 if creative_notification_result.data:
                     from services.notifications.notifications_service import NotificationsController
-                    # Get creative email
-                    creative_user_result = db_admin.table('users').select('email, name').eq('user_id', user_id).single().execute()
+                    # Get creative email - user getting their own data via RLS
+                    creative_user_result = client.table('users').select('email, name').eq('user_id', user_id).single().execute()
                     creative_email = creative_user_result.data.get('email') if creative_user_result.data else None
                     await NotificationsController.send_notification_email(
                         notification_data=creative_notification_data,
                         recipient_email=creative_email,
                         recipient_name=creative_display_name,
-                        client=db_admin
+                        client=client
                     )
             except Exception as notif_error:
                 log_exception_if_dev(logger, "Failed to create creative approval notification", notif_error)
@@ -514,6 +524,14 @@ class BookingManagementService:
             # Get client user ID from booking
             client_user_id = booking.get('client_user_id')
             
+            # Get client display name - RLS allows viewing clients in your bookings
+            client_name_response = client.table('clients')\
+                .select('display_name')\
+                .eq('user_id', client_user_id)\
+                .single()\
+                .execute()
+            client_display_name = client_name_response.data.get('display_name', 'Client') if client_name_response.data else 'Client'
+            
             # Create notification for client
             client_notification_data = {
                 "recipient_user_id": client_user_id,
@@ -554,12 +572,15 @@ class BookingManagementService:
             }
             
             try:
-                # Insert both notifications
+                # Insert both notifications using authenticated client
+                # RLS allows:
+                # - Client notification: related_user_id = auth.uid() (creative is related)
+                # - Creative notification: recipient_user_id = auth.uid() (notification for themselves)
                 notifications_to_insert = [client_notification_data]
                 if user_id:  # creative user ID
                     notifications_to_insert.append(creative_notification_data)
                 
-                notification_result = db_admin.table("notifications")\
+                notification_result = client.table("notifications")\
                     .insert(notifications_to_insert)\
                     .execute()
                 logger.info(f"Rejection notifications created: {notification_result.data}")
@@ -567,10 +588,10 @@ class BookingManagementService:
                 # Send email notifications
                 if notification_result.data:
                     # Send client email
-                    await _send_notification_email(client_notification_data, client_user_id, client_display_name, db_admin)
+                    await _send_notification_email(client_notification_data, client_user_id, client_display_name, client)
                     # Send creative email
                     if user_id:
-                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, client)
             except Exception as notif_error:
                 log_exception_if_dev(logger, "Failed to create rejection notifications", notif_error)
             
@@ -701,12 +722,15 @@ class BookingManagementService:
             }
             
             try:
-                # Insert both notifications
+                # Insert both notifications using authenticated client
+                # RLS allows:
+                # - Client notification: recipient_user_id = auth.uid() (client is recipient)
+                # - Creative notification: related_user_id = auth.uid() (client is related)
                 notifications_to_insert = [client_notification_data]
                 if creative_user_id:
                     notifications_to_insert.append(creative_notification_data)
                 
-                notification_result = db_admin.table("notifications")\
+                notification_result = client.table("notifications")\
                     .insert(notifications_to_insert)\
                     .execute()
                 logger.info(f"Cancellation notifications created: {notification_result.data}")
@@ -720,9 +744,9 @@ class BookingManagementService:
                     creative_response = client.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
                     creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
                     
-                    await _send_notification_email(client_notification_data, user_id, client_display_name, db_admin)
+                    await _send_notification_email(client_notification_data, user_id, client_display_name, client)
                     if creative_user_id:
-                        await _send_notification_email(creative_notification_data, creative_user_id, creative_display_name, db_admin)
+                        await _send_notification_email(creative_notification_data, creative_user_id, creative_display_name, client)
             except Exception as notif_error:
                 log_exception_if_dev(logger, "Failed to create cancellation notifications", notif_error)
             
@@ -840,19 +864,21 @@ class BookingManagementService:
                 "updated_at": datetime.utcnow().isoformat()
             }
             
-            # Insert notification using db_admin to bypass RLS
+            # Insert notification using authenticated client
+            # RLS allows: related_user_id = auth.uid() (creative is related)
+            # OR booking relationship (creative is the creative_user_id of the booking)
             try:
-                notification_result = db_admin.table("notifications")\
+                notification_result = client.table("notifications")\
                     .insert(client_notification_data)\
                     .execute()
                 logger.info(f"Payment reminder notification created: {notification_result.data}")
                 
                 # Send email notification
                 if notification_result.data:
-                    # Get client name
+                    # Get client name - RLS allows viewing clients in your bookings
                     client_response = client.table('clients').select('display_name').eq('user_id', client_user_id).single().execute()
                     client_display_name = client_response.data.get('display_name', 'Client') if client_response.data else 'Client'
-                    await _send_notification_email(client_notification_data, client_user_id, client_display_name, db_admin)
+                    await _send_notification_email(client_notification_data, client_user_id, client_display_name, client)
                 
                 notification_id = None
                 if notification_result.data and len(notification_result.data) > 0:

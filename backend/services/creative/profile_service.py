@@ -328,9 +328,14 @@ class ProfileService:
             unique_filename = f"{user_id}_{uuid.uuid4().hex}.{file_extension}"
             
             # Upload to Supabase storage
+            # NOTE: Using db_admin for storage operations because:
+            # 1. The profile-photos bucket has no INSERT policy for authenticated users
+            # 2. Storage client with JWT injection has known limitations
+            # 3. RLS policies only cover SELECT (public), UPDATE/DELETE (path matching)
             bucket_name = "profile-photos"
             file_path = f"creatives/{unique_filename}"
             
+            # db_admin required for storage upload - client JWT limitations
             try:
                 upload_result = db_admin.storage.from_(bucket_name).upload(
                     path=file_path,
@@ -340,7 +345,7 @@ class ProfileService:
             except Exception as upload_error:
                 raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(upload_error)}")
             
-            # Get the public URL
+            # Get the public URL (db_admin required - storage client limitation)
             public_url = db_admin.storage.from_(bucket_name).get_public_url(file_path)
             
             # Update the creative profile with the new photo URL
@@ -359,6 +364,7 @@ class ProfileService:
                     old_file_path = clean_url.split('/profile-photos/')[-1]
                     
                     if old_file_path.startswith('creatives/'):
+                        # db_admin required for storage remove - client JWT limitations
                         try:
                             db_admin.storage.from_(bucket_name).remove([old_file_path])
                         except Exception as delete_error:

@@ -6,7 +6,6 @@ from supabase import Client
 from dotenv import load_dotenv
 import logging
 from datetime import datetime
-from db.db_session import db_admin
 from core.safe_errors import log_exception_if_dev, is_dev_env
 
 load_dotenv()
@@ -644,10 +643,11 @@ class StripeService:
             # Create notifications for both client and creative after successful payment
             try:
                 # Get service and user information for notifications
+                # RLS: "Users can view services in their bookings"
                 service_id = booking.get('service_id')
                 service_title = 'Service'
                 if service_id:
-                    service_result = db_admin.table('creative_services')\
+                    service_result = client.table('creative_services')\
                         .select('id, title')\
                         .eq('id', service_id)\
                         .single()\
@@ -657,8 +657,9 @@ class StripeService:
                         service_title = service_result.data.get('title', 'Service')
                 
                 # Get client display name from clients table
+                # RLS: "clients_select_own" - user can view their own profile
                 client_user_id = booking.get('client_user_id')
-                client_result = db_admin.table('clients')\
+                client_result = client.table('clients')\
                     .select('display_name')\
                     .eq('user_id', client_user_id)\
                     .single()\
@@ -667,7 +668,8 @@ class StripeService:
                 client_display_name = client_result.data.get('display_name', 'A client') if client_result.data else 'A client'
                 
                 # Get creative display name from creatives table
-                creative_result = db_admin.table('creatives')\
+                # RLS: "Users can view creatives in their bookings"
+                creative_result = client.table('creatives')\
                     .select('display_name')\
                     .eq('user_id', creative_user_id)\
                     .single()\
@@ -692,7 +694,8 @@ class StripeService:
                 if was_locked:
                     # Locked order was unlocked - send unlock notifications
                     # Check if files exist to customize message
-                    deliverables_check = db_admin.table('booking_deliverables')\
+                    # RLS: "Clients can read deliverables for their bookings"
+                    deliverables_check = client.table('booking_deliverables')\
                         .select('id')\
                         .eq('booking_id', booking_id)\
                         .execute()
@@ -842,9 +845,10 @@ class StripeService:
                     }
                 
                 # Create notifications (don't fail payment verification if notification creation fails)
-                # Use db_admin to bypass RLS policies for notification insertion
+                # RLS allows: recipient_user_id = auth.uid() OR related_entity_type = 'booking' AND booking in user's bookings
                 try:
-                    client_notif_result = db_admin.table("notifications") \
+                    # Client notification: recipient_user_id = auth.uid() (client is authenticated user)
+                    client_notif_result = client.table("notifications") \
                         .insert(client_notification_data) \
                         .execute()
                     if is_dev_env():
@@ -852,12 +856,13 @@ class StripeService:
                     
                     # Send email notification
                     if client_notif_result.data:
-                        await _send_notification_email(client_notification_data, booking.get('client_user_id'), client_display_name, db_admin)
+                        await _send_notification_email(client_notification_data, booking.get('client_user_id'), client_display_name, client)
                 except Exception as notif_error:
                     log_exception_if_dev(logger, "Failed to create client payment notification", notif_error)
                 
                 try:
-                    creative_notif_result = db_admin.table("notifications") \
+                    # Creative notification: related_entity_type = 'booking' AND booking belongs to client
+                    creative_notif_result = client.table("notifications") \
                         .insert(creative_notification_data) \
                         .execute()
                     if is_dev_env():
@@ -865,7 +870,7 @@ class StripeService:
                     
                     # Send email notification
                     if creative_notif_result.data:
-                        await _send_notification_email(creative_notification_data, creative_user_id, creative_display_name, db_admin)
+                        await _send_notification_email(creative_notification_data, creative_user_id, creative_display_name, client)
                 except Exception as notif_error:
                     log_exception_if_dev(logger, "Failed to create creative payment notification", notif_error)
                     

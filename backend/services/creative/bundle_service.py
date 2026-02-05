@@ -2,7 +2,6 @@
 import logging
 from fastapi import HTTPException
 from core.safe_errors import log_exception_if_dev
-from db.db_session import db_admin
 from schemas.creative import (
     CreateBundleRequest, CreateBundleResponse,
     UpdateBundleRequest, UpdateBundleResponse, DeleteBundleResponse,

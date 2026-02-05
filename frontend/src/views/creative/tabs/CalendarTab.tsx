@@ -4,7 +4,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, isToday, parse } from 'date-fns';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Fade, Stack } from '@mui/material';
 import { orange, grey } from '@mui/material/colors';
 import { Fab, Menu as MuiMenu, MenuItem as MuiMenuItem } from '@mui/material';
@@ -52,6 +52,9 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
   const handleFabMenuClose = () => setFabMenuAnchor(null);
   const [authPopoverOpen, setAuthPopoverOpen] = useState(false);
   const [comingSoonDialogOpen, setComingSoonDialogOpen] = useState(false);
+  
+  // Track last fetch params to prevent duplicate calls when isMobile changes on mount
+  const lastFetchRef = useRef<string | null>(null);
 
   // Fetch sessions when month changes (desktop) or week changes (mobile)
   useEffect(() => {
@@ -63,6 +66,17 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
     }
 
     const fetchSessions = async () => {
+      // Build a key representing the current fetch parameters
+      const fetchKey = isMobile 
+        ? `week-${format(mobileStartOfWeek, 'yyyy-MM-dd')}`
+        : `month-${currentMonth.getFullYear()}-${currentMonth.getMonth()}`;
+      
+      // Skip if we already fetched with these exact parameters
+      if (lastFetchRef.current === fetchKey) {
+        return;
+      }
+      lastFetchRef.current = fetchKey;
+
       setIsLoadingSessions(true);
       try {
         if (isMobile) {

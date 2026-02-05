@@ -3,13 +3,20 @@ from datetime import datetime
 import logging
 from fastapi import HTTPException
 from supabase import Client
-from db.db_session import db_admin
 from schemas.booking import (
     FinalizeServiceRequest, FinalizeServiceResponse
 )
 from core.safe_errors import is_dev_env
 
 logger = logging.getLogger(__name__)
+
+# NOTE: This service no longer uses db_admin - all operations use authenticated client
+# RLS policies allow:
+# - booking_deliverables: Creatives can manage deliverables for their bookings
+# - notifications INSERT: when recipient_user_id = auth.uid(), related_user_id = auth.uid(),
+#   or notification is related to a booking where user is client/creative
+# - creative_services/creatives: Public SELECT
+# - clients: Users can view clients in their bookings
 
 
 async def _send_notification_email(notification_data: Dict[str, Any], recipient_user_id: str, recipient_name: str, client: Client = None):
@@ -143,7 +150,8 @@ class FinalizationService:
             if has_files:
                 deliverables_data = []
                 # Get existing file URLs for this booking to prevent duplicates
-                existing_deliverables = db_admin.table('booking_deliverables')\
+                # Uses authenticated client - RLS allows creatives to SELECT deliverables for their bookings
+                existing_deliverables = client.table('booking_deliverables')\
                     .select('file_url')\
                     .eq('booking_id', booking_id)\
                     .execute()
@@ -175,7 +183,8 @@ class FinalizationService:
                 
                 if deliverables_data:
                     try:
-                        db_admin.table('booking_deliverables').insert(deliverables_data).execute()
+                        # Uses authenticated client - RLS allows creatives to INSERT deliverables for their bookings
+                        client.table('booking_deliverables').insert(deliverables_data).execute()
                     except Exception as insert_error:
                         error_str = str(insert_error)
                         # Check if it's a unique constraint violation (duplicate file_url)
@@ -201,9 +210,13 @@ class FinalizationService:
                 raise HTTPException(status_code=500, detail="Failed to update booking status")
             
             # Get service, creative, and client details for notifications
-            service_response = db_admin.table('creative_services').select('title').eq('id', booking['service_id']).single().execute()
-            creative_response = db_admin.table('creatives').select('display_name').eq('user_id', user_id).single().execute()
-            client_response = db_admin.table('clients').select('display_name').eq('user_id', booking['client_user_id']).single().execute()
+            # All use authenticated client - RLS allows:
+            # - creative_services: public SELECT
+            # - creatives: public SELECT / own data
+            # - clients: users can view clients in their bookings
+            service_response = client.table('creative_services').select('title').eq('id', booking['service_id']).single().execute()
+            creative_response = client.table('creatives').select('display_name').eq('user_id', user_id).single().execute()
+            client_response = client.table('clients').select('display_name').eq('user_id', booking['client_user_id']).single().execute()
             
             service_title = service_response.data.get('title', 'Service') if service_response.data else 'Service'
             creative_display_name = creative_response.data.get('display_name', 'Creative') if creative_response.data else 'Creative'
@@ -214,6 +227,7 @@ class FinalizationService:
                 # Client notifications
                 if client_status == 'payment_required':
                     # Payment required notification (already exists type)
+                    # RLS allows: related_user_id = auth.uid() (creative is related)
                     client_notification_data = {
                         "recipient_user_id": booking['client_user_id'],
                         "notification_type": "payment_required",
@@ -234,16 +248,17 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
+                    notification_result = client.table("notifications").insert(client_notification_data).execute()
                     if is_dev_env():
                         logger.info(f"Payment required notification created for client: {booking['client_user_id']}")
                     
                     # Send email notification
                     if notification_result.data:
-                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, client)
                 
                 elif client_status == 'locked':
                     # Client: Payment to unlock notification
+                    # RLS allows: related_user_id = auth.uid() (creative is related)
                     client_notification_data = {
                         "recipient_user_id": booking['client_user_id'],
                         "notification_type": "payment_required",
@@ -264,15 +279,16 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
+                    notification_result = client.table("notifications").insert(client_notification_data).execute()
                     if is_dev_env():
                         logger.info(f"Payment to unlock notification created for client: {booking['client_user_id']}")
                     
                     # Send email notification
                     if notification_result.data:
-                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, client)
                     
                     # Creative: Files sent notification
+                    # RLS allows: recipient_user_id = auth.uid() (notification for themselves)
                     creative_notification_data = {
                         "recipient_user_id": user_id,
                         "notification_type": "session_completed",
@@ -293,16 +309,17 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = client.table("notifications").insert(creative_notification_data).execute()
                     if is_dev_env():
                         logger.info(f"Files sent notification created for creative: {user_id}")
                     
                     # Send email notification
                     if creative_notification_result.data:
-                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, client)
                 
                 elif client_status == 'completed':
                     # Both: Service complete notification
+                    # Client notification - RLS allows: related_user_id = auth.uid() (creative is related)
                     client_notification_data = {
                         "recipient_user_id": booking['client_user_id'],
                         "notification_type": "session_completed",
@@ -321,14 +338,15 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    client_notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
+                    client_notification_result = client.table("notifications").insert(client_notification_data).execute()
                     if is_dev_env():
                         logger.info(f"Service complete notification created for client: {booking['client_user_id']}")
                     
                     # Send email notification
                     if client_notification_result.data:
-                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, client)
                     
+                    # Creative notification - RLS allows: recipient_user_id = auth.uid() (notification for themselves)
                     creative_notification_data = {
                         "recipient_user_id": user_id,
                         "notification_type": "session_completed",
@@ -347,16 +365,17 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = client.table("notifications").insert(creative_notification_data).execute()
                     if is_dev_env():
                         logger.info(f"Service complete notification created for creative: {user_id}")
                     
                     # Send email notification
                     if creative_notification_result.data:
-                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, client)
                 
                 elif client_status == 'download':
                     # Client: Files ready notification
+                    # RLS allows: related_user_id = auth.uid() (creative is related)
                     client_notification_data = {
                         "recipient_user_id": booking['client_user_id'],
                         "notification_type": "session_completed",
@@ -376,15 +395,16 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    client_notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
+                    client_notification_result = client.table("notifications").insert(client_notification_data).execute()
                     if is_dev_env():
                         logger.info(f"Files ready notification created for client: {booking['client_user_id']}")
                     
                     # Send email notification
                     if client_notification_result.data:
-                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, db_admin)
+                        await _send_notification_email(client_notification_data, booking['client_user_id'], client_display_name, client)
                     
                     # Creative: Files sent notification
+                    # RLS allows: recipient_user_id = auth.uid() (notification for themselves)
                     creative_notification_data = {
                         "recipient_user_id": user_id,
                         "notification_type": "session_completed",
@@ -405,13 +425,13 @@ class FinalizationService:
                         "created_at": datetime.utcnow().isoformat(),
                         "updated_at": datetime.utcnow().isoformat()
                     }
-                    creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
+                    creative_notification_result = client.table("notifications").insert(creative_notification_data).execute()
                     if is_dev_env():
                         logger.info(f"Files sent notification created for creative: {user_id}")
                     
                     # Send email notification
                     if creative_notification_result.data:
-                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
+                        await _send_notification_email(creative_notification_data, user_id, creative_display_name, client)
                     
             except Exception as notif_error:
                 if is_dev_env():

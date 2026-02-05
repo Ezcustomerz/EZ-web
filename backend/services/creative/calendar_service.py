@@ -2,7 +2,6 @@
 import logging
 from fastapi import HTTPException, Request
 from core.safe_errors import log_exception_if_dev
-from db.db_session import db_admin
 from schemas.creative import CalendarSettingsRequest
 from supabase import Client
 from core.timezone_utils import (
@@ -18,8 +17,24 @@ class CalendarService:
     """Service for handling calendar settings and schedules"""
     
     @staticmethod
-    async def save_calendar_settings(service_id: str, calendar_settings: CalendarSettingsRequest, request: Request = None):
-        """Save calendar settings for a service"""
+    async def save_calendar_settings(service_id: str, calendar_settings: CalendarSettingsRequest, client: Client, request: Request = None):
+        """Save calendar settings for a service
+        
+        Args:
+            service_id: The service ID to save calendar settings for
+            calendar_settings: The calendar settings data
+            client: Authenticated Supabase client (required, respects RLS policies)
+            request: Optional request object for timezone detection
+        
+        Note: All operations use authenticated client. RLS policies allow:
+        - calendar_settings: DELETE/INSERT for own services
+        - weekly_schedule: ALL for own calendar settings
+        - time_blocks: ALL for own weekly schedules
+        - time_slots: ALL for own weekly schedules
+        """
+        if not client:
+            raise ValueError("Supabase client is required for this operation")
+        
         try:
             # Get user timezone from request headers
             user_timezone = 'UTC'  # Default to UTC
@@ -28,9 +43,11 @@ class CalendarService:
                 print(f"DEBUG: User timezone detected: {user_timezone}")
             
             # First, delete existing calendar settings for this service
-            db_admin.table('calendar_settings').delete().eq('service_id', service_id).execute()
+            # RLS: "Users can manage calendar settings for their own services"
+            client.table('calendar_settings').delete().eq('service_id', service_id).execute()
             
             # Insert new calendar settings
+            # RLS: "Users can insert calendar settings for their own active service"
             calendar_data = {
                 'service_id': service_id,
                 'is_scheduling_enabled': calendar_settings.is_scheduling_enabled,
@@ -45,7 +62,7 @@ class CalendarService:
                 'is_active': True
             }
             
-            calendar_result = db_admin.table('calendar_settings').insert(calendar_data).execute()
+            calendar_result = client.table('calendar_settings').insert(calendar_data).execute()
             if not calendar_result.data:
                 raise HTTPException(status_code=500, detail="Failed to save calendar settings")
             
@@ -55,13 +72,14 @@ class CalendarService:
             for day_schedule in calendar_settings.weekly_schedule:
                 if day_schedule.enabled:  # Only save enabled days
                     # Insert weekly schedule entry
+                    # RLS: "Users can manage weekly schedule for their own calendar setting"
                     weekly_data = {
                         'calendar_setting_id': calendar_setting_id,
                         'day_of_week': day_schedule.day,
                         'is_enabled': day_schedule.enabled
                     }
                     
-                    weekly_result = db_admin.table('weekly_schedule').insert(weekly_data).execute()
+                    weekly_result = client.table('weekly_schedule').insert(weekly_data).execute()
                     if not weekly_result.data:
                         continue  # Skip this day if insertion fails
                     
@@ -99,7 +117,8 @@ class CalendarService:
                                 print(f"WARNING: Skipping invalid time block: start={start_time_str}, end={end_time_str} (end_time must be > start_time)")
                         
                         if time_blocks_data:
-                            db_admin.table('time_blocks').insert(time_blocks_data).execute()
+                            # RLS: "Users can manage time blocks for their own weekly schedule"
+                            client.table('time_blocks').insert(time_blocks_data).execute()
                     
                     # Save time slots (always use time slot mode, convert to UTC)
                     if day_schedule.time_slots:
@@ -117,7 +136,8 @@ class CalendarService:
                             })
                         
                         if time_slots_data:
-                            db_admin.table('time_slots').insert(time_slots_data).execute()
+                            # RLS: "Users can manage time slots for their own weekly schedule"
+                            client.table('time_slots').insert(time_slots_data).execute()
 
         except HTTPException:
             raise

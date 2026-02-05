@@ -5,7 +5,6 @@ from typing import Dict, Any, Optional
 from fastapi import HTTPException
 from core.safe_errors import log_exception_if_dev, is_dev_env
 from supabase import Client
-from db.db_session import db_admin
 
 logger = logging.getLogger(__name__)
 
@@ -149,8 +148,6 @@ class PaymentRequestService:
             
             # Create notification for the client
             try:
-                from db.db_session import db_admin
-                
                 # Get service name and color if booking is associated (service_id already fetched above)
                 service_title = None
                 service_color = None
@@ -197,17 +194,18 @@ class PaymentRequestService:
                     'metadata': metadata
                 }
                 
-                notification_result = db_admin.table("notifications").insert(notification_data).execute()
+                # RLS allows INSERT when related_user_id = auth.uid() (creative_user_id is the authenticated user)
+                notification_result = client.table("notifications").insert(notification_data).execute()
                 if is_dev_env():
                     logger.info("Payment request notification created for client: %s, notification_id: %s", final_client_user_id, notification_result.data[0]['id'] if notification_result.data else 'unknown')
                 
                 # Send email notification
                 if notification_result.data:
-                    # Get client name
+                    # Get client name - RLS allows via "Creatives can view their connected clients" or "in bookings"
                     try:
-                        client_result = db_admin.table('clients').select('display_name').eq('user_id', final_client_user_id).single().execute()
+                        client_result = client.table('clients').select('display_name').eq('user_id', final_client_user_id).single().execute()
                         client_name = client_result.data.get('display_name', 'Client') if client_result.data else 'Client'
-                        await _send_notification_email(notification_data, final_client_user_id, client_name, db_admin)
+                        await _send_notification_email(notification_data, final_client_user_id, client_name, client)
                     except Exception as email_error:
                         log_exception_if_dev(logger, "Failed to send payment request email", email_error)
             except Exception as notif_error:
@@ -531,9 +529,9 @@ class PaymentRequestService:
             List of payment requests for the booking
         """
         try:
-            # Use db_admin to bypass RLS since authorization is already verified in the router
-            # This ensures both client and creative can see payment requests for the booking
-            result = db_admin.table('payment_requests')\
+            # Use authenticated client - RLS allows SELECT when auth.uid() = client_user_id OR creative_user_id
+            # Since authorization is verified in the router, user is either the client or creative of the booking
+            result = client.table('payment_requests')\
                 .select('id, creative_user_id, client_user_id, booking_id, amount, notes, status, created_at, paid_at, cancelled_at, stripe_session_id')\
                 .eq('booking_id', booking_id)\
                 .order('created_at', desc=True)\
@@ -546,10 +544,10 @@ class PaymentRequestService:
             creative_ids = list(set([pr['creative_user_id'] for pr in result.data]))
             client_ids = list(set([pr['client_user_id'] for pr in result.data]))
             
-            # Fetch creatives data (use db_admin to bypass RLS)
+            # Fetch creatives data - RLS allows via "Users can view creatives in their bookings"
             creatives_map = {}
             if creative_ids:
-                creatives_result = db_admin.table('creatives')\
+                creatives_result = client.table('creatives')\
                     .select('user_id, display_name, profile_banner_url')\
                     .in_('user_id', creative_ids)\
                     .execute()
@@ -558,10 +556,10 @@ class PaymentRequestService:
                     for creative in creatives_result.data:
                         creatives_map[creative['user_id']] = creative
             
-            # Fetch clients data (use db_admin to bypass RLS)
+            # Fetch clients data - RLS allows via "Users can view clients in their bookings"
             clients_map = {}
             if client_ids:
-                clients_result = db_admin.table('clients')\
+                clients_result = client.table('clients')\
                     .select('user_id, display_name')\
                     .in_('user_id', client_ids)\
                     .execute()
@@ -833,12 +831,10 @@ class PaymentRequestService:
             
             # Create notifications for both creative and client
             try:
-                from db.db_session import db_admin
-                
                 client_user_id = payment_request.get('client_user_id')
                 amount = float(payment_request.get('amount', 0))
                 
-                # Get client display name for creative notification
+                # Get client display name for creative notification - RLS allows own SELECT
                 client_result = client.table('clients')\
                     .select('display_name')\
                     .eq('user_id', client_user_id)\
@@ -927,8 +923,9 @@ class PaymentRequestService:
                     'metadata': client_metadata
                 }
                 
+                # Client notification - RLS allows INSERT when recipient_user_id = auth.uid()
                 try:
-                    client_notif_result = db_admin.table("notifications")\
+                    client_notif_result = client.table("notifications")\
                         .insert(client_notification_data)\
                         .execute()
                     if is_dev_env():
@@ -936,12 +933,13 @@ class PaymentRequestService:
                     
                     # Send email notification
                     if client_notif_result.data:
-                        await _send_notification_email(client_notification_data, client_user_id, client_display_name, db_admin)
+                        await _send_notification_email(client_notification_data, client_user_id, client_display_name, client)
                 except Exception as notif_error:
                     log_exception_if_dev(logger, "Failed to create client payment notification", notif_error)
                 
+                # Creative notification - RLS allows INSERT when related_user_id = auth.uid() (client_user_id)
                 try:
-                    creative_notif_result = db_admin.table("notifications")\
+                    creative_notif_result = client.table("notifications")\
                         .insert(creative_notification_data)\
                         .execute()
                     if is_dev_env():
@@ -949,11 +947,11 @@ class PaymentRequestService:
                     
                     # Send email notification
                     if creative_notif_result.data:
-                        # Get creative name
+                        # Get creative name - RLS allows via "Users can view creatives in their bookings" or connected
                         try:
-                            creative_result = db_admin.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
+                            creative_result = client.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
                             creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
-                            await _send_notification_email(creative_notification_data, creative_user_id, creative_name, db_admin)
+                            await _send_notification_email(creative_notification_data, creative_user_id, creative_name, client)
                         except Exception as email_error:
                             log_exception_if_dev(logger, "Failed to send payment received email to creative", email_error)
                 except Exception as notif_error:

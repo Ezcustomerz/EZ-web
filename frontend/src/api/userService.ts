@@ -54,6 +54,11 @@ export interface SubscriptionTier {
   tier_level: number;
 }
 
+// Cache for subscription tiers (rarely changes, avoid unnecessary API calls on page navigation)
+let subscriptionTiersCache: SubscriptionTier[] | null = null;
+let subscriptionTiersCacheTime: number | null = null;
+const SUBSCRIPTION_TIERS_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
 export interface CreativeSetupRequest {
   display_name: string;
   title: string;
@@ -455,14 +460,30 @@ export const userService = {
   },
 
   /**
-   * Get all available subscription tiers
+   * Get all available subscription tiers (cached for 15 minutes to avoid unnecessary API calls)
    */
-  async getSubscriptionTiers(): Promise<SubscriptionTier[]> {
+  async getSubscriptionTiers(forceRefresh = false): Promise<SubscriptionTier[]> {
+    // Return cached data if valid and not forcing refresh
+    const now = Date.now();
+    if (
+      !forceRefresh &&
+      subscriptionTiersCache &&
+      subscriptionTiersCacheTime &&
+      now - subscriptionTiersCacheTime < SUBSCRIPTION_TIERS_CACHE_DURATION
+    ) {
+      return subscriptionTiersCache;
+    }
+
     const headers = await getAuthHeaders();
     const response = await axios.get<SubscriptionTier[]>(
       `${API_BASE_URL}/users/subscription-tiers`,
       { headers }
     );
+    
+    // Update cache
+    subscriptionTiersCache = response.data;
+    subscriptionTiersCacheTime = now;
+    
     return response.data;
   },
 

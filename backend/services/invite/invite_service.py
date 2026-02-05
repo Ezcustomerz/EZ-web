@@ -134,9 +134,10 @@ class InviteController:
             
             logger.info(f"Looking up creative with user_id: {creative_user_id}")
             
-            # Get creative information using service role client for public endpoint
-            # This ensures the query works regardless of RLS policies since this is a public endpoint
-            # We're only reading public fields (display_name, title, user_id) which are safe to expose
+            # NOTE: Using db_admin for public endpoint validation
+            # This endpoint can be accessed by unauthenticated users clicking invite links.
+            # While there's an anon RLS policy ("Allow public to read creative profiles"),
+            # using db_admin ensures consistent behavior and only exposes safe public fields.
             try:
                 creative_response = db_admin.table("creatives") \
                     .select("display_name, title, user_id") \
@@ -268,11 +269,11 @@ class InviteController:
             
             logger.info(f"Creating relationship with data: {relationship_data}")
             
-            # Create relationship using service role client to bypass RLS
-            # This is safe because:
-            # 1. User is authenticated and has client role
-            # 2. Invite token has been validated
-            # 3. We're only creating a relationship between the creative and client specified in the token
+            # NOTE: db_admin required for relationship INSERT
+            # RLS policy only allows INSERT when creative_user_id = auth.uid()
+            # But here the CLIENT is accepting the invite, so they can't insert.
+            # This is safe because: user is authenticated with client role,
+            # invite token is validated, and we're creating the exact relationship from the token.
             result = db_admin.table("creative_client_relationships") \
                 .insert(relationship_data) \
                 .execute()
@@ -311,21 +312,21 @@ class InviteController:
                 }
                 
                 try:
-                    # Create notification using admin client to bypass RLS
-                    # We need admin privileges because we're creating a notification for the creative user
-                    # (the client user doesn't have permission to create notifications for other users)
-                    notification_result = db_admin.table("notifications") \
+                    # Create notification using authenticated client
+                    # RLS allows INSERT when related_user_id = auth.uid() (client_user_id is the authenticated user)
+                    notification_result = client.table("notifications") \
                         .insert(notification_data) \
                         .execute()
                     logger.info(f"Notification created: {notification_result.data}")
                     
                     # Send email notification
                     if notification_result.data:
-                        # Get creative name
+                        # Get creative name - RLS allows via "Clients can view their connected creatives"
+                        # (relationship was just created above)
                         try:
-                            creative_result = db_admin.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
+                            creative_result = client.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
                             creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
-                            await _send_notification_email(notification_data, creative_user_id, creative_name, db_admin)
+                            await _send_notification_email(notification_data, creative_user_id, creative_name, client)
                         except Exception as email_error:
                             log_exception_if_dev(logger, "Failed to send new client email", email_error)
                 except Exception as notif_error:
@@ -425,11 +426,11 @@ class InviteController:
             
             logger.info(f"Creating relationship with data: {relationship_data}")
             
-            # Create relationship using service role client to bypass RLS
-            # This is safe because:
-            # 1. User is authenticated and has client role
-            # 2. Invite token has been validated
-            # 3. We're only creating a relationship between the creative and client specified in the token
+            # NOTE: db_admin required for relationship INSERT
+            # RLS policy only allows INSERT when creative_user_id = auth.uid()
+            # But here the CLIENT is accepting the invite, so they can't insert.
+            # This is safe because: user is authenticated with client role,
+            # invite token is validated, and we're creating the exact relationship from the token.
             result = db_admin.table("creative_client_relationships") \
                 .insert(relationship_data) \
                 .execute()
@@ -467,21 +468,21 @@ class InviteController:
                 }
                 
                 try:
-                    # Create notification using admin client to bypass RLS
-                    # We need admin privileges because we're creating a notification for the creative user
-                    # (the client user doesn't have permission to create notifications for other users)
-                    notification_result = db_admin.table("notifications") \
+                    # Create notification using authenticated client
+                    # RLS allows INSERT when related_user_id = auth.uid() (client_user_id is the authenticated user)
+                    notification_result = client.table("notifications") \
                         .insert(notification_data) \
                         .execute()
                     logger.info(f"Notification created: {notification_result.data}")
                     
                     # Send email notification
                     if notification_result.data:
-                        # Get creative name
+                        # Get creative name - RLS allows via "Clients can view their connected creatives"
+                        # (relationship was just created above)
                         try:
-                            creative_result = db_admin.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
+                            creative_result = client.table('creatives').select('display_name').eq('user_id', creative_user_id).single().execute()
                             creative_name = creative_result.data.get('display_name', 'Creative') if creative_result.data else 'Creative'
-                            await _send_notification_email(notification_data, creative_user_id, creative_name, db_admin)
+                            await _send_notification_email(notification_data, creative_user_id, creative_name, client)
                         except Exception as email_error:
                             log_exception_if_dev(logger, "Failed to send new client email", email_error)
                 except Exception as notif_error:

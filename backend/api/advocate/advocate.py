@@ -4,6 +4,8 @@ from schemas.advocate import AdvocateUpdateRequest, AdvocateUpdateResponse
 from core.limiter import limiter
 from core.verify import require_auth
 from core.safe_errors import log_exception_if_dev
+from db.db_session import get_authenticated_client_dep
+from supabase import Client
 from typing import Dict, Any
 import logging
 
@@ -14,16 +16,18 @@ logger = logging.getLogger(__name__)
 @limiter.limit("2 per second")
 async def get_advocate_profile(
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Get the current user's advocate profile
     Requires authentication - will return 401 if not authenticated.
+    Uses authenticated client for RLS-protected table operations.
     """
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await AdvocateController.get_advocate_profile(user_id)
+        return await AdvocateController.get_advocate_profile(user_id, client)
         
     except HTTPException:
         raise
@@ -36,16 +40,18 @@ async def get_advocate_profile(
 async def update_advocate_profile(
     request: Request,
     update_data: AdvocateUpdateRequest,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Update the current user's advocate profile
     Requires authentication - will return 401 if not authenticated.
+    Uses authenticated client for RLS-protected table operations.
     """
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await AdvocateController.update_advocate_profile(user_id, update_data)
+        return await AdvocateController.update_advocate_profile(user_id, update_data, client)
         
     except HTTPException:
         raise
@@ -58,17 +64,19 @@ async def update_advocate_profile(
 async def upload_profile_photo(
     request: Request,
     file: UploadFile = File(...),
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Upload a profile photo for the advocate
     Requires authentication - will return 401 if not authenticated.
+    Uses authenticated client for RLS-protected table operations.
     """
     try:
         user_id = current_user.get('sub')
         if not user_id:
             raise HTTPException(status_code=401, detail="Authentication failed: User ID not found")
         
-        return await AdvocateController.upload_profile_photo(user_id, file)
+        return await AdvocateController.upload_profile_photo(user_id, file, client)
         
     except HTTPException:
         raise

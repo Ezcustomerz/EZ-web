@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from services.advocate.advocate_service import AdvocateController
 from core.verify import require_auth
 from core.safe_errors import log_exception_if_dev
+from db.db_session import get_authenticated_client_dep
+from supabase import Client
 from typing import Dict, Any
 import logging
 
@@ -11,16 +13,18 @@ logger = logging.getLogger(__name__)
 @router.post("/setup")
 async def setup_advocate_profile(
     request: Request,
-    current_user: Dict[str, Any] = Depends(require_auth)
+    current_user: Dict[str, Any] = Depends(require_auth),
+    client: Client = Depends(get_authenticated_client_dep)
 ):
     """Set up advocate profile in the advocates table with hardcoded demo values
     Requires authentication - will return 401 if not authenticated.
+    Uses authenticated client for RLS-protected table operations.
     """
     try:
         # Get user ID from authenticated user (guaranteed by require_auth dependency)
         user_id = current_user.get('sub')
         
-        return await AdvocateController.setup_advocate_profile(user_id)
+        return await AdvocateController.setup_advocate_profile(user_id, client)
         
     except HTTPException:
         raise
