@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 import { IntentAuthGate } from '../../components/popovers/auth/IntentAuthGate';
 import { useLoading } from '../../context/loading';
+import { useOnboarding } from '../../context/onboarding';
 import { RecordSpinner } from '../../components/loaders/RecordSpinner';
 import { DemoSignInBar } from '../../components/dialogs/DemoSignInBar';
 import { SubscriptionTiersPopover } from '../../components/popovers/creative/SubscriptionTiersPopover';
@@ -29,6 +30,7 @@ export function LayoutCreative({
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
   const { userProfile, isSetupInProgress } = useAuth();
   const { setProfileLoading, isAnyLoading } = useLoading();
+  const { isMainTourActive } = useOnboarding();
   const [creativeProfile, setCreativeProfile] = useState<CreativeProfile | null>(null);
   const [subscriptionTiersOpen, setSubscriptionTiersOpen] = useState(false);
   const fetchingRef = useRef<Set<string>>(new Set());
@@ -95,6 +97,13 @@ export function LayoutCreative({
       setIsSidebarOpen(false);
     }
   }, [isMobile]);
+
+  // Keep sidebar open during tour for navigation steps
+  useEffect(() => {
+    if (isMainTourActive && !isMobile) {
+      setIsSidebarOpen(true);
+    }
+  }, [isMainTourActive, isMobile]);
 
   // Initialize with demo data on component mount
   useEffect(() => {

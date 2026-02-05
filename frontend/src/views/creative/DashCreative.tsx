@@ -9,6 +9,7 @@ import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
 import { useAuth } from '../../context/auth';
+import { useOnboarding } from '../../context/onboarding';
 import { PaymentActionsPopover } from '../../components/popovers/creative/PaymentActionsPopover';
 import { CreativeSettingsPopover } from '../../components/popovers/creative/CreativeSettingsPopover';
 import type { SettingsSection } from '../../components/popovers/creative/CreativeSettingsPopover';
@@ -33,6 +34,7 @@ export function DashCreative() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
   const { isAuthenticated } = useAuth();
+  const { needsSettingsOpen, settingsSection } = useOnboarding();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<CreativeDashboardStats | null>(null);
@@ -233,6 +235,25 @@ export function DashCreative() {
     };
   }, [isAuthenticated]);
 
+  // Handle onboarding-triggered settings opening
+  useEffect(() => {
+    if (needsSettingsOpen && settingsSection) {
+      // Map onboarding section names to SettingsSection type
+      const sectionMap: Record<string, SettingsSection> = {
+        'billing': 'subscription',
+        'storage': 'storage',
+      };
+      
+      const targetSection = sectionMap[settingsSection] || 'account';
+      setSettingsInitialSection(targetSection);
+      setSettingsOpen(true);
+    } else if (!needsSettingsOpen) {
+      // Close settings when onboarding doesn't need it
+      // But only if tour is still active (don't close manually opened settings)
+      // We'll let the tour control this
+    }
+  }, [needsSettingsOpen, settingsSection]);
+
   return (
     <Box>
     <LayoutCreative selectedNavItem="dashboard">
@@ -256,18 +277,20 @@ export function DashCreative() {
           }}
         >
           {/* Welcome Card */}
-          <WelcomeCard 
-            userName={creativeProfile?.display_name || "Demo User"} 
-            userRole={creativeProfile?.title || "Music Creative"} 
-            isSidebarOpen={isSidebarOpen}
-            stats={dashboardStats ? {
-              totalClients: dashboardStats.total_clients,
-              monthlyAmount: dashboardStats.monthly_amount,
-              totalBookings: dashboardStats.total_bookings,
-              completedSessions: dashboardStats.completed_sessions,
-            } : undefined}
-            statsLoading={statsLoading}
-          />
+          <Box data-tour="welcome">
+            <WelcomeCard 
+              userName={creativeProfile?.display_name || "Demo User"} 
+              userRole={creativeProfile?.title || "Music Creative"} 
+              isSidebarOpen={isSidebarOpen}
+              stats={dashboardStats ? {
+                totalClients: dashboardStats.total_clients,
+                monthlyAmount: dashboardStats.monthly_amount,
+                totalBookings: dashboardStats.total_bookings,
+                completedSessions: dashboardStats.completed_sessions,
+              } : undefined}
+              statsLoading={statsLoading}
+            />
+          </Box>
 
           {/* Section Divider */}
           <Box sx={{ mb: 2.5 }}>

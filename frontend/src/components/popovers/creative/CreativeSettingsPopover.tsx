@@ -61,6 +61,7 @@ import {
   AudioFile,
   Image,
   Receipt,
+  Tour,
 } from '@mui/icons-material';
 import { userService, type CreativeProfile, type CreativeService, type CreativeProfileSettingsRequest, type CreativeBundle, type SubscriptionTier } from '../../../api/userService';
 import { bookingService } from '../../../api/bookingService';
@@ -69,6 +70,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
+import { useOnboarding } from '../../../context/onboarding';
 import { ComingSoonDialog } from '../../dialogs/ComingSoonDialog';
 import { ConfirmDeleteDialog } from '../../dialogs/ConfirmDeleteDialog';
 import { SuccessDialog } from '../../dialogs/SuccessDialog';
@@ -80,7 +82,7 @@ interface CreativeSettingsPopoverProps {
   initialSection?: SettingsSection; // Optional section to open to
 }
 
-export type SettingsSection = 'account' | 'billing' | 'subscription' | 'storage' | 'userAccount';
+export type SettingsSection = 'account' | 'billing' | 'subscription' | 'storage' | 'userAccount' | 'walkthrough';
 
 const CREATIVE_TITLES = [
   'Other', // Move to top for easy access
@@ -468,6 +470,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isAuthenticated } = useAuth();
+  const { restartMainTour } = useOnboarding();
   const [selectedSection, setSelectedSection] = useState<SettingsSection>(initialSection);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
@@ -764,6 +767,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       id: 'userAccount' as SettingsSection,
       label: 'User Account',
       icon: AccountCircle,
+    },
+    {
+      id: 'walkthrough' as SettingsSection,
+      label: 'Walkthrough',
+      icon: Tour,
     },
   ];
 
@@ -1920,9 +1928,10 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         );
       
       case 'subscription':
-        return <SubscriptionBillingSection />;
+        return <Box data-tour="settings-billing"><SubscriptionBillingSection /></Box>;
       
       case 'storage':
+        return (<Box data-tour="settings-storage">{(() => {
         // Calculate actual storage used from deliverables
         const actualStorageUsed = deliverables.reduce((sum, deliverable) => {
           const size = deliverable.file_size_bytes;
@@ -2114,6 +2123,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             </Box>
           </Box>
         );
+        })()}</Box>);
       case 'userAccount':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
@@ -2306,6 +2316,80 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
             </Box>
           </Box>
         );
+      
+      case 'walkthrough':
+        return (
+          <Box sx={{ px: 3, pb: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Walkthrough Info */}
+              <Card variant="outlined">
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Tour color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      Product Walkthrough
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: 1.6 }}>
+                    Take an interactive tour of the platform to learn about key features including managing bookings, 
+                    viewing your calendar, setting up payments, and monitoring storage usage.
+                  </Typography>
+                  
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                      The tour covers:
+                    </Typography>
+                    <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Dashboard overview and navigation
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Managing bookings and orders
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Calendar and availability settings
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Public profile and portfolio
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Payment setup and billing
+                      </Typography>
+                      <Typography component="li" variant="body2" color="text.secondary">
+                        Storage management
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<Tour />}
+                    onClick={async () => {
+                      onClose();
+                      // Small delay to allow settings to close before tour starts
+                      setTimeout(() => {
+                        restartMainTour();
+                      }, 300);
+                    }}
+                    sx={{
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      py: 1.5,
+                    }}
+                  >
+                    Start Walkthrough
+                  </Button>
+                  
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
+                    The walkthrough takes approximately 2-3 minutes
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Box>
+          </Box>
+        );
+      
       default:
         return null;
     }

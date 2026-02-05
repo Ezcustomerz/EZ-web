@@ -284,6 +284,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
               <ListItemButton
                 onClick={() => onItemSelect(item.id)}
                 selected={isSelected}
+                data-tour={item.id === 'dashboard' ? 'dashboard-nav' : item.id === 'activity' ? 'activity-nav' : item.id === 'public' ? 'public-nav' : undefined}
                 sx={{
                   borderRadius: 3,
                   minHeight: 52,

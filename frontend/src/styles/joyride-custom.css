@@ -1,0 +1,13 @@
+/* Custom Joyride styles - remove transitions to prevent flashing */
+.react-joyride__spotlight {
+  transition: none !important;
+}
+
+.react-joyride__overlay {
+  transition: none !important;
+}
+
+/* Ensure data-tour elements are positioned for proper spotlight calculation */
+[data-tour] {
+  position: relative;
+}

@@ -179,6 +179,7 @@ export function ActivityCreative() {
         {/* Tabs + content */}
         <Paper
           elevation={0}
+          data-tour="current-orders"
           sx={{
             p: 1,
             borderRadius: 1,

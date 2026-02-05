@@ -47,6 +47,7 @@ const defaultThemeConfig: ColorConfig = {
 
 // Import Supabase configuration to trigger connection test
 import './config/supabase'
+import './styles/joyride-custom.css'
 import { ScrollToTop } from './utils/ScrollToTop.tsx'
 import { AuthProvider, useAuth } from './context/auth'
 import { userService, type UserRoleProfiles } from './api/userService'
@@ -59,6 +60,9 @@ import { SetupGate } from './components/popovers/auth/SetupGate'
 import { RoleGuard } from './components/guards/RoleGuard'
 import { ToastProvider } from './components/toast/toast'
 import { LoadingProvider } from './context/loading'
+import { OnboardingProvider } from './context/onboarding'
+import { MainTour } from './components/onboarding/MainTour'
+import { MiniTour } from './components/onboarding/MiniTour'
 
 // Loading fallback component for Suspense
 function RouteLoadingFallback() {
@@ -121,6 +125,9 @@ function AppContent() {
     <>
       <ScrollToTop />
       <SetupGate />
+      {/* Onboarding Tours */}
+      <MainTour />
+      <MiniTour />
       {/* Setup Completion Loading Overlay */}
       {setupCompletionLoading && (
         <Box
@@ -337,7 +344,9 @@ function App() {
           >
             <ToastProvider>
               <AuthProvider>
-                <AppContent />
+                <OnboardingProvider>
+                  <AppContent />
+                </OnboardingProvider>
               </AuthProvider>
             </ToastProvider>
           </BrowserRouter>

@@ -327,6 +327,7 @@ export function PublicCreative() {
               {tabLabels.map((tab, idx) => (
                 <Tab
                   key={tab.label}
+                  data-tour={tab.label === 'Calendar' ? 'calendar-tab' : tab.label === 'Profile' ? 'profile-tab' : undefined}
                   label={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       {tab.icon}
