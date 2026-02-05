@@ -37,9 +37,8 @@ export function convertLocalTimeToUTC(localTimeStr: string, userTimezone: string
     
     // Return as HH:MM string
     return utcResult.toISOString().substr(11, 5);
-  } catch (error) {
+  } catch {
     // If conversion fails, assume it's already UTC
-    console.warn('Failed to convert local time to UTC:', error);
     return localTimeStr;
   }
 }
@@ -72,9 +71,8 @@ export function convertUTCToLocalTime(utcTimeStr: string, userTimezone: string =
     
     // Return as HH:MM string
     return localTime.toTimeString().substr(0, 5);
-  } catch (error) {
+  } catch {
     // If conversion fails, return as is
-    console.warn('Failed to convert UTC time to local:', error);
     return utcTimeStr;
   }
 }
@@ -86,8 +84,7 @@ export function convertUTCToLocalTime(utcTimeStr: string, userTimezone: string =
 export function getUserTimezone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch (error) {
-    console.warn('Failed to get user timezone:', error);
+  } catch {
     return 'UTC';
   }
 }
@@ -162,8 +159,7 @@ export function formatTimeWithTimezone(timeStr: string, userTimezone: string = '
       hour12: true,
       timeZone: userTimezone
     });
-  } catch (error) {
-    console.warn('Failed to format time with timezone:', error);
+  } catch {
     return timeStr;
   }
 }

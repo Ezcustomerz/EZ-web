@@ -19,7 +19,6 @@ export function SetupGate() {
     // If user hasn't completed setup and is on a role-specific route, redirect to home
     // But don't redirect if setup is in progress or role selection is open
     if (userProfile.first_login && isRoleSpecificRoute && !roleSelectionOpen && !isSetupInProgress) {
-      console.log('[SetupGate] User has not completed setup, redirecting to home');
       navigate('/', { replace: true });
     }
   }, [userProfile, location.pathname, roleSelectionOpen, isSetupInProgress, navigate]);

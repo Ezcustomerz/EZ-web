@@ -97,9 +97,11 @@ export function AdvocateSetupPopover({
         successToast('Advocate Setup Saved!', 'Moving to next setup...');
         onClose();
       }
-    } catch (err: any) {
-      console.error('Advocate setup error:', err);
-      const errorMessage = err.response?.data?.detail || 'Unable to complete advocate setup. Please try again.';
+    } catch (err: unknown) {
+      const data = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'Unable to complete advocate setup. Please try again.';
       errorToast('Setup Failed', errorMessage);
     } finally {
       setIsLoading(false);

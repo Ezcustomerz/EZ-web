@@ -118,8 +118,8 @@ export function DirectPaymentPopover({
       setLoadingProfile(true);
       const profile = await userService.getCreativeProfile();
       setCreativeProfile(profile);
-    } catch (error) {
-      console.error('Failed to fetch creative profile:', error);
+    } catch {
+      // Silently continue - profile will show as unavailable
     } finally {
       setLoadingProfile(false);
     }
@@ -167,8 +167,8 @@ export function DirectPaymentPopover({
         setAllBookings(sorted);
         setBookings(sorted.slice(0, 5));
       }
-    } catch (error) {
-      console.error('Failed to fetch bookings:', error);
+    } catch {
+      // Silently continue - bookings will show as unavailable
     } finally {
       setLoadingBookings(false);
       setLoadingMoreBookings(false);
@@ -187,8 +187,8 @@ export function DirectPaymentPopover({
       setLoadingClients(true);
       const response = await userService.getCreativeClients();
       setClients(response.clients);
-    } catch (error) {
-      console.error('Failed to fetch clients:', error);
+    } catch {
+      // Silently continue - clients will show as unavailable
     } finally {
       setLoadingClients(false);
     }
@@ -287,16 +287,18 @@ export function DirectPaymentPopover({
 
       // Reset form and close
       handleClose();
-    } catch (error: any) {
-      console.error('Failed to create payment request:', error);
-      
+    } catch (error: unknown) {
       // Check if error is due to Stripe not being set up
-      if (error.message && error.message.includes('STRIPE_NOT_SETUP')) {
+      const errMsg = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message)
+        : '';
+      
+      if (errMsg.includes('STRIPE_NOT_SETUP')) {
         setShowStripeSetupDialog(true);
       } else {
         errorToast(
           'Failed to Create Payment Request',
-          error.message || 'An error occurred while creating the payment request. Please try again.'
+          'An error occurred while creating the payment request. Please try again.'
         );
       }
     } finally {

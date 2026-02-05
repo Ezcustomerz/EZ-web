@@ -32,6 +32,7 @@ import {
 } from 'recharts';
 import { apiClient } from '../../api/apiClient';
 import { useNavigate } from 'react-router-dom';
+import { errorToast } from '../toast/toast';
 
 type TimePeriod = 'week' | 'month' | 'year' | 'all-time';
 
@@ -93,7 +94,7 @@ export function ServiceBreakdown({ onDelete }: ServiceBreakdownProps) {
         }
       } catch (error: any) {
         if (error.name !== 'CanceledError' && isMounted) {
-          console.error('Error fetching service breakdown:', error);
+          errorToast('Unable to load service breakdown', 'Analytics data could not be loaded. Please try again.');
         }
       } finally {
         if (isMounted) {

@@ -51,10 +51,8 @@ export function ClientCreative() {
         setLoading(true);
         const response = await userService.getCreativeClients();
         setClients(response.clients);
-      } catch (error) {
-        console.error('Failed to fetch clients:', error);
+      } catch {
         errorToast('Failed to load clients');
-        // Fallback to empty array
         setClients([]);
       } finally {
         setLoading(false);

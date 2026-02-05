@@ -32,6 +32,7 @@ import {
   AreaChart,
 } from 'recharts';
 import { apiClient } from '../../api/apiClient';
+import { errorToast } from '../toast/toast';
 
 type TimePeriod = 'week' | 'month' | 'year';
 
@@ -90,7 +91,7 @@ export function IncomeOverTime({ onDelete }: IncomeOverTimeProps) {
         }
       } catch (error: any) {
         if (error.name !== 'CanceledError' && isMounted) {
-          console.error('Error fetching income data:', error);
+          errorToast('Unable to load income data', 'Analytics data could not be loaded. Please try again.');
         }
       } finally {
         if (isMounted) {

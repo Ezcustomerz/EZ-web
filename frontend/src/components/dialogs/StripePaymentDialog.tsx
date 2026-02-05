@@ -45,10 +45,14 @@ export function StripePaymentDialog({
       } else {
         throw new Error('No checkout URL received');
       }
-    } catch (err: any) {
-      console.error('Failed to create checkout session:', err);
-      setError(err.response?.data?.detail || 'Failed to initialize payment');
-      errorToast('Payment Error', err.response?.data?.detail || 'Failed to initialize payment');
+    } catch (err: unknown) {
+      const data = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : undefined;
+      const displayMsg = msg || 'Failed to initialize payment';
+      setError(displayMsg);
+      errorToast('Payment Error', displayMsg);
       setIsLoading(false);
     }
   };

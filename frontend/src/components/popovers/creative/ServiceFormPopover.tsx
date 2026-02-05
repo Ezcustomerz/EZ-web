@@ -717,9 +717,11 @@ export function ServiceFormPopover({
         errorToast((response as any).message || (mode === 'edit' ? 'Failed to update service' : 'Failed to create service'));
       }
 
-    } catch (error: any) {
-      console.error('Failed to create service:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to create service. Please try again.';
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'Failed to create service. Please try again.';
       errorToast(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -733,7 +735,6 @@ export function ServiceFormPopover({
       setActiveStep(0); // Reset to first step
       setTimeSlotsLoadedFromBackend(false); // Reset flag
       if (mode === 'edit' && initialService) {
-        console.log('Edit mode - initial service:', initialService);
         // Find the index of the primary photo in existing photos
         const existingPhotos = initialService.photos || [];
         const primaryPhotoIndex = existingPhotos.findIndex(photo => photo.is_primary);
@@ -786,11 +787,8 @@ export function ServiceFormPopover({
         // Always use time slots - no longer need to set this from initial service
         
         // Load detailed calendar settings if available
-        console.log('Initial service calendar settings:', initialService.calendar_settings);
-        console.log('Full initial service:', initialService);
         if (initialService.calendar_settings) {
           const calendarSettings = initialService.calendar_settings;
-          console.log('Processing calendar settings:', calendarSettings);
           
           // Set calendar settings
           setIsSchedulingEnabled(calendarSettings.is_scheduling_enabled);
@@ -811,14 +809,11 @@ export function ServiceFormPopover({
           });
           
           // Load weekly schedule
-          console.log('Weekly schedule check:', calendarSettings.weekly_schedule);
           if (calendarSettings.weekly_schedule && calendarSettings.weekly_schedule.length > 0) {
-            console.log('Loading weekly schedule:', calendarSettings.weekly_schedule);
             const userTimezone = getUserTimezone();
             const loadedSchedule = daysOfWeek.map(day => {
               const dayData = calendarSettings.weekly_schedule.find(ws => ws.day === day);
               if (dayData) {
-                console.log(`Found data for ${day}:`, dayData);
                 return {
                   day,
                   enabled: dayData.enabled,
@@ -837,16 +832,11 @@ export function ServiceFormPopover({
                 timeSlots: []
               };
             });
-            console.log('Loaded schedule:', loadedSchedule);
-            console.log('Wednesday schedule specifically:', loadedSchedule.find(day => day.day === 'Wednesday'));
             setWeeklySchedule(loadedSchedule);
             // Mark that time slots were loaded from backend
             setTimeSlotsLoadedFromBackend(true);
-          } else {
-            console.log('No weekly schedule data found or empty array');
           }
         } else {
-          console.log('No calendar settings found in initial service');
           setTimeSlotsLoadedFromBackend(false);
         }
       } else {
@@ -998,16 +988,6 @@ export function ServiceFormPopover({
             />
 
             {/* Earnings Breakdown - Only show when price is set and creative profile is available */}
-            {(() => {
-              // Debug logging
-              console.log('[ServiceFormPopover] Earnings breakdown check:', {
-                hasPrice: !!(formData.price && parseFloat(formData.price) > 0),
-                hasProfile: !!creativeProfile,
-                feePercentage: creativeProfile?.subscription_tier_fee_percentage,
-                fullProfile: creativeProfile
-              });
-              return null;
-            })()}
             {formData.price && parseFloat(formData.price) > 0 && creativeProfile?.subscription_tier_fee_percentage !== undefined && (
               <Box sx={{
                 p: 2.5,

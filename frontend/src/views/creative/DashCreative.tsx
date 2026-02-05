@@ -9,6 +9,7 @@ import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
 import { useAuth } from '../../context/auth';
+import { errorToast } from '../../components/toast/toast';
 import { PaymentActionsPopover } from '../../components/popovers/creative/PaymentActionsPopover';
 import { CreativeSettingsPopover } from '../../components/popovers/creative/CreativeSettingsPopover';
 import type { SettingsSection } from '../../components/popovers/creative/CreativeSettingsPopover';
@@ -72,9 +73,9 @@ export function DashCreative() {
         if (!mountedRef.current) return;
         setDashboardStats(stats);
         setStatsLoading(false);
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Failed to fetch dashboard stats:', error);
+        errorToast('Unable to load dashboard', 'Stats could not be loaded. Please try again.');
         setDashboardStats(null);
         setStatsLoading(false);
       });
@@ -110,9 +111,9 @@ export function DashCreative() {
       if (!mountedRef.current) return;
       setDashboardStats(stats);
       setStatsLoading(false);
-    }).catch(error => {
+    }).catch(() => {
       if (!mountedRef.current) return;
-      console.error('Failed to fetch dashboard stats:', error);
+      errorToast('Unable to load dashboard', 'Stats could not be loaded. Please try again.');
       setDashboardStats(null);
       setStatsLoading(false);
     });
@@ -149,9 +150,9 @@ export function DashCreative() {
         if (!mountedRef.current) return;
         setActivityItems(items);
         setIsLoading(false);
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Error fetching notifications:', error);
+        errorToast('Unable to load activity', 'Notifications could not be loaded. Please try again.');
         setActivityItems([]);
         setIsLoading(false);
       });
@@ -184,9 +185,9 @@ export function DashCreative() {
       if (!mountedRef.current) return;
       setActivityItems(items);
       setIsLoading(false);
-    }).catch(error => {
+    }).catch(() => {
       if (!mountedRef.current) return;
-      console.error('Error fetching notifications:', error);
+      errorToast('Unable to load activity', 'Notifications could not be loaded. Please try again.');
       setActivityItems([]);
       setIsLoading(false);
     });

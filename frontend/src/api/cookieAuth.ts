@@ -19,9 +19,7 @@ export async function syncTokensToCookies(accessToken: string, refreshToken: str
       access_token: accessToken,
       refresh_token: refreshToken,
     });
-    console.log('[CookieAuth] Successfully synced tokens to HttpOnly cookies');
   } catch (error: any) {
-    console.warn('[CookieAuth] Failed to sync tokens to cookies:', error);
     // Don't throw - this is a security enhancement, not critical for functionality
     // The apiClient interceptor will handle toast notifications, but we swallow the error
     // to prevent breaking the auth flow
@@ -34,9 +32,7 @@ export async function syncTokensToCookies(accessToken: string, refreshToken: str
 export async function clearAuthCookies(): Promise<void> {
   try {
     await apiClient.post('/auth/logout');
-    console.log('[CookieAuth] Cleared authentication cookies');
   } catch (error: any) {
-    console.warn('[CookieAuth] Error clearing cookies:', error);
     // Don't throw - not critical if cookie clearing fails
     // The apiClient interceptor will handle toast notifications, but we swallow the error
   }

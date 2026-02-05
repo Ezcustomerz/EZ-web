@@ -148,8 +148,7 @@ export function ContactUs() {
         setStatus('error');
         setErrorMsg(data.error || 'Something went wrong.');
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       setStatus('error');
       setErrorMsg('Network error. Please try again.');
     }

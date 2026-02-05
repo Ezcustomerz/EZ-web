@@ -156,8 +156,7 @@ export function LayoutCreative({
         const profile = await userService.getCreativeProfile();
         setCreativeProfile(profile);
         cacheProfileForUser(userProfile.user_id, profile);
-      } catch (e) {
-        console.error('[LayoutCreative] Failed to load creative profile:', e);
+      } catch {
         setCreativeProfile(demoCreativeData as unknown as CreativeProfile);
       } finally {
         fetchingRef.current.delete(userProfile.user_id);
@@ -179,8 +178,8 @@ export function LayoutCreative({
         const updatedProfile = await userService.getCreativeProfile();
         setCreativeProfile(updatedProfile);
         cacheProfileForUser(userProfile.user_id, updatedProfile);
-      } catch (error) {
-        console.error('[LayoutCreative] Failed to refresh profile data:', error);
+      } catch {
+        // Refresh failed; keep existing profile
       } finally {
         setProfileLoading(false);
       }
@@ -513,8 +512,8 @@ export function LayoutCreative({
               const updatedProfile = await userService.getCreativeProfile();
               setCreativeProfile(updatedProfile);
               cacheProfileForUser(userProfile.user_id, updatedProfile);
-            } catch (err) {
-              console.error('Failed to refresh profile after subscription update:', err);
+            } catch {
+              // Refresh failed; profile will update on next load
             }
           }
         }}

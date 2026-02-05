@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Box, Typography, TextField, IconButton, Tooltip, Snackbar, useTheme } from '@mui/material';
 import { ContentCopyOutlined, LinkOutlined } from '@mui/icons-material';
+import { errorToast } from '../../toast/toast';
 
 interface ReferralLinkCardProps {
   referralLink?: string;
@@ -18,8 +19,8 @@ export function ReferralLinkCard({
     try {
       await navigator.clipboard.writeText(referralLink);
       setSnackbarOpen(true);
-    } catch (err) {
-      console.error('Failed to copy: ', err);
+    } catch {
+      errorToast('Copy failed', 'Could not copy link to clipboard. Please try again or copy manually.');
     }
   };
 

@@ -896,7 +896,7 @@ export const userService = {
       });
     
     if (error) {
-      throw new Error(`Failed to upload photo: ${error.message}`);
+      throw new Error('Failed to upload photo. Please try again.');
     }
     
     // Get public URL

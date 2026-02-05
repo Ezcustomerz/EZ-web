@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Table,
@@ -68,7 +67,6 @@ function formatBookingDate(bookingDateStr: string | null) {
     const date = new Date(bookingDateStr);
     // Check if date is valid
     if (isNaN(date.getTime())) {
-      console.warn('Invalid booking date string:', bookingDateStr);
       return 'Not scheduled';
     }
     
@@ -83,8 +81,7 @@ function formatBookingDate(bookingDateStr: string | null) {
       hour12: true,
       timeZone: userTimezone
     });
-  } catch (error) {
-    console.warn('Error formatting booking date:', bookingDateStr, error);
+  } catch {
     return 'Not scheduled';
   }
 }
@@ -169,15 +166,6 @@ export function RequestsTable({
 
   // Popover handlers
   const handleOpenPendingApprovalPopover = (order: any) => {
-    // Debug: log the order structure to see what fields are available
-    console.log('[RequestsTable] Order data for pending approval:', {
-      id: order.id,
-      split_deposit_amount: order.split_deposit_amount,
-      'order.service?.split_deposit_amount': order.service?.split_deposit_amount,
-      'order.service': order.service,
-      fullOrder: order
-    });
-    
     const pendingOrder: PendingApprovalOrder = {
       id: order.id,
       client: order.client,
@@ -201,8 +189,6 @@ export function RequestsTable({
       clientPhone: order.clientPhone,
       specialRequirements: order.specialRequirements
     };
-    
-    console.log('[RequestsTable] Created pendingOrder with split_deposit_amount:', pendingOrder.split_deposit_amount);
     
     setSelectedOrder(pendingOrder);
     setPendingApprovalPopoverOpen(true);
@@ -380,10 +366,8 @@ export function RequestsTable({
     // Only search once per orderIdToOpen, and only if no popover is currently open
     if (orderIdToOpen && requests.length > 0 && !pendingApprovalPopoverOpen && !awaitingPaymentPopoverOpen && !inProgressPopoverOpen && !completePopoverOpen && !cancelledPopoverOpen && hasSearchedForOrderRef.current !== orderIdToOpen) {
       hasSearchedForOrderRef.current = orderIdToOpen;
-      console.log(`[RequestsTable] Searching for order ${orderIdToOpen} in ${requests.length} requests`);
       const orderToOpen = requests.find(order => order.id === orderIdToOpen);
       if (orderToOpen) {
-        console.log(`[RequestsTable] Found order ${orderIdToOpen} with status: ${orderToOpen.status}`);
         const status = orderToOpen.status;
         
         // Handle different statuses - open appropriate popover
@@ -405,8 +389,6 @@ export function RequestsTable({
         }
       } else {
         // Order not found in this tab - notify parent to try other tab
-        console.log(`[RequestsTable] Order ${orderIdToOpen} not found in Current Orders, triggering fallback`);
-        // Only notify if we haven't already tried the other tab
         if (onOrderNotFound) {
           onOrderNotFound();
         }
@@ -450,8 +432,7 @@ export function RequestsTable({
           setStripeAccountRequiredOpen(true);
           return;
         }
-      } catch (error) {
-        console.error('Failed to check Stripe account status:', error);
+      } catch {
         // Clear loading state
         setIsCheckingBankAccount(false);
         setCheckingBankAccountOrderId(null);
@@ -489,7 +470,6 @@ export function RequestsTable({
     setIsProcessing(true);
     try {
       if (confirmActionType === 'approve') {
-        console.log('Approving order:', confirmOrderId);
         const response = await bookingService.approveOrder(confirmOrderId);
         
         // Close the popover
@@ -504,7 +484,6 @@ export function RequestsTable({
         }
       } else {
         // Reject action
-        console.log('Rejecting order:', confirmOrderId);
         const response = await bookingService.rejectOrder(confirmOrderId);
         
         // Close the popover
@@ -522,9 +501,11 @@ export function RequestsTable({
       // Close confirmation dialog
       setConfirmDialogOpen(false);
       setConfirmOrderId(null);
-    } catch (error: any) {
-      console.error(`Failed to ${confirmActionType} order:`, error);
-      const errorMessage = error.response?.data?.detail || error.message || `Failed to ${confirmActionType} order. Please try again.`;
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : `Failed to ${confirmActionType} order. Please try again.`;
       errorToast(`Failed to ${confirmActionType} order`, errorMessage);
       handleClosePendingApprovalPopover();
     } finally {
@@ -533,7 +514,6 @@ export function RequestsTable({
   };
 
   const handleComplete = (orderId: string) => {
-    console.log('Completing order:', orderId);
     // Find the order data
     const order = requests.find(req => req.id === orderId);
     if (order) {
@@ -574,7 +554,6 @@ export function RequestsTable({
   // Awaiting payment handlers
   const handleSendReminder = async (orderId: string) => {
     try {
-      console.log('Sending payment reminder for order:', orderId);
       const result = await bookingService.sendPaymentReminder(orderId);
       if (result.success) {
         successToast('Payment reminder sent successfully to client');
@@ -582,9 +561,12 @@ export function RequestsTable({
       } else {
         errorToast('Failed to send payment reminder');
       }
-    } catch (error: any) {
-      console.error('Error sending payment reminder:', error);
-      errorToast(error.response?.data?.detail || 'Failed to send payment reminder');
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : 'Failed to send payment reminder';
+      errorToast(msg);
     }
   };
 
@@ -642,7 +624,6 @@ export function RequestsTable({
           if (error?.message?.includes('cancelled') || abortController.signal.aborted) {
             throw new Error('Upload cancelled');
           }
-          console.error(`Error converting file ${file.name}:`, error);
           throw new Error(`Failed to prepare ${file.name} for upload. Please try again.`);
         }
       }
@@ -703,9 +684,11 @@ export function RequestsTable({
       setUploadAbortController(null);
       
       handleCloseInProgressPopover();
-    } catch (error: any) {
-      console.error('Error finalizing service:', error);
-      const wasCancelled = error?.message?.includes('cancelled') || abortController.signal.aborted;
+    } catch (error: unknown) {
+      const errMsg = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message)
+        : '';
+      const wasCancelled = errMsg.includes('cancelled') || abortController.signal.aborted;
       
       setIsUploading(false);
       setUploadProgress(wasCancelled ? 'Upload cancelled' : '');
@@ -721,7 +704,7 @@ export function RequestsTable({
           successToast('Upload cancelled', 'The file upload has been cancelled successfully.');
         }
       } else {
-        errorToast('Upload failed', error?.message || 'An error occurred while uploading files. Please try again.');
+        errorToast('Upload failed', errMsg || 'An error occurred while uploading files. Please try again.');
         throw error;
       }
     }
@@ -2541,8 +2524,8 @@ export function RequestsTable({
                   setPendingApprovalOrderId(null);
                   setPendingApprovalOrderAmount(undefined);
                 }
-              } catch (error) {
-                console.error('Failed to check Stripe account status after settings close:', error);
+              } catch {
+                // Silently continue - status check is non-critical
               }
             }, 500);
           }

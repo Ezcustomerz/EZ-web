@@ -36,7 +36,7 @@ const setToastRef = (fn: (props: ToastProps) => void) => {
 
 export const toast = (props: ToastProps) => {
   if (internalToastFn) internalToastFn(props);
-  else console.warn('Toast system is not yet initialized');
+  // Silently ignore if toast system is not yet initialized
 };
 
 // Utility function for error toasts

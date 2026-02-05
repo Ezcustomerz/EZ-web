@@ -27,6 +27,7 @@ import { LockedOrderCard } from '../../../components/cards/client/LockedOrderCar
 import { DownloadOrderCard } from '../../../components/cards/client/DownloadOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
+import { errorToast } from '../../../components/toast/toast';
 
 // Module-level cache to prevent duplicate fetches across remounts
 // This persists across StrictMode remounts to prevent duplicate API calls
@@ -55,7 +56,6 @@ const clearCache = () => {
     timestamp: 0,
     resolved: false,
   };
-  console.log('[ActionNeededTab] Cache cleared');
 };
 
 // Helper function to get status color
@@ -75,17 +75,6 @@ const getStatusColor = (status: string) => {
 // Helper function to transform orders
 function transformOrders(fetchedOrders: Order[]) {
   return fetchedOrders.map((order: Order) => {
-    // Debug log for split payment orders
-    if (order.payment_option === 'split') {
-      console.log('[ActionNeededTab] Split payment order:', {
-        id: order.id,
-        service_name: order.service_name,
-        price: order.price,
-        split_deposit_amount: order.split_deposit_amount,
-        amount_paid: order.amount_paid
-      });
-    }
-    
     return {
     id: order.id,
     serviceName: order.service_name,
@@ -159,7 +148,6 @@ function transformOrders(fetchedOrders: Order[]) {
 }
 
 export function ActionNeededTab() {
-  console.log('[ActionNeededTab] Component rendering');
   const theme = useTheme();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -194,7 +182,6 @@ export function ActionNeededTab() {
 
   // Fetch orders on mount - only once
   useEffect(() => {
-    console.log('[ActionNeededTab] useEffect running, isAuthenticated:', isAuthenticated);
     mountedRef.current = true;
     
     // Don't fetch orders if user is not authenticated
@@ -231,9 +218,9 @@ export function ActionNeededTab() {
         const transformedOrders = transformOrders(fetchedOrders);
         setActionNeededOrders(transformedOrders);
         setLoading(false);
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Failed to fetch orders:', error);
+        errorToast('Unable to load orders', 'Orders could not be loaded. Please try again.');
         setLoading(false);
       });
       return;
@@ -279,7 +266,7 @@ export function ActionNeededTab() {
         }, CACHE_DURATION);
         return fetchedOrders;
       } catch (error) {
-        console.error('Failed to fetch orders:', error);
+        errorToast('Unable to load orders', 'Orders could not be loaded. Please try again.');
         if (mountedRef.current) {
           setLoading(false);
         }
@@ -304,9 +291,9 @@ export function ActionNeededTab() {
       const transformedOrders = transformOrders(fetchedOrders);
       setActionNeededOrders(transformedOrders);
       setLoading(false);
-    }).catch(error => {
+    }).catch(() => {
       if (!mountedRef.current) return;
-      console.error('Failed to fetch orders:', error);
+      errorToast('Unable to load orders', 'Orders could not be loaded. Please try again.');
       setLoading(false);
     });
 
@@ -345,8 +332,8 @@ export function ActionNeededTab() {
       fetchCache.data = fetchedOrders;
       fetchCache.resolved = true;
       fetchCache.timestamp = Date.now();
-    } catch (error) {
-      console.error('Failed to refresh orders:', error);
+    } catch {
+      errorToast('Unable to refresh orders', 'Orders could not be loaded. Please try again.');
     } finally {
       setLoading(false);
     }

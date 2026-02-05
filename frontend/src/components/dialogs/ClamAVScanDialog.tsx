@@ -15,11 +15,10 @@ import {
 import {
   CheckCircle,
   Error as ErrorIcon,
-  Warning,
   Close as CloseIcon,
   Security,
 } from '@mui/icons-material';
-import type { FileScanResult, FileScanResponse } from '../../api/fileScanningService';
+import type { FileScanResponse } from '../../api/fileScanningService';
 
 interface ClamAVScanDialogProps {
   open: boolean;

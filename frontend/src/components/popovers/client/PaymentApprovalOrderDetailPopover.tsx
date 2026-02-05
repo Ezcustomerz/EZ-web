@@ -160,19 +160,6 @@ export function PaymentApprovalOrderDetailPopover({
     : (depositAmount > 0 ? Math.round((order.price - depositAmount) * 100) / 100 : order.price);
   const amountPaid = typeof order.amountPaid === 'number' ? order.amountPaid : (parseFloat(String(order.amountPaid || 0)) || 0);
   
-  // Debug log
-  console.log('[PaymentApprovalOrderDetailPopover] Split payment calculation:', {
-    id: order.id,
-    serviceName: order.serviceName,
-    price: order.price,
-    'order.depositAmount': order.depositAmount,
-    depositAmount,
-    'order.remainingAmount': order.remainingAmount,
-    remainingAmount,
-    amountPaid,
-    paymentOption: order.paymentOption
-  });
-  
   // Determine if this is the first or second payment for split payments
   // If amountPaid >= depositAmount (with tolerance), it's the second payment
   const paymentTolerance = 0.01;
@@ -183,18 +170,6 @@ export function PaymentApprovalOrderDetailPopover({
   const amountDueNow = order.paymentOption === 'split_payment' 
     ? (isFirstPayment ? depositAmount : remainingAmount)
     : order.price;
-  
-  // Debug logging (can be removed in production)
-  if (order.paymentOption === 'split_payment') {
-    console.log('[PaymentApproval] Split payment check:', {
-      amountPaid,
-      depositAmount,
-      remainingAmount,
-      isFirstPayment,
-      isSecondPayment,
-      amountDueNow
-    });
-  }
 
   // Create service detail object for the nested popover
   const serviceDetail: ServiceDetail = {

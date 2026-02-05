@@ -130,8 +130,7 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
         const profile = await userService.getAdvocateProfile();
         setAdvocateProfile(profile);
         cacheProfileForUser(userProfile.user_id, profile);
-      } catch (e) {
-        console.error('[SidebarAdvocate] Failed to load advocate profile:', e);
+      } catch {
         setAdvocateProfile(advocateUserData as unknown as AdvocateProfile);
       } finally {
         fetchingRef.current.delete(userProfile.user_id);
@@ -151,8 +150,8 @@ export function SidebarAdvocate({ isOpen, onToggle, selectedItem, onItemSelect, 
           if (userProfile.user_id) {
             cacheProfileForUser(userProfile.user_id, profile);
           }
-        } catch (e) {
-          console.error('[SidebarAdvocate] Failed to refetch profile after update:', e);
+        } catch {
+          // Refetch failed; keep existing profile
         }
       }
     };

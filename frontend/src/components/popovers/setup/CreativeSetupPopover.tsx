@@ -223,8 +223,7 @@ export function CreativeSetupPopover({
             subscriptionTierId: prev.subscriptionTierId || basicTier.id,
           }));
         }
-      } catch (err) {
-        console.error('Failed to fetch subscription tiers:', err);
+      } catch {
         errorToast('Error', 'Failed to load subscription options');
       } finally {
         setLoadingTiers(false);
@@ -361,8 +360,7 @@ export function CreativeSetupPopover({
         successToast('Creative Setup Saved!', 'Moving to next setup...');
         onClose();
       }
-    } catch (err: any) {
-      console.error('Creative setup error:', err);
+    } catch {
       errorToast('Setup Failed', 'Unable to save creative setup. Please try again.');
     } finally {
       setIsLoading(false);

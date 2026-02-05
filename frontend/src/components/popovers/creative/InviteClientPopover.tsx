@@ -82,8 +82,7 @@ export function InviteClientPopover({ open, onClose }: InviteClientPopoverProps)
       setCopied(true);
       successToast('Copied!', 'Invite link copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy link:', err);
+    } catch {
       errorToast('Copy Failed', 'Failed to copy link to clipboard');
     }
   };

@@ -147,8 +147,7 @@ export function LayoutClient({
         const profile = await userService.getClientProfile();
         setClientProfile(profile);
         cacheProfileForUser(userProfile.user_id, profile);
-      } catch (e) {
-        console.error('[LayoutClient] Failed to load client profile:', e);
+      } catch {
         setClientProfile(demoClientData as unknown as ClientProfile);
       } finally {
         fetchingRef.current.delete(userProfile.user_id);
@@ -168,8 +167,8 @@ export function LayoutClient({
           if (userProfile.user_id) {
             cacheProfileForUser(userProfile.user_id, profile);
           }
-        } catch (e) {
-          console.error('[LayoutClient] Failed to refetch profile after update:', e);
+        } catch {
+          // Refetch failed; keep existing profile
         }
       }
     };

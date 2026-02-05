@@ -151,8 +151,8 @@ export function DownloadOrderDetailPopover({
             }));
             setPreservedFiles(unavailableFiles);
           }
-        } catch (error) {
-          console.error('[DownloadOrderDetailPopover] Failed to fetch files:', error);
+        } catch {
+          // Silently continue - files will show as unavailable
         } finally {
           setIsLoadingFiles(false);
         }
@@ -219,8 +219,7 @@ export function DownloadOrderDetailPopover({
       
       // Open file in new tab for viewing
       window.open(response.signed_url, '_blank');
-    } catch (error) {
-      console.error('Failed to view file:', error);
+    } catch {
       alert(`Failed to view ${file.name}. Please try again.`);
     }
   };
@@ -281,8 +280,7 @@ export function DownloadOrderDetailPopover({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
-    } catch (error) {
-      console.error('Failed to view EZ invoice:', error);
+    } catch {
       alert('Failed to view invoice. Please try again.');
     }
   };
@@ -300,8 +298,7 @@ export function DownloadOrderDetailPopover({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }, 100);
-    } catch (error) {
-      console.error('Failed to download EZ invoice:', error);
+    } catch {
       alert('Failed to download invoice. Please try again.');
     }
   };
@@ -313,8 +310,7 @@ export function DownloadOrderDetailPopover({
         // Open Stripe receipt in new tab
         window.open(response.receipt_url, '_blank');
       }
-    } catch (error) {
-      console.error('Failed to get Stripe receipt:', error);
+    } catch {
       alert('Failed to open Stripe receipt. Please try again.');
     }
   };
@@ -329,8 +325,7 @@ export function DownloadOrderDetailPopover({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
-    } catch (error) {
-      console.error('Failed to view compliance sheet:', error);
+    } catch {
       alert('Failed to view compliance sheet. Please try again.');
     }
   };
@@ -375,8 +370,6 @@ export function DownloadOrderDetailPopover({
       
       // Show warning if some files are unavailable
       if (unavailableFiles.length > 0) {
-        const fileNames = unavailableFiles.map(f => f.file_name).join(', ');
-        console.warn(`Some files are unavailable: ${fileNames}`);
         // Optionally show a non-blocking notification
         if (onDownloadProgress) {
           onDownloadProgress(`Note: ${unavailableFiles.length} file(s) unavailable. Downloading ${availableFiles.length} available file(s)...`);
@@ -418,8 +411,7 @@ export function DownloadOrderDetailPopover({
           if (i < response.files.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 300));
           }
-        } catch (error) {
-          console.error(`Failed to download ${fileInfo.file_name}:`, error);
+        } catch {
           // Continue with other files even if one fails
         }
       }
@@ -439,9 +431,8 @@ export function DownloadOrderDetailPopover({
         if (onOrderStatusChanged) {
           onOrderStatusChanged();
         }
-      } catch (error) {
-        console.error('Failed to mark booking as complete:', error);
-        // Don't show error to user, just log it
+      } catch {
+        // Silently continue - marking complete is non-critical
       }
       
       setTimeout(() => {
@@ -451,8 +442,7 @@ export function DownloadOrderDetailPopover({
         if (onDownloadStateChange) onDownloadStateChange(false);
         if (onDownloadProgress) onDownloadProgress('');
       }, 1000);
-    } catch (error) {
-      console.error('Error downloading all files:', error);
+    } catch {
       alert('Failed to download files. Please try again.');
       setIsDownloading(false);
       setDownloadProgress('');

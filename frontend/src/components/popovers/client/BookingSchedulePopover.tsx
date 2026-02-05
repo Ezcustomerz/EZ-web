@@ -133,8 +133,7 @@ export function BookingSchedulePopover({
       if (calendarData.default_session_length) {
         setSelectedDuration(calendarData.default_session_length);
       }
-    } catch (err) {
-      console.error('Error fetching booking data:', err);
+    } catch {
       setError('Failed to load booking data. Please try again.');
     } finally {
       setIsLoadingData(false);
@@ -166,8 +165,7 @@ export function BookingSchedulePopover({
           return newSet;
         });
       }
-    } catch (err) {
-      console.error('Error fetching time slots:', err);
+    } catch {
       setAvailableTimeSlots([]);
       // Mark as having no slots on error
       const dateString = format(date, 'yyyy-MM-dd');
@@ -193,8 +191,7 @@ export function BookingSchedulePopover({
       
       // Create a date object with the local time
       return new Date(2000, 0, 1, localHour, localMinute);
-    } catch (error) {
-      console.warn('Failed to parse time:', timeStr, error);
+    } catch {
       return new Date('2000-01-01T09:00:00'); // fallback
     }
   };
@@ -230,10 +227,6 @@ export function BookingSchedulePopover({
     return availableTimeSlots.map(slot => {
       const slotTime = parseTime(slot.slot_time);
       const displayTime = format(slotTime, 'h:mm a');
-      
-      // Debug logging
-      const userTimezone = getUserTimezone();
-      console.log(`UTC time: ${slot.slot_time} -> Local time: ${displayTime} (Timezone: ${userTimezone})`);
       
       return {
         id: slot.id,
@@ -302,8 +295,7 @@ export function BookingSchedulePopover({
       setTimeout(() => {
         onClose();
       }, 500);
-    } catch (error) {
-      console.error('Failed to submit booking:', error);
+    } catch {
       setShowProgress(false);
     } finally {
       setIsSubmitting(false);

@@ -90,14 +90,12 @@ export function AuthPopover({ open, onClose, title, subtitle }: AuthPopoverProps
         },
       });
       if (error) {
-        console.error('Google sign-in failed:', error.message);
-        errorToast('Sign In Failed', `Unable to sign in with Google: ${error.message}`);
+        errorToast('Sign In Failed', 'Unable to sign in with Google. Please try again.');
         localStorage.removeItem('justSignedIn'); // Clear flag on error
         localStorage.removeItem('needsRoleRedirect'); // Clear flag on error
         setIsLoading(false);
       }
-    } catch (err) {
-      console.error('Unexpected sign-in error:', err);
+    } catch {
       errorToast('Unexpected Error', 'An unexpected error occurred during sign in');
       localStorage.removeItem('justSignedIn'); // Clear flag on error
       localStorage.removeItem('needsRoleRedirect'); // Clear flag on error

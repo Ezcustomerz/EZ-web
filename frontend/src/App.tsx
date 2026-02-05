@@ -105,8 +105,7 @@ function AppContent() {
         try {
           const profiles = await userService.getUserRoleProfiles();
           setRoleProfiles(profiles);
-        } catch (error) {
-          console.error('Failed to fetch role profiles for role selection:', error);
+        } catch {
           setRoleProfiles(undefined);
         }
       } else {
@@ -302,8 +301,7 @@ function ThemeLoader({ children }: { children: ReactNode }) {
             document.documentElement.style.setProperty(`--${key}`, value);
           });
         })
-        .catch(error => {
-          console.warn('Failed to load custom theme, using default:', error);
+        .catch(() => {
           // Keep using default theme
         });
     };

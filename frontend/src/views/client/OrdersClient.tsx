@@ -151,8 +151,7 @@ export function ClientOrders() {
           setPendingPaymentCount(count);
         }
       })
-      .catch(err => {
-        console.error('Failed to fetch pending payment count:', err);
+      .catch(() => {
         paymentCountCache.data = 0;
         paymentCountCache.resolved = true;
         paymentCountCache.promise = null;

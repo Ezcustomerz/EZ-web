@@ -93,8 +93,8 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
           let profile: CreativeProfile | null = null;
           try {
             profile = await userService.getCreativeProfile();
-          } catch (err) {
-            console.warn('Failed to fetch creative profile:', err);
+          } catch {
+            // Silently continue - profile fetch is optional
           }
 
           setSubscriptionTiers(tiers);
@@ -106,8 +106,7 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
               setCurrentTierLevel(currentTier.tier_level);
             }
           }
-        } catch (err) {
-          console.error('Failed to fetch subscription tiers:', err);
+        } catch {
           errorToast('Error', 'Failed to load subscription tiers');
         } finally {
           setLoadingTiers(false);
@@ -160,9 +159,12 @@ export function SubscriptionTiersPopover({ open, onClose }: SubscriptionTiersPop
       
       // Redirect to Stripe Checkout
       window.location.href = checkout_url;
-    } catch (err: any) {
-      console.error('Failed to start subscription checkout:', err);
-      errorToast('Error', err.response?.data?.detail || 'Failed to start subscription checkout');
+    } catch (err: unknown) {
+      const data = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : 'Failed to start subscription checkout';
+      errorToast('Error', msg);
       setProcessingTierId(null);
     }
   };

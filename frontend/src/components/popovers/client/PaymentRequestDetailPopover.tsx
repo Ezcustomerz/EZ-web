@@ -66,8 +66,7 @@ export function PaymentRequestDetailPopover({
           setInvoices(result.invoices || []);
           setIsLoadingInvoices(false);
         })
-        .catch(err => {
-          console.error('Error fetching invoices:', err);
+        .catch(() => {
           setInvoices([]);
           setIsLoadingInvoices(false);
         });
@@ -139,8 +138,7 @@ export function PaymentRequestDetailPopover({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
-    } catch (error) {
-      console.error('Failed to view EZ invoice:', error);
+    } catch {
       alert('Failed to view invoice. Please try again.');
     }
   };
@@ -159,8 +157,7 @@ export function PaymentRequestDetailPopover({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }, 100);
-    } catch (error) {
-      console.error('Failed to download EZ invoice:', error);
+    } catch {
       alert('Failed to download invoice. Please try again.');
     }
   };
@@ -173,8 +170,7 @@ export function PaymentRequestDetailPopover({
         // Open Stripe receipt in new tab
         window.open(response.receipt_url, '_blank');
       }
-    } catch (error) {
-      console.error('Failed to get Stripe receipt:', error);
+    } catch {
       alert('Failed to open Stripe receipt. Please try again.');
     }
   };

@@ -125,31 +125,23 @@ export function CompletedOrderDetailPopover({
   // Preserve files in local state to prevent them from disappearing after download
   // This ensures files remain visible even if the parent component refreshes
   const [preservedFiles, setPreservedFiles] = useState<CompletedFile[]>(() => {
-    const initialFiles = order?.files && Array.isArray(order.files) && order.files.length > 0 ? order.files : [];
-    console.log('[CompletedOrderDetailPopover] Initial files:', initialFiles, 'from order:', order);
-    return initialFiles;
+    return order?.files && Array.isArray(order.files) && order.files.length > 0 ? order.files : [];
   });
   const [preservedFileCount, setPreservedFileCount] = useState<number | null>(() => {
-    const count = order?.fileCount ?? (order?.files && Array.isArray(order.files) ? order.files.length : null);
-    console.log('[CompletedOrderDetailPopover] Initial fileCount:', count, 'from order:', order);
-    return count;
+    return order?.fileCount ?? (order?.files && Array.isArray(order.files) ? order.files.length : null);
   });
   const [preservedFileSize, setPreservedFileSize] = useState<string | null>(() => {
-    const size = order?.fileSize ?? null;
-    console.log('[CompletedOrderDetailPopover] Initial fileSize:', size, 'from order:', order);
-    return size;
+    return order?.fileSize ?? null;
   });
 
   // Fetch files when popover opens if they're not already present
   useEffect(() => {
     if (open && order && order.id && preservedFiles.length === 0 && (!order.files || order.files.length === 0)) {
-      console.log('[CompletedOrderDetailPopover] Popover opened, fetching files for order:', order.id);
       setIsLoadingFiles(true);
       const fetchFiles = async () => {
         try {
           // Try to get files by calling the download batch endpoint (it will return file info even if download fails)
           const response = await bookingService.downloadDeliverablesBatch(order.id);
-          console.log('[CompletedOrderDetailPopover] Download batch response:', response);
           
           if (response.files && response.files.length > 0) {
             const fetchedFiles: CompletedFile[] = response.files.map(f => ({
@@ -158,7 +150,6 @@ export function CompletedOrderDetailPopover({
               type: 'file', // Default type since API doesn't return it
               size: 'N/A'
             }));
-            console.log('[CompletedOrderDetailPopover] Fetched available files from API:', fetchedFiles);
             setPreservedFiles(fetchedFiles);
             setPreservedFileCount(response.total_files);
             setPreservedFileSize(null);
@@ -170,16 +161,13 @@ export function CompletedOrderDetailPopover({
               type: 'file',
               size: 'N/A'
             }));
-            console.log('[CompletedOrderDetailPopover] Found unavailable files:', unavailableFiles);
             setPreservedFiles(unavailableFiles);
             setPreservedFileCount(response.total_deliverables || response.unavailable_files.length);
             setPreservedFileSize(null);
-          } else if (response.total_deliverables && response.total_deliverables > 0) {
-            // If total_deliverables > 0 but no files returned, files might be missing from storage
-            console.log('[CompletedOrderDetailPopover] Total deliverables:', response.total_deliverables, 'but no files returned');
           }
-        } catch (error) {
-          console.error('[CompletedOrderDetailPopover] Failed to fetch files:', error);
+          // If total_deliverables > 0 but no files returned, files might be missing from storage
+        } catch {
+          // Silently continue - files will show as unavailable
         } finally {
           setIsLoadingFiles(false);
         }
@@ -195,19 +183,8 @@ export function CompletedOrderDetailPopover({
   // This prevents files from disappearing if order.files becomes empty temporarily
   useEffect(() => {
     if (order) {
-      console.log('[CompletedOrderDetailPopover] Order changed:', {
-        orderId: order.id,
-        hasFiles: !!order.files,
-        filesLength: order.files?.length || 0,
-        files: order.files,
-        fileCount: order.fileCount,
-        fileSize: order.fileSize,
-        preservedFilesLength: preservedFiles.length
-      });
-      
       // If order has files, update preserved state
       if (order.files && Array.isArray(order.files) && order.files.length > 0) {
-        console.log('[CompletedOrderDetailPopover] Updating preserved files from order');
         setPreservedFiles(order.files);
         setPreservedFileCount(order.fileCount ?? order.files.length);
         setPreservedFileSize(order.fileSize ?? null);
@@ -296,8 +273,7 @@ export function CompletedOrderDetailPopover({
       
       // Open file in new tab for viewing
       window.open(response.signed_url, '_blank');
-    } catch (error) {
-      console.error('Failed to view file:', error);
+    } catch {
       alert(`Failed to view ${file.name}. Please try again.`);
     }
   };
@@ -399,8 +375,7 @@ export function CompletedOrderDetailPopover({
         if (onDownloadStateChange) onDownloadStateChange(false);
         if (onDownloadProgress) onDownloadProgress('');
       }, 500);
-    } catch (error) {
-      console.error('Download failed:', error);
+    } catch {
       alert(`Failed to download ${file.name}. Please try again.`);
       setIsDownloading(false);
       setDownloadProgress('');
@@ -420,8 +395,7 @@ export function CompletedOrderDetailPopover({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
-    } catch (error) {
-      console.error('Failed to view EZ invoice:', error);
+    } catch {
       alert('Failed to view invoice. Please try again.');
     }
   };
@@ -439,8 +413,7 @@ export function CompletedOrderDetailPopover({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }, 100);
-    } catch (error) {
-      console.error('Failed to download EZ invoice:', error);
+    } catch {
       alert('Failed to download invoice. Please try again.');
     }
   };
@@ -452,8 +425,7 @@ export function CompletedOrderDetailPopover({
         // Open Stripe receipt in new tab
         window.open(response.receipt_url, '_blank');
       }
-    } catch (error) {
-      console.error('Failed to get Stripe receipt:', error);
+    } catch {
       alert('Failed to open Stripe receipt. Please try again.');
     }
   };
@@ -498,8 +470,6 @@ export function CompletedOrderDetailPopover({
       
       // Show warning if some files are unavailable
       if (unavailableFiles.length > 0) {
-        const fileNames = unavailableFiles.map(f => f.file_name).join(', ');
-        console.warn(`Some files are unavailable: ${fileNames}`);
         // Optionally show a non-blocking notification
         if (onDownloadProgress) {
           onDownloadProgress(`Note: ${unavailableFiles.length} file(s) unavailable. Downloading ${availableFiles.length} available file(s)...`);
@@ -541,8 +511,7 @@ export function CompletedOrderDetailPopover({
           if (i < response.files.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 300));
           }
-        } catch (error) {
-          console.error(`Failed to download ${fileInfo.file_name}:`, error);
+        } catch {
           // Continue with other files even if one fails
         }
       }
@@ -557,8 +526,7 @@ export function CompletedOrderDetailPopover({
         if (onDownloadStateChange) onDownloadStateChange(false);
         if (onDownloadProgress) onDownloadProgress('');
       }, 1000);
-    } catch (error) {
-      console.error('Error downloading all files:', error);
+    } catch {
       alert('Failed to download files. Please try again.');
       setIsDownloading(false);
       setDownloadProgress('');
@@ -578,12 +546,8 @@ export function CompletedOrderDetailPopover({
         const response = await bookingService.getCalendarSettings(serviceIdToUse);
         setCalendarSettings(response);
         setBookingPopoverOpen(true);
-      } catch (error: any) {
-        // 404 is expected for services without scheduling - don't treat as error
-        if (error?.status !== 404 && error?.response?.status !== 404) {
-          console.error('Error fetching calendar settings:', error);
-        }
-        // Open booking popover without calendar settings
+      } catch {
+        // 404 is expected for services without scheduling - open popover without calendar settings
         setCalendarSettings(null);
         setBookingPopoverOpen(true);
       }
@@ -600,8 +564,7 @@ export function CompletedOrderDetailPopover({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
-    } catch (error) {
-      console.error('Failed to view compliance sheet:', error);
+    } catch {
       alert('Failed to view compliance sheet. Please try again.');
     }
   };

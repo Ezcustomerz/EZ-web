@@ -178,13 +178,6 @@ export function PendingApprovalPopover({
           : Math.round(price * 0.5 * 100) / 100;
         const remainingAmount = price - depositAmount;
         
-        // Debug logging
-        console.log('[PendingApprovalPopover] Split payment calculation:', {
-          price,
-          splitDepositAmount,
-          depositAmount,
-          remainingAmount
-        });
         return {
           depositAmount,
           remainingAmount,
@@ -224,7 +217,6 @@ export function PendingApprovalPopover({
       const date = new Date(bookingDateStr);
       // Check if date is valid
       if (isNaN(date.getTime())) {
-        console.warn('Invalid booking date string:', bookingDateStr);
         return 'Not scheduled';
       }
       
@@ -239,8 +231,7 @@ export function PendingApprovalPopover({
         hour12: true,
         timeZone: userTimezone
       });
-    } catch (error) {
-      console.warn('Error formatting booking date:', bookingDateStr, error);
+    } catch {
       return 'Not scheduled';
     }
   };

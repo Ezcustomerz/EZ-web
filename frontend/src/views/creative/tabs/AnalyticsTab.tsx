@@ -95,11 +95,11 @@ export function AnalyticsTab() {
               setIsTopTier(true);
             }
           }
-        } catch (err) {
-          console.warn('Failed to check tier level:', err);
+        } catch {
+          // Tier check failed; leave isTopTier as false
         }
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
+      } catch {
+        // Analytics fetch failed; loading state cleared below
       } finally {
         setLoading(false);
       }
@@ -146,7 +146,6 @@ export function AnalyticsTab() {
         errorToast('Failed to get login URL', 'Unable to access your Stripe dashboard. Please try again.');
       }
     } catch (error: any) {
-      console.error('Failed to create login link:', error);
       const errorMessage = error.response?.data?.detail || 'Failed to open Stripe dashboard';
       errorToast('Error', errorMessage);
     } finally {

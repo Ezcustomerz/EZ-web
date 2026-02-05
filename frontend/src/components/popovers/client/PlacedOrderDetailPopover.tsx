@@ -213,9 +213,11 @@ export function PlacedOrderDetailPopover({
       
       // Close the popover
       onClose();
-    } catch (error: any) {
-      console.error('Failed to cancel order:', error);
-      const errorMessage = error.response?.data?.detail || error.message || 'An unexpected error occurred. Please try again.';
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'An unexpected error occurred. Please try again.';
       errorToast('Cancel Failed', errorMessage);
     } finally {
       setIsCanceling(false);

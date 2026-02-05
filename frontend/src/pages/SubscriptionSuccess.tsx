@@ -35,7 +35,6 @@ export function SubscriptionSuccess() {
           errorToast('Error', result.message || 'Failed to verify subscription');
         }
       } catch (err: any) {
-        console.error('Error verifying subscription:', err);
         const errorMessage = err.response?.data?.detail || 'Failed to verify subscription';
         setError(errorMessage);
         errorToast('Error', errorMessage);

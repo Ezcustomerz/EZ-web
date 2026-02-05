@@ -91,11 +91,6 @@ export function BundleDetailPopover({
   const [selectedService, setSelectedService] = useState<ServiceDetail | null>(null);
 
   const handleServiceClick = (service: any) => {
-    // Debug: Log the service photos
-    console.log('Bundle service photos:', service.photos);
-    console.log('Bundle service data:', service);
-    console.log('Bundle data:', bundle);
-    
     // Convert bundle service to service detail format
     const serviceDetail: ServiceDetail = {
       id: service.id,
@@ -113,7 +108,6 @@ export function BundleDetailPopover({
       photos: service.photos || [],
     };
     
-    console.log('ServiceDetail photos:', serviceDetail.photos);
     setSelectedService(serviceDetail);
     setServiceDetailOpen(true);
   };

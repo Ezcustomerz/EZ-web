@@ -66,7 +66,6 @@ export function ActivityCreative() {
   useEffect(() => {
     const urlOrderId = searchParams.get('orderId');
     if (urlOrderId && urlOrderId !== orderIdToOpen) {
-      console.log(`[ActivityCreative] Reading orderId from URL: ${urlOrderId}`);
       setOrderIdToOpen(urlOrderId);
       // Remove the query parameter from URL after reading it (clean up URL)
       // Use a small delay to ensure the orderId is set before cleaning URL
@@ -98,7 +97,6 @@ export function ActivityCreative() {
       hasTriedOtherTabRef.current = orderIdToOpen;
       // Switch to the other tab
       const otherTab = activeTab === 0 ? 1 : 0;
-      console.log(`[ActivityCreative] Order ${orderIdToOpen} not found in tab ${activeTab}, switching to tab ${otherTab}`);
       setActiveTab(otherTab);
       localStorage.setItem('activity-active-tab', String(otherTab));
       // Reset the ref after a delay to allow the new tab to load and search

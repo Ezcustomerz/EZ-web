@@ -14,13 +14,11 @@ export function AuthCallback() {
   useEffect(() => {
     // Prevent multiple redirects
     if (hasRedirected.current) {
-      console.log('[AuthCallback] Already redirected, skipping');
       return;
     }
 
     // Ensure we have the latest user profile
     if (isAuthenticated && !userProfile) {
-      console.log('[AuthCallback] Fetching user profile...');
       fetchUserProfile(true);
       return;
     }
@@ -28,10 +26,7 @@ export function AuthCallback() {
     const handleRedirect = () => {
       // Check if we need role-based redirection
       const needsRoleRedirect = localStorage.getItem('needsRoleRedirect');
-      console.log('[AuthCallback] needsRoleRedirect:', needsRoleRedirect);
-      console.log('[AuthCallback] userProfile:', userProfile);
-      console.log('[AuthCallback] isAuthenticated:', isAuthenticated);
-      
+
       // Only proceed if we have the redirect flag AND user profile AND authentication
       if (needsRoleRedirect && userProfile && isAuthenticated) {
         // Mark that we're redirecting to prevent multiple redirects
@@ -40,35 +35,26 @@ export function AuthCallback() {
         
         // Determine redirect URL based on user roles
         const userRoles = userProfile.roles || [];
-        console.log('[AuthCallback] User roles:', userRoles);
-        
+
         if (userRoles.includes('creative')) {
-          console.log('[AuthCallback] Redirecting to creative');
           localStorage.removeItem('needsRoleRedirect');
           navigate('/creative', { replace: true });
         } else if (userRoles.includes('client')) {
-          console.log('[AuthCallback] Redirecting to client');
           localStorage.removeItem('needsRoleRedirect');
           navigate('/client', { replace: true });
         } else if (userRoles.includes('advocate')) {
-          console.log('[AuthCallback] Redirecting to advocate');
           localStorage.removeItem('needsRoleRedirect');
           navigate('/advocate', { replace: true });
         } else {
           // New user or no roles - redirect to creative (default)
-          console.log('[AuthCallback] No roles found, redirecting to creative (default)');
           localStorage.removeItem('needsRoleRedirect');
           navigate('/creative', { replace: true });
         }
       } else if (needsRoleRedirect && (!userProfile || !isAuthenticated)) {
         // User profile not loaded yet or not authenticated, wait a bit and try again
-        console.log('[AuthCallback] Profile not loaded or not authenticated yet, retrying...');
         setTimeout(handleRedirect, 1000);
       } else if (!needsRoleRedirect) {
-        // No role redirect needed, but don't redirect to creative automatically
-        // This might be a page refresh or direct navigation
-        console.log('[AuthCallback] No role redirect needed, staying on callback page');
-        // Don't redirect anywhere - let the app handle it naturally
+        // No role redirect needed - let the app handle it naturally
       }
     };
 

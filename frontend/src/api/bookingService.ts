@@ -129,7 +129,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping client orders fetch');
       return [];
     }
 
@@ -137,7 +136,6 @@ class BookingService {
       const response = await apiClient.get(`${this.bookingsUrl}/client`);
       return response.data.orders || [];
     } catch (error: any) {
-      console.error('Error fetching client orders:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -150,7 +148,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping client in-progress orders fetch');
       return [];
     }
 
@@ -158,7 +155,6 @@ class BookingService {
       const response = await apiClient.get(`${this.bookingsUrl}/client/in-progress`);
       return response.data.orders || [];
     } catch (error: any) {
-      console.error('Error fetching client in-progress orders:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -171,7 +167,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping client action-needed orders fetch');
       return [];
     }
 
@@ -179,7 +174,6 @@ class BookingService {
       const response = await apiClient.get(`${this.bookingsUrl}/client/action-needed`);
       return response.data.orders || [];
     } catch (error: any) {
-      console.error('Error fetching client action-needed orders:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -192,7 +186,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping client history orders fetch');
       return [];
     }
 
@@ -200,7 +193,6 @@ class BookingService {
       const response = await apiClient.get(`${this.bookingsUrl}/client/history`);
       return response.data.orders || [];
     } catch (error: any) {
-      console.error('Error fetching client history orders:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -213,7 +205,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping client upcoming bookings fetch');
       return [];
     }
 
@@ -221,7 +212,6 @@ class BookingService {
       const response = await apiClient.get(`${this.bookingsUrl}/client/upcoming`);
       return response.data.orders || [];
     } catch (error: any) {
-      console.error('Error fetching client upcoming bookings:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -239,7 +229,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping current orders fetch');
       return [];
     }
 
@@ -247,7 +236,6 @@ class BookingService {
       const response = await apiClient.get(`${this.bookingsUrl}/creative/current`);
       return response.data.orders || [];
     } catch (error: any) {
-      console.error('Error fetching current orders:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -260,7 +248,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping past orders fetch');
       return [];
     }
 
@@ -268,7 +255,6 @@ class BookingService {
       const response = await apiClient.get(`${this.bookingsUrl}/creative/past`);
       return response.data.orders || [];
     } catch (error: any) {
-      console.error('Error fetching past orders:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -281,7 +267,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping calendar sessions fetch');
       return [];
     }
 
@@ -291,7 +276,6 @@ class BookingService {
       });
       return response.data.sessions || [];
     } catch (error: any) {
-      console.error('Error fetching calendar sessions:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -304,7 +288,6 @@ class BookingService {
     // Check authentication before making API call
     const { data } = await supabase.auth.getSession();
     if (!data.session?.access_token) {
-      console.log('User not authenticated, skipping calendar sessions fetch');
       return [];
     }
 
@@ -314,7 +297,6 @@ class BookingService {
       });
       return response.data.sessions || [];
     } catch (error: any) {
-      console.error('Error fetching calendar sessions for week:', error);
       if (error.response?.status === 401) {
         // User is no longer authenticated, return empty array
         return [];
@@ -383,7 +365,7 @@ class BookingService {
     // Refresh the session to get a new token if needed
     const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
     if (refreshError) {
-      console.warn('Session refresh failed, continuing with current session:', refreshError);
+      // Continue with current session
     }
     
     // Step 1: Get upload paths from backend (with permission validation)
@@ -495,7 +477,6 @@ class BookingService {
         
         // If token expired, try refreshing and retry once
         if (error.message.includes('exp') || error.message.includes('timestamp')) {
-          console.log('Token expired during upload, refreshing and retrying...');
           await supabase.auth.refreshSession();
           
           // Retry the upload with fresh token
@@ -508,10 +489,10 @@ class BookingService {
             });
           
           if (retryError) {
-            throw new Error(`Upload failed for ${file.name}: ${retryError.message}`);
+            throw new Error(`Upload failed for ${file.name}. Please try again.`);
           }
         } else {
-          throw new Error(`Upload failed for ${file.name}: ${error.message}`);
+          throw new Error(`Upload failed for ${file.name}. Please try again.`);
         }
       }
       

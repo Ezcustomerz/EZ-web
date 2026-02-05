@@ -17,6 +17,7 @@ import type { CalendarSession } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
 import { AuthPopover } from '../../../components/popovers/auth/AuthPopover';
 import { ComingSoonDialog } from '../../../components/dialogs/ComingSoonDialog';
+import { errorToast } from '../../../components/toast/toast';
 
 type Session = CalendarSession;
 
@@ -79,8 +80,8 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
           const fetchedSessions = await bookingService.getCreativeCalendarSessions(year, month);
           setSessions(fetchedSessions);
         }
-      } catch (error) {
-        console.error('Error fetching calendar sessions:', error);
+      } catch {
+        errorToast('Unable to load calendar', 'Sessions could not be loaded. Please try again.');
         setSessions([]);
       } finally {
         setIsLoadingSessions(false);

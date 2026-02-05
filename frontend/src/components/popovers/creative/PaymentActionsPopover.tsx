@@ -105,9 +105,8 @@ export function PaymentActionsPopover({
             setIsLoadingRequests(false);
           }
         })
-        .catch(err => {
+        .catch(() => {
           if (mountedRef.current) {
-            console.error('Error fetching payment requests:', err);
             setPaymentRequests([]);
             setIsLoadingRequests(false);
           }
@@ -139,8 +138,7 @@ export function PaymentActionsPopover({
           setIsLoadingRequests(false);
         }
       })
-      .catch(err => {
-        console.error('Error fetching payment requests:', err);
+      .catch(() => {
         paymentRequestsCache.data = [];
         paymentRequestsCache.resolved = true;
         paymentRequestsCache.promise = null;
@@ -198,8 +196,7 @@ export function PaymentActionsPopover({
             setIsLoadingRequests(false);
           }
         })
-        .catch(err => {
-          console.error('Error fetching payment requests:', err);
+        .catch(() => {
           paymentRequestsCache.data = [];
           paymentRequestsCache.resolved = true;
           paymentRequestsCache.promise = null;
