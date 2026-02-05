@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from services.invoice.invoice_service import InvoiceService
 from db.db_session import db_admin
+from core.safe_errors import is_dev_env
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -36,16 +37,19 @@ class EmailService:
         # In all other environments, use test mode to prevent sending to real users
         if env == "prod" or env == "production":
             self.is_test_mode = False
-            logger.info("Email service: PRODUCTION mode - emails will be sent to actual recipients")
+            if is_dev_env():
+                logger.info("Email service: PRODUCTION mode - emails will be sent to actual recipients")
         else:
             self.is_test_mode = True
-            logger.info("Email service: TEST mode - emails will be redirected to test address")
+            if is_dev_env():
+                logger.info("Email service: TEST mode - emails will be redirected to test address")
         
         # Load logo file path for embedding in emails
         self.logo_path = self._find_logo_path()
         
         if not resend.api_key:
-            logger.warning("RESEND_API_KEY not configured - emails will not be sent")
+            if is_dev_env():
+                logger.warning("RESEND_API_KEY not configured - emails will not be sent")
     
     def _find_logo_path(self) -> Optional[str]:
         """Find the EZ-web logo file path"""
@@ -66,13 +70,16 @@ class EmailService:
                 # Resolve the path properly
                 resolved_path = os.path.abspath(logo_path)
                 if os.path.exists(resolved_path):
-                    logger.info(f"Found logo at: {resolved_path}")
+                    if is_dev_env():
+                        logger.info(f"Found logo at: {resolved_path}")
                     return resolved_path
             
-            logger.warning("Logo file not found - emails will be sent without logo")
+            if is_dev_env():
+                logger.warning("Logo file not found - emails will be sent without logo")
             return None
         except Exception as e:
-            logger.warning(f"Failed to find logo: {str(e)} - emails will be sent without logo")
+            if is_dev_env():
+                logger.warning(f"Failed to find logo: {str(e)} - emails will be sent without logo")
             return None
     
     async def send_welcome_email(
@@ -93,7 +100,8 @@ class EmailService:
             True if email was sent successfully, False otherwise
         """
         if not resend.api_key:
-            logger.warning(f"Skipping welcome email to {to_email} - RESEND_API_KEY not configured")
+            if is_dev_env():
+                logger.warning(f"Skipping welcome email to {to_email} - RESEND_API_KEY not configured")
             return False
         
         try:
@@ -205,17 +213,20 @@ class EmailService:
                             "content_type": "image/png"
                         }]
                 except Exception as e:
-                    logger.warning(f"Failed to attach logo: {str(e)}")
+                    if is_dev_env():
+                        logger.warning(f"Failed to attach logo: {str(e)}")
             
             response = resend.Emails.send(params)
-            if self.is_test_mode and self.test_email and actual_recipient != to_email:
-                logger.info(f"Welcome email sent to TEST EMAIL ({actual_recipient}) - originally intended for {to_email}. Email ID: {response.get('id')}")
-            else:
-                logger.info(f"Welcome email sent successfully to {to_email}. Email ID: {response.get('id')}")
+            if is_dev_env():
+                if self.is_test_mode and self.test_email and actual_recipient != to_email:
+                    logger.info(f"Welcome email sent to TEST EMAIL ({actual_recipient}) - originally intended for {to_email}. Email ID: {response.get('id')}")
+                else:
+                    logger.info(f"Welcome email sent successfully to {to_email}. Email ID: {response.get('id')}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to send welcome email to {to_email}: {str(e)}")
+            if is_dev_env():
+                logger.error(f"Failed to send welcome email to {to_email}: {str(e)}")
             # Don't raise exception - we don't want to fail user creation if email fails
             return False
     
@@ -281,7 +292,8 @@ class EmailService:
             True if email was sent successfully, False otherwise
         """
         if not resend.api_key:
-            logger.warning(f"Skipping booking confirmation email to {to_email} - RESEND_API_KEY not configured")
+            if is_dev_env():
+                logger.warning(f"Skipping booking confirmation email to {to_email} - RESEND_API_KEY not configured")
             return False
         
         try:
@@ -397,17 +409,20 @@ class EmailService:
                             "content_type": "image/png"
                         }]
                 except Exception as e:
-                    logger.warning(f"Failed to attach logo: {str(e)}")
+                    if is_dev_env():
+                        logger.warning(f"Failed to attach logo: {str(e)}")
             
             response = resend.Emails.send(params)
-            if self.is_test_mode and self.test_email and actual_recipient != to_email:
-                logger.info(f"Booking confirmation email sent to TEST EMAIL ({actual_recipient}) - originally intended for {to_email}. Email ID: {response.get('id')}")
-            else:
-                logger.info(f"Booking confirmation email sent to {to_email}. Email ID: {response.get('id')}")
+            if is_dev_env():
+                if self.is_test_mode and self.test_email and actual_recipient != to_email:
+                    logger.info(f"Booking confirmation email sent to TEST EMAIL ({actual_recipient}) - originally intended for {to_email}. Email ID: {response.get('id')}")
+                else:
+                    logger.info(f"Booking confirmation email sent to {to_email}. Email ID: {response.get('id')}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to send booking confirmation email to {to_email}: {str(e)}")
+            if is_dev_env():
+                logger.error(f"Failed to send booking confirmation email to {to_email}: {str(e)}")
             return False
 
 
@@ -434,7 +449,8 @@ class EmailService:
                 .execute()
             
             if not booking_result.data:
-                logger.warning(f"Booking {booking_id} not found for invoice generation")
+                if is_dev_env():
+                    logger.warning(f"Booking {booking_id} not found for invoice generation")
                 return attachments
             
             booking = booking_result.data
@@ -444,7 +460,8 @@ class EmailService:
                 client_status = booking.get('client_status', '').lower()
                 allowed_statuses = ['canceled', 'cancelled', 'completed', 'download']
                 if client_status not in allowed_statuses:
-                    logger.info(f"[_fetch_booking_invoices] Status '{client_status}' not in allowed statuses {allowed_statuses}, returning empty list")
+                    if is_dev_env():
+                        logger.info(f"[_fetch_booking_invoices] Status '{client_status}' not in allowed statuses {allowed_statuses}, returning empty list")
                     return attachments
             
             # Get service information
@@ -524,9 +541,11 @@ class EmailService:
                     'content': invoice_base64,
                     'content_type': 'application/pdf'
                 })
-                logger.info(f"Generated EZ invoice PDF for booking {booking_id}")
+                if is_dev_env():
+                    logger.info(f"Generated EZ invoice PDF for booking {booking_id}")
             except Exception as e:
-                logger.error(f"Failed to generate EZ invoice PDF for booking {booking_id}: {e}")
+                if is_dev_env():
+                    logger.error(f"Failed to generate EZ invoice PDF for booking {booking_id}: {e}")
             
             # Get Stripe receipts
             try:
@@ -571,7 +590,8 @@ class EmailService:
                                         'content': receipt_base64,
                                         'content_type': 'application/pdf'
                                     })
-                                    logger.info(f"Attached Stripe receipt {idx} for booking {booking_id}")
+                                    if is_dev_env():
+                                        logger.info(f"Attached Stripe receipt {idx} for booking {booking_id}")
                     elif len(booking_sessions) >= 1:
                         # Single payment: 1 Stripe receipt
                         receipt_url = await self._get_stripe_receipt_url(booking_sessions[0].id, stripe_account_id)
@@ -584,12 +604,15 @@ class EmailService:
                                     'content': receipt_base64,
                                     'content_type': 'application/pdf'
                                 })
-                                logger.info(f"Attached Stripe receipt for booking {booking_id}")
+                                if is_dev_env():
+                                    logger.info(f"Attached Stripe receipt for booking {booking_id}")
             except Exception as e:
-                logger.warning(f"Could not retrieve Stripe receipts for booking {booking_id}: {e}")
+                if is_dev_env():
+                    logger.warning(f"Could not retrieve Stripe receipts for booking {booking_id}: {e}")
         
         except Exception as e:
-            logger.error(f"Error fetching invoices for booking {booking_id}: {e}")
+            if is_dev_env():
+                logger.error(f"Error fetching invoices for booking {booking_id}: {e}")
         
         return attachments
     
@@ -635,7 +658,8 @@ class EmailService:
                 return f"https://pay.stripe.com/receipts/{charge_id}"
         
         except Exception as e:
-            logger.error(f"Error getting Stripe receipt URL: {e}")
+            if is_dev_env():
+                logger.error(f"Error getting Stripe receipt URL: {e}")
             return None
     
     async def _download_stripe_receipt(self, receipt_url: str) -> Optional[bytes]:
@@ -651,10 +675,12 @@ class EmailService:
                     return response.content
                 else:
                     # If PDF not available, try to get HTML and convert (simplified - just return None for now)
-                    logger.warning(f"Stripe receipt PDF not available at {pdf_url}, status: {response.status_code}")
+                    if is_dev_env():
+                        logger.warning(f"Stripe receipt PDF not available at {pdf_url}, status: {response.status_code}")
                     return None
         except Exception as e:
-            logger.warning(f"Could not download Stripe receipt from {receipt_url}: {e}")
+            if is_dev_env():
+                logger.warning(f"Could not download Stripe receipt from {receipt_url}: {e}")
             return None
     
     def _generate_deep_link(self, notification_type: str, recipient_role: str, booking_id: Optional[str] = None, payment_request_id: Optional[str] = None) -> str:
@@ -717,7 +743,8 @@ class EmailService:
             True if email was sent successfully, False otherwise
         """
         if not resend.api_key:
-            logger.warning(f"Skipping notification email to {to_email} - RESEND_API_KEY not configured")
+            if is_dev_env():
+                logger.warning(f"Skipping notification email to {to_email} - RESEND_API_KEY not configured")
             return False
         
         try:
@@ -752,9 +779,11 @@ class EmailService:
             if notification_type == 'payment_received' and booking_id:
                 try:
                     pdf_attachments = await self._fetch_booking_invoices(booking_id, db_admin, allow_any_status=True)
-                    logger.info(f"Fetched {len(pdf_attachments)} PDF attachments for booking {booking_id}")
+                    if is_dev_env():
+                        logger.info(f"Fetched {len(pdf_attachments)} PDF attachments for booking {booking_id}")
                 except Exception as e:
-                    logger.error(f"Failed to fetch invoice PDFs for booking {booking_id}: {e}")
+                    if is_dev_env():
+                        logger.error(f"Failed to fetch invoice PDFs for booking {booking_id}: {e}")
             
             # Enhanced email template for payment_received notifications
             if notification_type == 'payment_received':
@@ -985,7 +1014,8 @@ class EmailService:
                             "content_type": "image/png"
                         })
                 except Exception as e:
-                    logger.warning(f"Failed to attach logo: {str(e)}")
+                    if is_dev_env():
+                        logger.warning(f"Failed to attach logo: {str(e)}")
             
             # Add PDF attachments for payment_received notifications
             if pdf_attachments:
@@ -1000,14 +1030,16 @@ class EmailService:
                 params["attachments"] = attachments_list
             
             response = resend.Emails.send(params)
-            if self.is_test_mode and self.test_email and actual_recipient != to_email:
-                logger.info(f"Notification email sent to TEST EMAIL ({actual_recipient}) - originally intended for {to_email}. Email ID: {response.get('id')}")
-            else:
-                logger.info(f"Notification email sent successfully to {to_email}. Email ID: {response.get('id')}")
+            if is_dev_env():
+                if self.is_test_mode and self.test_email and actual_recipient != to_email:
+                    logger.info(f"Notification email sent to TEST EMAIL ({actual_recipient}) - originally intended for {to_email}. Email ID: {response.get('id')}")
+                else:
+                    logger.info(f"Notification email sent successfully to {to_email}. Email ID: {response.get('id')}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to send notification email to {to_email}: {str(e)}")
+            if is_dev_env():
+                logger.error(f"Failed to send notification email to {to_email}: {str(e)}")
             return False
     
     def _get_notification_style(self, notification_type: str) -> dict:

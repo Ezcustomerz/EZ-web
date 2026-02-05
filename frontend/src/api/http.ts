@@ -78,13 +78,17 @@ import axios, {
         }
         // If no status code, it's likely a network error - don't show toast as it might be temporary
 
-        return Promise.reject({
-          ...error.response,
-          data: {
-            ...error.response?.data,
-            error: error.message,
-          },
-        });
+        // Reject with minimal payload to avoid leaking sensitive response data (no config/headers)
+        const detail = error.response?.data?.detail;
+        const safeMessage = typeof detail === 'string' ? detail : 'An error occurred';
+        return Promise.reject(
+          Object.assign(new Error(safeMessage), {
+            response: {
+              status: error.response?.status,
+              data: { detail: safeMessage },
+            },
+          })
+        );
       }
     );
   

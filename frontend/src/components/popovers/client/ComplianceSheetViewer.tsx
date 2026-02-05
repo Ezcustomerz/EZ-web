@@ -55,8 +55,7 @@ export function ComplianceSheetViewer({
       const blob = await onDownloadComplianceSheet(bookingId);
       const url = window.URL.createObjectURL(blob);
       setPdfUrl(url);
-    } catch (err) {
-      console.error('Failed to load compliance sheet:', err);
+    } catch {
       setError('Failed to load compliance sheet. Please try again.');
     } finally {
       setLoading(false);

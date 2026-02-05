@@ -90,18 +90,6 @@ export function PaymentApprovalOrderCard({
         ? Math.round(remainingAmount * 100) / 100
         : (calculatedDeposit > 0 ? Math.round((price - calculatedDeposit) * 100) / 100 : price);
       
-      // Debug log
-      console.log('[PaymentApprovalOrderCard] Split payment calculation:', {
-        id,
-        serviceName,
-        price,
-        depositAmount,
-        calculatedDeposit,
-        remainingAmount,
-        calculatedRemaining,
-        amountPaid
-      });
-      
       // Ensure amountPaid is a number
       const paidAmount = typeof amountPaid === 'number' ? amountPaid : (parseFloat(String(amountPaid || 0)) || 0);
       
@@ -494,8 +482,7 @@ export function PaymentApprovalOrderCard({
       open={popoverOpen}
       onClose={handlePopoverClose}
       order={orderDetail}
-      onPay={(orderId, amount) => {
-        console.log('Processing payment:', orderId, amount);
+      onPay={() => {
         // TODO: Integrate with actual payment processing
         handlePopoverClose();
       }}

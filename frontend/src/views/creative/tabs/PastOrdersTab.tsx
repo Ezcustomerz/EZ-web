@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { bookingService, type Order } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
 import { useTheme, useMediaQuery } from '@mui/material';
+import { errorToast } from '../../../components/toast/toast';
 
 // Module-level cache to prevent duplicate fetches across remounts
 let fetchCache: {
@@ -98,7 +99,6 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
         // Check if we're looking for an order in Past Orders
         if (orderIdToOpen && transformedOrders.some(order => order.id === orderIdToOpen)) {
           // Order found in Past Orders - it will be opened by PastOrdersTable
-          console.log(`[PastOrdersTab] Order ${orderIdToOpen} found in Past Orders`);
         }
       }
       return;
@@ -112,9 +112,9 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
         const transformedOrders = transformOrders(fetchedOrders);
         setOrders(transformedOrders);
         setLoading(false);
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Failed to fetch orders:', error);
+        errorToast('Unable to load orders', 'Orders could not be loaded. Please try again.');
         setLoading(false);
       });
       return;
@@ -142,12 +142,6 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
             setTimeout(() => {
               if (mountedRef.current && hasCheckedForOrderRef.current !== orderIdToOpen) {
                 hasCheckedForOrderRef.current = orderIdToOpen;
-                const orderFound = transformedOrders.some(order => order.id === orderIdToOpen);
-                if (orderFound) {
-                  console.log(`[PastOrdersTab] Order ${orderIdToOpen} found in Past Orders`);
-                } else {
-                  console.log(`[PastOrdersTab] Order ${orderIdToOpen} not found in Past Orders`);
-                }
               }
             }, 100);
           }
@@ -168,7 +162,7 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
         }, CACHE_DURATION);
         return fetchedOrders;
       } catch (error) {
-        console.error('Failed to fetch orders:', error);
+        errorToast('Unable to load orders', 'Orders could not be loaded. Please try again.');
         if (mountedRef.current) {
           setLoading(false);
         }
@@ -195,7 +189,6 @@ export function PastOrdersTab({ orderIdToOpen, onOrderOpened }: { orderIdToOpen?
     if (orderIdToOpen && orders.length > 0 && hasCheckedForOrderRef.current !== orderIdToOpen) {
       const orderFound = orders.some(order => order.id === orderIdToOpen);
       if (orderFound) {
-        console.log(`[PastOrdersTab] Order ${orderIdToOpen} found in Past Orders via useEffect`);
         hasCheckedForOrderRef.current = orderIdToOpen;
       }
     }

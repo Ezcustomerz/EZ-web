@@ -144,8 +144,8 @@ export function LockedOrderDetailPopover({
             }));
             setPreservedFiles(unavailableFiles);
           }
-        } catch (error) {
-          console.error('[LockedOrderDetailPopover] Failed to fetch files:', error);
+        } catch {
+          // Silently continue - files will show as unavailable
         } finally {
           setIsLoadingFiles(false);
         }

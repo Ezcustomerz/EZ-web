@@ -157,7 +157,7 @@ export function ServiceCardSection({ services, arrowPosition, showSeeAll, onSeeA
             variant="outlined"
             size="small"
             startIcon={<EditOutlinedIcon />}
-            onClick={() => {console.log('Edit profile clicked')}}
+            onClick={() => {}}
             sx={{
               borderColor: theme.palette.info.main,
               color: theme.palette.info.main,

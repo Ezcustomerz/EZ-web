@@ -230,10 +230,8 @@ export function PastOrdersTable({
     // Only search once per orderIdToOpen
     if (orderIdToOpen && orders.length > 0 && !popoverOpen && !completePopoverOpen && hasSearchedForOrderRef.current !== orderIdToOpen) {
       hasSearchedForOrderRef.current = orderIdToOpen;
-      console.log(`[PastOrdersTable] Searching for order ${orderIdToOpen} in ${orders.length} orders`);
       const orderToOpen = orders.find(order => order.id === orderIdToOpen);
       if (orderToOpen) {
-        console.log(`[PastOrdersTable] Found order ${orderIdToOpen} with status: ${orderToOpen.status}`);
         // Handle Canceled/Rejected orders
         if (orderToOpen.status === 'Canceled' || orderToOpen.status === 'Rejected') {
           const cancelledOrder: CancelledOrder = {

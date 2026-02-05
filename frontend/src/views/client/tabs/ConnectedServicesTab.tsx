@@ -152,7 +152,6 @@ export function ConnectedServicesTab() {
 
       // Check cache first
       if (cacheRef.current && (Date.now() - cacheRef.current.timestamp) < CACHE_DURATION) {
-        console.log('Using cached connected services data');
         setServices(cacheRef.current.data);
         setLoading(false);
         fetchingRef.current = false;
@@ -163,9 +162,6 @@ export function ConnectedServicesTab() {
         setLoading(true);
         const response = await userService.getClientConnectedServicesAndBundles();
         
-        console.log('Connected services data:', response.services);
-        console.log('Connected bundles data:', response.bundles);
-        
         // Cache the response
         cacheRef.current = {
           data: response.services,
@@ -174,9 +170,7 @@ export function ConnectedServicesTab() {
         
         setServices(response.services);
         setBundles(response.bundles);
-      } catch (error) {
-        console.error('Failed to fetch connected services and bundles:', error);
-        // Show error toast
+      } catch {
         errorToast('Failed to load connected services. Please try again.');
         // Fallback to empty array
         setServices([]);
@@ -206,11 +200,6 @@ export function ConnectedServicesTab() {
           payment_option: service.payment_option,
           split_deposit_amount: service.split_deposit_amount
         };
-        console.log('URL param service - setting serviceToBook:', {
-          id: serviceWithCreative.id,
-          payment_option: serviceWithCreative.payment_option,
-          split_deposit_amount: serviceWithCreative.split_deposit_amount
-        });
         setServiceToBook(serviceWithCreative as any);
         setBookingOpen(true);
         // Remove serviceId from URL to clean it up
@@ -240,7 +229,6 @@ export function ConnectedServicesTab() {
 
       // Check cache first
       if (creativesCacheRef.current && (Date.now() - creativesCacheRef.current.timestamp) < CACHE_DURATION) {
-        console.log('Using cached connected creatives data');
         setCreatives(creativesCacheRef.current.data);
         creativesFetchingRef.current = false;
         return;
@@ -249,8 +237,6 @@ export function ConnectedServicesTab() {
       try {
         const response = await userService.getClientCreatives();
         
-        console.log('Connected creatives data:', response.creatives);
-        
         // Cache the response
         creativesCacheRef.current = {
           data: response.creatives,
@@ -258,8 +244,8 @@ export function ConnectedServicesTab() {
         };
         
         setCreatives(response.creatives);
-      } catch (error) {
-        console.error('Failed to fetch connected creatives:', error);
+      } catch {
+        errorToast('Failed to load creatives. Please try again.');
         setCreatives([]);
       } finally {
         creativesFetchingRef.current = false;
@@ -363,11 +349,6 @@ export function ConnectedServicesTab() {
         payment_option: service.payment_option,
         split_deposit_amount: service.split_deposit_amount
       };
-      console.log('handleServiceClick - service with creative:', {
-        id: serviceWithCreative.id,
-        payment_option: serviceWithCreative.payment_option,
-        split_deposit_amount: serviceWithCreative.split_deposit_amount
-      });
       setSelectedService(serviceWithCreative as any);
       setServiceDetailOpen(true);
     }
@@ -410,20 +391,11 @@ export function ConnectedServicesTab() {
         payment_option: serviceToUse.payment_option,
         split_deposit_amount: serviceToUse.split_deposit_amount
       };
-      console.log('Setting serviceToBook with fields:', {
-        id: serviceWithAllFields.id,
-        payment_option: serviceWithAllFields.payment_option,
-        split_deposit_amount: serviceWithAllFields.split_deposit_amount,
-        price: serviceWithAllFields.price,
-        fullService: serviceWithAllFields
-      });
       setServiceToBook(serviceWithAllFields);
       setBookingOpen(true);
       // Close the service detail popover
       setServiceDetailOpen(false);
       setSelectedService(null);
-    } else {
-      console.error('handleBookService called but no service provided');
     }
   };
 
@@ -432,8 +404,7 @@ export function ConnectedServicesTab() {
     setServiceToBook(null);
   };
 
-  const handleConfirmBooking = async (bookingData: { serviceId: string }) => {
-    console.log('Confirming booking for service:', bookingData.serviceId);
+  const handleConfirmBooking = async (_bookingData: { serviceId: string }) => {
     // TODO: Implement actual booking API call
     // For now, just close the popover
     handleBookingClose();
@@ -1117,7 +1088,7 @@ export function ConnectedServicesTab() {
         onClose={handleBundleDetailClose}
         bundle={selectedBundle}
         context="client-connected"
-        onBook={() => console.log('Booking bundle:', selectedBundle?.id)}
+        onBook={() => {}}
       />
 
       {/* Booking Service Popover */}

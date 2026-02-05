@@ -3,6 +3,7 @@ import os
 import logging
 from typing import Tuple, Optional, Dict
 from fastapi import UploadFile
+from core.safe_errors import is_dev_env
 
 logger = logging.getLogger(__name__)
 
@@ -22,23 +23,28 @@ class ClamAVScanner:
             if os.path.exists(unix_socket_path):
                 self.clamd = pyclamd.ClamdUnixSocket(unix_socket_path)
                 self.connection_type = 'unix'
-                logger.info(f"Connected to ClamAV via Unix socket: {unix_socket_path}")
+                if is_dev_env():
+                    logger.info(f"Connected to ClamAV via Unix socket: {unix_socket_path}")
             else:
                 # Fall back to TCP connection
                 host = os.getenv('CLAMAV_HOST', 'localhost')
                 port = int(os.getenv('CLAMAV_PORT', 3310))
                 self.clamd = pyclamd.ClamdNetworkSocket(host, port)
                 self.connection_type = 'tcp'
-                logger.info(f"Connected to ClamAV via TCP: {host}:{port}")
+                if is_dev_env():
+                    logger.info(f"Connected to ClamAV via TCP: {host}:{port}")
             
             # Test connection
             self.clamd.ping()
-            logger.info("ClamAV connection successful")
+            if is_dev_env():
+                logger.info("ClamAV connection successful")
         except pyclamd.ConnectionError as e:
-            logger.error(f"ClamAV connection failed: {e}")
+            if is_dev_env():
+                logger.error(f"ClamAV connection failed: {e}")
             self.clamd = None
         except Exception as e:
-            logger.error(f"ClamAV initialization error: {e}")
+            if is_dev_env():
+                logger.error(f"ClamAV initialization error: {e}")
             self.clamd = None
     
     def is_available(self) -> bool:
@@ -74,7 +80,8 @@ class ClamAVScanner:
         CLAMAV_MAX_SIZE = 2 * 1024 * 1024 * 1024  # 2GB
         
         if file_size > CLAMAV_MAX_SIZE:
-            logger.info(f"File {file.filename} ({file_size / (1024*1024):.1f}MB) exceeds ClamAV recommended size ({CLAMAV_MAX_SIZE / (1024*1024):.1f}MB), skipping scan")
+            if is_dev_env():
+                logger.info(f"File {file.filename} ({file_size / (1024*1024):.1f}MB) exceeds ClamAV recommended size ({CLAMAV_MAX_SIZE / (1024*1024):.1f}MB), skipping scan")
             return True, None, {
                 'scanner': 'ClamAV',
                 'connection_type': self.connection_type,
@@ -114,12 +121,14 @@ class ClamAVScanner:
         except (pyclamd.ConnectionError, ConnectionAbortedError, OSError) as e:
             # Handle connection errors - could be due to large file size or ClamAV limits
             error_str = str(e)
-            logger.warning(f"ClamAV connection error for {file.filename}: {error_str}")
+            if is_dev_env():
+                logger.warning(f"ClamAV connection error for {file.filename}: {error_str}")
             
             # If it's a connection abort and file is large, skip scan but allow file
             if isinstance(e, (ConnectionAbortedError, OSError)) and ('10053' in error_str or 'aborted' in error_str.lower()):
                 if file_size > 100 * 1024 * 1024:  # If file is > 100MB, likely a size issue
-                    logger.warning(f"ClamAV connection aborted for large file {file.filename} ({file_size / (1024*1024):.1f}MB), allowing file through")
+                    if is_dev_env():
+                        logger.warning(f"ClamAV connection aborted for large file {file.filename} ({file_size / (1024*1024):.1f}MB), allowing file through")
                     return True, None, {
                         'scanner': 'ClamAV',
                         'connection_type': self.connection_type,
@@ -151,11 +160,13 @@ class ClamAVScanner:
                     'warning': 'File was not scanned due to connection issues'
                 }
         except Exception as e:
-            logger.error(f"ClamAV scan error: {str(e)}", exc_info=True)
+            if is_dev_env():
+                logger.error(f"ClamAV scan error: {str(e)}", exc_info=True)
             # For other errors, check if it's a size-related issue
             error_str = str(e).lower()
             if 'size' in error_str or 'too large' in error_str or 'limit' in error_str:
-                logger.warning(f"ClamAV size-related error for {file.filename} ({file_size / (1024*1024):.1f}MB), allowing file through")
+                if is_dev_env():
+                    logger.warning(f"ClamAV size-related error for {file.filename} ({file_size / (1024*1024):.1f}MB), allowing file through")
                 return True, None, {
                     'scanner': 'ClamAV',
                     'connection_type': self.connection_type,

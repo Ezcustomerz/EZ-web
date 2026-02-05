@@ -73,7 +73,6 @@ export function BookingPaymentRequests({ bookingId, isClient }: BookingPaymentRe
     // Set timeout to 2 seconds - if it takes longer, assume no payment requests
     timeoutRef.current = setTimeout(() => {
       if (isMounted && fetchingRef.current) {
-        console.warn(`[BookingPaymentRequests] Fetch timeout for booking ${bookingId} - assuming no payment requests, hiding section`);
         setPaymentRequests([]);
         setIsLoading(false);
         setHasFetched(true);
@@ -90,7 +89,6 @@ export function BookingPaymentRequests({ bookingId, isClient }: BookingPaymentRe
         if (isMounted) {
           // Ensure requests is an array
           const paymentRequestsArray = Array.isArray(requests) ? requests : [];
-          console.log(`[BookingPaymentRequests] Fetched ${paymentRequestsArray.length} payment requests for booking ${bookingId}`);
           setPaymentRequests(paymentRequestsArray);
           setIsLoading(false);
           setHasFetched(true);
@@ -103,7 +101,6 @@ export function BookingPaymentRequests({ bookingId, isClient }: BookingPaymentRe
           timeoutRef.current = null;
         }
         if (isMounted) {
-          console.error(`[BookingPaymentRequests] Error fetching payment requests for booking ${bookingId}:`, err);
           // On error, assume no payment requests (don't show section)
           setPaymentRequests([]);
           setIsLoading(false);
@@ -286,8 +283,7 @@ export function BookingPaymentRequests({ bookingId, isClient }: BookingPaymentRe
             .then(result => {
               window.location.href = result.checkout_url;
             })
-            .catch(err => {
-              console.error('Error processing payment:', err);
+            .catch(() => {
               alert('Failed to process payment. Please try again.');
             });
         } : undefined}

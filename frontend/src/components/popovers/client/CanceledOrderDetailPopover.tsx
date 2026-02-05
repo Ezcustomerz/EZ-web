@@ -103,8 +103,7 @@ export function CanceledOrderDetailPopover({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
-    } catch (error) {
-      console.error('Failed to view EZ invoice:', error);
+    } catch {
       alert('Failed to view invoice. Please try again.');
     }
   };
@@ -122,8 +121,7 @@ export function CanceledOrderDetailPopover({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }, 100);
-    } catch (error) {
-      console.error('Failed to download EZ invoice:', error);
+    } catch {
       alert('Failed to download invoice. Please try again.');
     }
   };
@@ -135,8 +133,7 @@ export function CanceledOrderDetailPopover({
         // Open Stripe receipt in new tab
         window.open(response.receipt_url, '_blank');
       }
-    } catch (error) {
-      console.error('Failed to get Stripe receipt:', error);
+    } catch {
       alert('Failed to open Stripe receipt. Please try again.');
     }
   };
@@ -197,12 +194,15 @@ export function CanceledOrderDetailPopover({
         const response = await bookingService.getCalendarSettings(serviceIdToUse);
         setCalendarSettings(response);
         setBookingPopoverOpen(true);
-      } catch (error: any) {
-        // 404 is expected for services without scheduling - don't treat as error
-        if (error?.status !== 404 && error?.response?.status !== 404) {
-          console.error('Error fetching calendar settings:', error);
-        }
-        // Open booking popover without calendar settings
+      } catch (error: unknown) {
+        // 404 is expected for services without scheduling - silently ignore
+        const status = error && typeof error === 'object' && 'status' in error
+          ? (error as { status?: number }).status
+          : (error && typeof error === 'object' && 'response' in error
+              ? (error as { response?: { status?: number } }).response?.status
+              : undefined);
+        // Open booking popover without calendar settings (404 is expected for services without scheduling)
+        void status; // Acknowledge status check (can be used for future error handling)
         setCalendarSettings(null);
         setBookingPopoverOpen(true);
       }
@@ -219,8 +219,7 @@ export function CanceledOrderDetailPopover({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
-    } catch (error) {
-      console.error('Failed to view compliance sheet:', error);
+    } catch {
       alert('Failed to view compliance sheet. Please try again.');
     }
   };

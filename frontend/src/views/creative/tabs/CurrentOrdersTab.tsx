@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { bookingService, type Order } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
 import { useTheme, useMediaQuery } from '@mui/material';
+import { errorToast } from '../../../components/toast/toast';
 
 // Reset check flag when orderIdToOpen changes
 
@@ -54,11 +55,9 @@ function transformOrders(fetchedOrders: Order[]) {
           // Keep as ISO string - timezone conversion will happen in display components
           bookingDateDisplay = parsedDate.toISOString();
         } else {
-          console.warn('Invalid booking date:', order.booking_date);
           bookingDateDisplay = null;
         }
-      } catch (error) {
-        console.warn('Error parsing booking date:', order.booking_date, error);
+      } catch {
         bookingDateDisplay = null;
       }
     }
@@ -133,7 +132,7 @@ export function CurrentOrdersTab({ orderIdToOpen, onOrderOpened, onOrderNotFound
       fetchCache.resolved = true;
       fetchCache.timestamp = Date.now();
     } catch (error) {
-      console.error('Failed to refresh orders:', error);
+      errorToast('Unable to refresh orders', 'Orders could not be loaded. Please try again.');
       if (mountedRef.current) {
         setLoading(false);
       }
@@ -207,9 +206,9 @@ export function CurrentOrdersTab({ orderIdToOpen, onOrderOpened, onOrderNotFound
             }
           }, 200);
         }
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Failed to fetch orders:', error);
+        errorToast('Unable to load orders', 'Orders could not be loaded. Please try again.');
         setLoading(false);
       });
       return;
@@ -262,7 +261,7 @@ export function CurrentOrdersTab({ orderIdToOpen, onOrderOpened, onOrderNotFound
         }, CACHE_DURATION);
         return fetchedOrders;
       } catch (error) {
-        console.error('Failed to fetch orders:', error);
+        errorToast('Unable to load orders', 'Orders could not be loaded. Please try again.');
         if (mountedRef.current) {
           setLoading(false);
         }
@@ -290,7 +289,6 @@ export function CurrentOrdersTab({ orderIdToOpen, onOrderOpened, onOrderNotFound
       const orderFound = orders.some(order => order.id === orderIdToOpen);
       if (!orderFound) {
         // Order not found in Current Orders, notify parent to try Past Orders
-        console.log(`[CurrentOrdersTab] Order ${orderIdToOpen} not found, triggering fallback to Past Orders`);
         hasCheckedForOrderRef.current = orderIdToOpen;
         // Use a small delay to ensure state is stable
         setTimeout(() => {

@@ -40,7 +40,6 @@ export function NotificationsCreative() {
           setIsLoading(false);
         }
       } catch (err: any) {
-        console.error('Error fetching notifications:', err);
         if (mountedRef.current) {
           setError(err.response?.data?.detail || 'Failed to load notifications');
           setActivityItems([]);

@@ -43,7 +43,6 @@ export function PaymentRequestsCreative() {
       })
       .catch(err => {
         if (mountedRef.current) {
-          console.error('Error fetching payment requests:', err);
           setError(err.response?.data?.detail || 'Failed to load payment requests');
           setPaymentRequests([]);
           setIsLoading(false);

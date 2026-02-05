@@ -26,6 +26,7 @@ import { CompletedOrderCard } from '../../../components/cards/client/CompletedOr
 import { CanceledOrderCard } from '../../../components/cards/client/CanceledOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
+import { errorToast } from '../../../components/toast/toast';
 
 // Module-level cache to prevent duplicate fetches across remounts
 // This persists across StrictMode remounts to prevent duplicate API calls
@@ -164,9 +165,9 @@ export function HistoryTab() {
         const transformedOrders = transformOrders(fetchedOrders);
         setHistoryOrders(transformedOrders);
         setLoading(false);
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Failed to fetch history orders:', error);
+        errorToast('Unable to load history', 'Order history could not be loaded. Please try again.');
         setLoading(false);
       });
       return;
@@ -205,7 +206,7 @@ export function HistoryTab() {
         }, CACHE_DURATION);
         return fetchedOrders;
       } catch (error) {
-        console.error('Failed to fetch history orders:', error);
+        errorToast('Unable to load history', 'Order history could not be loaded. Please try again.');
         if (mountedRef.current) {
           setLoading(false);
         }

@@ -72,8 +72,8 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
     try {
       const profiles = await userService.getUserRoleProfiles();
       setRoleProfiles(profiles);
-    } catch (error) {
-      console.error('Failed to fetch role profiles:', error);
+    } catch {
+      // Silently continue - profiles will show as unavailable
     } finally {
       setLoading(false);
     }
@@ -253,8 +253,7 @@ export function RoleSwitcherPopover({ open, onClose }: RoleSwitcherPopoverProps)
         
         // Don't navigate away - keep the role switcher popover open
         // The user can manually switch to the new role if they want
-      } catch (error) {
-        console.error('Failed to refresh data after setup:', error);
+      } catch {
         // Show error toast instead of reloading
         errorToast('Refresh Error', 'Failed to refresh data after setup. Please try again.');
       }

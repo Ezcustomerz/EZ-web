@@ -101,8 +101,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
         const response = await userService.getCreativeServices();
         setServices(response.services);
         setBundles(response.bundles);
-      } catch (error) {
-        console.error('Failed to fetch services and bundles:', error);
+      } catch {
         errorToast('Failed to load services and bundles');
         setServices([]);
         setBundles([]);
@@ -126,8 +125,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
       const response = await userService.getCreativeServices();
       setServices(response.services);
       setBundles(response.bundles);
-    } catch (error) {
-      console.error('Failed to refresh services and bundles:', error);
+    } catch {
       errorToast('Failed to refresh services and bundles');
     } finally {
       setServicesLoading(false);
@@ -145,15 +143,13 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           ...service,
           calendar_settings: calendarResponse.calendar_settings
         };
-        console.log('Service with calendar settings:', serviceWithCalendar);
         setEditingService(serviceWithCalendar);
       } else {
-        console.log('No calendar settings found for service');
         setEditingService(service);
       }
-    } catch (error) {
-      console.error('Failed to fetch calendar settings:', error);
+    } catch {
       // Still open edit form even if calendar settings fetch fails
+      errorToast('Calendar settings could not be loaded', 'You can still edit the service.');
       setEditingService(service);
     }
     
@@ -229,7 +225,6 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
         errorToast(response.message || 'Failed to delete service');
       }
     } catch (error: any) {
-      console.error('Failed to delete service:', error);
       const errorMessage = error.response?.data?.detail || 'Failed to delete service. Please try again.';
       errorToast(errorMessage);
     } finally {
@@ -260,7 +255,6 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
         errorToast(response.message || 'Failed to delete bundle');
       }
     } catch (error: any) {
-      console.error('Failed to delete bundle:', error);
       const errorMessage = error.response?.data?.detail || 'Failed to delete bundle. Please try again.';
       errorToast(errorMessage);
     } finally {
@@ -798,8 +792,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
           setEditingBundle(null);
           setServiceCreationOpen(true);
         }}
-        onBundleCreated={(bundle) => {
-          console.log('Bundle created/updated:', bundle);
+        onBundleCreated={() => {
           refreshServices();
           setEditingBundle(null);
         }}

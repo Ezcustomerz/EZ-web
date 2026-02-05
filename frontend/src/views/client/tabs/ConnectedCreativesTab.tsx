@@ -5,6 +5,7 @@ import { CreativeCard } from '../../../components/cards/client/CreativeCard';
 import { CreativeDetailPopover } from '../../../components/popovers/client/CreativeDetailPopover';
 import { userService, type ClientCreative } from '../../../api/userService';
 import { useAuth } from '../../../context/auth';
+import { errorToast } from '../../../components/toast/toast';
 
 export function ConnectedCreativesTab() {
   const { isAuthenticated } = useAuth();
@@ -39,7 +40,6 @@ export function ConnectedCreativesTab() {
 
       // Check cache first
       if (cacheRef.current && (Date.now() - cacheRef.current.timestamp) < CACHE_DURATION) {
-        console.log('Using cached connected creatives data');
         setCreatives(cacheRef.current.data);
         setLoading(false);
         fetchingRef.current = false;
@@ -49,7 +49,6 @@ export function ConnectedCreativesTab() {
       try {
         setLoading(true);
         const response = await userService.getClientCreatives();
-        console.log('Connected creatives data:', response.creatives);
         
         // Cache the response
         cacheRef.current = {
@@ -58,9 +57,8 @@ export function ConnectedCreativesTab() {
         };
         
         setCreatives(response.creatives);
-      } catch (error) {
-        console.error('Failed to fetch creatives:', error);
-        // Fallback to empty array
+      } catch {
+        errorToast('Failed to load creatives. Please try again.');
         setCreatives([]);
       } finally {
         setLoading(false);

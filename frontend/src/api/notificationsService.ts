@@ -57,7 +57,6 @@ export async function getNotifications(
   // Check authentication before making API call
   const isAuthenticated = await checkAuth();
   if (!isAuthenticated) {
-    console.log('User not authenticated, skipping notification fetch');
     return [];
   }
 
@@ -82,12 +81,11 @@ export async function getNotifications(
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching notifications:', error);
     if (error.response?.status === 401) {
-      // User is no longer authenticated, return empty array
       return [];
     }
-    throw new Error(error.response?.data?.detail || 'Failed to fetch notifications');
+    const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+    throw new Error(msg || 'Failed to fetch notifications');
   }
 }
 
@@ -100,7 +98,6 @@ export async function getUnreadCount(roleContext?: 'client' | 'creative' | 'advo
   // Check authentication before making API call
   const isAuthenticated = await checkAuth();
   if (!isAuthenticated) {
-    console.log('User not authenticated, skipping unread count fetch');
     return 0;
   }
 
@@ -121,12 +118,11 @@ export async function getUnreadCount(roleContext?: 'client' | 'creative' | 'advo
     );
     return response.data.count;
   } catch (error: any) {
-    console.error('Error fetching unread count:', error);
     if (error.response?.status === 401) {
-      // User is no longer authenticated, return 0
       return 0;
     }
-    throw new Error(error.response?.data?.detail || 'Failed to fetch unread count');
+    const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+    throw new Error(msg || 'Failed to fetch unread count');
   }
 }
 
@@ -138,7 +134,6 @@ export async function markNotificationAsRead(notificationId: string): Promise<No
   // Check authentication before making API call
   const isAuthenticated = await checkAuth();
   if (!isAuthenticated) {
-    console.log('User not authenticated, skipping mark as read');
     throw new Error('User not authenticated');
   }
 
@@ -151,11 +146,11 @@ export async function markNotificationAsRead(notificationId: string): Promise<No
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error marking notification as read:', error);
     if (error.response?.status === 401) {
       throw new Error('User not authenticated');
     }
-    throw new Error(error.response?.data?.detail || 'Failed to mark notification as read');
+    const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+    throw new Error(msg || 'Failed to mark notification as read');
   }
 }
 

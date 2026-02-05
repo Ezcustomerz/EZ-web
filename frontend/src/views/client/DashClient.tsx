@@ -8,6 +8,7 @@ import { getNotifications } from '../../api/notificationsService';
 import { notificationsToActivityItems } from '../../utils/notificationUtils';
 import type { ActivityItem } from '../../types/activity';
 import { useAuth } from '../../context/auth';
+import { errorToast } from '../../components/toast/toast';
 import { bookingService, type Order } from '../../api/bookingService';
 
 interface UpcomingBooking {
@@ -43,8 +44,7 @@ function formatDateTime(bookingDate: string): string {
     };
     
     return date.toLocaleDateString('en-US', options);
-  } catch (error) {
-    console.error('Error formatting date:', error);
+  } catch {
     return bookingDate;
   }
 }
@@ -79,8 +79,7 @@ function calculateStartsIn(bookingDate: string): string {
     } else {
       return 'Soon';
     }
-  } catch (error) {
-    console.error('Error calculating starts in:', error);
+  } catch {
     return 'Unknown';
   }
 }
@@ -162,9 +161,9 @@ export function ClientDashboard() {
         if (!mountedRef.current) return;
         setActivityItems(items);
         setIsLoading(false);
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Error fetching notifications:', error);
+        errorToast('Unable to load activity', 'Notifications could not be loaded. Please try again.');
         setActivityItems([]);
         setIsLoading(false);
       });
@@ -197,9 +196,9 @@ export function ClientDashboard() {
       if (!mountedRef.current) return;
       setActivityItems(items);
       setIsLoading(false);
-    }).catch(error => {
+    }).catch(() => {
       if (!mountedRef.current) return;
-      console.error('Error fetching notifications:', error);
+      errorToast('Unable to load activity', 'Notifications could not be loaded. Please try again.');
       setActivityItems([]);
       setIsLoading(false);
     });
@@ -278,9 +277,9 @@ export function ClientDashboard() {
         if (!mountedRef.current) return;
         setUpcomingBookings(bookings);
         setIsLoadingBookings(false);
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Error fetching upcoming bookings:', error);
+        errorToast('Unable to load bookings', 'Upcoming bookings could not be loaded. Please try again.');
         setUpcomingBookings([]);
         setIsLoadingBookings(false);
       });
@@ -313,9 +312,9 @@ export function ClientDashboard() {
       if (!mountedRef.current) return;
       setUpcomingBookings(bookings);
       setIsLoadingBookings(false);
-    }).catch(error => {
+    }).catch(() => {
       if (!mountedRef.current) return;
-      console.error('Error fetching upcoming bookings:', error);
+      errorToast('Unable to load bookings', 'Upcoming bookings could not be loaded. Please try again.');
       setUpcomingBookings([]);
       setIsLoadingBookings(false);
     });

@@ -28,6 +28,7 @@ import { userService, type CreativeProfile, type CreativeService, type CreativeB
 import { BundleCard } from '../../../components/cards/creative/BundleCard';
 import { useInviteClient } from '../../../hooks/useInviteClient';
 import { useAuth } from '../../../context/auth';
+import { errorToast } from '../../../components/toast/toast';
 
 // Mock data for reviews
 const MOCK_REVIEWS = [
@@ -189,7 +190,6 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
       
       // Only fetch services if user is authenticated
       if (!isAuthenticated) {
-        console.log('User not authenticated, skipping services fetch');
         setServices([]);
         setBundles([]);
         setServicesLoading(false);
@@ -211,8 +211,8 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
         bundle.status === 'Public'
       );
       setBundles(activeBundles);
-    } catch (error) {
-      console.error('Failed to fetch creative services and bundles:', error);
+    } catch {
+      errorToast('Unable to load services', 'Services and bundles could not be loaded. Please try again.');
       setServices([]);
       setBundles([]);
     } finally {

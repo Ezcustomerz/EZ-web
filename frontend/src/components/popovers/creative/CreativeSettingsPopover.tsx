@@ -69,6 +69,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGem, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import { errorToast, successToast } from '../../../components/toast/toast';
 import { useAuth } from '../../../context/auth';
+import { ComingSoonDialog } from '../../dialogs/ComingSoonDialog';
 import { ConfirmDeleteDialog } from '../../dialogs/ConfirmDeleteDialog';
 import { SuccessDialog } from '../../dialogs/SuccessDialog';
 
@@ -215,8 +216,7 @@ function SubscriptionBillingSection() {
       setLoading(true);
       const data = await subscriptionService.getBillingDetails();
       setBillingData(data);
-    } catch (error) {
-      console.error('Error fetching billing details:', error);
+    } catch {
       errorToast('Failed to load billing details');
     } finally {
       setLoading(false);
@@ -235,9 +235,12 @@ function SubscriptionBillingSection() {
       const result = await subscriptionService.createBillingPortal(returnUrl);
       window.open(result.portal_url, '_blank');
       setOpeningPortal(false);
-    } catch (error: any) {
-      console.error('Error opening billing portal:', error);
-      errorToast(error.response?.data?.detail || 'Failed to open billing portal');
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : 'Failed to open billing portal';
+      errorToast(msg);
       setOpeningPortal(false);
     }
   };
@@ -541,6 +544,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
   const [saving, setSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark'>('light');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [comingSoonDialogOpen, setComingSoonDialogOpen] = useState(false);
+  const [comingSoonFeatureName, setComingSoonFeatureName] = useState('');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   
@@ -625,7 +630,6 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     try {
       // Only fetch data if user is authenticated
       if (!isAuthenticated) {
-        console.log('User not authenticated, skipping data fetch');
         return;
       }
 
@@ -648,8 +652,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         bundle.status === 'Public'
       );
       setBundles(publicBundles);
-    } catch (error) {
-      console.error('Failed to fetch creative data:', error);
+    } catch {
+      // Silently continue - data will show as unavailable
     } finally {
       setLoadingAccountData(false);
     }
@@ -671,8 +675,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
         payoutDisableReason: status.payout_disable_reason,
         currentlyDueRequirements: status.currently_due_requirements,
       });
-    } catch (error) {
-      console.error('Failed to fetch Stripe account status:', error);
+    } catch {
       errorToast('Failed to load account status');
     } finally {
       setLoadingStripeStatus(false);
@@ -690,9 +693,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       } else {
         errorToast('Failed to get onboarding URL');
       }
-    } catch (error: any) {
-      console.error('Failed to create Stripe account:', error);
-      errorToast(error.response?.data?.detail || 'Failed to connect Stripe account');
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : 'Failed to connect Stripe account';
+      errorToast(msg);
     } finally {
       setConnectingAccount(false);
     }
@@ -717,9 +723,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       } else {
         errorToast('Failed to get login URL');
       }
-    } catch (error: any) {
-      console.error('Failed to create login link:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to open Stripe dashboard';
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'Failed to open Stripe dashboard';
       
       // Check if error indicates onboarding is needed
       if (errorMessage.toLowerCase().includes('onboarding') || errorMessage.toLowerCase().includes('not completed')) {
@@ -804,6 +812,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     });
   };
 
+  const handleShowComingSoon = (featureName: string) => {
+    setComingSoonFeatureName(featureName);
+    setComingSoonDialogOpen(true);
+  };
+
   const getAvailableServices = (excludeService?: string) => {
     // Combine services and bundles into a unified list
     const allItems = [
@@ -831,10 +844,8 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       // Upload profile photo if a new one was selected
       if (formData.profilePhoto) {
         try {
-          const uploadResponse = await userService.uploadCreativeProfilePhoto(formData.profilePhoto);
-          console.log('Profile photo uploaded:', uploadResponse);
-        } catch (uploadError) {
-          console.error('Failed to upload profile photo:', uploadError);
+          await userService.uploadCreativeProfilePhoto(formData.profilePhoto);
+        } catch {
           errorToast('Failed to upload profile photo', 'Your other settings will still be saved.');
           // Continue with other settings even if photo upload fails
         }
@@ -876,9 +887,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       // Close the popover
       onClose();
       
-    } catch (error: any) {
-      console.error('Failed to save profile settings:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to update profile';
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'Failed to update profile';
       errorToast('Update Failed', errorMessage);
     } finally {
       setSaving(false);
@@ -899,9 +912,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       // Refresh the page to update the UI (user no longer has creative role)
       window.location.href = '/';
       
-    } catch (error: any) {
-      console.error('Failed to delete creative role:', error);
-      errorToast(error.response?.data?.detail || 'Failed to delete creative role');
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : 'Failed to delete creative role';
+      errorToast(msg);
     } finally {
       setDeleting(false);
     }
@@ -922,8 +938,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       const deliverablesData = await bookingService.getCreativeDeliverables();
       
       setDeliverables(deliverablesData);
-    } catch (error) {
-      console.error('Failed to fetch deliverables:', error);
+    } catch {
       errorToast('Failed to load deliverables');
     } finally {
       setLoadingDeliverables(false);
@@ -952,9 +967,12 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       // Show success dialog
       setSuccessMessage('File deleted successfully');
       setSuccessDialogOpen(true);
-    } catch (error: any) {
-      console.error('Failed to delete deliverable:', error);
-      errorToast(error?.response?.data?.detail || error?.message || 'Failed to delete file');
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : 'Failed to delete file';
+      errorToast(msg);
     } finally {
       setDeletingDeliverableId(null);
       setFileToDelete(null);
@@ -2189,7 +2207,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                     {/* Dark Theme Option */}
                     <Card 
                       variant="outlined" 
-                      onClick={() => setSelectedTheme('dark')}
+                      onClick={() => handleShowComingSoon('Dark Mode')}
                       sx={{ 
                         flex: 1, 
                         cursor: 'pointer',
@@ -2840,6 +2858,13 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       </Box>
     </Drawer>
 
+    {/* Coming Soon Dialog */}
+    <ComingSoonDialog
+      open={comingSoonDialogOpen}
+      onClose={() => setComingSoonDialogOpen(false)}
+      featureName={comingSoonFeatureName}
+      description="We're working hard to bring you this feature. It will be available in an upcoming update!"
+    />
     {/* Confirm Delete Dialog */}
     <ConfirmDeleteDialog
       open={deleteConfirmOpen}

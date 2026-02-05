@@ -712,15 +712,14 @@ export function InvitePage() {
           onClose={handleCloseBookingPopover}
           service={{
             ...serviceToBook,
-            creative_name: creativeProfile?.user?.display_name || validationData?.creative?.display_name || 'Creative',
-            creative_display_name: creativeProfile?.user?.display_name,
+            creative_name: creativeProfile?.display_name || validationData?.creative?.display_name || 'Creative',
+            creative_display_name: creativeProfile?.display_name,
             creative_title: creativeProfile?.title,
-            creative_avatar_url: creativeProfile?.user?.avatar_url,
+            creative_avatar_url: creativeProfile?.profile_banner_url,
           }}
           calendarSettings={null}
-          onConfirmBooking={async (bookingData) => {
-            // This will be handled differently - explained below
-            console.log('[InvitePage] Booking data collected:', bookingData);
+          onConfirmBooking={async () => {
+            // Booking flow handled by BookingServicePopover with inviteToken
           }}
           isInvitePageBooking={true}
           inviteToken={inviteToken}

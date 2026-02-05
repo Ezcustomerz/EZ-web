@@ -140,8 +140,7 @@ export function ClientSetupPopover({
         successToast('Client Setup Saved!', 'Moving to next setup...');
         onClose();
       }
-    } catch (err: any) {
-      console.error('Client setup error:', err);
+    } catch {
       errorToast('Setup Failed', 'Unable to save client setup. Please try again.');
       onClose();
     }

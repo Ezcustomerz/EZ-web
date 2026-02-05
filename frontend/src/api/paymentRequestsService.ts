@@ -95,11 +95,11 @@ class PaymentRequestsService {
       );
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching creative payment requests:', error);
       if (error.response?.status === 401) {
         throw new Error('Authentication failed');
       }
-      throw new Error(error.response?.data?.detail || 'Failed to fetch payment requests');
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+      throw new Error(msg || 'Failed to fetch payment requests');
     }
   }
 
@@ -123,11 +123,11 @@ class PaymentRequestsService {
       );
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching payment requests:', error);
       if (error.response?.status === 401) {
         throw new Error('Authentication failed');
       }
-      throw new Error(error.response?.data?.detail || 'Failed to fetch payment requests');
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+      throw new Error(msg || 'Failed to fetch payment requests');
     }
   }
 
@@ -148,7 +148,6 @@ class PaymentRequestsService {
       );
       return response.data.pending || 0;
     } catch (error: any) {
-      console.error('Error fetching payment requests count:', error);
       if (error.response?.status === 401) {
         return 0;
       }
@@ -179,11 +178,11 @@ class PaymentRequestsService {
       );
       return response.data;
     } catch (error: any) {
-      console.error('Error creating payment request:', error);
       if (error.response?.status === 401) {
         throw new Error('Authentication failed');
       }
-      throw new Error(error.response?.data?.detail || 'Failed to create payment request');
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+      throw new Error(msg || 'Failed to create payment request');
     }
   }
 
@@ -257,11 +256,11 @@ class PaymentRequestsService {
       );
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching payment requests for booking:', error);
       if (error.response?.status === 401) {
         throw new Error('Authentication failed');
       }
-      throw new Error(error.response?.data?.detail || 'Failed to fetch payment requests');
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+      throw new Error(msg || 'Failed to fetch payment requests');
     }
   }
 
@@ -282,11 +281,11 @@ class PaymentRequestsService {
       );
       return response.data as PaymentRequestInvoicesResponse;
     } catch (error: any) {
-      console.error('Error fetching payment request invoices:', error);
       if (error.response?.status === 401) {
         throw new Error('Authentication failed');
       }
-      throw new Error(error.response?.data?.detail || 'Failed to fetch invoices');
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+      throw new Error(msg || 'Failed to fetch invoices');
     }
   }
 
@@ -310,11 +309,11 @@ class PaymentRequestsService {
       );
       return response.data;
     } catch (error: any) {
-      console.error('Error downloading EZ invoice:', error);
       if (error.response?.status === 401) {
         throw new Error('Authentication failed');
       }
-      throw new Error(error.response?.data?.detail || 'Failed to download invoice');
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+      throw new Error(msg || 'Failed to download invoice');
     }
   }
 
@@ -338,11 +337,11 @@ class PaymentRequestsService {
       );
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching Stripe receipt:', error);
       if (error.response?.status === 401) {
         throw new Error('Authentication failed');
       }
-      throw new Error(error.response?.data?.detail || 'Failed to fetch Stripe receipt');
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
+      throw new Error(msg || 'Failed to fetch Stripe receipt');
     }
   }
 }

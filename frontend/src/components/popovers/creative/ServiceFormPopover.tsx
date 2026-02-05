@@ -717,9 +717,11 @@ export function ServiceFormPopover({
         errorToast((response as any).message || (mode === 'edit' ? 'Failed to update service' : 'Failed to create service'));
       }
 
-    } catch (error: any) {
-      console.error('Failed to create service:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to create service. Please try again.';
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'Failed to create service. Please try again.';
       errorToast(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -733,7 +735,6 @@ export function ServiceFormPopover({
       setActiveStep(0); // Reset to first step
       setTimeSlotsLoadedFromBackend(false); // Reset flag
       if (mode === 'edit' && initialService) {
-        console.log('Edit mode - initial service:', initialService);
         // Find the index of the primary photo in existing photos
         const existingPhotos = initialService.photos || [];
         const primaryPhotoIndex = existingPhotos.findIndex(photo => photo.is_primary);
@@ -786,11 +787,8 @@ export function ServiceFormPopover({
         // Always use time slots - no longer need to set this from initial service
         
         // Load detailed calendar settings if available
-        console.log('Initial service calendar settings:', initialService.calendar_settings);
-        console.log('Full initial service:', initialService);
         if (initialService.calendar_settings) {
           const calendarSettings = initialService.calendar_settings;
-          console.log('Processing calendar settings:', calendarSettings);
           
           // Set calendar settings
           setIsSchedulingEnabled(calendarSettings.is_scheduling_enabled);
@@ -811,14 +809,11 @@ export function ServiceFormPopover({
           });
           
           // Load weekly schedule
-          console.log('Weekly schedule check:', calendarSettings.weekly_schedule);
           if (calendarSettings.weekly_schedule && calendarSettings.weekly_schedule.length > 0) {
-            console.log('Loading weekly schedule:', calendarSettings.weekly_schedule);
             const userTimezone = getUserTimezone();
             const loadedSchedule = daysOfWeek.map(day => {
               const dayData = calendarSettings.weekly_schedule.find(ws => ws.day === day);
               if (dayData) {
-                console.log(`Found data for ${day}:`, dayData);
                 return {
                   day,
                   enabled: dayData.enabled,
@@ -837,16 +832,11 @@ export function ServiceFormPopover({
                 timeSlots: []
               };
             });
-            console.log('Loaded schedule:', loadedSchedule);
-            console.log('Wednesday schedule specifically:', loadedSchedule.find(day => day.day === 'Wednesday'));
             setWeeklySchedule(loadedSchedule);
             // Mark that time slots were loaded from backend
             setTimeSlotsLoadedFromBackend(true);
-          } else {
-            console.log('No weekly schedule data found or empty array');
           }
         } else {
-          console.log('No calendar settings found in initial service');
           setTimeSlotsLoadedFromBackend(false);
         }
       } else {
@@ -998,22 +988,13 @@ export function ServiceFormPopover({
             />
 
             {/* Earnings Breakdown - Only show when price is set and creative profile is available */}
-            {(() => {
-              // Debug logging
-              console.log('[ServiceFormPopover] Earnings breakdown check:', {
-                hasPrice: !!(formData.price && parseFloat(formData.price) > 0),
-                hasProfile: !!creativeProfile,
-                feePercentage: creativeProfile?.subscription_tier_fee_percentage,
-                fullProfile: creativeProfile
-              });
-              return null;
-            })()}
             {formData.price && parseFloat(formData.price) > 0 && creativeProfile?.subscription_tier_fee_percentage !== undefined && (
               <Box sx={{
                 p: 2.5,
                 borderRadius: 2,
                 backgroundColor: 'rgba(76, 175, 80, 0.05)',
-                border: '1px solid rgba(76, 175, 80, 0.2)'
+                border: '1px solid rgba(76, 175, 80, 0.2)',
+                overflow: 'visible'
               }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'success.main' }}>
                   💰 Your Earnings Breakdown
@@ -1026,7 +1007,7 @@ export function ServiceFormPopover({
                   const feePercentageDisplay = (feePercentage * 100).toFixed(1);
                   
                   return (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'visible' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="body2" color="text.secondary">
                           Service Price:
@@ -1039,21 +1020,30 @@ export function ServiceFormPopover({
                         <Typography variant="body2" color="text.secondary">
                           Transaction Fee ({feePercentageDisplay}%):
                         </Typography>
-                        <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
+                        <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
                           -${platformFee.toFixed(2)}
                         </Typography>
                       </Box>
                       <Box sx={{ 
                         display: 'flex', 
                         justifyContent: 'space-between', 
-                        alignItems: 'center',
-                        pt: 1,
+                        alignItems: 'flex-start',
+                        pt: 2,
+                        pb: 1,
                         borderTop: '1px solid rgba(76, 175, 80, 0.2)'
                       }}>
-                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'success.main' }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
                           Your Earnings:
                         </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'success.main' }}>
+                        <Typography 
+                          component="div"
+                          sx={{ 
+                            fontWeight: 700, 
+                            color: 'text.primary',
+                            fontSize: '1.125rem',
+                            fontFamily: 'inherit'
+                          }}
+                        >
                           ${yourEarnings.toFixed(2)}
                         </Typography>
                       </Box>
@@ -1949,18 +1939,24 @@ export function ServiceFormPopover({
                             }
                           />
                           {daySchedule.enabled && (
-                            <Button
-                              size="small"
-                              startIcon={<AddIcon />}
-                              onClick={() => addTimeBlock(dayIdx)}
-                              sx={{
-                                fontSize: '0.75rem',
-                                textTransform: 'none',
-                                color: 'primary.main'
-                              }}
+                            <Tooltip 
+                              title="Add a block of time when you're available for bookings. Each time block represents hours you can accept appointments (e.g., 9:00 AM - 12:00 PM for morning availability)."
+                              arrow
+                              placement="top"
                             >
-                              Add Time Block
-                            </Button>
+                              <Button
+                                size="small"
+                                startIcon={<AddIcon />}
+                                onClick={() => addTimeBlock(dayIdx)}
+                                sx={{
+                                  fontSize: '0.75rem',
+                                  textTransform: 'none',
+                                  color: 'primary.main'
+                                }}
+                              >
+                                Add Time Block
+                              </Button>
+                            </Tooltip>
                           )}
                         </Box>
 
@@ -2546,20 +2542,13 @@ export function ServiceFormPopover({
         pb: 2,
         flexShrink: 0
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {onBack && (
-            <IconButton onClick={onBack} size="small">
-              <ArrowBackIcon />
-            </IconButton>
-          )}
-          <Box>
-            <Typography variant="h6" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
-              {mode === 'edit' ? 'Edit Service' : 'Create Service'}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Step {activeStep + 1} of {steps.length}: {steps[activeStep]}
-            </Typography>
-          </Box>
+        <Box>
+          <Typography variant="h6" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
+            {mode === 'edit' ? 'Edit Service' : 'Create Service'}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Step {activeStep + 1} of {steps.length}: {steps[activeStep]}
+          </Typography>
         </Box>
         <IconButton onClick={onClose} size="small">
           <CloseIcon />

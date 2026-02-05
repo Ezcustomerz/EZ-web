@@ -99,11 +99,8 @@ export function CanceledOrderCard({
         const response = await bookingService.getCalendarSettings(serviceId);
         setCalendarSettings(response);
         setBookingPopoverOpen(true);
-      } catch (error: any) {
+      } catch {
         // 404 is expected for services without scheduling - don't treat as error
-        if (error?.status !== 404 && error?.response?.status !== 404) {
-          console.error('Error fetching calendar settings:', error);
-        }
         // Open booking popover without calendar settings
         setCalendarSettings(null);
         setBookingPopoverOpen(true);

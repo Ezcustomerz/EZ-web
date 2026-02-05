@@ -49,7 +49,6 @@ export function PaymentRequestsClient() {
       })
       .catch(err => {
         if (mountedRef.current) {
-          console.error('Error fetching payment requests:', err);
           setError(err.response?.data?.detail || 'Failed to load payment requests');
           setPaymentRequests([]);
           setIsLoading(false);
@@ -82,7 +81,6 @@ export function PaymentRequestsClient() {
       // Redirect to Stripe checkout
       window.location.href = result.checkout_url;
     } catch (err: any) {
-      console.error('Error processing payment:', err);
       setError(err.response?.data?.detail || 'Failed to process payment');
     }
   };

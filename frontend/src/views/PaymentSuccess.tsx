@@ -58,7 +58,6 @@ export function PaymentSuccess() {
           }
         }
       } catch (error: any) {
-        console.error('Payment verification error:', error);
         setVerificationError(error.response?.data?.detail || 'Failed to verify payment');
         errorToast('Verification Error', error.response?.data?.detail || 'Failed to verify payment. Please contact support if the issue persists.');
       } finally {

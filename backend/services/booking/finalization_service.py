@@ -7,6 +7,7 @@ from db.db_session import db_admin
 from schemas.booking import (
     FinalizeServiceRequest, FinalizeServiceResponse
 )
+from core.safe_errors import is_dev_env
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,8 @@ async def _send_notification_email(notification_data: Dict[str, Any], recipient_
             client=client
         )
     except Exception as e:
-        logger.warning(f"Failed to send notification email: {str(e)}")
+        if is_dev_env():
+            logger.warning(f"Failed to send notification email: {str(e)}")
 
 
 class FinalizationService:
@@ -155,7 +157,8 @@ class FinalizationService:
                     
                     # Skip if file with this file_url already exists for this booking
                     if file_url and file_url in existing_file_urls:
-                        logger.warning(f"File with file_url '{file_url}' already exists for booking {booking_id}, skipping duplicate insertion")
+                        if is_dev_env():
+                            logger.warning(f"File with file_url '{file_url}' already exists for booking {booking_id}, skipping duplicate insertion")
                         continue
                     
                     deliverables_data.append({
@@ -177,11 +180,13 @@ class FinalizationService:
                         error_str = str(insert_error)
                         # Check if it's a unique constraint violation (duplicate file_url)
                         if 'unique' in error_str.lower() or 'duplicate' in error_str.lower() or 'already exists' in error_str.lower():
-                            logger.warning(f"Some files already exist for booking {booking_id}, skipping duplicates: {error_str}")
+                            if is_dev_env():
+                                logger.warning(f"Some files already exist for booking {booking_id}, skipping duplicates: {error_str}")
                             # This is okay - the files already exist, continue with status update
                         else:
-                            logger.error(f"Failed to insert deliverables for booking {booking_id}: {error_str}")
-                            raise HTTPException(status_code=500, detail=f"Failed to save deliverables: {error_str}")
+                            if is_dev_env():
+                                logger.error(f"Failed to insert deliverables for booking {booking_id}: {error_str}")
+                            raise HTTPException(status_code=500, detail="Failed to save deliverables")
             
             # Update booking statuses
             update_data = {
@@ -230,7 +235,8 @@ class FinalizationService:
                         "updated_at": datetime.utcnow().isoformat()
                     }
                     notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
-                    logger.info(f"Payment required notification created for client: {booking['client_user_id']}")
+                    if is_dev_env():
+                        logger.info(f"Payment required notification created for client: {booking['client_user_id']}")
                     
                     # Send email notification
                     if notification_result.data:
@@ -259,7 +265,8 @@ class FinalizationService:
                         "updated_at": datetime.utcnow().isoformat()
                     }
                     notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
-                    logger.info(f"Payment to unlock notification created for client: {booking['client_user_id']}")
+                    if is_dev_env():
+                        logger.info(f"Payment to unlock notification created for client: {booking['client_user_id']}")
                     
                     # Send email notification
                     if notification_result.data:
@@ -287,7 +294,8 @@ class FinalizationService:
                         "updated_at": datetime.utcnow().isoformat()
                     }
                     creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
-                    logger.info(f"Files sent notification created for creative: {user_id}")
+                    if is_dev_env():
+                        logger.info(f"Files sent notification created for creative: {user_id}")
                     
                     # Send email notification
                     if creative_notification_result.data:
@@ -314,7 +322,8 @@ class FinalizationService:
                         "updated_at": datetime.utcnow().isoformat()
                     }
                     client_notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
-                    logger.info(f"Service complete notification created for client: {booking['client_user_id']}")
+                    if is_dev_env():
+                        logger.info(f"Service complete notification created for client: {booking['client_user_id']}")
                     
                     # Send email notification
                     if client_notification_result.data:
@@ -339,7 +348,8 @@ class FinalizationService:
                         "updated_at": datetime.utcnow().isoformat()
                     }
                     creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
-                    logger.info(f"Service complete notification created for creative: {user_id}")
+                    if is_dev_env():
+                        logger.info(f"Service complete notification created for creative: {user_id}")
                     
                     # Send email notification
                     if creative_notification_result.data:
@@ -367,7 +377,8 @@ class FinalizationService:
                         "updated_at": datetime.utcnow().isoformat()
                     }
                     client_notification_result = db_admin.table("notifications").insert(client_notification_data).execute()
-                    logger.info(f"Files ready notification created for client: {booking['client_user_id']}")
+                    if is_dev_env():
+                        logger.info(f"Files ready notification created for client: {booking['client_user_id']}")
                     
                     # Send email notification
                     if client_notification_result.data:
@@ -395,14 +406,16 @@ class FinalizationService:
                         "updated_at": datetime.utcnow().isoformat()
                     }
                     creative_notification_result = db_admin.table("notifications").insert(creative_notification_data).execute()
-                    logger.info(f"Files sent notification created for creative: {user_id}")
+                    if is_dev_env():
+                        logger.info(f"Files sent notification created for creative: {user_id}")
                     
                     # Send email notification
                     if creative_notification_result.data:
                         await _send_notification_email(creative_notification_data, user_id, creative_display_name, db_admin)
                     
             except Exception as notif_error:
-                logger.error(f"Failed to create finalization notifications: {notif_error}")
+                if is_dev_env():
+                    logger.error(f"Failed to create finalization notifications: {notif_error}")
             
             return FinalizeServiceResponse(
                 success=True,
@@ -413,8 +426,9 @@ class FinalizationService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error finalizing service: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to finalize service: {str(e)}")
+            if is_dev_env():
+                logger.error(f"Error finalizing service: {e}")
+            raise HTTPException(status_code=500, detail="Failed to finalize service")
 
     @staticmethod
     async def mark_download_complete(user_id: str, booking_id: str, client: Client) -> Dict[str, Any]:
@@ -459,7 +473,8 @@ class FinalizationService:
             if not update_response.data or len(update_response.data) == 0:
                 raise HTTPException(status_code=500, detail="Failed to update booking status")
             
-            logger.info(f"Booking {booking_id} marked as complete after download by client {user_id}")
+            if is_dev_env():
+                logger.info(f"Booking {booking_id} marked as complete after download by client {user_id}")
             
             return {
                 "success": True,
@@ -471,6 +486,7 @@ class FinalizationService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error marking download as complete: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to mark download as complete: {str(e)}")
+            if is_dev_env():
+                logger.error(f"Error marking download as complete: {e}")
+            raise HTTPException(status_code=500, detail="Failed to mark download as complete")
 

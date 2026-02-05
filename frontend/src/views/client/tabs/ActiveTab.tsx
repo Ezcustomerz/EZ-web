@@ -135,7 +135,6 @@ export function ActiveTab() {
         setLoading(false);
       }).catch(error => {
         if (!mountedRef.current) return;
-        console.error('Failed to fetch orders:', error);
         setError(error.message || 'Failed to load orders');
         setLoading(false);
       });
@@ -178,7 +177,6 @@ export function ActiveTab() {
           }, CACHE_DURATION);
           return fetchedOrders;
         } catch (error) {
-          console.error('Failed to fetch orders:', error);
           if (mountedRef.current) {
             setError((error as any).message || 'Failed to load orders');
             setLoading(false);
@@ -207,7 +205,6 @@ export function ActiveTab() {
         setLoading(false);
       }).catch(error => {
         if (!mountedRef.current) return;
-        console.error('Failed to fetch orders:', error);
         setError(error.message || 'Failed to load orders');
         setLoading(false);
       });

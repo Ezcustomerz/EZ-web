@@ -16,6 +16,8 @@ import { bookingService } from '../../../api/bookingService';
 import type { CalendarSession } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
 import { AuthPopover } from '../../../components/popovers/auth/AuthPopover';
+import { ComingSoonDialog } from '../../../components/dialogs/ComingSoonDialog';
+import { errorToast } from '../../../components/toast/toast';
 
 type Session = CalendarSession;
 
@@ -49,6 +51,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
   const handleFabMenuOpen = (e: React.MouseEvent<HTMLElement>) => setFabMenuAnchor(e.currentTarget);
   const handleFabMenuClose = () => setFabMenuAnchor(null);
   const [authPopoverOpen, setAuthPopoverOpen] = useState(false);
+  const [comingSoonDialogOpen, setComingSoonDialogOpen] = useState(false);
 
   // Fetch sessions when month changes (desktop) or week changes (mobile)
   useEffect(() => {
@@ -77,8 +80,8 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
           const fetchedSessions = await bookingService.getCreativeCalendarSessions(year, month);
           setSessions(fetchedSessions);
         }
-      } catch (error) {
-        console.error('Error fetching calendar sessions:', error);
+      } catch {
+        errorToast('Unable to load calendar', 'Sessions could not be loaded. Please try again.');
         setSessions([]);
       } finally {
         setIsLoadingSessions(false);
@@ -280,7 +283,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
               transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               PaperProps={{ sx: { borderRadius: 2, minWidth: 160, p: 0.5 } }}
             >
-              <MuiMenuItem onClick={handleFabMenuClose}><HeadsetMic sx={{ mr: 1 }} /> New Session</MuiMenuItem>
+              <MuiMenuItem onClick={() => { handleFabMenuClose(); setComingSoonDialogOpen(true); }}><HeadsetMic sx={{ mr: 1 }} /> New Session</MuiMenuItem>
               <MuiMenuItem onClick={handleFabMenuClose}><Settings sx={{ mr: 1 }} /> Calendar Settings</MuiMenuItem>
             </MuiMenu>
 
@@ -299,6 +302,7 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
                   variant="contained"
                   startIcon={<HeadsetMic />}
                   size="small"
+                  onClick={() => setComingSoonDialogOpen(true)}
                   sx={{
                     backgroundColor: 'primary.main',
                     color: 'white',
@@ -652,6 +656,14 @@ export function CalendarTab({ dayDialogOpen, setDayDialogOpen, sessionDialogOpen
           onClose={() => setAuthPopoverOpen(false)}
           title="Sign in to view calendar"
           subtitle="Sign in with Google to access your calendar and manage sessions"
+        />
+
+        {/* Coming Soon Dialog */}
+        <ComingSoonDialog
+          open={comingSoonDialogOpen}
+          onClose={() => setComingSoonDialogOpen(false)}
+          featureName="New Session"
+          description="The ability to create and schedule new calendar sessions is currently under development. This feature will be available soon!"
         />
       </Box>
     </LocalizationProvider>

@@ -3,6 +3,7 @@ import { WarningAmberOutlined, ErrorOutline } from '@mui/icons-material';
 import type { ActivityItem } from '../../types/activity';
 import React, { useMemo, memo, useState, useRef, useEffect, useCallback } from 'react';
 import { markNotificationAsRead } from '../../api/notificationsService';
+import { errorToast } from '../toast/toast';
 
 interface ActivityNotificationProps {
   item?: ActivityItem;
@@ -346,8 +347,8 @@ export const ActivityNotificationCard = memo(function ActivityNotificationCard({
       if (onMarkAsRead && normalized.notificationId) {
         onMarkAsRead(normalized.notificationId);
       }
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
+    } catch {
+      errorToast('Unable to update', 'Could not mark notification as read. Please try again.');
       hasMarkedAsReadRef.current = false; // Reset on error so we can try again
     }
   }, [normalized.notificationId, isRead, onMarkAsRead]);

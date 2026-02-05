@@ -42,10 +42,10 @@ export const inviteService = {
       const response = await apiClient.post('/invite/generate');
       return response.data;
     } catch (error: any) {
-      console.error('Error generating invite link:', error);
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
       return {
         success: false,
-        message: error.response?.data?.detail || 'Failed to generate invite link'
+        message: msg || 'Failed to generate invite link'
       };
     }
   },
@@ -58,11 +58,11 @@ export const inviteService = {
       const response = await apiClient.get(`/invite/validate/${inviteToken}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error validating invite token:', error);
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
       return {
         success: false,
         valid: false,
-        message: error.response?.data?.detail || 'Failed to validate invite token'
+        message: msg || 'Failed to validate invite token'
       };
     }
   },
@@ -75,10 +75,10 @@ export const inviteService = {
       const response = await apiClient.post(`/invite/accept/${inviteToken}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error accepting invite:', error);
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
       return {
         success: false,
-        message: error.response?.data?.detail || 'Failed to accept invite'
+        message: msg || 'Failed to accept invite'
       };
     }
   },
@@ -91,10 +91,10 @@ export const inviteService = {
       const response = await apiClient.post(`/invite/accept-after-role-setup/${inviteToken}`);
       return response.data;
     } catch (error: any) {
-      console.error('Error accepting invite after role setup:', error);
+      const msg = typeof error.response?.data?.detail === 'string' ? error.response.data.detail : undefined;
       return {
         success: false,
-        message: error.response?.data?.detail || 'Failed to accept invite after role setup'
+        message: msg || 'Failed to accept invite after role setup'
       };
     }
   }

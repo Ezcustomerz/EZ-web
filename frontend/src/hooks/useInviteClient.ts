@@ -15,7 +15,6 @@ export function useInviteClient() {
       setInviteClientOpen(true);
     } else {
       // Show authentication popover if not authenticated
-      console.log('Invite button clicked - user not authenticated, showing auth popover');
       openAuth();
     }
   };

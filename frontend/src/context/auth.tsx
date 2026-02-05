@@ -78,8 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initial read (just set session state, don't sync tokens yet)
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      const isAuthed = !!data.session;
-      console.log('[Auth] initial state:', { isAuthenticated: isAuthed, userId: data.session?.user.id });
       
       // Don't sync tokens here - let onAuthStateChange handle it
       // to avoid duplicate calls on initial load
@@ -88,8 +86,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Subscribe to changes
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
-      const isAuthed = !!newSession;
-      console.log('[Auth] state changed:', { event, isAuthenticated: isAuthed, userId: newSession?.user.id });
       
       // Sync tokens to HttpOnly cookies for XSS protection
       // This handles: INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED, etc.
@@ -113,14 +109,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
           
           // Sync tokens to backend HttpOnly cookies (non-blocking)
-          syncTokensToCookies(newSession.access_token, newSession.refresh_token).catch(err => {
-            console.warn('[Auth] Failed to sync tokens to cookies:', err);
+          syncTokensToCookies(newSession.access_token, newSession.refresh_token).catch(() => {
+            // Non-critical; cookies may sync on next request
           });
-        } else {
-          console.log('[Auth] Tokens unchanged, skipping sync');
         }
       } else if (isPublicPage && newSession) {
-        console.log('[Auth] Skipping cookie sync on public page:', currentPath);
+        // Skip cookie sync on public pages
       } else {
         // Clear last synced tokens when session is null
         lastSyncedTokensRef.current = null;
@@ -141,7 +135,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Run login tracking in background without blocking state updates
           supabase.rpc('track_user_login').then(({ error }) => {
             if (error) {
-              console.error('Failed to track user login:', error);
               errorToast('Login Tracking Failed', 'Unable to update login timestamp');
             }
           });
@@ -164,8 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserAuthLoading(false);
         
         // Clear HttpOnly cookies via backend
-        clearAuthCookies().catch(err => {
-          console.warn('[Auth] Failed to clear cookies:', err);
+        clearAuthCookies().catch(() => {
+          // Non-critical; cookies cleared on next request
         });
         
         // Don't show auth popover on landing page - just show the toast
@@ -202,28 +195,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserProfile = async (isFreshSignIn: boolean = false) => {
     // Prevent multiple simultaneous calls
     if (isLoadingProfile) {
-      console.log('[Auth] Already loading profile, skipping...');
       return;
     }
     
     // Don't fetch user profile if we're on the InvitePage
     // InvitePage is a public page and doesn't need user profile data
     if (window.location.pathname.startsWith('/invite/')) {
-      console.log('[Auth] Skipping profile fetch - on InvitePage');
       return;
     }
     
     // Don't process invite logic if setup is already in progress
     // This prevents loops when profile is refreshed during setup
     if (isSetupInProgress) {
-      console.log('[Auth] Setup already in progress, fetching profile without triggering invite logic...');
       setIsLoadingProfile(true);
       setUserAuthLoading(true);
       try {
         const profile = await userService.getUserProfile();
         setUserProfile(profile);
-      } catch (err) {
-        console.error('Error fetching user profile:', err);
+      } catch {
+        // Profile fetch failed; keep existing state
       } finally {
         setIsLoadingProfile(false);
         setUserAuthLoading(false);
@@ -248,19 +238,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check if user came from invite link
         if (invitePreSelectClient && pendingInviteToken && !inviteFlowProcessedRef.current) {
           // Automatically create client role without showing RoleSelectionPopover
-          console.log('[Auth] ===== INVITE FLOW: First login from invite link =====');
-          console.log('[Auth] Auto-creating client role for invite user...');
-          
-          // Show loading overlay immediately to prevent seeing landing page
           setSetupCompletionLoading(true);
           
-          // Mark that we've processed the invite flow to prevent re-entry
           inviteFlowProcessedRef.current = true;
-          
-          // IMPORTANT: Clear the invitePreSelectClient flag IMMEDIATELY to prevent re-triggering
-          // Keep pendingInviteToken for later (it will be cleared after invite acceptance)
           localStorage.removeItem('invitePreSelectClient');
-          console.log('[Auth] Cleared invitePreSelectClient flag');
           
           try {
             const response = await userService.updateUserRoles(['client']);
@@ -279,7 +260,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               inviteFlowProcessedRef.current = false;
             }
           } catch (err) {
-            console.error('[Auth] Error creating client role:', err);
             errorToast('Setup Failed', 'An error occurred while creating your account.');
             // Clear invite token and reset flag on error
             localStorage.removeItem('pendingInviteToken');
@@ -296,31 +276,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (currentRoles.includes('client')) {
           // User has client role - but don't automatically accept invite if setup is in progress
           if (!isSetupInProgress) {
-            console.log('[Auth] ===== INVITE FLOW: Existing user with client role =====');
-            console.log('[Auth] Accepting invite immediately...');
-            
-            // Show loading overlay immediately
             setSetupCompletionLoading(true);
             inviteFlowProcessedRef.current = true;
             handleInviteAfterSetup();
-          } else {
-            console.log('[Auth] User has client role but setup is in progress, waiting for setup completion...');
           }
         } else {
-          // User doesn't have client role - automatically add it without showing RoleSelectionPopover
-          console.log('[Auth] ===== INVITE FLOW: Existing user needs client role =====');
-          console.log('[Auth] Auto-adding client role for existing user...');
-          
-          // Show loading overlay immediately
           setSetupCompletionLoading(true);
-          
-          // Mark that we've processed the invite flow to prevent re-entry
           inviteFlowProcessedRef.current = true;
-          
-          // IMPORTANT: Clear the invitePreSelectClient flag IMMEDIATELY to prevent re-triggering
-          // Keep pendingInviteToken for later (it will be cleared after invite acceptance)
           localStorage.removeItem('invitePreSelectClient');
-          console.log('[Auth] Cleared invitePreSelectClient flag');
           
           try {
             const newRoles = [...currentRoles, 'client'];
@@ -340,30 +303,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               inviteFlowProcessedRef.current = false;
             }
           } catch (err) {
-            console.error('[Auth] Error adding client role:', err);
             errorToast('Setup Failed', 'An error occurred while updating your account.');
-            // Clear invite token and reset flag on error
             localStorage.removeItem('pendingInviteToken');
             inviteFlowProcessedRef.current = false;
           }
         }
       } else if (inviteNeedsClientRole && pendingInviteToken && !inviteFlowProcessedRef.current) {
-        // User is authenticated but needs client role for invite
-        // This is the old invite flow - automatically add client role
         const currentRoles = profile.roles || [];
         if (!currentRoles.includes('client')) {
-          console.log('[Auth] ===== OLD INVITE FLOW: Auto-adding client role =====');
-          
-          // Show loading overlay immediately
           setSetupCompletionLoading(true);
-          
-          // Mark that we've processed the invite flow to prevent re-entry
           inviteFlowProcessedRef.current = true;
-          
-          // IMPORTANT: Clear the inviteNeedsClientRole flag IMMEDIATELY to prevent re-triggering
-          // Keep pendingInviteToken for later (it will be cleared after invite acceptance)
           localStorage.removeItem('inviteNeedsClientRole');
-          console.log('[Auth] Cleared inviteNeedsClientRole flag');
           
           try {
             const newRoles = [...currentRoles, 'client'];
@@ -382,24 +332,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               inviteFlowProcessedRef.current = false;
             }
           } catch (err) {
-            console.error('[Auth] Error adding client role:', err);
             errorToast('Setup Failed', 'An error occurred while updating your account.');
             localStorage.removeItem('pendingInviteToken');
             inviteFlowProcessedRef.current = false;
           }
         }
       } else {
-        // Check for incomplete setups only if setup is not already in progress and role selection is not open
         if (!isSetupInProgress && !roleSelectionOpen) {
           try {
             const setupStatus = await userService.getIncompleteSetups();
             if (setupStatus.incomplete_setups.length > 0) {
-              // For incomplete setups, store the user's current roles as original selection
               setOriginalSelectedRoles(profile.roles || []);
-              // Resume incomplete setups
               startSequentialSetup(setupStatus.incomplete_setups);
             } else {
-              // Only show welcome toast for fresh sign-ins, not page reloads
               if (isFreshSignIn) {
                 toast({
                   title: 'Welcome back!',
@@ -410,7 +355,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
           } catch (setupErr) {
-            console.error('Error checking setup status:', setupErr);
             // Only show fallback welcome toast for fresh sign-ins
             if (isFreshSignIn) {
               toast({
@@ -437,7 +381,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Note: Role-based redirection after login is now handled by AuthCallback component
       // This prevents race conditions and duplicate redirections
     } catch (err) {
-      console.error('Unexpected error fetching user profile:', err);
       errorToast('Profile Error', 'Failed to load user profile');
     } finally {
       setIsLoadingProfile(false);
@@ -455,19 +398,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // First, clear backend cookies (this always succeeds)
       // This ensures HttpOnly cookies are cleared even if Supabase signOut fails
-      await clearAuthCookies().catch(err => {
-        console.warn('[Auth] Error clearing backend cookies (non-critical):', err);
+      await clearAuthCookies().catch(() => {
+        // Non-critical
       });
 
       // Try to sign out from Supabase, but don't fail if session is already gone
       // This can fail if the session_id in the JWT doesn't exist in Supabase anymore
       const { error } = await supabase.auth.signOut();
       if (error) {
-        // If signOut fails, log it but don't show error to user
-        // This can happen when session is already expired/deleted
-        // The important part (clearing cookies) already succeeded above
-        console.warn('[Auth] Supabase signOut error (session may already be invalid):', error);
-        
+        // Session may already be expired/deleted; clearing cookies already succeeded above
         // Force clear local session state even if Supabase signOut failed
         // This ensures the user is logged out on the frontend
         setSession(null);
@@ -487,14 +426,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           variant: 'info',
           duration: 4000
         });
-      } else {
-        console.log('[Auth] User signed out successfully');
-        // Auth popover will be shown by the auth state change handler
       }
     } catch (err) {
-      // Even if everything fails, clear local state and cookies
-      console.warn('[Auth] Unexpected sign out error, forcing local logout:', err);
-      
       // Force clear local session state
       setSession(null);
       setUserProfile(null);
@@ -537,21 +470,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Use passed profile or fallback to state
     const profileToUse = profile || userProfile;
     
-    console.log('[Auth] startSequentialSetup called with roles:', selectedRoles);
-    console.log('[Auth] Profile available:', !!profileToUse, profileToUse ? { name: profileToUse.name, email: profileToUse.email } : 'NO PROFILE');
-    
-    // Auto-create client profile silently if client role is selected
     if (selectedRoles.includes('client') && profileToUse) {
       try {
         const clientSetupData = {
           display_name: profileToUse.name || 'User',
           email: profileToUse.email || '',
         };
-        console.log('[Auth] Auto-creating client profile with data:', clientSetupData);
         await userService.setupClientProfile(clientSetupData);
-        console.log('[Auth] ✓ Client profile auto-created successfully');
       } catch (err: any) {
-        console.error('[Auth] ✗ Failed to auto-create client profile:', err);
         const errorMsg = err.response?.data?.message || err.message || 'Unable to create client profile';
         errorToast('Setup Failed', errorMsg);
         setIsSetupInProgress(false);
@@ -559,7 +485,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
     } else if (selectedRoles.includes('client') && !profileToUse) {
-      console.error('[Auth] ✗ Cannot create client profile - no profile data available!');
       errorToast('Setup Failed', 'Unable to create client profile - user data not available');
       setIsSetupInProgress(false);
       setOriginalSelectedRoles([]);
@@ -578,32 +503,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (orderedSetups.length > 0) {
       openNextSetup(orderedSetups);
     } else if (selectedRoles.includes('client') && selectedRoles.length === 1) {
-      // If only client role was selected and it's now auto-created, finish setup
-      console.log('[Auth] ===== CLIENT-ONLY SETUP COMPLETE =====');
       setIsSetupInProgress(false);
-      // Note: setupCompletionLoading should already be true from earlier in the invite flow
-      // but set it here anyway as a safety net
       setSetupCompletionLoading(true);
       
-      // Check if this is an invite flow
       const pendingInviteToken = localStorage.getItem('pendingInviteToken');
-      console.log('[Auth] Checking for pending invite token:', pendingInviteToken ? 'FOUND' : 'NOT FOUND');
       
       if (pendingInviteToken) {
-        // This is an invite flow - accept the invite instead of refreshing profile
-        console.log('[Auth] ===== INVITE FLOW: Accepting invite =====');
-        console.log('[Auth] Pending invite token:', pendingInviteToken.substring(0, 50) + '...');
-        
-        // Small delay to ensure client profile is fully created in database (with retry logic as backup)
         await new Promise(resolve => setTimeout(resolve, 300));
-        console.log('[Auth] Calling handleInviteAfterSetup...');
-        
         await handleInviteAfterSetup();
-        console.log('[Auth] handleInviteAfterSetup completed');
       } else {
-        // Normal flow - refresh profile and redirect
-        console.log('[Auth] ===== NORMAL FLOW: Refreshing profile and redirecting =====');
-        // Refresh user profile to get updated first_login status
         await fetchUserProfile();
         // Now redirect to client dashboard
         navigate('/client', { replace: true });
@@ -635,41 +543,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const handleInviteAfterSetup = async (retryCount = 0, maxRetries = 3) => {
-    console.log(`[Auth] handleInviteAfterSetup called (retry: ${retryCount}/${maxRetries})`);
-    
-    // Note: Loading overlay is already set by the caller (startSequentialSetup)
-    // We just need to clear it when done
-    
     const pendingInviteToken = localStorage.getItem('pendingInviteToken');
-    console.log('[Auth] Pending invite token in handleInviteAfterSetup:', pendingInviteToken ? 'EXISTS' : 'MISSING');
     
     if (pendingInviteToken) {
       try {
-        console.log('[Auth] Calling acceptInviteAfterRoleSetup API...');
         const response = await inviteService.acceptInviteAfterRoleSetup(pendingInviteToken);
-        console.log('[Auth] API response:', response);
         
         if (response.success) {
-          console.log('[Auth] ===== INVITE ACCEPTED SUCCESSFULLY =====');
-          
-          // IMPORTANT: Clear all invite tokens FIRST to prevent any re-triggering
           localStorage.removeItem('pendingInviteToken');
           localStorage.removeItem('inviteCreativeUserId');
           localStorage.removeItem('invitePreSelectClient');
           localStorage.removeItem('inviteNeedsClientRole');
-          
-          // Reset the invite flow processed flag for next time
           inviteFlowProcessedRef.current = false;
-          console.log('[Auth] All invite flags cleared');
           
-          // Refresh profile to ensure RoleGuard sees updated roles
-          console.log('[Auth] Refreshing profile before navigation...');
           try {
             const freshProfile = await userService.getUserProfile();
             setUserProfile(freshProfile);
-            console.log('[Auth] Profile refreshed successfully, roles:', freshProfile.roles);
-          } catch (err) {
-            console.error('[Auth] Error refreshing profile:', err);
+          } catch {
+            // Profile refresh failed; navigation may still work
           }
           
           // Show success message
@@ -682,9 +573,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Check if there's a pending service booking to complete
           const pendingBookingData = localStorage.getItem('pendingServiceBooking');
           if (pendingBookingData) {
-            console.log('[Auth] ===== PENDING SERVICE BOOKING DETECTED =====');
-            console.log('[Auth] Booking data:', pendingBookingData);
-            
             try {
               const bookingData = JSON.parse(pendingBookingData);
               
@@ -711,8 +599,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
               }
               
-              // Create the booking
-              console.log('[Auth] Creating booking for service:', bookingData.serviceId);
               const bookingResponse = await bookingService.createBooking({
                 service_id: bookingData.serviceId,
                 booking_date: bookingData.bookingDate,
@@ -723,7 +609,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               });
               
               if (bookingResponse.success) {
-                console.log('[Auth] ===== SERVICE BOOKED SUCCESSFULLY =====');
                 successToast(
                   'Service Booked!',
                   bookingData.isBookingRequired
@@ -739,19 +624,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setSetupCompletionLoading(false);
                 try {
                   await fetchUserProfile(false);
-                } catch (e) {
-                  console.warn('[Auth] Profile refresh before navigate:', e);
+                } catch {
+                  // Profile refresh failed; navigate anyway
                 }
-                // Defer navigate so React commits state; avoids white screen on orders page
                 setTimeout(() => {
                   navigate('/client/orders', { replace: true });
-                  console.log('[Auth] ===== BOOKING COMPLETE =====');
                 }, 0);
               } else {
                 throw new Error(bookingResponse.message || 'Failed to create booking');
               }
             } catch (bookingErr) {
-              console.error('[Auth] Error completing booking:', bookingErr);
               // Clear the pending booking even on error to prevent repeated attempts
               localStorage.removeItem('pendingServiceBooking');
               errorToast('Booking Failed', 'Account created but booking failed. Please book again from the creative\'s profile.');
@@ -763,23 +645,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }, 100);
             }
           } else {
-            // No pending booking - normal flow
-            console.log('[Auth] Navigating to /client dashboard...');
-            
-            // Navigate first, then clear loading overlay
-            // This prevents flash of landing page during transition
             navigate('/client', { replace: true });
-            
-            // Clear loading overlay after navigation starts
             setTimeout(() => {
               setSetupCompletionLoading(false);
-              console.log('[Auth] ===== REDIRECT COMPLETE =====');
             }, 100);
           }
         } else {
-          // Check if error is about missing client profile and we can retry
           if (response.message?.includes('Client profile not found') && retryCount < maxRetries) {
-            console.log(`[Auth] Client profile not ready yet, retrying (${retryCount + 1}/${maxRetries})...`);
             // Wait before retrying (exponential backoff)
             await new Promise(resolve => setTimeout(resolve, 500 * (retryCount + 1)));
             return handleInviteAfterSetup(retryCount + 1, maxRetries);
@@ -791,8 +663,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         setSetupCompletionLoading(false);
-        inviteFlowProcessedRef.current = false; // Reset on error
-        console.error('Error accepting invite after setup:', err);
+        inviteFlowProcessedRef.current = false;
         errorToast('Connection Failed', 'Unable to connect with creative. Please try again.');
       }
     } else {
@@ -807,8 +678,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // After profile refresh, redirect to appropriate role page immediately
           redirectToAppropriateRole();
         } catch (err) {
-          console.error('Error refreshing profile after setup:', err);
-          // Even if profile refresh fails, try to redirect based on original roles
           redirectToAppropriateRole();
         }
       } else {

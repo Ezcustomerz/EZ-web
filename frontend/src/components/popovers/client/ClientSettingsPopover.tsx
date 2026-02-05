@@ -84,9 +84,12 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
         profilePhotoUrl: profile.profile_banner_url || '',
         primaryContact: profile.email || '',
       });
-    } catch (err: any) {
-      console.error('Failed to fetch client profile:', err);
-      setError(err.response?.data?.detail || 'Failed to load profile data');
+    } catch (err: unknown) {
+      const data = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : 'Failed to load profile data';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -121,10 +124,8 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
       // Upload profile photo if a new one was selected
       if (formData.profilePhoto) {
         try {
-          const uploadResponse = await userService.uploadClientProfilePhoto(formData.profilePhoto);
-          console.log('Profile photo uploaded:', uploadResponse);
-        } catch (uploadError) {
-          console.error('Failed to upload profile photo:', uploadError);
+          await userService.uploadClientProfilePhoto(formData.profilePhoto);
+        } catch {
           errorToast('Failed to upload profile photo', 'Your other settings will still be saved.');
           // Continue with other settings even if photo upload fails
         }
@@ -153,9 +154,11 @@ export function ClientSettingsPopover({ open, onClose, onProfileUpdated }: Clien
         // Close the popover
         handleClose();
       }
-    } catch (err: any) {
-      console.error('Failed to update client profile:', err);
-      const errorMessage = err.response?.data?.detail || 'Failed to update profile';
+    } catch (err: unknown) {
+      const data = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'Failed to update profile';
       setError(errorMessage);
       errorToast('Update Failed', errorMessage);
     } finally {

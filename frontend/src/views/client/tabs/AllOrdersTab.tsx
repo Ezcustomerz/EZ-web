@@ -31,6 +31,7 @@ import { CompletedOrderCard } from '../../../components/cards/client/CompletedOr
 import { CanceledOrderCard } from '../../../components/cards/client/CanceledOrderCard';
 import { bookingService, type Order } from '../../../api/bookingService';
 import { useAuth } from '../../../context/auth';
+import { errorToast } from '../../../components/toast/toast';
 
 // Module-level cache to prevent duplicate fetches across remounts
 // This persists across StrictMode remounts to prevent duplicate API calls
@@ -202,9 +203,9 @@ export function AllServicesTab() {
         );
         setConnectedCreatives(creatives);
         setLoading(false);
-      }).catch(error => {
+      }).catch(() => {
         if (!mountedRef.current) return;
-        console.error('Failed to fetch orders:', error);
+        errorToast('Unable to load orders', 'Orders could not be loaded. Please try again.');
         setLoading(false);
       });
       return;
@@ -253,15 +254,14 @@ export function AllServicesTab() {
           }
         }, CACHE_DURATION);
         return fetchedOrders;
-      } catch (error) {
-        console.error('Failed to fetch orders:', error);
+      } catch (err) {
         if (mountedRef.current) {
           setLoading(false);
         }
         fetchCache.isFetching = false;
         // Clear cache on error
         fetchCache.promise = null;
-        throw error;
+        throw err;
       }
     };
 
@@ -329,8 +329,8 @@ export function AllServicesTab() {
       fetchCache.data = fetchedOrders;
       fetchCache.resolved = true;
       fetchCache.timestamp = Date.now();
-    } catch (error) {
-      console.error('Failed to refresh orders:', error);
+    } catch {
+      errorToast('Unable to refresh orders', 'Orders could not be loaded. Please try again.');
     } finally {
       setLoading(false);
     }

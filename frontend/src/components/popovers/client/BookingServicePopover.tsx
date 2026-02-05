@@ -897,17 +897,6 @@ export function BookingServicePopover({
     }, 150);
   };
 
-  // Debug logging to help troubleshoot
-  console.log('BookingServicePopover Debug:', {
-    service: service,
-    requires_booking: service?.requires_booking,
-    isBookingRequired: isBookingRequired,
-    activeStep: activeStep,
-    showSchedulePopover: showSchedulePopover,
-    calendarSettings: calendarSettings
-  });
-
-
   const handleSubmit = async () => {
     if (!service) {
       return;
@@ -923,9 +912,6 @@ export function BookingServicePopover({
     if (isInvitePageBooking) {
       // If user is not authenticated, store booking data and trigger sign-up
       if (!session) {
-        console.log('[BookingServicePopover] Invite page booking - user not authenticated');
-        console.log('[BookingServicePopover] Storing booking data and triggering sign-up');
-        
         // Prepare booking data to store
         const pendingBooking = {
           serviceId: service.id,
@@ -945,8 +931,6 @@ export function BookingServicePopover({
           localStorage.setItem('invitePreSelectClient', 'true');
         }
         
-        console.log('[BookingServicePopover] Pending booking stored:', pendingBooking);
-        
         // Close the booking popover
         handleClose();
         
@@ -955,31 +939,23 @@ export function BookingServicePopover({
         return;
       } else {
         // User is authenticated - accept invite first before booking
-        console.log('[BookingServicePopover] Invite page booking - user authenticated');
-        console.log('[BookingServicePopover] Will accept invite before creating booking');
-        
         setIsSubmitting(true);
         
         try {
           // Accept the invite first
           if (inviteToken) {
             const { inviteService } = await import('../../../api/inviteService');
-            console.log('[BookingServicePopover] Accepting invite token:', inviteToken.substring(0, 50) + '...');
             const inviteResponse = await inviteService.acceptInvite(inviteToken);
             
-            if (!inviteResponse.success) {
-              // If invite acceptance fails (e.g., already accepted), continue with booking anyway
-              console.log('[BookingServicePopover] Invite acceptance note:', inviteResponse.message);
-            } else {
-              console.log('[BookingServicePopover] Invite accepted successfully');
+            if (inviteResponse.success) {
               successToast('Connected!', inviteResponse.message);
             }
+            // If invite acceptance fails (e.g., already accepted), continue with booking anyway
           }
           
           // Continue with booking creation below
           // (don't return here - fall through to normal booking logic)
-        } catch (inviteErr: any) {
-          console.error('[BookingServicePopover] Error accepting invite:', inviteErr);
+        } catch {
           // Continue with booking anyway - invite might already be accepted
         }
       }
@@ -1029,12 +1005,9 @@ export function BookingServicePopover({
       });
 
       if (!response.success) {
-        console.error('Failed to create booking:', response.message);
         errorToast('Booking Failed', response.message || 'Failed to create booking. Please try again.');
         return;
       }
-
-      console.log('Booking created successfully:', response.booking);
       
       // Show success toast
       successToast(
@@ -1063,9 +1036,11 @@ export function BookingServicePopover({
         // Navigate to orders page after closing the popover
         navigate('/client/orders');
       }, 500);
-    } catch (error: any) {
-      console.error('Failed to submit booking:', error);
-      const errorMessage = error.response?.data?.detail || error.message || 'An unexpected error occurred. Please try again.';
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'An unexpected error occurred. Please try again.';
       errorToast('Unexpected Error', errorMessage);
     } finally {
       setIsSubmitting(false);

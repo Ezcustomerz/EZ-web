@@ -182,8 +182,7 @@ export function InProgressPopover({
             setInvoices(result.invoices || []);
             setIsLoadingInvoices(false);
           })
-          .catch((err: any) => {
-            console.error('Error fetching invoices:', err);
+          .catch(() => {
             setInvoices([]);
             setIsLoadingInvoices(false);
           });
@@ -205,9 +204,8 @@ export function InProgressPopover({
       if (profile?.user_id) {
         await calculateActualStorageUsed(profile.user_id);
       }
-    } catch (error) {
-      console.error('Failed to fetch creative profile:', error);
-      // Don't show error toast here - storage check will handle it gracefully
+    } catch {
+      // Silently continue - storage check will handle it gracefully
     } finally {
       setLoadingProfile(false);
     }
@@ -259,8 +257,7 @@ export function InProgressPopover({
       }, 0);
 
       setActualStorageUsed(actualStorage);
-    } catch (error) {
-      console.error('Failed to calculate actual storage used:', error);
+    } catch {
       // Fall back to profile value on error - use current creativeProfile state
       const currentProfile = creativeProfile;
       setActualStorageUsed(currentProfile?.storage_used_bytes || 0);
@@ -278,8 +275,7 @@ export function InProgressPopover({
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
-    } catch (error) {
-      console.error('Failed to view EZ invoice:', error);
+    } catch {
       alert('Failed to view invoice. Please try again.');
     }
   };
@@ -298,8 +294,7 @@ export function InProgressPopover({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }, 100);
-    } catch (error) {
-      console.error('Failed to download EZ invoice:', error);
+    } catch {
       alert('Failed to download invoice. Please try again.');
     }
   };
@@ -312,8 +307,7 @@ export function InProgressPopover({
         // Open Stripe receipt in new tab
         window.open(response.receipt_url, '_blank');
       }
-    } catch (error) {
-      console.error('Failed to get Stripe receipt:', error);
+    } catch {
       alert('Failed to open Stripe receipt. Please try again.');
     }
   };
@@ -504,8 +498,8 @@ export function InProgressPopover({
             const blob = await response.blob();
             const file = new File([blob], uploadedFile.name, { type: uploadedFile.type });
             filesToScan.push(file);
-          } catch (error) {
-            console.error(`Error converting file ${uploadedFile.name}:`, error);
+          } catch {
+            // Silently skip files that fail to convert
           }
         }
         
@@ -519,8 +513,7 @@ export function InProgressPopover({
             return; // Stop here, user can see the dialog and decide what to do
           }
         }
-      } catch (error) {
-        console.error('Error scanning files:', error);
+      } catch {
         // Create error response
         setScanResponse({
           results: uploadedFiles.map(f => ({
@@ -548,8 +541,8 @@ export function InProgressPopover({
         await onFinalizeService(order.id, uploadedFiles);
         setScanDialogOpen(false);
         onClose();
-      } catch (error) {
-        console.error('Error finalizing service:', error);
+      } catch {
+        // Silently continue - finalization state is shown in UI
       } finally {
         setIsFinalizing(false);
       }
@@ -572,8 +565,7 @@ export function InProgressPopover({
       await onFinalizeService(order.id, uploadedFiles);
       // Upload state is managed in parent component, so we can close now
       onClose();
-    } catch (error) {
-      console.error('Error finalizing service:', error);
+    } catch {
       setIsUploading(false);
       setUploadProgress('');
       if (onUploadProgress) onUploadProgress('');

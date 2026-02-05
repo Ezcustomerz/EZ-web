@@ -132,8 +132,7 @@ export function LayoutAdvocate({ children, selectedNavItem = 'dashboard', hideMe
         const profile = await userService.getAdvocateProfile();
         setAdvocateProfile(profile);
         cacheProfileForUser(userProfile.user_id, profile);
-      } catch (e) {
-        console.error('[LayoutAdvocate] Failed to load advocate profile:', e);
+      } catch {
         setAdvocateProfile(null);
       } finally {
         fetchingRef.current.delete(userProfile.user_id);

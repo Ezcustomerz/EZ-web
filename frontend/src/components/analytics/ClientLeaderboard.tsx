@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../api/apiClient';
+import { errorToast } from '../toast/toast';
 
 interface ClientAnalyticsData {
   id: string;
@@ -82,7 +83,7 @@ export function ClientAnalytics({ onDelete }: ClientAnalyticsProps) {
         }
       } catch (error: any) {
         if (error.name !== 'CanceledError' && isMounted) {
-          console.error('Error fetching client leaderboard:', error);
+          errorToast('Unable to load client leaderboard', 'Analytics data could not be loaded. Please try again.');
           setClientsData([]);
         }
       } finally {

@@ -165,7 +165,6 @@ export function BundleCreationPopover({
       
       // Only fetch services if user is authenticated
       if (!isAuthenticated) {
-        console.log('User not authenticated, skipping services fetch');
         setServices([]);
         return;
       }
@@ -188,8 +187,7 @@ export function BundleCreationPopover({
         
         return false;
       }));
-    } catch (error) {
-      console.error('Failed to fetch services:', error);
+    } catch {
       errorToast('Failed to load services');
     } finally {
       setLoading(false);
@@ -286,10 +284,12 @@ export function BundleCreationPopover({
         onBundleCreated?.(formData);
         onClose();
       }
-    } catch (error: any) {
-      console.error(`Failed to ${editingBundle ? 'update' : 'create'} bundle:`, error);
-      const errorMessage = error.response?.data?.detail || `Failed to ${editingBundle ? 'update' : 'create'} bundle. Please try again.`;
-      errorToast(errorMessage);
+    } catch (error: unknown) {
+      const data = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const msg = typeof data?.detail === 'string' ? data.detail : `Failed to ${editingBundle ? 'update' : 'create'} bundle. Please try again.`;
+      errorToast(msg);
     } finally {
       setSaving(false);
     }

@@ -118,8 +118,8 @@ export function DirectPaymentPopover({
       setLoadingProfile(true);
       const profile = await userService.getCreativeProfile();
       setCreativeProfile(profile);
-    } catch (error) {
-      console.error('Failed to fetch creative profile:', error);
+    } catch {
+      // Silently continue - profile will show as unavailable
     } finally {
       setLoadingProfile(false);
     }
@@ -167,8 +167,8 @@ export function DirectPaymentPopover({
         setAllBookings(sorted);
         setBookings(sorted.slice(0, 5));
       }
-    } catch (error) {
-      console.error('Failed to fetch bookings:', error);
+    } catch {
+      // Silently continue - bookings will show as unavailable
     } finally {
       setLoadingBookings(false);
       setLoadingMoreBookings(false);
@@ -187,8 +187,8 @@ export function DirectPaymentPopover({
       setLoadingClients(true);
       const response = await userService.getCreativeClients();
       setClients(response.clients);
-    } catch (error) {
-      console.error('Failed to fetch clients:', error);
+    } catch {
+      // Silently continue - clients will show as unavailable
     } finally {
       setLoadingClients(false);
     }
@@ -287,16 +287,18 @@ export function DirectPaymentPopover({
 
       // Reset form and close
       handleClose();
-    } catch (error: any) {
-      console.error('Failed to create payment request:', error);
-      
+    } catch (error: unknown) {
       // Check if error is due to Stripe not being set up
-      if (error.message && error.message.includes('STRIPE_NOT_SETUP')) {
+      const errMsg = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message?: unknown }).message)
+        : '';
+      
+      if (errMsg.includes('STRIPE_NOT_SETUP')) {
         setShowStripeSetupDialog(true);
       } else {
         errorToast(
           'Failed to Create Payment Request',
-          error.message || 'An error occurred while creating the payment request. Please try again.'
+          'An error occurred while creating the payment request. Please try again.'
         );
       }
     } finally {
@@ -789,7 +791,8 @@ export function DirectPaymentPopover({
             mb: 2,
             borderRadius: 2,
             backgroundColor: 'rgba(76, 175, 80, 0.05)',
-            border: '1px solid rgba(76, 175, 80, 0.2)'
+            border: '1px solid rgba(76, 175, 80, 0.2)',
+            overflow: 'visible'
           }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'success.main' }}>
               💰 Your Earnings Breakdown
@@ -802,7 +805,7 @@ export function DirectPaymentPopover({
               const feePercentageDisplay = (feePercentage * 100).toFixed(1);
               
               return (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'visible' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2" color="text.secondary">
                       Payment Request Amount:
@@ -815,21 +818,30 @@ export function DirectPaymentPopover({
                     <Typography variant="body2" color="text.secondary">
                       Transaction Fee ({feePercentageDisplay}%):
                     </Typography>
-                    <Typography variant="body2" color="error.main" sx={{ fontWeight: 600 }}>
+                    <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
                       -${platformFee.toFixed(2)}
                     </Typography>
                   </Box>
                   <Box sx={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    pt: 1,
+                    alignItems: 'flex-start',
+                    pt: 2,
+                    pb: 1,
                     borderTop: '1px solid rgba(76, 175, 80, 0.2)'
                   }}>
-                    <Typography variant="body1" sx={{ fontWeight: 700, color: 'success.main' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: 'text.primary' }}>
                       Your Net Earnings:
                     </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 700, color: 'success.main', fontSize: '1.1rem' }}>
+                    <Typography 
+                      component="div"
+                      sx={{ 
+                        fontWeight: 700, 
+                        color: 'text.primary',
+                        fontSize: '1.125rem',
+                        fontFamily: 'inherit'
+                      }}
+                    >
                       ${yourEarnings.toFixed(2)}
                     </Typography>
                   </Box>

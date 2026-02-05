@@ -185,16 +185,16 @@ export function RoleSelectionPopover({ open, onClose, userName, userRoles, roleP
         if (rolesNeedingSetup.length > 0) {
           // Start sequential setup flow in order: creative -> client -> advocate
           startSequentialSetup(rolesNeedingSetup);
-        } else {
-          // All selected roles already have profiles, no setup needed
-          console.log('[RoleSelectionPopover] All selected roles already have profiles, skipping setup');
         }
+        // If all selected roles already have profiles, no setup needed
       } else {
         errorToast('Role Selection Failed', response.message);
       }
-    } catch (err: any) {
-      console.error('Unexpected role selection error:', err);
-      const errorMessage = err.response?.data?.detail || 'An unexpected error occurred while setting your roles';
+    } catch (err: unknown) {
+      const data = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { detail?: unknown } } }).response?.data
+        : undefined;
+      const errorMessage = typeof data?.detail === 'string' ? data.detail : 'An unexpected error occurred while setting your roles';
       errorToast('Role Selection Failed', errorMessage);
     } finally {
       setIsLoading(false);
