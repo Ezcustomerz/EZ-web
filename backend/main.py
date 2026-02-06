@@ -16,6 +16,7 @@ from api.stripe import stripe_router
 from api.file_scanning.file_scanning_router import router as file_scanning_router
 from api.payment_requests.payment_requests_router import router as payment_requests_router
 from api.subscriptions import subscriptions
+from api.contact import contact_router
 from core.limiter import limiter
 from core.verify import jwt_auth_middleware
 # Import database module to trigger connection test
@@ -99,6 +100,7 @@ app.include_router(stripe_router.router, prefix="/stripe", tags=["stripe"])
 app.include_router(payment_requests_router, prefix="/api/payment-requests", tags=["payment-requests"])
 app.include_router(subscriptions.router, prefix="/api", tags=["subscriptions"])
 app.include_router(file_scanning_router)
+app.include_router(contact_router.router)
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
