@@ -38,6 +38,17 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 }
 
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'Complete':
+      return '#10b981';
+    case 'Canceled':
+      return '#ef4444';
+    default:
+      return '#667eea';
+  }
+}
+
 export function PastOrdersTable({ 
   orders = [],
   orderIdToOpen,
@@ -368,14 +379,53 @@ export function PastOrdersTable({
                   onChange={(e) => setFilter(e.target.value)}
                   label="Status Filter"
                   startAdornment={<FilterIcon sx={{ mr: 1, color: 'text.secondary' }} />}
+                  renderValue={(value) => {
+                    if (value === 'All') return 'All';
+                    const displayText = value === 'Complete' ? 'Completed' : value;
+                    return (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          bgcolor: getStatusColor(value as string) 
+                        }} />
+                        {displayText}
+                      </Box>
+                    );
+                  }}
                   sx={{
                     borderRadius: 1,
                     backgroundColor: 'background.paper',
                   }}
                 >
-                  <MenuItem value="All" disableRipple>All</MenuItem>
-                  <MenuItem value="Complete" disableRipple>Complete</MenuItem>
-                  <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                  <MenuItem value="All" disableRipple>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      All
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="Complete" disableRipple>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        bgcolor: getStatusColor('Complete') 
+                      }} />
+                      Completed
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="Canceled" disableRipple>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        bgcolor: getStatusColor('Canceled') 
+                      }} />
+                      Canceled
+                    </Box>
+                  </MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -473,7 +523,7 @@ export function PastOrdersTable({
                     <Typography variant="subtitle1" fontWeight={600}>{order.client}</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Chip 
-                        label={order.status === 'Rejected' ? 'Canceled' : order.status} 
+                        label={order.status === 'Rejected' ? 'Canceled' : (order.status === 'Complete' ? 'Completed' : order.status)} 
                         color="info"
                         size="small" 
                         sx={{ 
@@ -592,14 +642,53 @@ export function PastOrdersTable({
                 onChange={(e) => setFilter(e.target.value)}
                 label="Status Filter"
                 startAdornment={<FilterIcon sx={{ mr: 1, color: 'text.secondary' }} />}
+                renderValue={(value) => {
+                  if (value === 'All') return 'All';
+                  const displayText = value === 'Complete' ? 'Completed' : value;
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        bgcolor: getStatusColor(value as string) 
+                      }} />
+                      {displayText}
+                    </Box>
+                  );
+                }}
                 sx={{
                   borderRadius: 1,
                   backgroundColor: 'background.paper',
                 }}
               >
-                <MenuItem value="All" disableRipple>All</MenuItem>
-                <MenuItem value="Complete" disableRipple>Complete</MenuItem>
-                <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                <MenuItem value="All" disableRipple>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    All
+                  </Box>
+                </MenuItem>
+                <MenuItem value="Complete" disableRipple>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ 
+                      width: 8, 
+                      height: 8, 
+                      borderRadius: '50%', 
+                      bgcolor: getStatusColor('Complete') 
+                    }} />
+                    Completed
+                  </Box>
+                </MenuItem>
+                <MenuItem value="Canceled" disableRipple>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ 
+                      width: 8, 
+                      height: 8, 
+                      borderRadius: '50%', 
+                      bgcolor: getStatusColor('Canceled') 
+                    }} />
+                    Canceled
+                  </Box>
+                </MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -850,7 +939,7 @@ export function PastOrdersTable({
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Chip
-                          label={order.status === 'Rejected' ? 'Canceled' : order.status}
+                          label={order.status === 'Rejected' ? 'Canceled' : (order.status === 'Complete' ? 'Completed' : order.status)}
                           size="small"
                           sx={{
                             backgroundColor: order.status === 'Complete' ? '#10b981' : 

@@ -76,13 +76,30 @@ function formatBookingDate(bookingDateStr: string | null) {
       month: 'short', 
       day: '2-digit', 
       year: 'numeric',
-      hour: '2-digit',
+      hour: '2-digit', 
       minute: '2-digit',
       hour12: true,
       timeZone: userTimezone
     });
   } catch {
     return 'Not scheduled';
+  }
+}
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case 'Pending Approval':
+      return '#f59e0b';
+    case 'Awaiting Payment':
+      return '#3b82f6';
+    case 'In Progress':
+      return '#8b5cf6';
+    case 'Complete':
+      return '#10b981';
+    case 'Canceled':
+      return '#ef4444';
+    default:
+      return '#667eea';
   }
 }
 
@@ -911,14 +928,68 @@ export function RequestsTable({
                     },
                   }}
                 >
-                  <MenuItem value="All" disableRipple>All</MenuItem>
-                  <MenuItem value="Pending Approval" disableRipple>Pending Approval</MenuItem>
-                  <MenuItem value="Awaiting Payment" disableRipple>Awaiting Payment</MenuItem>
-                  <MenuItem value="In Progress" disableRipple>In Progress</MenuItem>
+                  <MenuItem value="All" disableRipple>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      All
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="Pending Approval" disableRipple>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        bgcolor: getStatusColor('Pending Approval') 
+                      }} />
+                      Pending Approval
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="Awaiting Payment" disableRipple>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        bgcolor: getStatusColor('Awaiting Payment') 
+                      }} />
+                      Awaiting Payment
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="In Progress" disableRipple>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        bgcolor: getStatusColor('In Progress') 
+                      }} />
+                      In Progress
+                    </Box>
+                  </MenuItem>
                   {context !== 'orders' && (
                     <>
-                      <MenuItem value="Complete" disableRipple>Complete</MenuItem>
-                      <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                      <MenuItem value="Complete" disableRipple>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ 
+                            width: 8, 
+                            height: 8, 
+                            borderRadius: '50%', 
+                            bgcolor: getStatusColor('Complete') 
+                          }} />
+                          Complete
+                        </Box>
+                      </MenuItem>
+                      <MenuItem value="Canceled" disableRipple>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ 
+                            width: 8, 
+                            height: 8, 
+                            borderRadius: '50%', 
+                            bgcolor: getStatusColor('Canceled') 
+                          }} />
+                          Canceled
+                        </Box>
+                      </MenuItem>
                     </>
                   )}
                 </Select>
@@ -1483,14 +1554,68 @@ export function RequestsTable({
                   },
                 }}
               >
-                <MenuItem value="All" disableRipple>All</MenuItem>
-                <MenuItem value="Pending Approval" disableRipple>Pending Approval</MenuItem>
-                <MenuItem value="Awaiting Payment" disableRipple>Awaiting Payment</MenuItem>
-                <MenuItem value="In Progress" disableRipple>In Progress</MenuItem>
+                <MenuItem value="All" disableRipple>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    All
+                  </Box>
+                </MenuItem>
+                <MenuItem value="Pending Approval" disableRipple>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ 
+                      width: 8, 
+                      height: 8, 
+                      borderRadius: '50%', 
+                      bgcolor: getStatusColor('Pending Approval') 
+                    }} />
+                    Pending Approval
+                  </Box>
+                </MenuItem>
+                <MenuItem value="Awaiting Payment" disableRipple>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ 
+                      width: 8, 
+                      height: 8, 
+                      borderRadius: '50%', 
+                      bgcolor: getStatusColor('Awaiting Payment') 
+                    }} />
+                    Awaiting Payment
+                  </Box>
+                </MenuItem>
+                <MenuItem value="In Progress" disableRipple>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ 
+                      width: 8, 
+                      height: 8, 
+                      borderRadius: '50%', 
+                      bgcolor: getStatusColor('In Progress') 
+                    }} />
+                    In Progress
+                  </Box>
+                </MenuItem>
                 {context !== 'orders' && (
                   <>
-                    <MenuItem value="Complete" disableRipple>Complete</MenuItem>
-                    <MenuItem value="Canceled" disableRipple>Canceled</MenuItem>
+                    <MenuItem value="Complete" disableRipple>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          bgcolor: getStatusColor('Complete') 
+                        }} />
+                        Complete
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="Canceled" disableRipple>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          bgcolor: getStatusColor('Canceled') 
+                        }} />
+                        Canceled
+                      </Box>
+                    </MenuItem>
                   </>
                 )}
               </Select>

@@ -69,7 +69,7 @@ export function PaymentApprovalOrderCard({
   defaultOpen = false
 }: PaymentApprovalOrderCardProps) {
   const theme = useTheme();
-  const statusColor = '#00bcd4';
+  const statusColor = '#000000';
   const [popoverOpen, setPopoverOpen] = useState(defaultOpen);
 
   // Update popover state when defaultOpen changes
@@ -191,19 +191,19 @@ export function PaymentApprovalOrderCard({
           borderRadius: 2,
           transition: 'all 0.2s ease',
           border: '2px solid',
-          borderColor: 'rgba(0, 188, 212, 0.3)',
+          borderColor: 'rgba(0, 0, 0, 0.3)',
           overflow: 'visible',
           minHeight: 'fit-content',
           height: 'auto',
           backgroundColor: theme.palette.mode === 'dark'
-            ? 'rgba(0, 188, 212, 0.05)'
-            : 'rgba(0, 188, 212, 0.02)',
+            ? 'rgba(0, 0, 0, 0.05)'
+            : 'rgba(0, 0, 0, 0.02)',
           cursor: 'pointer',
           '&:hover': {
             boxShadow: theme.palette.mode === 'dark'
-              ? '0 4px 20px rgba(0, 188, 212, 0.3)'
-              : '0 4px 20px rgba(0, 188, 212, 0.2)',
-            borderColor: '#00bcd4',
+              ? '0 4px 20px rgba(0, 0, 0, 0.3)'
+              : '0 4px 20px rgba(0, 0, 0, 0.2)',
+            borderColor: '#000000',
             transform: 'translateY(-2px)',
           }
         }}
@@ -335,7 +335,7 @@ export function PaymentApprovalOrderCard({
               startIcon={<PaymentIcon sx={{ fontSize: 18 }} />}
               size="small"
               sx={{
-                backgroundColor: 'primary.main',
+                backgroundColor: '#000000',
                 color: 'white',
                 borderRadius: 2,
                 px: 3,
@@ -345,7 +345,7 @@ export function PaymentApprovalOrderCard({
                 fontSize: '0.9rem',
                 position: 'relative',
                 overflow: 'visible',
-                boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.39)',
+                boxShadow: '0 4px 14px 0 rgba(0, 0, 0, 0.39)',
                 transition: 'all 0.2s ease-in-out',
                 minWidth: 'auto',
                 zIndex: 1,
@@ -404,7 +404,8 @@ export function PaymentApprovalOrderCard({
                 },
                 '&:hover': {
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 6px 20px 0 rgba(59, 130, 246, 0.5)',
+                  boxShadow: '0 6px 20px 0 rgba(0, 0, 0, 0.5)',
+                  backgroundColor: '#000000',
                   '&::before': {
                     animation: 'sparkle 0.5s ease-in-out infinite',
                   },

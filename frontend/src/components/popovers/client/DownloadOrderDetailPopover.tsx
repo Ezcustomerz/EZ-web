@@ -183,7 +183,7 @@ export function DownloadOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#9c27b0'; // Purple for download
+  const statusColor = '#0097a7'; // Teal/cyan for download
   const invoices = order.invoices || [];
 
   const getFileIcon = (fileType: string) => {

@@ -633,7 +633,10 @@ export function InProgressPopover({
           sx: {
             borderRadius: isMobile ? 0 : 3,
             p: 0,
-            backgroundColor: '#fff',
+            border: '2px solid rgba(139, 92, 246, 0.3)',
+            background: theme.palette.mode === 'dark'
+              ? 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)'
+              : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
             boxShadow: theme.shadows[8],
             height: isMobile ? '100dvh' : 'auto',
             maxHeight: isMobile ? '100dvh' : '90vh',
@@ -647,13 +650,15 @@ export function InProgressPopover({
       }}
     >
       <DialogTitle sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        pb: 2,
-        flexShrink: 0
+        pb: 1,
+        pt: 2,
+        background: `linear-gradient(135deg, #8b5cf615 0%, #8b5cf608 100%)`,
+        borderBottom: `2px solid #8b5cf620`,
+        position: 'relative',
+        flexShrink: 0,
+        mb: 2
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, pr: 6 }}>
           {showFinalizationStep && (
             <IconButton 
               onClick={handleBackToMain} 
@@ -668,31 +673,44 @@ export function InProgressPopover({
               <ArrowBackIcon />
             </IconButton>
           )}
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
-              {order.service.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 0.5 }}>
+              <Typography variant="h6" component="div" sx={{ fontWeight: 700, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                {order.service.title}
+              </Typography>
+              <Chip
+                label={showFinalizationStep ? "Finalizing" : "In Progress"}
+                size="small"
+                sx={{
+                  bgcolor: showFinalizationStep ? '#10b981' : '#8b5cf6',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  height: 24,
+                }}
+              />
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
               {showFinalizationStep ? 'Finalize Service' : 'Service in progress'}
             </Typography>
           </Box>
-          <Chip
-            label={showFinalizationStep ? "Finalizing" : "In Progress"}
-            size="small"
-            sx={{
-              backgroundColor: showFinalizationStep ? '#10b981' : '#3b82f6',
-              color: '#fff',
-              fontWeight: 500,
-            }}
-          />
         </Box>
-        <IconButton onClick={onClose} size="small">
+        <IconButton
+          onClick={onClose}
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+            color: 'grey.500',
+          }}
+        >
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
       <DialogContent sx={{
         p: { xs: 2, sm: 3 },
+        pt: { xs: 4, sm: 5 },
         flex: '1 1 auto',
         overflowY: 'auto',
         minHeight: 0,
@@ -795,7 +813,7 @@ export function InProgressPopover({
               <Stack spacing={2}>
                 {/* Client Information */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ backgroundColor: '#3b82f6', width: 40, height: 40 }}>
+                  <Avatar sx={{ backgroundColor: '#8b5cf6', width: 40, height: 40 }}>
                     <Person />
                   </Avatar>
                   <Box>
@@ -890,19 +908,19 @@ export function InProgressPopover({
                       px: 2,
                       py: 1,
                       backgroundColor: 'transparent',
-                      border: '1px solid #3b82f6',
+                      border: '1px solid #8b5cf6',
                       borderRadius: 1.5,
-                      color: '#3b82f6',
+                      color: '#8b5cf6',
                       fontSize: '0.875rem',
                       fontWeight: 500,
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
                       textDecoration: 'none',
                       '&:hover': {
-                        backgroundColor: '#3b82f6',
+                        backgroundColor: '#8b5cf6',
                         color: '#fff',
                         transform: 'translateY(-1px)',
-                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
+                        boxShadow: '0 2px 8px rgba(139, 92, 246, 0.3)',
                       },
                       '&:active': {
                         transform: 'translateY(0)',

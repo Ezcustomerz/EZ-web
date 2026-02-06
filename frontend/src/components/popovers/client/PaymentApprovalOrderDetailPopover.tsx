@@ -84,7 +84,7 @@ export function PaymentApprovalOrderDetailPopover({
 
   if (!order) return null;
 
-  const statusColor = '#2196f3'; // Blue for payment approval
+  const statusColor = '#000000'; // Black for payment required
 
   const getPaymentOptionLabel = (option: PaymentApprovalOption) => {
     switch (option) {
@@ -396,7 +396,7 @@ export function PaymentApprovalOrderDetailPopover({
               sx={{ 
                 p: 2,
                 borderRadius: 2,
-                bgcolor: theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.1)' : 'rgba(33, 150, 243, 0.05)',
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(0, 0, 0, 0.05)',
                 border: `1px solid ${statusColor}30`,
               }}
             >
