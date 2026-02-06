@@ -26,7 +26,8 @@ import {
   Alert,
   Card,
   CardMedia,
-  Paper
+  Paper,
+  Collapse
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -139,6 +140,42 @@ const steps = [
   'Customization & Review'
 ];
 
+// Progress bar component for duplicate error alert
+const DuplicateErrorProgressBar = ({ startTime, duration = 3000 }: { startTime: number; duration?: number }) => {
+  const [progress, setProgress] = useState(100);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, duration - elapsed);
+      const progressPercent = (remaining / duration) * 100;
+      setProgress(progressPercent);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 50); // Update every 50ms for smooth animation
+
+    return () => clearInterval(interval);
+  }, [startTime, duration]);
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        height: 4,
+        backgroundColor: '#d32f2f', // Dark red color for error alerts
+        width: `${progress}%`,
+        transition: 'width 50ms linear',
+        borderRadius: '0 0 4px 4px',
+        zIndex: 1,
+      }}
+    />
+  );
+};
+
 export function ServiceFormPopover({
   open,
   onClose,
@@ -168,6 +205,8 @@ export function ServiceFormPopover({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [duplicatePhotoError, setDuplicatePhotoError] = useState<string | null>(null);
+  const [duplicateErrorStartTime, setDuplicateErrorStartTime] = useState<number>(0);
 
   const [isDeliveryTimeEnabled, setIsDeliveryTimeEnabled] = useState(true);
   const [deliveryTime, setDeliveryTime] = useState<DeliveryTimeState>({
@@ -461,18 +500,46 @@ export function ServiceFormPopover({
         errorToast('Only PNG and JPEG files are allowed');
       }
       
-      const newPhotos = validFiles.slice(0, 6 - (formData.photos.length + formData.existingPhotos.length));
-      setFormData(prev => {
-        const updatedPhotos = [...prev.photos, ...newPhotos];
-        // If this is the first photo, set it as primary
-        const newPrimaryIndex = (prev.photos.length + prev.existingPhotos.length) === 0 ? 0 : prev.primaryPhotoIndex;
-        return {
-          ...prev,
-          photos: updatedPhotos,
-          primaryPhotoIndex: newPrimaryIndex
-        };
+      // Check for duplicate filenames
+      const existingFilenames = new Set([
+        ...formData.photos.map(p => p.name),
+        ...formData.existingPhotos.map(p => p.photo_filename)
+      ]);
+      
+      const duplicates: string[] = [];
+      const uniqueFiles = validFiles.filter(file => {
+        if (existingFilenames.has(file.name)) {
+          duplicates.push(file.name);
+          return false;
+        }
+        return true;
       });
+      
+      // Show warning if duplicates were detected
+      if (duplicates.length > 0) {
+        setDuplicatePhotoError(duplicates.length === 1 ? 'Duplicate file detected' : `${duplicates.length} duplicate files detected`);
+        setDuplicateErrorStartTime(Date.now());
+        // Clear error after 3 seconds
+        setTimeout(() => setDuplicatePhotoError(null), 3000);
+      }
+      
+      const newPhotos = uniqueFiles.slice(0, 6 - (formData.photos.length + formData.existingPhotos.length));
+      
+      if (newPhotos.length > 0) {
+        setFormData(prev => {
+          const updatedPhotos = [...prev.photos, ...newPhotos];
+          // If this is the first photo, set it as primary
+          const newPrimaryIndex = (prev.photos.length + prev.existingPhotos.length) === 0 ? 0 : prev.primaryPhotoIndex;
+          return {
+            ...prev,
+            photos: updatedPhotos,
+            primaryPhotoIndex: newPrimaryIndex
+          };
+        });
+      }
     }
+    // Reset input to allow re-uploading same file if needed
+    event.target.value = '';
   };
 
   const handlePhotoRemove = (index: number) => {
@@ -1396,6 +1463,24 @@ export function ServiceFormPopover({
             <Alert severity="info" sx={{ mb: 2 }}>
               Upload up to 6 photos to showcase your service. This helps clients understand what you offer.
             </Alert>
+
+            {/* Duplicate Photo Error */}
+            <Collapse in={!!duplicatePhotoError}>
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mb: 2,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  paddingBottom: '0 !important', // Remove bottom padding to show progress bar
+                }}
+              >
+                <Box sx={{ pb: 1 }}>
+                  {duplicatePhotoError}
+                </Box>
+                {duplicateErrorStartTime > 0 && <DuplicateErrorProgressBar startTime={duplicateErrorStartTime} />}
+              </Alert>
+            </Collapse>
 
             {/* Photo Upload Area */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

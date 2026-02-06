@@ -159,7 +159,14 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
           open={toast.open}
           onClose={() => handleClose(toast.id)}
           autoHideDuration={6000}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          sx={{
+            bottom: { xs: 80, sm: 24 },
+            left: { xs: 16, sm: 'auto' },
+            right: { xs: 16, sm: 'auto' },
+            width: { xs: 'calc(100% - 32px)', sm: 'auto' },
+            maxWidth: { xs: '100%', sm: 600 },
+          }}
         >
           <Alert
             onClose={() => handleClose(toast.id)}
