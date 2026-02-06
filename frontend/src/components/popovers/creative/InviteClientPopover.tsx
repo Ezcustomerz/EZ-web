@@ -109,6 +109,7 @@ export function InviteClientPopover({ open, onClose }: InviteClientPopoverProps)
         zIndex: isMobile ? 10000 : 1300, // Higher z-index on mobile to cover mobile menu
       }}
       PaperProps={{
+        'data-tour': 'invite-client-popup',
         sx: {
           width: { xs: '92vw', sm: 420 },
           maxWidth: 480,

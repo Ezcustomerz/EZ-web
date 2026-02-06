@@ -34,7 +34,7 @@ export function DashCreative() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // iPad Air and smaller
   const { isAuthenticated } = useAuth();
-  const { needsSettingsOpen, settingsSection } = useOnboarding();
+  const { isMainTourActive, needsSettingsOpen, settingsSection } = useOnboarding();
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState<CreativeDashboardStats | null>(null);
@@ -237,22 +237,22 @@ export function DashCreative() {
 
   // Handle onboarding-triggered settings opening
   useEffect(() => {
-    if (needsSettingsOpen && settingsSection) {
+    // Only respond to onboarding triggers if tour is active
+    if (isMainTourActive && needsSettingsOpen && settingsSection) {
       // Map onboarding section names to SettingsSection type
       const sectionMap: Record<string, SettingsSection> = {
-        'billing': 'subscription',
+        'billing': 'billing',  // Open the Payouts section (labeled as 'billing' internally)
         'storage': 'storage',
       };
       
       const targetSection = sectionMap[settingsSection] || 'account';
       setSettingsInitialSection(targetSection);
       setSettingsOpen(true);
-    } else if (!needsSettingsOpen) {
-      // Close settings when onboarding doesn't need it
-      // But only if tour is still active (don't close manually opened settings)
-      // We'll let the tour control this
+    } else if (!needsSettingsOpen && settingsOpen) {
+      // Close settings when onboarding signals to do so
+      setSettingsOpen(false);
     }
-  }, [needsSettingsOpen, settingsSection]);
+  }, [isMainTourActive, needsSettingsOpen, settingsSection, settingsOpen]);
 
   return (
     <Box>

@@ -33,6 +33,7 @@ import { UserDropdownMenu } from '../../components/dialogs/UserMiniMenu';
 import { InviteClientPopover } from '../../components/popovers/creative/InviteClientPopover';
 import { useAuth } from '../../context/auth';
 import { useInviteClient } from '../../hooks/useInviteClient';
+import { useOnboarding } from '../../context/onboarding';
 import { type CreativeProfile, userService } from '../../api/userService';
 import React from 'react';
 
@@ -52,6 +53,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
   const theme = useTheme();
   const { userProfile, session } = useAuth();
   const { inviteClientOpen, handleInviteClient, closeInviteClient } = useInviteClient();
+  const { needsInviteOpen } = useOnboarding();
   const isMobileView = useMediaQuery(theme.breakpoints.down('sm'));
   const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(null);
   const [isUserPanelHovered, setIsUserPanelHovered] = useState(false);
@@ -115,6 +117,17 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
       window.removeEventListener('openSubscriptionTiers', handleCloseMenu);
     };
   }, []);
+
+  // Handle onboarding-triggered invite popup opening (only after tour completes)
+  useEffect(() => {
+    if (needsInviteOpen) {
+      // Small delay to ensure tour has finished
+      const timer = setTimeout(() => {
+        handleInviteClient();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [needsInviteOpen, handleInviteClient]);
 
   // Check if user is on the top tier
   useEffect(() => {
@@ -270,7 +283,7 @@ export function SidebarCreative({ isOpen, onToggle, selectedItem, onItemSelect, 
 
       {/* Invite Client Button */}
       {(isOpen || !isMobile) && (
-        <InviteClientButton onClick={handleInviteClient} isOpen={isOpen} />
+        <InviteClientButton onClick={handleInviteClient} isOpen={isOpen} data-tour="invite-client-button" />
       )}
 
       {/* Navigation Items */}

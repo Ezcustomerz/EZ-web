@@ -33,9 +33,11 @@ export interface TourStep {
   placement?: 'top' | 'bottom' | 'left' | 'right' | 'center' | 'auto';
   section?: string;
   route?: string;
+  search?: string;
   disableBeacon?: boolean;
   offset?: number;
   spotlightPadding?: number;
+  illustration?: 'service' | 'profile' | 'stripe';
 }
 
 // Mini-tour configuration

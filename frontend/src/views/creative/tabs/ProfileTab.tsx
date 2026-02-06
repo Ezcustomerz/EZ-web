@@ -595,7 +595,9 @@ export function ProfileTab({ creativeProfile: propCreativeProfile, isActive = tr
             flexShrink: 0,
             flexGrow: 0
           }}>
-            <Card sx={{ 
+            <Card
+              data-tour="profile-info-card"
+              sx={{ 
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
               borderRadius: 3,
               position: { xs: 'relative', md: 'sticky' },

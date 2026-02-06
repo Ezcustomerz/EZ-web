@@ -1,119 +1,69 @@
 import type { TourStep } from '../types/onboarding';
 
 /**
- * Main onboarding tour - 8 steps across multiple pages
- * Guides new creative users through key features
+ * Main onboarding tour - 4 Steps to Get Started
+ * Guides new creative users through essential setup actions
  */
 export const mainTourSteps: TourStep[] = [
-  // Step 1: Welcome (Dashboard button)
+  // Step 1: Create a Service
   {
-    target: '[data-tour="dashboard-nav"]',
+    target: '[data-tour="create-service-card"]',
     content: {
-      title: 'Welcome to Your Creative Dashboard!',
-      description: 'This is your home base. Let\'s take a quick tour of the key features you\'ll use to manage bookings, showcase your work, and get paid.',
+      title: 'Create Your First Service',
+      description: 'Click here to create your first service. Define what you offer, set your pricing, delivery times, and service details to start attracting clients.',
     },
     placement: 'right',
-    section: 'intro',
-    route: '/creative',
-    disableBeacon: true,
-    spotlightPadding: 0,
-  },
-
-  // Step 2: Activity Navigation (Sidebar)
-  {
-    target: '[data-tour="activity-nav"]',
-    content: {
-      title: 'View Your Bookings',
-      description: 'Here you can see all your current and past orders from clients. Track progress, manage deliverables, and update order statuses.',
-    },
-    placement: 'right',
-    section: 'bookings',
-    route: '/creative/activity',
-    disableBeacon: true,
-    spotlightPadding: 0,
-  },
-
-  // Step 3: Current Orders (Activity Page)
-  {
-    target: '[data-tour="current-orders"]',
-    content: {
-      title: 'Manage Your Orders',
-      description: 'This is where you\'ll track active bookings, update statuses, and communicate with clients. Each tab shows different views of your work.',
-    },
-    placement: 'bottom',
-    section: 'bookings',
-    route: '/creative/activity',
-    offset: 20,
+    section: 'setup',
+    route: '/creative/public',
     disableBeacon: true,
     spotlightPadding: 8,
+    illustration: 'service',
   },
 
-  // Step 4: Calendar Access (Sidebar to Public)
+  // Step 2: Fill in Your Profile
   {
-    target: '[data-tour="public-nav"]',
+    target: '[data-tour="profile-info-card"]',
     content: {
-      title: 'Your Public Profile',
-      description: 'Here you can manage your public portfolio and availability calendar that clients see when booking your services.',
+      title: 'Complete Your Profile',
+      description: 'Fill out your profile with a bio, profile picture, and portfolio. A complete profile helps clients trust you and increases your chances of getting booked.',
     },
     placement: 'right',
-    section: 'portfolio',
+    section: 'setup',
     route: '/creative/public',
+    search: '?tab=2',
     disableBeacon: true,
+    spotlightPadding: 8,
+    offset: 10,
+    illustration: 'profile',
+  },
+
+  // Step 3: Connect Payouts
+  {
+    target: '[data-tour="settings-payouts"]',
+    content: {
+      title: 'Connect Your Bank Account',
+      description: 'If you already have a Stripe account, connect it here. If not, click "Connect Bank Account" to create one with Stripe and start receiving payments.',
+    },
+    placement: 'left',
+    section: 'setup',
+    route: '/creative',
+    disableBeacon: true,
+    illustration: 'stripe',
     spotlightPadding: 0,
   },
 
-  // Step 5: Calendar Features (Calendar Tab)
+  // Step 4: Start Making Money
   {
-    target: '[data-tour="calendar-tab"]',
+    target: '[data-tour="invite-client-popup"]',
     content: {
-      title: 'Set Your Availability',
-      description: 'Use the calendar to block off busy times and let clients see when you\'re available. Manage your sessions and bookings all in one place.',
-    },
-    placement: 'top',
-    section: 'portfolio',
-    route: '/creative/public',
-    disableBeacon: true,
-    spotlightPadding: 4,
-  },
-
-  // Step 6: Portfolio (Profile Tab)
-  {
-    target: '[data-tour="profile-tab"]',
-    content: {
-      title: 'Your Public Portfolio',
-      description: 'This is what clients see - your profile, services, and reviews. Keep it updated to attract more bookings and showcase your best work.',
-    },
-    placement: 'top',
-    section: 'portfolio',
-    route: '/creative/public',
-    disableBeacon: true,
-    spotlightPadding: 4,
-  },
-
-  // Step 7: Payment Setup (Settings - Billing)
-  {
-    target: '[data-tour="settings-billing"]',
-    content: {
-      title: 'Get Paid',
-      description: 'Connect your Stripe account here to receive payments from clients. Set up your banking info to start earning money from your bookings.',
+      title: 'Start Making Money!',
+      description: 'This is your unique link that clients use to view your profile and book your services. Share it anywhere - clients don\'t need to create an account to book you!',
     },
     placement: 'left',
-    section: 'settings',
-    route: '/creative', // Settings is a popover, so stay on dashboard
+    section: 'setup',
+    route: '/creative',
     disableBeacon: true,
-  },
-
-  // Step 8: Storage Management (Settings - Storage)
-  {
-    target: '[data-tour="settings-storage"]',
-    content: {
-      title: 'Monitor Your Storage',
-      description: 'Track your file uploads and storage usage here. Upgrade your plan for more space if you need to store more photos, videos, or documents.',
-    },
-    placement: 'left',
-    section: 'settings',
-    route: '/creative', // Settings is a popover, so stay on dashboard
-    disableBeacon: true,
+    spotlightPadding: 20,
   },
 ];
 

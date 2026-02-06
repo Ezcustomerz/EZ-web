@@ -5,9 +5,10 @@ import { PersonAdd as PersonAddIcon } from '@mui/icons-material';
 interface InviteClientButtonProps {
   onClick?: () => void;
   isOpen?: boolean;
+  'data-tour'?: string;
 }
 
-export function InviteClientButton({ onClick, isOpen = true }: InviteClientButtonProps) {
+export function InviteClientButton({ onClick, isOpen = true, 'data-tour': dataTour }: InviteClientButtonProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = () => {
@@ -21,6 +22,7 @@ export function InviteClientButton({ onClick, isOpen = true }: InviteClientButto
       <Box sx={{ display: 'flex', justifyContent: 'center', px: 1 }}>
         <Tooltip title="Invite a new client to collaborate" arrow>
           <IconButton
+            data-tour={dataTour}
             onClick={handleClick}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
@@ -55,6 +57,7 @@ export function InviteClientButton({ onClick, isOpen = true }: InviteClientButto
     <Box sx={{ px: 2, pb: 2 }}>
       <Tooltip title="Invite a new client to collaborate" arrow>
         <Box
+          data-tour={dataTour}
           onClick={handleClick}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}

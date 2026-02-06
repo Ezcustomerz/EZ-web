@@ -770,7 +770,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
     },
     {
       id: 'walkthrough' as SettingsSection,
-      label: 'Walkthrough',
+      label: 'Getting Started',
       icon: Tour,
     },
   ];
@@ -1573,7 +1573,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
       case 'billing':
         return (
           <Box sx={{ px: 3, pb: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, width: '100%' }}>
               {/* Bank Account Connection */}
               <Card variant="outlined">
                 <CardContent>
@@ -2327,36 +2327,29 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                     <Tour color="primary" />
                     <Typography variant="h6" fontWeight={600}>
-                      Product Walkthrough
+                      How to Get Started
                     </Typography>
                   </Box>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: 1.6 }}>
-                    Take an interactive tour of the platform to learn about key features including managing bookings, 
-                    viewing your calendar, setting up payments, and monitoring storage usage.
+                    Complete these 4 essential steps to set up your account and start making money!
                   </Typography>
                   
                   <Box sx={{ mb: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      The tour covers:
+                      4 Steps to Setup:
                     </Typography>
                     <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
                       <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Dashboard overview and navigation
+                        <strong>Create a Service</strong> - Set up your first service offering
                       </Typography>
                       <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Managing bookings and orders
+                        <strong>Complete Your Profile</strong> - Add your bio and profile info
                       </Typography>
                       <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Calendar and availability settings
-                      </Typography>
-                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Public profile and portfolio
-                      </Typography>
-                      <Typography component="li" variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Payment setup and billing
+                        <strong>Add Stripe</strong> - Connect payment processing
                       </Typography>
                       <Typography component="li" variant="body2" color="text.secondary">
-                        Storage management
+                        <strong>Start Making Money!</strong> - You're ready to accept bookings
                       </Typography>
                     </Box>
                   </Box>
@@ -2378,11 +2371,11 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
                       py: 1.5,
                     }}
                   >
-                    Start Walkthrough
+                    Start Setup Guide
                   </Button>
                   
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
-                    The walkthrough takes approximately 2-3 minutes
+                    Takes just a few minutes to complete
                   </Typography>
                 </CardContent>
               </Card>
@@ -2685,6 +2678,7 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
 
         {/* Main Content Area */}
         <Box
+          data-tour={selectedSection === 'billing' ? 'settings-payouts' : undefined}
           sx={{
             flex: 1,
             display: 'flex',
@@ -2695,7 +2689,9 @@ export function CreativeSettingsPopover({ open, onClose, onProfileUpdated, initi
           }}
         >
           {/* Section Content */}
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <Box 
+            sx={{ flex: 1, overflow: 'auto' }}
+          >
             {renderSectionContent()}
           </Box>
         </Box>

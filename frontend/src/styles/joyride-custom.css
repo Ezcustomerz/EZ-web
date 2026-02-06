@@ -1,13 +1,43 @@
-/* Custom Joyride styles - remove transitions to prevent flashing */
+/* Custom Joyride styles - smooth animations without flashing */
 .react-joyride__spotlight {
   transition: none !important;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5) !important;
 }
 
 .react-joyride__overlay {
-  transition: none !important;
+  transition: opacity 0.3s ease-in-out !important;
+  animation: overlayFadeIn 0.3s ease-out;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* Ensure data-tour elements are positioned for proper spotlight calculation */
 [data-tour] {
   position: relative;
+}
+
+/* Smooth scrolling for tour navigation */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Pulse animation for highlighted elements during tour */
+[data-tour].tour-active {
+  animation: tourPulse 2s ease-in-out infinite;
+}
+
+@keyframes tourPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
 }

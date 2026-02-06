@@ -21,17 +21,9 @@ export function MainTourTooltip({
   isLastStep,
   onSkipSection,
   currentSection,
-  totalSteps = 8,
+  totalSteps = 3,
 }: MainTourTooltipProps) {
   const theme = useTheme();
-  
-  // Section names for display
-  const sectionNames: Record<string, string> = {
-    intro: 'Introduction',
-    bookings: 'Bookings & Orders',
-    portfolio: 'Portfolio & Calendar',
-    settings: 'Settings & Payments',
-  };
 
   const progress = ((index + 1) / totalSteps) * 100;
 
@@ -63,7 +55,7 @@ export function MainTourTooltip({
       {/* Header with close button */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
         <Box sx={{ flex: 1 }}>
-          {/* Step counter and section */}
+          {/* Step counter */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
             <Typography
               variant="caption"
@@ -75,22 +67,6 @@ export function MainTourTooltip({
             >
               Step {index + 1} of {totalSteps}
             </Typography>
-            {currentSection && (
-              <>
-                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  •
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'text.secondary',
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  {sectionNames[currentSection] || currentSection}
-                </Typography>
-              </>
-            )}
           </Box>
 
           {/* Progress bar */}
@@ -182,28 +158,6 @@ export function MainTourTooltip({
               }}
             >
               Back
-            </Button>
-          )}
-
-          {/* Skip Section button (if provided) */}
-          {onSkipSection && currentSection !== 'intro' && (
-            <Button
-              onClick={onSkipSection}
-              variant="text"
-              size="small"
-              startIcon={<SkipNext sx={{ fontSize: 18 }} />}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 500,
-                borderRadius: `${theme.shape.borderRadius / 2}px`,
-                color: 'text.secondary',
-                '&:hover': {
-                  color: theme.palette.primary.main,
-                  backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                },
-              }}
-            >
-              Skip Section
             </Button>
           )}
         </Box>

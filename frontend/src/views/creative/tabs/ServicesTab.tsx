@@ -370,6 +370,7 @@ export function ServicesTab({ search, sortBy, sortOrder, visibility, creativePro
         >
           <Tooltip title="Make a new service or bundle existing services" arrow>
             <Card
+              data-tour="create-service-card"
               tabIndex={0}
               role="button"
               aria-label="Build Your Setlist"
